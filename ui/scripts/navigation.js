@@ -284,6 +284,11 @@ const initDeveloperModeToggle = () => {
     const isEnabled = checkbox.checked;
     sessionStorage.setItem("developerMode", String(isEnabled));
     updateToggleState(isEnabled);
+    window.dispatchEvent(
+      new CustomEvent("malcom:developerModeChanged", {
+        detail: { enabled: isEnabled }
+      })
+    );
     emitRuntimeLog({
       source: "ui.navigation",
       category: "settings",

@@ -17,7 +17,6 @@ import {
   getRunStatusSummary,
   isDeveloperModeEnabled,
   isSidebarCollapsed,
-  writeDeveloperMode,
   writeSidebarCollapsed
 } from "./data";
 import { getSectionConfig, resolveShellHref, shellBrand, topNavItems } from "../../scripts/shell-config.js";
@@ -149,104 +148,48 @@ const DashboardLayout = () => {
     };
   }, [sidebarCollapsed]);
 
-  useEffect(() => {
-    document.title = `Malcom - ${routeHandle?.title || "Dashboard"}`;
-  }, [routeHandle]);
-
-  const handleDeveloperModeChange = (enabled: boolean) => {
-    writeDeveloperMode(enabled);
-    setDeveloperMode(enabled);
-  };
-
   const handleSidebarToggle = () => {
     const nextValue = !sidebarCollapsed;
     writeSidebarCollapsed(nextValue);
     setSidebarCollapsed(nextValue);
   };
 
+  useEffect(() => {
+    const toggleButton = document.getElementById("sidebar-collapse-toggle");
+    if (toggleButton) {
+      toggleButton.addEventListener("click", handleSidebarToggle);
+      return () => {
+        toggleButton.removeEventListener("click", handleSidebarToggle);
+      };
+    }
+  }, [handleSidebarToggle]);
+
+  useEffect(() => {
+    const handleDeveloperModeEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ enabled: boolean }>;
+      setDeveloperMode(customEvent?.detail?.enabled ?? isDeveloperModeEnabled());
+    };
+
+    window.addEventListener("malcom:developerModeChanged", handleDeveloperModeEvent);
+    return () => window.removeEventListener("malcom:developerModeChanged", handleDeveloperModeEvent);
+  }, []);
+
   return (
     <DashboardUiContext.Provider value={{ developerMode }}>
-      <div id="topnav" className="topnav">
-        <div className="container">
-          <div className="topnav__inner">
-            <nav className="topnav__nav" id="topnav-primary">
-              {topNavItems.map((item) => (
-                <a
-                  key={item.id}
-                  href={resolveShellHref(dashboardShellPathPrefix, item.href)}
-                  id={item.id}
-                  aria-current={item.section === "dashboard" ? "page" : undefined}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            <div className="topnav__dev" id="dev-mode-area">
-              <label className={`toggle ${developerMode ? "toggle--on" : ""}`} id="developer-mode-toggle">
-                <input
-                  checked={developerMode}
-                  className="sr-only"
-                  id="developer-mode-checkbox"
-                  onChange={(event) => handleDeveloperModeChange(event.target.checked)}
-                  type="checkbox"
-                />
-                <div className="toggle__slider" id="developer-mode-slider" aria-hidden="true">
-                  <div className="toggle__knob" id="developer-mode-knob" aria-hidden="true" />
-                </div>
-                <span className="toggle__label">Developer Mode</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <aside id="sidenav" className="sidenav" data-section="dashboard" data-collapsed={String(sidebarCollapsed)}>
-        <div className="sidenav__header" id="sidebar-header">
-          <a
-            href={resolveShellHref(dashboardShellPathPrefix, shellBrand.homeHref)}
-            id="sidebar-home-link"
-            className="sidenav__brand project-brand"
-            aria-label="Malcom home"
-          >
-            <img src={malcomIconUrl} alt={shellBrand.iconAlt} id="sidebar-project-icon" className="project-icon" />
-            <span className="sidenav__brand-title" id="sidebar-project-title">
-              {shellBrand.title}
-            </span>
-          </a>
-          <button
-            type="button"
-            id="sidebar-collapse-toggle"
-            className="sidenav__collapse-button"
-            aria-controls="sidebar-navigation"
-            aria-expanded={String(!sidebarCollapsed)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={handleSidebarToggle}
-          >
-            <span id="sidebar-collapse-icon" className="sidenav__collapse-icon" aria-hidden="true" />
-          </button>
-        </div>
-        <nav className="sidenav__nav" id="sidebar-navigation">
-          <ul className="sidenav__list" id="sidebar-navigation-list">
-            {dashboardSectionItems.map((item) => (
-              <li key={item.id} className="sidenav__item">
-                <NavLink id={item.id} className="sidenav__link" to={item.route || "/"}>
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </aside>
 
       <main className="main" id="main-layout">
         <div className="content-shell">
           <div className="page-header section-header--page" id="dashboard-page-header">
-            <h2 className="page-title section-header__title--page" id="page-title">
-              {routeHandle?.title || "Dashboard"}
-            </h2>
-            <p className="page-description section-header__description--page" id="page-description">
-              {routeHandle?.description || "Operational dashboard"}
-            </p>
+            <div className="page-header__inner">
+              <div className="page-header__content">
+                <h2 className="page-title section-header__title--page" id="page-title">
+                  {routeHandle?.title || "Dashboard"}
+                </h2>
+                <p className="page-description section-header__description--page" id="page-description">
+                  {routeHandle?.description || "Operational dashboard"}
+                </p>
+              </div>
+            </div>
           </div>
           <Outlet />
         </div>

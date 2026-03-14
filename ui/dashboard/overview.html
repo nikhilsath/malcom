@@ -6,9 +6,15 @@
     <title>Malcom - Dashboard Overview</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body id="dashboard-body" class="app-shell" data-section="dashboard" data-shell-path-prefix="../">
+<body id="dashboard-body" class="app-shell" data-section="dashboard" data-sidenav-item="sidenav-dashboard-overview" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
     <div id="dashboard-react-root"></div>
+    <script src="../scripts/utils.js"></script>
     <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
     <script type="module" src="../src/dashboard/main.tsx"></script>
 </body>
 </html>

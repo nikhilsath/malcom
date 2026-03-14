@@ -34,11 +34,12 @@ describe("DashboardApp", () => {
     expect(screen.getByText("No endpoints loaded")).toBeInTheDocument();
   });
 
-  it("persists the developer mode toggle to sessionStorage", async () => {
+  it("responds to developer mode changes from the shell toggle", async () => {
     renderDashboardApp(["/overview"], true);
 
-    const toggle = await screen.findByRole("checkbox");
-    fireEvent.click(toggle);
+    // Simulate the shell toggle updating session storage and dispatching the shared event.
+    sessionStorage.setItem("developerMode", "false");
+    window.dispatchEvent(new CustomEvent("malcom:developerModeChanged", { detail: { enabled: false } }));
 
     await waitFor(() => {
       expect(sessionStorage.getItem("developerMode")).toBe("false");

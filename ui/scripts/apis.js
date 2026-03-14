@@ -167,8 +167,6 @@ const apiState = {
   webhookEntries: []
 };
 
-const developerModeEnabled = () => sessionStorage.getItem("developerMode") === "true";
-
 const emitApiLog = ({
   level = "info",
   action,
@@ -280,24 +278,12 @@ const setAlert = (message, tone = "info") => {
   apiElements.alert.className = `api-system-alert api-system-alert--${tone}`;
 };
 
-const getBaseUrl = () => {
-  if (window.location.protocol === "file:" || window.location.origin === "null") {
-    return "http://localhost:8000";
-  }
-
-  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-    return "";
-  }
-
-  return window.location.origin;
-};
-
 const resolvePageHref = (absolutePath) => {
   const relativePath = absolutePath.startsWith("/ui/") ? absolutePath.slice(3) : absolutePath;
   return new URL(`..${relativePath}`, window.location.href).href;
 };
 
-const buildEndpointUrl = (apiId) => `${getBaseUrl()}/api/v1/inbound/${apiId}`;
+const buildEndpointUrl = (apiId) => `${window.getBaseUrl()}/api/v1/inbound/${apiId}`;
 
 const buildSampleCurl = (apiId, secret) => {
   const endpoint = buildEndpointUrl(apiId);
@@ -309,69 +295,38 @@ const buildSampleCurl = (apiId, secret) => {
   -d '${jsonPayload}'`;
 };
 
-const parseErrorMessage = async (response) => {
-  try {
-    const data = await response.json();
-    return data.detail || data.message || "Request failed.";
-  } catch {
-    return "Request failed.";
-  }
-};
-
-const requestJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      "X-Developer-Mode": String(developerModeEnabled()),
-      ...(options.headers || {})
-    },
-    ...options
-  });
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(response);
-    throw new Error(message);
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return response.json();
-};
-
 const backendApi = {
   async list() {
-    return requestJson("/api/v1/inbound");
+    return window.Malcom?.requestJson?.("/api/v1/inbound");
   },
   async create(payload) {
-    return requestJson("/api/v1/apis", {
+    return window.Malcom?.requestJson?.("/api/v1/apis", {
       method: "POST",
       body: JSON.stringify(payload)
     });
   },
   async detail(apiId) {
-    return requestJson(`/api/v1/inbound/${apiId}`);
+    return window.Malcom?.requestJson?.(`/api/v1/inbound/${apiId}`);
   },
   async update(apiId, payload) {
-    return requestJson(`/api/v1/inbound/${apiId}`, {
+    return window.Malcom?.requestJson?.(`/api/v1/inbound/${apiId}`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     });
   },
   async rotateSecret(apiId) {
-    return requestJson(`/api/v1/inbound/${apiId}/rotate-secret`, {
+    return window.Malcom?.requestJson?.(`/api/v1/inbound/${apiId}/rotate-secret`, {
       method: "POST"
     });
   },
   async listOutgoingScheduled() {
-    return requestJson("/api/v1/outgoing/scheduled");
+    return window.requestJson("/api/v1/outgoing/scheduled");
   },
   async listOutgoingContinuous() {
-    return requestJson("/api/v1/outgoing/continuous");
+    return window.requestJson("/api/v1/outgoing/continuous");
   },
   async listWebhooks() {
-    return requestJson("/api/v1/webhooks");
+    return window.requestJson("/api/v1/webhooks");
   }
 };
 
@@ -1140,7 +1095,7 @@ const initApiOverview = async () => {
   try {
     await loadApiDirectory();
     setAlert(
-      developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
+      window.developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
       "info"
     );
   } catch (error) {

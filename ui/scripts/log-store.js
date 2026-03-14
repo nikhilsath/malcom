@@ -122,22 +122,6 @@ const dispatchLogEvent = (eventName, detail) => {
   window.dispatchEvent(new CustomEvent(eventName, { detail }));
 };
 
-const requestJson = async (path, options = {}) => {
-  const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-
-  return response.json();
-};
-
 const emitSettingsUpdated = () => {
   dispatchLogEvent("malcom:app-settings-updated", { settings: cloneJsonValue(cachedAppSettings) });
   dispatchLogEvent("malcom:log-settings-updated", {
@@ -150,7 +134,7 @@ const loadAppSettings = async ({ force = false } = {}) => {
     return pendingSettingsRequest;
   }
 
-  pendingSettingsRequest = requestJson("/api/v1/settings")
+  pendingSettingsRequest = window.Malcom?.requestJson?.("/api/v1/settings")
     .then((settings) => {
       cachedAppSettings = normalizeAppSettings(settings);
       emitSettingsUpdated();
@@ -169,7 +153,7 @@ const loadAppSettings = async ({ force = false } = {}) => {
 
 const updateAppSettings = async (settings) => {
   const nextSettings = normalizeAppSettings(settings);
-  const response = await requestJson("/api/v1/settings", {
+  const response = await window.Malcom?.requestJson?.("/api/v1/settings", {
     method: "PATCH",
     body: JSON.stringify(nextSettings)
   });
