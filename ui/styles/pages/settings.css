@@ -1,0 +1,66 @@
+.settings-layout,
+.settings-stack,
+.settings-summary {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.settings-section {
+  scroll-margin-top: calc(var(--topnav-height) + 24px);
+}
+
+.settings-section__header {
+  margin-bottom: 20px;
+}
+
+.settings-card__title {
+  margin: 0 0 var(--space-2);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.settings-card__description,
+.settings-option-card__description,
+.sidenav__footer-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.settings-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.settings-option-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+}
+
+.settings-option-card__copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.settings-option-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.settings-option-card__toggle {
+  width: fit-content;
+}
+
+.settings-section--aside {
+  max-width: 420px;
+}
+
+@media (max-width: 1100px) {
+  .settings-option-grid {
+    grid-template-columns: 1fr;
+  }
+}

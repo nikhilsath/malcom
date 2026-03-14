@@ -50,6 +50,25 @@ For any UI-facing implementation or update:
 - CSS classes must be semantic and purpose-based
 - utility-first or presentation-only class naming should be avoided
 
+### Shared Shell Requirements
+
+Navigation and brand markup are registered by shared shell convention, not by page-local copy/paste.
+
+Required frontend shell sources:
+
+- `ui/scripts/shell-config.js`
+- `ui/scripts/navigation.js`
+
+When adding or changing UI pages that use the main application shell, agents must:
+
+1. update shared navigation or brand definitions in `ui/scripts/shell-config.js` when the shell changes
+2. use `data-section`, `data-sidenav-item`, and `data-shell-path-prefix` on shell pages
+3. render shell placeholders with `id="topnav"` and `id="sidenav"` instead of hardcoded nav markup
+4. keep the Malcom brand in the side navigation header, not as a one-off page variation
+5. ensure React shell implementations consume the same shared config instead of duplicating nav labels or hrefs
+
+Agents must not hardcode new top navigation or side navigation structures directly into individual HTML pages when the shared shell applies.
+
 ### Media Requirements
 
 For new UI media:

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Settings</title>
+    <link rel="stylesheet" href="styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-sidenav-item="sidenav-settings-general" data-shell-path-prefix="">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Settings</h2>
+                <p class="page-description section-header__description--page" id="page-description">Configure workspace preferences, runtime defaults, and operator-level controls.</p>
+            </div>
+
+            <div id="settings-layout" class="settings-layout">
+                <section id="settings-general-section" class="card settings-section">
+                    <div id="settings-general-header" class="settings-section__header">
+                        <p id="settings-general-eyebrow" class="section-header__eyebrow">General</p>
+                        <h3 id="settings-general-title" class="settings-card__title">Workspace defaults</h3>
+                        <p id="settings-general-description" class="settings-card__description">Baseline preferences that operators typically configure first in internal tooling.</p>
+                    </div>
+                    <div id="settings-general-grid" class="settings-option-grid">
+                        <article id="settings-general-environment-card" class="stat-card settings-option-card">
+                            <div id="settings-general-environment-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-environment-title" class="settings-option-card__title">Default environment</h4>
+                                <p id="settings-general-environment-description" class="settings-option-card__description">Choose which runtime context new automations target by default.</p>
+                            </div>
+                            <select id="settings-general-environment-select" class="api-form-input">
+                                <option id="settings-general-environment-option-staging" value="staging" selected>Staging</option>
+                                <option id="settings-general-environment-option-production" value="production">Production</option>
+                                <option id="settings-general-environment-option-lab" value="lab">Lab</option>
+                            </select>
+                        </article>
+                        <article id="settings-general-timezone-card" class="stat-card settings-option-card">
+                            <div id="settings-general-timezone-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-timezone-title" class="settings-option-card__title">Display timezone</h4>
+                                <p id="settings-general-timezone-description" class="settings-option-card__description">Keep timestamps aligned across logs, previews, and generated schedules.</p>
+                            </div>
+                            <select id="settings-general-timezone-select" class="api-form-input">
+                                <option id="settings-general-timezone-option-utc" value="utc">UTC</option>
+                                <option id="settings-general-timezone-option-local" value="local" selected>Browser local time</option>
+                                <option id="settings-general-timezone-option-ops" value="ops">Ops control room time</option>
+                            </select>
+                        </article>
+                        <article id="settings-general-preview-card" class="stat-card settings-option-card">
+                            <div id="settings-general-preview-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-preview-title" class="settings-option-card__title">Automation preview mode</h4>
+                                <p id="settings-general-preview-description" class="settings-option-card__description">Require dry-run previews before a new workflow can be promoted.</p>
+                            </div>
+                            <label id="settings-general-preview-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-general-preview-checkbox" checked>
+                                <div class="toggle__slider" id="settings-general-preview-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-general-preview-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-general-preview-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="settings-logging-section" class="settings-stack">
+                    <section id="settings-log-card" class="card settings-section">
+                        <div id="settings-log-header" class="settings-section__header">
+                            <p id="settings-log-eyebrow" class="section-header__eyebrow">Logging</p>
+                            <h3 id="settings-log-title" class="settings-card__title">Logging thresholds</h3>
+                            <p id="settings-log-description" class="settings-card__description">These settings are stored in the database and immediately affect the dashboard log view and future retention trimming.</p>
+                        </div>
+                        <form id="settings-log-form" class="api-form">
+                            <div id="settings-log-grid" class="api-form-grid">
+                                <label id="settings-log-retention-field" class="api-form-field">
+                                    <span id="settings-log-retention-label" class="api-form-label">Max stored logs</span>
+                                    <input id="settings-log-retention-input" class="api-form-input" type="number" min="50" max="5000" step="10" required>
+                                </label>
+                                <label id="settings-log-visible-field" class="api-form-field">
+                                    <span id="settings-log-visible-label" class="api-form-label">Max visible logs</span>
+                                    <input id="settings-log-visible-input" class="api-form-input" type="number" min="10" max="500" step="5" required>
+                                </label>
+                                <label id="settings-log-detail-field" class="api-form-field api-form-field--full">
+                                    <span id="settings-log-detail-label" class="api-form-label">Max detail characters per panel</span>
+                                    <input id="settings-log-detail-input" class="api-form-input" type="number" min="500" max="20000" step="250" required>
+                                </label>
+                            </div>
+                            <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                            <div id="settings-actions" class="api-form-actions">
+                                <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                                <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                                <button type="button" id="settings-clear-logs-button" class="button button--secondary secondary-action-button">Clear stored logs</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <aside id="settings-summary-card" class="card settings-section settings-section--aside">
+                        <h3 id="settings-summary-title" class="settings-card__title">Current store</h3>
+                        <p id="settings-summary-description" class="settings-card__description">Use this summary to verify that retention changes and maintenance actions applied as expected.</p>
+                        <div id="settings-summary" class="settings-summary">
+                            <div id="settings-total-item" class="stat-card settings-summary__item">
+                                <span id="settings-total-label" class="settings-summary__label">Stored logs</span>
+                                <span id="settings-log-total-value" class="settings-summary__value">0</span>
+                            </div>
+                            <div id="settings-newest-item" class="stat-card settings-summary__item">
+                                <span id="settings-newest-label" class="settings-summary__label">Newest log</span>
+                                <span id="settings-log-newest-value" class="settings-summary__value">No logs recorded</span>
+                            </div>
+                        </div>
+                    </aside>
+                </section>
+
+                <section id="settings-notifications-section" class="card settings-section">
+                    <div id="settings-notifications-header" class="settings-section__header">
+                        <p id="settings-notifications-eyebrow" class="section-header__eyebrow">Notifications</p>
+                        <h3 id="settings-notifications-title" class="settings-card__title">Operator alerts</h3>
+                        <p id="settings-notifications-description" class="settings-card__description">Representative settings for alert routing commonly found in internal automation consoles.</p>
+                    </div>
+                    <div id="settings-notifications-grid" class="settings-option-grid">
+                        <article id="settings-notifications-channel-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-channel-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-channel-title" class="settings-option-card__title">Primary alert channel</h4>
+                                <p id="settings-notifications-channel-description" class="settings-option-card__description">Select where incident-grade delivery failures should surface first.</p>
+                            </div>
+                            <select id="settings-notifications-channel-select" class="api-form-input">
+                                <option id="settings-notifications-channel-option-email" value="email">Email digest</option>
+                                <option id="settings-notifications-channel-option-slack" value="slack" selected>Slack operations room</option>
+                                <option id="settings-notifications-channel-option-pager" value="pager">Pager duty queue</option>
+                            </select>
+                        </article>
+                        <article id="settings-notifications-digest-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-digest-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-digest-title" class="settings-option-card__title">Digest cadence</h4>
+                                <p id="settings-notifications-digest-description" class="settings-option-card__description">Control the default summary frequency for low-priority events.</p>
+                            </div>
+                            <select id="settings-notifications-digest-select" class="api-form-input">
+                                <option id="settings-notifications-digest-option-realtime" value="realtime">Real time</option>
+                                <option id="settings-notifications-digest-option-hourly" value="hourly" selected>Hourly</option>
+                                <option id="settings-notifications-digest-option-daily" value="daily">Daily</option>
+                            </select>
+                        </article>
+                        <article id="settings-notifications-oncall-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-oncall-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-oncall-title" class="settings-option-card__title">Escalate to on-call</h4>
+                                <p id="settings-notifications-oncall-description" class="settings-option-card__description">Automatically escalate failed deliveries that exceed the retry policy.</p>
+                            </div>
+                            <label id="settings-notifications-oncall-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-notifications-oncall-checkbox" checked>
+                                <div class="toggle__slider" id="settings-notifications-oncall-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-notifications-oncall-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-notifications-oncall-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="settings-security-section" class="card settings-section">
+                    <div id="settings-security-header" class="settings-section__header">
+                        <p id="settings-security-eyebrow" class="section-header__eyebrow">Access</p>
+                        <h3 id="settings-security-title" class="settings-card__title">Access and approval controls</h3>
+                        <p id="settings-security-description" class="settings-card__description">Placeholder controls modeled after common middleware security settings.</p>
+                    </div>
+                    <div id="settings-security-grid" class="settings-option-grid">
+                        <article id="settings-security-session-card" class="stat-card settings-option-card">
+                            <div id="settings-security-session-copy" class="settings-option-card__copy">
+                                <h4 id="settings-security-session-title" class="settings-option-card__title">Session timeout</h4>
+                                <p id="settings-security-session-description" class="settings-option-card__description">Idle sessions can auto-lock after a fixed period to reduce console exposure.</p>
+                            </div>
+                            <select id="settings-security-session-select" class="api-form-input">
+                                <option id="settings-security-session-option-15" value="15">15 minutes</option>
+                                <option id="settings-security-session-option-30" value="30" selected>30 minutes</option>
+                                <option id="settings-security-session-option-60" value="60">60 minutes</option>
+                            </select>
+                        </article>
+                        <article id="settings-security-approval-card" class="stat-card settings-option-card">
+                            <div id="settings-security-approval-copy" class="settings-option-card__copy">
+                                <h4 id="settings-security-approval-title" class="settings-option-card__title">Dual approval for production</h4>
+                                <p id="settings-security-approval-description" class="settings-option-card__description">Require a second operator before production-bound automations can be enabled.</p>
+                            </div>
+                            <label id="settings-security-approval-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-security-approval-checkbox" checked>
+                                <div class="toggle__slider" id="settings-security-approval-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-security-approval-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-security-approval-label" class="toggle__label">Required</span>
+                            </label>
+                        </article>
+                        <article id="settings-security-token-card" class="stat-card settings-option-card">
+                            <div id="settings-security-token-copy" class="settings-option-card__copy">
+                                <h4 id="settings-security-token-title" class="settings-option-card__title">API token rotation</h4>
+                                <p id="settings-security-token-description" class="settings-option-card__description">Set the standard token rotation policy for new outbound integrations.</p>
+                            </div>
+                            <select id="settings-security-token-select" class="api-form-input">
+                                <option id="settings-security-token-option-30" value="30">30 days</option>
+                                <option id="settings-security-token-option-60" value="60">60 days</option>
+                                <option id="settings-security-token-option-90" value="90" selected>90 days</option>
+                            </select>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="settings-data-section" class="card settings-section">
+                    <div id="settings-data-header" class="settings-section__header">
+                        <p id="settings-data-eyebrow" class="section-header__eyebrow">Data</p>
+                        <h3 id="settings-data-title" class="settings-card__title">Data handling</h3>
+                        <p id="settings-data-description" class="settings-card__description">Retention and export preferences typically paired with middleware audit surfaces.</p>
+                    </div>
+                    <div id="settings-data-grid" class="settings-option-grid">
+                        <article id="settings-data-redaction-card" class="stat-card settings-option-card">
+                            <div id="settings-data-redaction-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-redaction-title" class="settings-option-card__title">Payload redaction</h4>
+                                <p id="settings-data-redaction-description" class="settings-option-card__description">Mask tokens and personally identifying values in stored event samples.</p>
+                            </div>
+                            <label id="settings-data-redaction-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-data-redaction-checkbox" checked>
+                                <div class="toggle__slider" id="settings-data-redaction-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-data-redaction-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-data-redaction-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                        <article id="settings-data-export-card" class="stat-card settings-option-card">
+                            <div id="settings-data-export-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-export-title" class="settings-option-card__title">Scheduled export window</h4>
+                                <p id="settings-data-export-description" class="settings-option-card__description">Choose when audit bundles should be prepared for downstream archival jobs.</p>
+                            </div>
+                            <select id="settings-data-export-select" class="api-form-input">
+                                <option id="settings-data-export-option-0000" value="00:00">00:00 UTC</option>
+                                <option id="settings-data-export-option-0200" value="02:00" selected>02:00 UTC</option>
+                                <option id="settings-data-export-option-0400" value="04:00">04:00 UTC</option>
+                            </select>
+                        </article>
+                        <article id="settings-data-audit-card" class="stat-card settings-option-card">
+                            <div id="settings-data-audit-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-audit-title" class="settings-option-card__title">Audit evidence retention</h4>
+                                <p id="settings-data-audit-description" class="settings-option-card__description">Define how long signed execution evidence should remain available for review.</p>
+                            </div>
+                            <select id="settings-data-audit-select" class="api-form-input">
+                                <option id="settings-data-audit-option-30" value="30">30 days</option>
+                                <option id="settings-data-audit-option-90" value="90">90 days</option>
+                                <option id="settings-data-audit-option-365" value="365" selected>365 days</option>
+                            </select>
+                        </article>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script src="scripts/log-store.js"></script>
+    <script type="module" src="scripts/navigation.js"></script>
+    <script src="scripts/settings.js"></script>
+</body>
+</html>

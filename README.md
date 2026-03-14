@@ -52,6 +52,26 @@ The UI includes a **Developer Mode toggle** intended for local development and Q
 
 When enabled, it uses browser storage options to seed/populate interface state so developers can quickly load realistic UI scenarios for testing without requiring live backend data.
 
+### Shared Navigation Shell
+
+The UI shell now uses a **shared navigation contract** so the logo, top navigation, side navigation, and section metadata stay aligned across static HTML pages and the React dashboard.
+
+Source of truth:
+
+* `ui/scripts/shell-config.js` for brand and navigation definitions
+* `ui/scripts/navigation.js` for static shell rendering
+* `ui/src/dashboard/app.tsx` consuming the same shell config for the React dashboard
+
+For static pages, the expected pattern is:
+
+* declare `data-section`
+* declare `data-sidenav-item`
+* declare `data-shell-path-prefix`
+* render `<div id="topnav"></div>`
+* render `<aside id="sidenav"></aside>`
+
+Do not manually duplicate top navigation or side navigation markup on new pages.
+
 ### 2. API Layer
 
 FastAPI service responsible for:
@@ -103,6 +123,25 @@ SQLite database used for:
 * logs
 * configuration
 * editable tool metadata overrides
+
+### Inbound API Secret Policy
+
+Inbound API bearer secrets are treated as opaque credentials for server-to-server authentication.
+
+Rules:
+
+* generate secrets with a cryptographically secure random source
+* use 256 bits of entropy for production-generated inbound bearer secrets
+* encode the random payload with URL-safe Base64 and prefix it with a stable Malcom identifier
+* store only the SHA-256 hash of the secret in SQLite
+* return the plaintext secret only once when an inbound API is created or rotated
+* require operators to store the returned secret externally because list and detail endpoints do not expose it later
+* rotate secrets when a credential is shared, leaked, or reaches the team rotation window
+
+Developer mode exception:
+
+* seeded developer fixtures may use a fixed token for deterministic local UI testing
+* fixed developer tokens must not be reused for production-generated inbound APIs
 
 ---
 
@@ -193,6 +232,12 @@ The UI must work well on:
 * desktop
 * tablet
 * mobile
+
+Navigation should also remain structurally consistent across every section:
+
+* top navigation is rendered from the shared shell config
+* the Malcom brand appears in the side navigation header
+* per-page shell differences should come from metadata, not copied markup
 
 ---
 
@@ -549,3 +594,25 @@ Verification steps:
 3. Toggle it on and inspect `sessionStorage.developerMode` in DevTools.
 4. Refresh tab: value remains within the current session.
 5. Close session and open a new one: value resets to default off.
+
+## Single Command Dev Launcher
+
+Use the root launcher to prepare dependencies and start the app:
+
+```bash
+./malcom
+```
+
+Expected behavior:
+
+1. verifies or creates the root `.venv`
+2. installs backend dependencies from `requirements.txt` when needed
+3. installs UI dependencies in `ui/` when needed
+4. builds the UI into `ui/dist/`
+5. starts the backend on `http://127.0.0.1:8000`
+
+Notes:
+
+* this is the local development launcher, not the final `launchd` packaging path
+* stop the app with `Ctrl+C`
+* the dashboard and static UI pages are served by FastAPI from the built UI output

@@ -6,50 +6,10 @@
     <title>Top Navigation</title>
     <link rel="stylesheet" href="styles/styles.css">
 </head>
-<body>
-    <div id="topnav" class="topnav">
-        <div class="container">
-            <div class="topnav__inner">
-                <div id="project-brand" class="topnav__brand project-brand">
-                    <img src="./assets/malcom-icon.svg" alt="Malcom icon" id="project-icon" class="project-icon">
-                    <h1 class="topnav__title" id="project-title">Malcom</h1>
-                    <nav class="topnav__nav" id="topnav-primary">
-                        <a href="index.html" id="nav-dashboard">Dashboard</a>
-                        <a href="apis.html" id="nav-apis">APIs</a>
-                        <a href="tools.html" id="nav-tools">Tools</a>
-                    </nav>
-                </div>
-                <div class="topnav__dev" id="dev-mode-area">
-                    <label class="toggle" id="developer-mode-toggle">
-                        <input type="checkbox" class="sr-only" id="developer-mode-checkbox">
-                        <div class="toggle__slider" id="developer-mode-slider" aria-hidden="true">
-                            <div class="toggle__knob" id="developer-mode-knob" aria-hidden="true"></div>
-                        </div>
-                        <span class="toggle__label">Developer Mode</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-    </div>
+<body data-log-page-view="false" data-section="apis" data-shell-path-prefix="">
+    <div id="topnav"></div>
 
-    <script>
-        const toggle = document.getElementById('developer-mode-toggle');
-        const checkbox = document.getElementById('developer-mode-checkbox');
-
-        const initialState = sessionStorage.getItem('developerMode') === 'true';
-        checkbox.checked = initialState;
-
-        const updateToggleState = (on) => {
-            toggle.classList.toggle('toggle--on', on);
-        };
-
-        updateToggleState(initialState);
-
-        checkbox.addEventListener('change', () => {
-            const isChecked = checkbox.checked;
-            sessionStorage.setItem('developerMode', String(isChecked));
-            updateToggleState(isChecked);
-        });
-    </script>
+    <script src="scripts/log-store.js"></script>
+    <script type="module" src="scripts/navigation.js"></script>
 </body>
 </html>

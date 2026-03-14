@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - APIs Overview</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-overview" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="apis-overview-header">
+                <h2 class="page-title section-header__title--page" id="page-title">APIs Overview</h2>
+                <p class="page-description section-header__description--page" id="page-description">Top level overview of existing configured APIs</p>
+            </div>
+            <section id="apis-overview-content" class="card api-workspace">
+                <div id="apis-overview-copy" class="section-header api-overview-header">
+                    <div id="apis-overview-copy-block" class="section-header__copy api-overview-copy">
+                        <p id="apis-overview-eyebrow" class="section-header__eyebrow api-overview-eyebrow">API Registry</p>
+                        <h3 id="apis-overview-content-title" class="section-header__title api-overview-title">Top level view across incoming, outgoing, and webhook configurations</h3>
+                        <p id="apis-overview-content-copy" class="section-header__description api-overview-description">Use this page to confirm which API surfaces are configured, how many entries exist in each registry, and where to drill in for details.</p>
+                    </div>
+                    <div id="apis-overview-status" class="section-status stat-card api-overview-status" aria-live="polite">
+                        <span id="apis-overview-total-count" class="api-overview-count">0 configured APIs</span>
+                        <span id="apis-overview-helper" class="api-overview-helper">Create an API to add it to the incoming, outgoing, or webhook registry.</span>
+                    </div>
+                </div>
+
+                <div id="api-system-alert" class="api-system-alert" hidden></div>
+
+                <div id="apis-overview-summary-grid" class="api-summary-grid">
+                    <article id="apis-overview-summary-incoming" class="stat-card api-summary-card">
+                        <p id="apis-overview-summary-incoming-label" class="api-summary-label">Incoming APIs</p>
+                        <p id="apis-overview-summary-incoming-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="apis-overview-summary-outgoing" class="stat-card api-summary-card">
+                        <p id="apis-overview-summary-outgoing-label" class="api-summary-label">Outgoing APIs</p>
+                        <p id="apis-overview-summary-outgoing-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="apis-overview-summary-webhooks" class="stat-card api-summary-card">
+                        <p id="apis-overview-summary-webhooks-label" class="api-summary-label">Webhooks</p>
+                        <p id="apis-overview-summary-webhooks-value" class="api-summary-value">0</p>
+                    </article>
+                </div>
+
+                <div id="apis-overview-sections" class="api-overview-sections">
+                    <section id="apis-overview-incoming-panel" class="api-overview-panel">
+                        <div id="apis-overview-incoming-header" class="section-header api-panel-header">
+                            <div id="apis-overview-incoming-copy" class="section-header__copy api-panel-header-copy">
+                                <p id="apis-overview-incoming-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Incoming</p>
+                                <h3 id="apis-overview-incoming-title" class="section-header__title api-panel-title">Configured incoming APIs</h3>
+                                <p id="apis-overview-incoming-description" class="section-header__description api-panel-description">Inbound endpoints with authentication, last activity, and delivery status visibility.</p>
+                            </div>
+                            <a href="./incoming.html" id="apis-overview-incoming-link" class="button button--secondary secondary-action-button">Open incoming</a>
+                        </div>
+                        <div id="apis-overview-incoming-empty" class="empty-state api-empty-state" hidden>
+                            <h4 id="apis-overview-incoming-empty-title" class="api-empty-state__title">No incoming APIs configured</h4>
+                            <p id="apis-overview-incoming-empty-description" class="api-empty-state__description">Create an incoming API to provision an authenticated endpoint.</p>
+                        </div>
+                        <div id="apis-overview-incoming-list" class="resource-list" aria-live="polite"></div>
+                    </section>
+
+                    <section id="apis-overview-outgoing-panel" class="api-overview-panel">
+                        <div id="apis-overview-outgoing-header" class="section-header api-panel-header">
+                            <div id="apis-overview-outgoing-copy" class="section-header__copy api-panel-header-copy">
+                                <p id="apis-overview-outgoing-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Outgoing</p>
+                                <h3 id="apis-overview-outgoing-title" class="section-header__title api-panel-title">Configured outgoing APIs</h3>
+                                <p id="apis-overview-outgoing-description" class="section-header__description api-panel-description">Scheduled and continuous outbound destinations currently registered in the system.</p>
+                            </div>
+                            <a href="./outgoing.html" id="apis-overview-outgoing-link" class="button button--secondary secondary-action-button">Open outgoing</a>
+                        </div>
+                        <div id="apis-overview-outgoing-empty" class="empty-state api-empty-state" hidden>
+                            <h4 id="apis-overview-outgoing-empty-title" class="api-empty-state__title">No outgoing APIs configured</h4>
+                            <p id="apis-overview-outgoing-empty-description" class="api-empty-state__description">Create an outgoing API to add a scheduled or continuous delivery target.</p>
+                        </div>
+                        <div id="apis-overview-outgoing-list" class="resource-list" aria-live="polite"></div>
+                    </section>
+
+                    <section id="apis-overview-webhooks-panel" class="api-overview-panel">
+                        <div id="apis-overview-webhooks-header" class="section-header api-panel-header">
+                            <div id="apis-overview-webhooks-copy" class="section-header__copy api-panel-header-copy">
+                                <p id="apis-overview-webhooks-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Webhooks</p>
+                                <h3 id="apis-overview-webhooks-title" class="section-header__title api-panel-title">Configured webhooks</h3>
+                                <p id="apis-overview-webhooks-description" class="section-header__description api-panel-description">Webhook definitions available for external publishers, callbacks, and verification flows.</p>
+                            </div>
+                            <a href="./webhooks.html" id="apis-overview-webhooks-link" class="button button--secondary secondary-action-button">Open webhooks</a>
+                        </div>
+                        <div id="apis-overview-webhooks-empty" class="empty-state api-empty-state" hidden>
+                            <h4 id="apis-overview-webhooks-empty-title" class="api-empty-state__title">No webhooks configured</h4>
+                            <p id="apis-overview-webhooks-empty-description" class="api-empty-state__description">Create a webhook to register it in the publisher callback registry.</p>
+                        </div>
+                        <div id="apis-overview-webhooks-list" class="resource-list" aria-live="polite"></div>
+                    </section>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div
+        id="apis-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-create-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
+        <div class="modal__dialog" id="apis-create-modal-dialog">
+            <div class="modal__content" id="apis-create-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/apis.js"></script>
+</body>
+</html>

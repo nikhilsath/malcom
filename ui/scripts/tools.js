@@ -21,12 +21,20 @@ let savingTool = false;
 
 const formatPlaceholderLabel = (index) => {
   const numericLabel = String(index + 1).padStart(2, "0");
-  return `Placeholder Tool ${numericLabel}`;
+  return `Catalog Tool ${numericLabel}`;
 };
 
-const getBaseUrl = () => window.location.protocol === "file:" || window.location.origin === "null"
-  ? "http://localhost:8000"
-  : window.location.origin;
+const getBaseUrl = () => {
+  if (window.location.protocol === "file:" || window.location.origin === "null") {
+    return "http://localhost:8000";
+  }
+
+  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
+    return "";
+  }
+
+  return window.location.origin;
+};
 
 const setFormFeedback = (message, tone = "") => {
   toolDetailFormFeedback.textContent = message;
@@ -196,7 +204,7 @@ const renderToolCards = () => {
 };
 
 if (toolsCatalog.length === 0) {
-  selectedToolsHelper.textContent = "No placeholder tools were found in the generated manifest.";
+  selectedToolsHelper.textContent = "No registered tools were found in the generated manifest.";
   selectedToolsValue.textContent = "No tools available";
 }
 

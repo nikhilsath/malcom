@@ -27,6 +27,7 @@ def initialize(connection: sqlite3.Connection) -> None:
             path_slug TEXT NOT NULL UNIQUE,
             auth_type TEXT NOT NULL,
             secret_hash TEXT NOT NULL,
+            is_mock INTEGER NOT NULL DEFAULT 0,
             enabled INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -40,7 +41,44 @@ def initialize(connection: sqlite3.Connection) -> None:
             request_headers_subset TEXT NOT NULL,
             payload_json TEXT,
             source_ip TEXT,
-            error_message TEXT
+            error_message TEXT,
+            is_mock INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS outgoing_scheduled_apis (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            path_slug TEXT NOT NULL UNIQUE,
+            is_mock INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            schedule_expression TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS outgoing_continuous_apis (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            path_slug TEXT NOT NULL UNIQUE,
+            is_mock INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            stream_mode TEXT NOT NULL DEFAULT 'continuous',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS webhook_apis (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            path_slug TEXT NOT NULL UNIQUE,
+            is_mock INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            delivery_mode TEXT NOT NULL DEFAULT 'webhook',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS tools (
@@ -52,9 +90,33 @@ def initialize(connection: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
         """
     )
+    _ensure_column(connection, "inbound_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "inbound_api_events", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_scheduled_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_continuous_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "webhook_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     connection.commit()
+
+
+def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
+    existing_columns = {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    }
+
+    if column_name in existing_columns:
+        return
+
+    connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
 def fetch_one(connection: sqlite3.Connection, query: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:

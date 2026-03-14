@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Outgoing APIs</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-outgoing" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="apis-outgoing-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Outgoing APIs</h2>
+                <p class="page-description section-header__description--page" id="page-description">Review outbound requests, destination services, and delivery readiness.</p>
+            </div>
+            <section id="apis-outgoing-content" class="card api-workspace">
+                <div id="apis-outgoing-copy" class="section-header api-panel-header">
+                    <div id="apis-outgoing-copy-block" class="section-header__copy api-panel-header-copy">
+                        <p id="apis-outgoing-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Outgoing Registry</p>
+                        <h3 id="apis-outgoing-content-title" class="section-header__title api-panel-title">Outbound delivery definitions</h3>
+                        <p id="apis-outgoing-content-copy" class="section-header__description api-panel-description">Scheduled and continuous outbound APIs created from the modal are listed here so each record maps back to its own backend table row.</p>
+                    </div>
+                </div>
+                <div id="apis-outgoing-list-empty" class="empty-state api-empty-state" hidden>
+                    <h4 id="apis-outgoing-list-empty-title" class="api-empty-state__title">No outgoing APIs configured</h4>
+                    <p id="apis-outgoing-list-empty-description" class="api-empty-state__description">Create an outgoing API to add it to the scheduled or continuous registry.</p>
+                </div>
+                <div id="apis-outgoing-list" class="resource-list" aria-live="polite"></div>
+            </section>
+        </div>
+    </main>
+
+    <div
+        id="apis-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-create-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
+        <div class="modal__dialog" id="apis-create-modal-dialog">
+            <div class="modal__content" id="apis-create-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/apis.js"></script>
+</body>
+</html>

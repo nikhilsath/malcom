@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - API Webhooks</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-webhooks" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="apis-webhooks-header">
+                <h2 class="page-title section-header__title--page" id="page-title">API Webhooks</h2>
+                <p class="page-description section-header__description--page" id="page-description">Manage webhook endpoints, subscriptions, and verification expectations.</p>
+            </div>
+            <section id="apis-webhooks-content" class="card api-workspace">
+                <div id="apis-webhooks-copy" class="section-header api-panel-header">
+                    <div id="apis-webhooks-copy-block" class="section-header__copy api-panel-header-copy">
+                        <p id="apis-webhooks-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Webhook Registry</p>
+                        <h3 id="apis-webhooks-content-title" class="section-header__title api-panel-title">Webhook definitions</h3>
+                        <p id="apis-webhooks-content-copy" class="section-header__description api-panel-description">Webhook records created from the modal are listed here so each one can be traced back to the `webhook_apis` table.</p>
+                    </div>
+                </div>
+                <div id="apis-webhooks-list-empty" class="empty-state api-empty-state" hidden>
+                    <h4 id="apis-webhooks-list-empty-title" class="api-empty-state__title">No webhooks configured</h4>
+                    <p id="apis-webhooks-list-empty-description" class="api-empty-state__description">Create a webhook to register it and make it available through the backend registry.</p>
+                </div>
+                <div id="apis-webhooks-list" class="resource-list" aria-live="polite"></div>
+            </section>
+        </div>
+    </main>
+
+    <div
+        id="apis-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-create-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
+        <div class="modal__dialog" id="apis-create-modal-dialog">
+            <div class="modal__content" id="apis-create-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/apis.js"></script>
+</body>
+</html>

@@ -1,13 +1,8 @@
 const apiElements = {
-  modal: document.getElementById("apis-create-modal"),
-  modalContent: document.getElementById("apis-create-modal-content"),
-  openButton: document.getElementById("apis-create-button"),
+  createModal: document.getElementById("apis-create-modal"),
+  createModalContent: document.getElementById("apis-create-modal-content"),
+  detailModal: document.getElementById("api-detail-modal"),
   alert: document.getElementById("api-system-alert"),
-  overviewCount: document.getElementById("api-overview-count"),
-  overviewHelper: document.getElementById("api-overview-helper"),
-  activeCount: document.getElementById("api-summary-active-value"),
-  eventCount: document.getElementById("api-summary-events-value"),
-  lastEvent: document.getElementById("api-summary-last-event-value"),
   tableBody: document.getElementById("api-directory-body"),
   tableShell: document.getElementById("api-table-shell"),
   directoryEmpty: document.getElementById("api-directory-empty"),
@@ -22,22 +17,114 @@ const apiElements = {
   secretValue: document.getElementById("api-secret-value"),
   secretCurl: document.getElementById("api-secret-curl"),
   logsEmpty: document.getElementById("api-logs-empty"),
-  logList: document.getElementById("api-log-list")
+  logList: document.getElementById("api-log-list"),
+  outgoingList: document.getElementById("apis-outgoing-list"),
+  outgoingListEmpty: document.getElementById("apis-outgoing-list-empty"),
+  webhooksList: document.getElementById("apis-webhooks-list"),
+  webhooksListEmpty: document.getElementById("apis-webhooks-list-empty"),
+  overviewAlert: document.getElementById("api-system-alert"),
+  overviewTotalCount: document.getElementById("apis-overview-total-count"),
+  overviewHelper: document.getElementById("apis-overview-helper"),
+  overviewIncomingCount: document.getElementById("apis-overview-summary-incoming-value"),
+  overviewOutgoingCount: document.getElementById("apis-overview-summary-outgoing-value"),
+  overviewWebhooksCount: document.getElementById("apis-overview-summary-webhooks-value"),
+  overviewIncomingList: document.getElementById("apis-overview-incoming-list"),
+  overviewIncomingEmpty: document.getElementById("apis-overview-incoming-empty"),
+  overviewOutgoingList: document.getElementById("apis-overview-outgoing-list"),
+  overviewOutgoingEmpty: document.getElementById("apis-overview-outgoing-empty"),
+  overviewWebhooksList: document.getElementById("apis-overview-webhooks-list"),
+  overviewWebhooksEmpty: document.getElementById("apis-overview-webhooks-empty")
 };
+
+const hasCreateModalElements = () => Boolean(
+  apiElements.createModal && apiElements.createModalContent
+);
+
+const getCreateOpenButton = () => document.getElementById("apis-create-button");
+
+const hasOverviewElements = () => Boolean(
+  apiElements.alert
+  && apiElements.tableBody
+  && apiElements.tableShell
+  && apiElements.directoryEmpty
+  && apiElements.detailEmpty
+  && apiElements.detailContent
+  && apiElements.detailTitle
+  && apiElements.detailDescription
+  && apiElements.detailMetadata
+  && apiElements.rotateSecretButton
+  && apiElements.toggleStatusButton
+  && apiElements.secretPanel
+  && apiElements.secretValue
+  && apiElements.secretCurl
+  && apiElements.logsEmpty
+  && apiElements.logList
+);
+
+const hasOutgoingRegistryElements = () => Boolean(
+  apiElements.outgoingList && apiElements.outgoingListEmpty
+);
+
+const hasWebhookRegistryElements = () => Boolean(
+  apiElements.webhooksList && apiElements.webhooksListEmpty
+);
+
+const hasOverviewLandingElements = () => Boolean(
+  apiElements.overviewTotalCount
+  && apiElements.overviewHelper
+  && apiElements.overviewIncomingCount
+  && apiElements.overviewOutgoingCount
+  && apiElements.overviewWebhooksCount
+  && apiElements.overviewIncomingList
+  && apiElements.overviewIncomingEmpty
+  && apiElements.overviewOutgoingList
+  && apiElements.overviewOutgoingEmpty
+  && apiElements.overviewWebhooksList
+  && apiElements.overviewWebhooksEmpty
+);
 
 const modalFallbackMarkup = `
   <div class="modal__panel" id="create-api-modal-panel">
     <div class="modal__header" id="create-api-modal-header">
       <div class="modal__header-copy" id="create-api-modal-header-copy">
         <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
-        <h3 class="modal__title" id="apis-create-modal-title">New Inbound API</h3>
-        <p class="modal__description" id="create-api-modal-description">Provision a webhook endpoint with a bearer token for authenticated JSON requests.</p>
+        <h3 class="modal__title" id="apis-create-modal-title">Create API</h3>
+        <p class="modal__description" id="create-api-modal-description">Choose the type of API resource you want to create and Malcom will store it in the corresponding backend table.</p>
       </div>
-      <button type="button" class="modal__close-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">Close</button>
+      <button type="button" class="button button--secondary modal__close-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">Close</button>
     </div>
     <div class="modal__body modal__body--form" id="create-api-modal-body">
       <form id="create-api-form" class="api-form">
         <div id="create-api-form-grid" class="api-form-grid">
+          <fieldset id="create-api-type-field" class="api-form-field api-form-field--full api-type-tabs">
+            <legend id="create-api-type-label" class="api-form-label">API type</legend>
+            <div id="create-api-type-options" class="api-type-tabs__list">
+              <label id="create-api-type-option-incoming" class="api-type-tab">
+                <input id="create-api-type-input-incoming" class="api-type-tab__input" name="resourceType" type="radio" value="incoming" checked>
+                <span id="create-api-type-copy-incoming" class="api-type-tab__label">
+                  <span id="create-api-type-title-incoming" class="api-type-tab__title">Incoming</span>
+                </span>
+              </label>
+              <label id="create-api-type-option-outgoing-scheduled" class="api-type-tab">
+                <input id="create-api-type-input-outgoing-scheduled" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_scheduled">
+                <span id="create-api-type-copy-outgoing-scheduled" class="api-type-tab__label">
+                  <span id="create-api-type-title-outgoing-scheduled" class="api-type-tab__title">Outgoing (scheduled)</span>
+                </span>
+              </label>
+              <label id="create-api-type-option-outgoing-continuous" class="api-type-tab">
+                <input id="create-api-type-input-outgoing-continuous" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_continuous">
+                <span id="create-api-type-copy-outgoing-continuous" class="api-type-tab__label">
+                  <span id="create-api-type-title-outgoing-continuous" class="api-type-tab__title">Outgoing (continuous)</span>
+                </span>
+              </label>
+              <label id="create-api-type-option-webhook" class="api-type-tab">
+                <input id="create-api-type-input-webhook" class="api-type-tab__input" name="resourceType" type="radio" value="webhook">
+                <span id="create-api-type-copy-webhook" class="api-type-tab__label">
+                  <span id="create-api-type-title-webhook" class="api-type-tab__title">Webhook</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
           <label id="create-api-name-field" class="api-form-field">
             <span id="create-api-name-label" class="api-form-label">Name</span>
             <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
@@ -64,7 +151,7 @@ const modalFallbackMarkup = `
         </div>
         <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
         <div id="create-api-form-actions" class="api-form-actions">
-          <button type="submit" id="create-api-submit-button" class="primary-action-button">Create inbound API</button>
+          <button type="submit" id="create-api-submit-button" class="button button--primary primary-action-button">Create inbound API</button>
         </div>
       </form>
     </div>
@@ -74,15 +161,76 @@ const modalFallbackMarkup = `
 const apiState = {
   entries: [],
   selectedApiId: null,
+  detailReturnFocusElement: null,
   lastSecretByApiId: {},
-  useMockData: false
+  outgoingEntries: [],
+  webhookEntries: []
 };
 
 const developerModeEnabled = () => sessionStorage.getItem("developerMode") === "true";
 
-const mockStorageKeys = {
-  entries: "malcom.inboundApis",
-  events: "malcom.inboundApiEvents"
+const emitApiLog = ({
+  level = "info",
+  action,
+  message,
+  details = {},
+  context = {}
+}) => {
+  window.MalcomLogStore?.log({
+    source: "ui.apis",
+    category: "api",
+    level,
+    action,
+    message,
+    details,
+    context: {
+      page: window.location.pathname,
+      ...context
+    }
+  });
+};
+
+const apiResourceTypes = {
+  incoming: {
+    title: "New Incoming API",
+    description: "Provision a webhook endpoint with a bearer token for authenticated JSON requests.",
+    authLabel: "Bearer secret",
+    enabledCopy: "Accept requests immediately",
+    submitLabel: "Create incoming API",
+    successMessage: "Incoming API created.",
+    alertMessage: "Incoming API created. Store the generated bearer token now; it will not be shown again.",
+    redirectPath: "/ui/apis/incoming.html"
+  },
+  outgoing_scheduled: {
+    title: "New Outgoing Scheduled API",
+    description: "Register a scheduled outbound API and store it in the scheduled delivery registry.",
+    authLabel: "Managed by destination configuration",
+    enabledCopy: "Activate the schedule immediately",
+    submitLabel: "Create scheduled API",
+    successMessage: "Scheduled outgoing API created.",
+    alertMessage: "Scheduled outgoing API created.",
+    redirectPath: "/ui/apis/outgoing.html"
+  },
+  outgoing_continuous: {
+    title: "New Outgoing Continuous API",
+    description: "Register a continuous outbound API and store it in the continuous delivery registry.",
+    authLabel: "Managed by destination configuration",
+    enabledCopy: "Start the stream immediately",
+    submitLabel: "Create continuous API",
+    successMessage: "Continuous outgoing API created.",
+    alertMessage: "Continuous outgoing API created.",
+    redirectPath: "/ui/apis/outgoing.html"
+  },
+  webhook: {
+    title: "New Webhook",
+    description: "Register a webhook record for external publisher callbacks and verification settings.",
+    authLabel: "Defined per webhook publisher",
+    enabledCopy: "Enable the webhook immediately",
+    submitLabel: "Create webhook",
+    successMessage: "Webhook created.",
+    alertMessage: "Webhook created.",
+    redirectPath: "/ui/apis/webhooks.html"
+  }
 };
 
 const sanitizeSlug = (value) => value
@@ -91,8 +239,6 @@ const sanitizeSlug = (value) => value
   .replace(/[^a-z0-9-]+/g, "-")
   .replace(/-{2,}/g, "-")
   .replace(/^-|-$/g, "");
-
-const createId = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -134,9 +280,22 @@ const setAlert = (message, tone = "info") => {
   apiElements.alert.className = `api-system-alert api-system-alert--${tone}`;
 };
 
-const getBaseUrl = () => window.location.protocol === "file:" || window.location.origin === "null"
-  ? "http://localhost:8000"
-  : window.location.origin;
+const getBaseUrl = () => {
+  if (window.location.protocol === "file:" || window.location.origin === "null") {
+    return "http://localhost:8000";
+  }
+
+  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
+    return "";
+  }
+
+  return window.location.origin;
+};
+
+const resolvePageHref = (absolutePath) => {
+  const relativePath = absolutePath.startsWith("/ui/") ? absolutePath.slice(3) : absolutePath;
+  return new URL(`..${relativePath}`, window.location.href).href;
+};
 
 const buildEndpointUrl = (apiId) => `${getBaseUrl()}/api/v1/inbound/${apiId}`;
 
@@ -150,173 +309,6 @@ const buildSampleCurl = (apiId, secret) => {
   -d '${jsonPayload}'`;
 };
 
-const readMockEntries = () => {
-  const raw = sessionStorage.getItem(mockStorageKeys.entries);
-
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-};
-
-const writeMockEntries = (entries) => {
-  sessionStorage.setItem(mockStorageKeys.entries, JSON.stringify(entries));
-};
-
-const readMockEvents = () => {
-  const raw = sessionStorage.getItem(mockStorageKeys.events);
-
-  if (!raw) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-};
-
-const writeMockEvents = (events) => {
-  sessionStorage.setItem(mockStorageKeys.events, JSON.stringify(events));
-};
-
-const seedMockData = () => {
-  if (readMockEntries().length > 0) {
-    return;
-  }
-
-  const now = new Date().toISOString();
-  const entry = {
-    id: "demo_webhook",
-    name: "Demo Webhook",
-    description: "Seeded developer-mode endpoint for local UI verification.",
-    path_slug: "demo-webhook",
-    auth_type: "bearer",
-    enabled: true,
-    created_at: now,
-    updated_at: now,
-    endpoint_path: "/api/v1/inbound/demo_webhook",
-    last_received_at: now,
-    last_delivery_status: "accepted",
-    events_count: 1
-  };
-  const event = {
-    event_id: "evt_demo001",
-    api_id: entry.id,
-    received_at: now,
-    status: "accepted",
-    request_headers_subset: {
-      "content-type": "application/json",
-      "user-agent": "developer-mode"
-    },
-    payload_json: {
-      source: "developer-mode",
-      ok: true
-    },
-    source_ip: "127.0.0.1",
-    error_message: null,
-    runtime_trigger: {
-      type: "inbound_api",
-      api_id: entry.id,
-      event_id: "evt_demo001",
-      payload: {
-        source: "developer-mode",
-        ok: true
-      },
-      received_at: now
-    }
-  };
-
-  writeMockEntries([entry]);
-  writeMockEvents({ [entry.id]: [event] });
-};
-
-const mockApi = {
-  async list() {
-    return readMockEntries();
-  },
-  async create(payload) {
-    const entries = readMockEntries();
-    const now = new Date().toISOString();
-    const id = createId("inbound");
-    const secret = `malcom_${Math.random().toString(36).slice(2, 18)}`;
-    const entry = {
-      id,
-      name: payload.name,
-      description: payload.description,
-      path_slug: payload.path_slug,
-      auth_type: "bearer",
-      enabled: payload.enabled,
-      created_at: now,
-      updated_at: now,
-      endpoint_path: `/api/v1/inbound/${id}`,
-      last_received_at: null,
-      last_delivery_status: null,
-      events_count: 0
-    };
-    entries.unshift(entry);
-    writeMockEntries(entries);
-    return {
-      ...entry,
-      secret,
-      endpoint_url: buildEndpointUrl(id)
-    };
-  },
-  async detail(apiId) {
-    const entry = readMockEntries().find((item) => item.id === apiId);
-
-    if (!entry) {
-      throw new Error("Inbound API not found.");
-    }
-
-    const eventsByApiId = readMockEvents();
-    return {
-      ...entry,
-      endpoint_url: buildEndpointUrl(apiId),
-      events: eventsByApiId[apiId] || []
-    };
-  },
-  async update(apiId, payload) {
-    const entries = readMockEntries();
-    const index = entries.findIndex((item) => item.id === apiId);
-
-    if (index === -1) {
-      throw new Error("Inbound API not found.");
-    }
-
-    entries[index] = {
-      ...entries[index],
-      ...payload,
-      updated_at: new Date().toISOString()
-    };
-    writeMockEntries(entries);
-    return entries[index];
-  },
-  async rotateSecret(apiId) {
-    const entries = readMockEntries();
-    const entry = entries.find((item) => item.id === apiId);
-
-    if (!entry) {
-      throw new Error("Inbound API not found.");
-    }
-
-    entry.updated_at = new Date().toISOString();
-    writeMockEntries(entries);
-
-    return {
-      id: apiId,
-      secret: `malcom_${Math.random().toString(36).slice(2, 18)}`,
-      endpoint_url: buildEndpointUrl(apiId)
-    };
-  }
-};
-
 const parseErrorMessage = async (response) => {
   try {
     const data = await response.json();
@@ -327,9 +319,10 @@ const parseErrorMessage = async (response) => {
 };
 
 const requestJson = async (path, options = {}) => {
-  const response = await fetch(path, {
+  const response = await fetch(`${getBaseUrl()}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      "X-Developer-Mode": String(developerModeEnabled()),
       ...(options.headers || {})
     },
     ...options
@@ -352,7 +345,7 @@ const backendApi = {
     return requestJson("/api/v1/inbound");
   },
   async create(payload) {
-    return requestJson("/api/v1/inbound", {
+    return requestJson("/api/v1/apis", {
       method: "POST",
       body: JSON.stringify(payload)
     });
@@ -370,32 +363,29 @@ const backendApi = {
     return requestJson(`/api/v1/inbound/${apiId}/rotate-secret`, {
       method: "POST"
     });
+  },
+  async listOutgoingScheduled() {
+    return requestJson("/api/v1/outgoing/scheduled");
+  },
+  async listOutgoingContinuous() {
+    return requestJson("/api/v1/outgoing/continuous");
+  },
+  async listWebhooks() {
+    return requestJson("/api/v1/webhooks");
   }
 };
 
-const getApiClient = () => apiState.useMockData ? mockApi : backendApi;
-
 const syncSummary = () => {
-  const entries = apiState.entries;
-  const activeCount = entries.filter((entry) => entry.enabled).length;
-  const eventCount = entries.reduce((sum, entry) => sum + (entry.events_count || 0), 0);
-  const lastReceivedValues = entries
-    .map((entry) => entry.last_received_at)
-    .filter(Boolean)
-    .sort((left, right) => new Date(right) - new Date(left));
-
-  apiElements.overviewCount.textContent = `${entries.length} endpoint${entries.length === 1 ? "" : "s"}`;
-  apiElements.overviewHelper.textContent = entries.length === 0
-    ? "Create an inbound API to start receiving webhook traffic."
-    : "Select an endpoint to inspect its webhook URL, logs, and latest secret action.";
-  apiElements.activeCount.textContent = String(activeCount);
-  apiElements.eventCount.textContent = String(eventCount);
-  apiElements.lastEvent.textContent = lastReceivedValues.length > 0
-    ? formatDateTime(lastReceivedValues[0])
-    : "No events yet";
+  if (!hasOverviewElements()) {
+    return;
+  }
 };
 
 const renderTable = () => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   apiElements.tableBody.textContent = "";
   const hasEntries = apiState.entries.length > 0;
 
@@ -435,12 +425,14 @@ const renderTable = () => {
     `;
 
     row.addEventListener("click", () => {
+      apiState.detailReturnFocusElement = row;
       loadApiDetail(entry.id);
     });
 
     row.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
+        apiState.detailReturnFocusElement = row;
         loadApiDetail(entry.id);
       }
     });
@@ -452,6 +444,10 @@ const renderTable = () => {
 };
 
 const renderMetadata = (entry) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   const metadataRows = [
     { label: "Endpoint URL", value: entry.endpoint_url || buildEndpointUrl(entry.id) },
     { label: "Endpoint path", value: entry.endpoint_path || `/api/v1/inbound/${entry.id}` },
@@ -471,6 +467,10 @@ const renderMetadata = (entry) => {
 };
 
 const renderSecretPanel = (entry) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   const latestSecret = apiState.lastSecretByApiId[entry.id];
 
   if (!latestSecret) {
@@ -486,6 +486,10 @@ const renderSecretPanel = (entry) => {
 };
 
 const renderLogs = (events) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   apiElements.logList.textContent = "";
   apiElements.logsEmpty.hidden = events.length > 0;
 
@@ -530,11 +534,19 @@ const renderLogs = (events) => {
 };
 
 const setDetailState = (isVisible) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   apiElements.detailEmpty.hidden = isVisible;
   apiElements.detailContent.hidden = !isVisible;
 };
 
 const renderDetail = (entry) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   if (!entry) {
     setDetailState(false);
     return;
@@ -550,65 +562,192 @@ const renderDetail = (entry) => {
 };
 
 const loadApiDirectory = async () => {
-  const client = getApiClient();
-  apiState.entries = await client.list();
+  if (!hasOverviewElements()) {
+    return;
+  }
 
-  if (!apiState.selectedApiId && apiState.entries.length > 0) {
-    apiState.selectedApiId = apiState.entries[0].id;
+  apiState.entries = await backendApi.list();
+  if (apiState.selectedApiId && !apiState.entries.some((entry) => entry.id === apiState.selectedApiId)) {
+    apiState.selectedApiId = null;
   }
 
   syncSummary();
   renderTable();
 
   if (apiState.selectedApiId) {
-    await loadApiDetail(apiState.selectedApiId, false);
+    await loadApiDetail(apiState.selectedApiId, {
+      syncTableSelection: false,
+      openDetailModal: false
+    });
   } else {
     renderDetail(null);
   }
 };
 
-async function loadApiDetail(apiId, syncTableSelection = true) {
-  const client = getApiClient();
+async function loadApiDetail(apiId, options = {}) {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
+  const {
+    syncTableSelection = true,
+    openDetailModal = true
+  } = options;
+
   apiState.selectedApiId = apiId;
-  const detail = await client.detail(apiId);
+  const detail = await backendApi.detail(apiId);
   renderDetail(detail);
+
+  if (openDetailModal) {
+    openDetailModalView();
+  }
 
   if (syncTableSelection) {
     renderTable();
   }
 }
 
-const openModal = () => {
-  apiElements.modal.classList.add("modal--open");
-  apiElements.modal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
+const syncModalBodyState = () => {
+  document.body.classList.toggle(
+    "modal-open",
+    Boolean(document.querySelector(".modal.modal--open"))
+  );
 };
 
-const closeModal = () => {
-  apiElements.modal.classList.remove("modal--open");
-  apiElements.modal.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
-  apiElements.openButton.focus();
+const openCreateModal = () => {
+  if (!apiElements.createModal) {
+    return;
+  }
+
+  apiElements.createModal.classList.add("modal--open");
+  apiElements.createModal.setAttribute("aria-hidden", "false");
+  syncModalBodyState();
+};
+
+const closeCreateModal = () => {
+  if (!apiElements.createModal) {
+    return;
+  }
+
+  apiElements.createModal.classList.remove("modal--open");
+  apiElements.createModal.setAttribute("aria-hidden", "true");
+  syncModalBodyState();
+
+  const createOpenButton = getCreateOpenButton();
+
+  if (createOpenButton) {
+    createOpenButton.focus();
+  }
+};
+
+const openDetailModalView = () => {
+  if (!apiElements.detailModal) {
+    return;
+  }
+
+  apiElements.detailModal.classList.add("modal--open");
+  apiElements.detailModal.setAttribute("aria-hidden", "false");
+  syncModalBodyState();
+};
+
+const closeDetailModalView = () => {
+  if (!apiElements.detailModal) {
+    return;
+  }
+
+  apiElements.detailModal.classList.remove("modal--open");
+  apiElements.detailModal.setAttribute("aria-hidden", "true");
+  syncModalBodyState();
+
+  if (apiState.detailReturnFocusElement instanceof HTMLElement) {
+    apiState.detailReturnFocusElement.focus();
+  }
 };
 
 const bindModalEvents = () => {
-  apiElements.openButton.addEventListener("click", () => {
-    openModal();
-  });
+  if (hasCreateModalElements()) {
+    document.addEventListener("click", (event) => {
+      const openTarget = event.target.closest("#apis-create-button");
 
-  apiElements.modal.addEventListener("click", (event) => {
-    const closeTarget = event.target.closest("[data-modal-close]");
+      if (openTarget) {
+        openCreateModal();
+      }
+    });
 
-    if (closeTarget) {
-      closeModal();
-    }
-  });
+    apiElements.createModal.addEventListener("click", (event) => {
+      const closeTarget = event.target.closest("[data-modal-close]");
+
+      if (closeTarget) {
+        closeCreateModal();
+      }
+    });
+  }
+
+  if (apiElements.detailModal) {
+    apiElements.detailModal.addEventListener("click", (event) => {
+      const closeTarget = event.target.closest("[data-modal-close]");
+
+      if (closeTarget) {
+        closeDetailModalView();
+      }
+    });
+  }
+
+  if (!hasCreateModalElements() && !apiElements.detailModal) {
+    return;
+  }
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && apiElements.modal.classList.contains("modal--open")) {
-      closeModal();
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (apiElements.detailModal?.classList.contains("modal--open")) {
+      closeDetailModalView();
+      return;
+    }
+
+    if (apiElements.createModal?.classList.contains("modal--open")) {
+      closeCreateModal();
     }
   });
+};
+
+const syncCreateModalType = (selectedType) => {
+  const config = apiResourceTypes[selectedType] || apiResourceTypes.incoming;
+  const title = document.getElementById("apis-create-modal-title");
+  const description = document.getElementById("create-api-modal-description");
+  const authInput = document.getElementById("create-api-auth-input");
+  const enabledCopy = document.getElementById("create-api-enabled-copy");
+  const submitButton = document.getElementById("create-api-submit-button");
+
+  if (title) {
+    title.textContent = config.title;
+  }
+
+  if (description) {
+    description.textContent = config.description;
+  }
+
+  if (authInput) {
+    authInput.value = config.authLabel;
+  }
+
+  if (enabledCopy) {
+    enabledCopy.textContent = config.enabledCopy;
+  }
+
+  if (submitButton) {
+    submitButton.textContent = config.submitLabel;
+  }
+};
+
+const navigateToResourcePage = (type) => {
+  const targetHref = resolvePageHref(apiResourceTypes[type].redirectPath);
+
+  if (window.location.href !== targetHref) {
+    window.location.assign(targetHref);
+  }
 };
 
 const bindCreateForm = () => {
@@ -618,10 +757,13 @@ const bindCreateForm = () => {
   const descriptionInput = document.getElementById("create-api-description-input");
   const enabledInput = document.getElementById("create-api-enabled-input");
   const feedback = document.getElementById("create-api-form-feedback");
+  const typeInputs = Array.from(document.querySelectorAll('input[name="resourceType"]'));
 
-  if (!form || !nameInput || !slugInput || !descriptionInput || !enabledInput || !feedback) {
+  if (!form || !nameInput || !slugInput || !descriptionInput || !enabledInput || !feedback || typeInputs.length === 0) {
     return;
   }
+
+  const getSelectedType = () => typeInputs.find((input) => input.checked)?.value || "incoming";
 
   nameInput.addEventListener("input", () => {
     if (!slugInput.dataset.userEdited) {
@@ -634,11 +776,21 @@ const bindCreateForm = () => {
     slugInput.value = sanitizeSlug(slugInput.value);
   });
 
+  typeInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      syncCreateModalType(getSelectedType());
+    });
+  });
+
+  syncCreateModalType(getSelectedType());
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     feedback.textContent = "";
+    const selectedType = getSelectedType();
 
     const payload = {
+      type: selectedType,
       name: nameInput.value.trim(),
       path_slug: sanitizeSlug(slugInput.value),
       description: descriptionInput.value.trim(),
@@ -652,39 +804,264 @@ const bindCreateForm = () => {
     }
 
     try {
-      const created = await getApiClient().create(payload);
-      apiState.lastSecretByApiId[created.id] = created.secret;
-      apiState.selectedApiId = created.id;
-      await loadApiDirectory();
-      await loadApiDetail(created.id);
+      const created = await backendApi.create(payload);
+      if (created.secret) {
+        apiState.lastSecretByApiId[created.id] = created.secret;
+      }
+
+      if (selectedType === "incoming" && hasOverviewElements()) {
+        apiState.selectedApiId = created.id;
+        await loadApiDirectory();
+        await loadApiDetail(created.id);
+      }
+
+      if (selectedType !== "incoming") {
+        if (hasOutgoingRegistryElements()) {
+          await loadOutgoingRegistries();
+        }
+
+        if (hasWebhookRegistryElements()) {
+          await loadWebhookRegistry();
+        }
+      }
+
       form.reset();
       enabledInput.checked = true;
       delete slugInput.dataset.userEdited;
-      feedback.textContent = "Inbound API created.";
+      typeInputs[0].checked = true;
+      syncCreateModalType("incoming");
+      feedback.textContent = apiResourceTypes[selectedType].successMessage;
       feedback.className = "api-form-feedback api-form-feedback--success";
-      closeModal();
-      setAlert("Inbound API created. Store the generated bearer token now; it will not be shown again.", "success");
+      closeCreateModal();
+      setAlert(apiResourceTypes[selectedType].alertMessage, "success");
+      emitApiLog({
+        action: `${selectedType}_created`,
+        message: `Created ${selectedType} "${created.name}".`,
+        details: {
+          type: selectedType,
+          apiId: created.id,
+          pathSlug: created.path_slug,
+          enabled: created.enabled
+        }
+      });
+
+      if (selectedType !== "incoming" || !hasOverviewElements()) {
+        navigateToResourcePage(selectedType);
+      }
     } catch (error) {
       feedback.textContent = error.message;
       feedback.className = "api-form-feedback api-form-feedback--error";
+      emitApiLog({
+        level: "error",
+        action: `${selectedType}_create_failed`,
+        message: `Failed to create ${selectedType}.`,
+        details: {
+          error: error.message,
+          type: selectedType,
+          attemptedName: payload.name,
+          attemptedSlug: payload.path_slug
+        }
+      });
     }
   });
 };
 
+const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => {
+  if (!container || !emptyState) {
+    return;
+  }
+
+  container.textContent = "";
+  emptyState.hidden = entries.length > 0;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  entries.forEach((entry, index) => {
+    const card = document.createElement("article");
+    card.id = `${sectionIdPrefix}-card-${entry.id}`;
+    card.className = "resource-card";
+    card.innerHTML = `
+      <div id="${sectionIdPrefix}-header-${entry.id}" class="resource-card__header">
+        <div id="${sectionIdPrefix}-copy-${entry.id}">
+          <h4 id="${sectionIdPrefix}-title-${entry.id}" class="resource-card__title">${escapeHtml(entry.name)}</h4>
+          <p id="${sectionIdPrefix}-description-${entry.id}" class="resource-card__description">${escapeHtml(entry.description || "No description provided.")}</p>
+        </div>
+        <span id="${sectionIdPrefix}-status-${entry.id}" class="status-badge ${entry.enabled ? "status-badge--success" : "status-badge--muted"}">${entry.enabled ? "Enabled" : "Disabled"}</span>
+      </div>
+      <div id="${sectionIdPrefix}-meta-${entry.id}" class="resource-card__meta">
+        <div id="${sectionIdPrefix}-meta-type-${index}" class="resource-card__meta-item">
+          <span id="${sectionIdPrefix}-meta-type-label-${index}" class="resource-card__meta-label">Type</span>
+          <span id="${sectionIdPrefix}-meta-type-value-${index}" class="resource-card__meta-value">${escapeHtml(entry.type)}</span>
+        </div>
+        <div id="${sectionIdPrefix}-meta-path-${index}" class="resource-card__meta-item">
+          <span id="${sectionIdPrefix}-meta-path-label-${index}" class="resource-card__meta-label">Row slug</span>
+          <span id="${sectionIdPrefix}-meta-path-value-${index}" class="resource-card__meta-value">${escapeHtml(entry.path_slug)}</span>
+        </div>
+        <div id="${sectionIdPrefix}-meta-created-${index}" class="resource-card__meta-item">
+          <span id="${sectionIdPrefix}-meta-created-label-${index}" class="resource-card__meta-label">Created</span>
+          <span id="${sectionIdPrefix}-meta-created-value-${index}" class="resource-card__meta-value">${escapeHtml(formatDateTime(entry.created_at))}</span>
+        </div>
+      </div>
+    `;
+    fragment.appendChild(card);
+  });
+
+  container.appendChild(fragment);
+};
+
+const renderOverviewIncomingList = (entries) => {
+  if (!apiElements.overviewIncomingList || !apiElements.overviewIncomingEmpty) {
+    return;
+  }
+
+  apiElements.overviewIncomingList.textContent = "";
+  apiElements.overviewIncomingEmpty.hidden = entries.length > 0;
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  entries.forEach((entry) => {
+    const card = document.createElement("article");
+    card.id = `apis-overview-incoming-card-${entry.id}`;
+    card.className = "resource-card";
+    card.innerHTML = `
+      <div id="apis-overview-incoming-header-${entry.id}" class="resource-card__header">
+        <div id="apis-overview-incoming-copy-${entry.id}">
+          <h4 id="apis-overview-incoming-title-${entry.id}" class="resource-card__title">${escapeHtml(entry.name)}</h4>
+          <p id="apis-overview-incoming-copy-text-${entry.id}" class="resource-card__description">${escapeHtml(entry.description || "No description provided.")}</p>
+        </div>
+        <span id="apis-overview-incoming-status-${entry.id}" class="status-badge ${entry.enabled ? "status-badge--success" : "status-badge--muted"}">${entry.enabled ? "Enabled" : "Disabled"}</span>
+      </div>
+      <div id="apis-overview-incoming-meta-${entry.id}" class="resource-card__meta">
+        <div id="apis-overview-incoming-meta-endpoint-${entry.id}" class="resource-card__meta-item">
+          <span id="apis-overview-incoming-meta-endpoint-label-${entry.id}" class="resource-card__meta-label">Endpoint</span>
+          <span id="apis-overview-incoming-meta-endpoint-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(entry.endpoint_path || `/api/v1/inbound/${entry.id}`)}</span>
+        </div>
+        <div id="apis-overview-incoming-meta-last-received-${entry.id}" class="resource-card__meta-item">
+          <span id="apis-overview-incoming-meta-last-received-label-${entry.id}" class="resource-card__meta-label">Last received</span>
+          <span id="apis-overview-incoming-meta-last-received-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(formatDateTime(entry.last_received_at))}</span>
+        </div>
+        <div id="apis-overview-incoming-meta-result-${entry.id}" class="resource-card__meta-item">
+          <span id="apis-overview-incoming-meta-result-label-${entry.id}" class="resource-card__meta-label">Recent result</span>
+          <span id="apis-overview-incoming-meta-result-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(entry.last_delivery_status || "No deliveries")}</span>
+        </div>
+      </div>
+    `;
+    fragment.appendChild(card);
+  });
+
+  apiElements.overviewIncomingList.appendChild(fragment);
+};
+
+const syncOverviewLandingSummary = ({ incomingEntries, outgoingEntries, webhookEntries }) => {
+  if (!hasOverviewLandingElements()) {
+    return;
+  }
+
+  const totalCount = incomingEntries.length + outgoingEntries.length + webhookEntries.length;
+  apiElements.overviewTotalCount.textContent = `${totalCount} configured APIs`;
+  apiElements.overviewHelper.textContent = totalCount > 0
+    ? "Open any registry below to review the full configured API inventory."
+    : "Create an API to add it to the incoming, outgoing, or webhook registry.";
+  apiElements.overviewIncomingCount.textContent = String(incomingEntries.length);
+  apiElements.overviewOutgoingCount.textContent = String(outgoingEntries.length);
+  apiElements.overviewWebhooksCount.textContent = String(webhookEntries.length);
+};
+
+const loadOverviewLanding = async () => {
+  if (!hasOverviewLandingElements()) {
+    return;
+  }
+
+  const [incomingEntries, scheduledEntries, continuousEntries, webhookEntries] = await Promise.all([
+    backendApi.list(),
+    backendApi.listOutgoingScheduled(),
+    backendApi.listOutgoingContinuous(),
+    backendApi.listWebhooks()
+  ]);
+
+  const sortedIncomingEntries = [...incomingEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  const outgoingEntries = [...scheduledEntries, ...continuousEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  const sortedWebhookEntries = [...webhookEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+
+  renderOverviewIncomingList(sortedIncomingEntries);
+  renderResourceList(apiElements.overviewOutgoingList, apiElements.overviewOutgoingEmpty, outgoingEntries, "apis-overview-outgoing-list");
+  renderResourceList(apiElements.overviewWebhooksList, apiElements.overviewWebhooksEmpty, sortedWebhookEntries, "apis-overview-webhooks-list");
+  syncOverviewLandingSummary({
+    incomingEntries: sortedIncomingEntries,
+    outgoingEntries,
+    webhookEntries: sortedWebhookEntries
+  });
+  setAlert("", "info");
+};
+
+const loadOutgoingRegistries = async () => {
+  if (!hasOutgoingRegistryElements()) {
+    return;
+  }
+
+  const [scheduledEntries, continuousEntries] = await Promise.all([
+    backendApi.listOutgoingScheduled(),
+    backendApi.listOutgoingContinuous()
+  ]);
+  apiState.outgoingEntries = [...scheduledEntries, ...continuousEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  renderResourceList(apiElements.outgoingList, apiElements.outgoingListEmpty, apiState.outgoingEntries, "apis-outgoing-list");
+};
+
+const loadWebhookRegistry = async () => {
+  if (!hasWebhookRegistryElements()) {
+    return;
+  }
+
+  apiState.webhookEntries = await backendApi.listWebhooks();
+  renderResourceList(apiElements.webhooksList, apiElements.webhooksListEmpty, apiState.webhookEntries, "apis-webhooks-list");
+};
+
 const bindDetailActions = () => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
   apiElements.rotateSecretButton.addEventListener("click", async () => {
     if (!apiState.selectedApiId) {
       return;
     }
 
     try {
-      const rotated = await getApiClient().rotateSecret(apiState.selectedApiId);
+      const rotated = await backendApi.rotateSecret(apiState.selectedApiId);
       apiState.lastSecretByApiId[apiState.selectedApiId] = rotated.secret;
       await loadApiDirectory();
       await loadApiDetail(apiState.selectedApiId);
       setAlert("Bearer secret rotated. Update external callers to use the new token.", "success");
+      emitApiLog({
+        action: "inbound_api_secret_rotated",
+        message: "Rotated inbound API bearer secret.",
+        details: {
+          apiId: apiState.selectedApiId
+        }
+      });
     } catch (error) {
       setAlert(error.message, "error");
+      emitApiLog({
+        level: "error",
+        action: "inbound_api_secret_rotate_failed",
+        message: "Failed to rotate inbound API bearer secret.",
+        details: {
+          apiId: apiState.selectedApiId,
+          error: error.message
+        }
+      });
     }
   });
 
@@ -696,63 +1073,148 @@ const bindDetailActions = () => {
     }
 
     try {
-      await getApiClient().update(entry.id, { enabled: !entry.enabled });
+      await backendApi.update(entry.id, { enabled: !entry.enabled });
       await loadApiDirectory();
       await loadApiDetail(entry.id);
       setAlert(entry.enabled ? "Inbound API disabled." : "Inbound API enabled.", "success");
+      emitApiLog({
+        action: entry.enabled ? "inbound_api_disabled" : "inbound_api_enabled",
+        message: `${entry.enabled ? "Disabled" : "Enabled"} inbound API "${entry.name}".`,
+        details: {
+          apiId: entry.id,
+          enabled: !entry.enabled
+        }
+      });
     } catch (error) {
       setAlert(error.message, "error");
+      emitApiLog({
+        level: "error",
+        action: "inbound_api_toggle_failed",
+        message: "Failed to update inbound API status.",
+        details: {
+          apiId: entry.id,
+          error: error.message
+        }
+      });
     }
   });
 };
 
 const initModalMarkup = async () => {
-  if (!apiElements.modalContent) {
+  if (!hasCreateModalElements()) {
     return;
   }
 
   try {
-    const response = await fetch("modals/create-api-modal.html");
+    const response = await fetch(new URL("../modals/create-api-modal.html", window.location.href));
 
     if (!response.ok) {
       throw new Error("Unable to load modal template.");
     }
 
-    apiElements.modalContent.innerHTML = await response.text();
+    apiElements.createModalContent.innerHTML = await response.text();
   } catch {
-    apiElements.modalContent.innerHTML = modalFallbackMarkup;
+    apiElements.createModalContent.innerHTML = modalFallbackMarkup;
   }
 
   bindCreateForm();
 };
 
-const initApiPage = async () => {
-  if (!apiElements.modal || !apiElements.modalContent || !apiElements.openButton) {
+const initCreateModal = async () => {
+  bindModalEvents();
+
+  if (!hasCreateModalElements()) {
     return;
   }
 
-  if (developerModeEnabled()) {
-    seedMockData();
+  await initModalMarkup();
+};
+
+const initApiOverview = async () => {
+  if (!hasOverviewElements()) {
+    return;
   }
 
-  bindModalEvents();
   bindDetailActions();
-  await initModalMarkup();
 
   try {
     await loadApiDirectory();
-    setAlert(apiState.useMockData ? "Developer mode data is active." : "", "info");
+    setAlert(
+      developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
+      "info"
+    );
   } catch (error) {
-    if (developerModeEnabled()) {
-      apiState.useMockData = true;
-      setAlert("Backend unavailable. Showing developer-mode sample data from session storage.", "warning");
-      await loadApiDirectory();
-      return;
-    }
-
     setAlert("Unable to load inbound APIs. Start the FastAPI service and refresh the page.", "error");
     renderDetail(null);
+    emitApiLog({
+      level: "error",
+      action: "inbound_api_load_failed",
+      message: "Unable to load inbound APIs from the backend.",
+      details: {
+        error: error.message
+      }
+    });
   }
+};
+
+const initOutgoingRegistry = async () => {
+  if (!hasOutgoingRegistryElements()) {
+    return;
+  }
+
+  try {
+    await loadOutgoingRegistries();
+  } catch (error) {
+    emitApiLog({
+      level: "error",
+      action: "outgoing_api_load_failed",
+      message: "Unable to load outgoing APIs from the backend.",
+      details: {
+        error: error.message
+      }
+    });
+  }
+};
+
+const initWebhookRegistry = async () => {
+  if (!hasWebhookRegistryElements()) {
+    return;
+  }
+
+  try {
+    await loadWebhookRegistry();
+  } catch (error) {
+    emitApiLog({
+      level: "error",
+      action: "webhook_load_failed",
+      message: "Unable to load webhooks from the backend.",
+      details: {
+        error: error.message
+      }
+    });
+  }
+};
+
+const initApiPage = async () => {
+  await initCreateModal();
+  if (hasOverviewLandingElements()) {
+    try {
+      await loadOverviewLanding();
+    } catch (error) {
+      setAlert("Unable to load API overview. Start the FastAPI service and refresh the page.", "error");
+      emitApiLog({
+        level: "error",
+        action: "api_overview_load_failed",
+        message: "Unable to load API overview registries from the backend.",
+        details: {
+          error: error.message
+        }
+      });
+    }
+  }
+  await initApiOverview();
+  await initOutgoingRegistry();
+  await initWebhookRegistry();
 };
 
 initApiPage();

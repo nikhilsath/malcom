@@ -18,6 +18,36 @@
   <div class="modal__body modal__body--form" id="create-api-modal-body">
     <form id="create-api-form" class="api-form">
       <div id="create-api-form-grid" class="api-form-grid">
+        <fieldset id="create-api-type-field" class="api-form-field api-form-field--full api-type-tabs">
+          <legend id="create-api-type-label" class="api-form-label">API type</legend>
+          <div id="create-api-type-options" class="api-type-tabs__list">
+            <label id="create-api-type-option-incoming" class="api-type-tab">
+              <input id="create-api-type-input-incoming" class="api-type-tab__input" name="resourceType" type="radio" value="incoming" checked>
+              <span id="create-api-type-copy-incoming" class="api-type-tab__label">
+                <span id="create-api-type-title-incoming" class="api-type-tab__title">Incoming</span>
+              </span>
+            </label>
+            <label id="create-api-type-option-outgoing-scheduled" class="api-type-tab">
+              <input id="create-api-type-input-outgoing-scheduled" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_scheduled">
+              <span id="create-api-type-copy-outgoing-scheduled" class="api-type-tab__label">
+                <span id="create-api-type-title-outgoing-scheduled" class="api-type-tab__title">Outgoing (scheduled)</span>
+              </span>
+            </label>
+            <label id="create-api-type-option-outgoing-continuous" class="api-type-tab">
+              <input id="create-api-type-input-outgoing-continuous" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_continuous">
+              <span id="create-api-type-copy-outgoing-continuous" class="api-type-tab__label">
+                <span id="create-api-type-title-outgoing-continuous" class="api-type-tab__title">Outgoing (continuous)</span>
+              </span>
+            </label>
+            <label id="create-api-type-option-webhook" class="api-type-tab">
+              <input id="create-api-type-input-webhook" class="api-type-tab__input" name="resourceType" type="radio" value="webhook">
+              <span id="create-api-type-copy-webhook" class="api-type-tab__label">
+                <span id="create-api-type-title-webhook" class="api-type-tab__title">Webhook</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
         <label id="create-api-name-field" class="api-form-field">
           <span id="create-api-name-label" class="api-form-label">Name</span>
           <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>

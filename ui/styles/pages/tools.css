@@ -1,0 +1,76 @@
+.tools-selection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.tools-selection-status {
+  min-width: 220px;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tool-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 20px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tool-card:hover {
+  border-color: var(--primary-soft);
+  box-shadow: var(--primary-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.tool-card:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.tool-card--selected {
+  border-color: var(--primary);
+  background: var(--surface-accent);
+  box-shadow: var(--primary-shadow-md);
+}
+
+.tool-card__badge {
+  font-weight: 600;
+}
+
+.tool-card__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.selected-tools-summary {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.selected-tools-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .tools-selection-status {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
+}

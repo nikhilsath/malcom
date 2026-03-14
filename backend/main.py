@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -8,11 +9,13 @@ import sqlite3
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.database import DEFAULT_DB_PATH, connect, fetch_all, fetch_one, initialize
@@ -20,8 +23,41 @@ from backend.runtime import RuntimeTrigger, runtime_event_bus
 from backend.tool_registry import get_project_root, update_tool_metadata, write_tools_manifest
 
 
+INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
+INBOUND_SECRET_BYTES = 32
+
+
 def utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def get_ui_dir(root_dir: Path) -> Path:
+    return root_dir / "ui"
+
+
+def get_ui_dist_dir(root_dir: Path) -> Path:
+    return get_ui_dir(root_dir) / "dist"
+
+
+def ensure_built_ui(root_dir: Path) -> None:
+    dist_dir = get_ui_dist_dir(root_dir)
+    required_paths = [
+        dist_dir / "index.html",
+        dist_dir / "dashboard" / "overview.html",
+        dist_dir / "assets",
+    ]
+    missing_paths = [path for path in required_paths if not path.exists()]
+
+    if missing_paths:
+        missing_display = ", ".join(str(path.relative_to(root_dir)) for path in missing_paths)
+        raise RuntimeError(
+            "Built UI assets are missing. Run './malcom' or 'npm run build' in 'ui/' before starting the backend. "
+            f"Missing: {missing_display}"
+        )
+
+
+def get_built_ui_file(root_dir: Path, relative_path: str) -> Path:
+    return get_ui_dist_dir(root_dir) / relative_path
 
 
 def hash_secret(secret: str) -> str:
@@ -29,7 +65,12 @@ def hash_secret(secret: str) -> str:
 
 
 def generate_secret() -> str:
-    return f"malcom_{secrets.token_urlsafe(24)}"
+    encoded_secret = base64.urlsafe_b64encode(secrets.token_bytes(INBOUND_SECRET_BYTES)).decode("ascii").rstrip("=")
+    return f"{INBOUND_SECRET_PREFIX}{encoded_secret}"
+
+
+def developer_mode_enabled(request: Request) -> bool:
+    return request.headers.get("x-developer-mode", "").lower() == "true"
 
 
 def header_subset(headers: Any) -> dict[str, str]:
@@ -58,6 +99,164 @@ def row_to_api_summary(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def seed_developer_mock_data(connection: sqlite3.Connection) -> None:
+    existing_row = fetch_one(
+        connection,
+        "SELECT id FROM inbound_apis WHERE is_mock = 1 LIMIT 1",
+    )
+
+    if existing_row is not None:
+        return
+
+    now = utc_now_iso()
+    # Developer mode keeps a fixed token so local UI verification remains deterministic.
+    # Production inbound APIs always use generate_secret().
+    secret = "malcom_dev_demo_token"
+    connection.execute(
+        """
+        INSERT INTO inbound_apis (
+            id,
+            name,
+            description,
+            path_slug,
+            auth_type,
+            secret_hash,
+            is_mock,
+            enabled,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "demo_webhook",
+            "Demo Webhook",
+            "Seeded developer-mode endpoint for local UI verification.",
+            "demo-webhook",
+            "bearer",
+            hash_secret(secret),
+            1,
+            1,
+            now,
+            now,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO inbound_api_events (
+            event_id,
+            api_id,
+            received_at,
+            status,
+            request_headers_subset,
+            payload_json,
+            source_ip,
+            error_message,
+            is_mock
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "evt_demo001",
+            "demo_webhook",
+            now,
+            "accepted",
+            json.dumps(
+                {
+                    "content-type": "application/json",
+                    "user-agent": "developer-mode",
+                }
+            ),
+            json.dumps(
+                {
+                    "source": "developer-mode",
+                    "ok": True,
+                }
+            ),
+            "127.0.0.1",
+            None,
+            1,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO outgoing_scheduled_apis (
+            id,
+            name,
+            description,
+            path_slug,
+            is_mock,
+            enabled,
+            schedule_expression,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "scheduled_demo_push",
+            "Scheduled Demo Push",
+            "Runs every hour in developer mode.",
+            "scheduled-demo-push",
+            1,
+            1,
+            "0 * * * *",
+            now,
+            now,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO outgoing_continuous_apis (
+            id,
+            name,
+            description,
+            path_slug,
+            is_mock,
+            enabled,
+            stream_mode,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "continuous_demo_stream",
+            "Continuous Demo Stream",
+            "Always-on outbound developer-mode stream.",
+            "continuous-demo-stream",
+            1,
+            1,
+            "continuous",
+            now,
+            now,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO webhook_apis (
+            id,
+            name,
+            description,
+            path_slug,
+            is_mock,
+            enabled,
+            delivery_mode,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "webhook_demo_registry",
+            "Demo Webhook Registry",
+            "Developer-mode webhook definition.",
+            "webhook-demo-registry",
+            1,
+            1,
+            "webhook",
+            now,
+            now,
+        ),
+    )
+    connection.commit()
+
+
 def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     payload_json = row["payload_json"]
     return {
@@ -72,6 +271,92 @@ def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def row_to_simple_api_resource(
+    row: sqlite3.Row,
+    *,
+    api_type: str,
+    endpoint_path: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "type": api_type,
+        "name": row["name"],
+        "description": row["description"],
+        "path_slug": row["path_slug"],
+        "enabled": bool(row["enabled"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "endpoint_path": endpoint_path,
+    }
+
+
+DEFAULT_APP_SETTINGS: dict[str, Any] = {
+    "general": {
+        "environment": "staging",
+        "timezone": "local",
+        "preview_mode": True,
+    },
+    "logging": {
+        "max_stored_entries": 250,
+        "max_visible_entries": 50,
+        "max_detail_characters": 4000,
+    },
+    "notifications": {
+        "channel": "slack",
+        "digest": "hourly",
+        "escalate_oncall": True,
+    },
+    "security": {
+        "session_timeout_minutes": 30,
+        "dual_approval_required": True,
+        "token_rotation_days": 90,
+    },
+    "data": {
+        "payload_redaction": True,
+        "export_window_utc": "02:00",
+        "audit_retention_days": 365,
+    },
+}
+
+
+def get_default_settings() -> dict[str, Any]:
+    return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
+
+
+def seed_default_settings(connection: sqlite3.Connection) -> None:
+    now = utc_now_iso()
+
+    for key, value in get_default_settings().items():
+        connection.execute(
+            """
+            INSERT INTO settings (key, value_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(key) DO NOTHING
+            """,
+            (key, json.dumps(value), now, now),
+        )
+
+    connection.commit()
+
+
+def get_settings_payload(connection: sqlite3.Connection) -> dict[str, Any]:
+    settings = get_default_settings()
+    rows = fetch_all(
+        connection,
+        """
+        SELECT key, value_json
+        FROM settings
+        """,
+    )
+
+    for row in rows:
+        if row["key"] not in settings:
+            continue
+        settings[row["key"]] = json.loads(row["value_json"])
+
+    return settings
+
+
 class InboundApiCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(default="", max_length=500)
@@ -84,6 +369,28 @@ class InboundApiUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=500)
     path_slug: str | None = Field(default=None, min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     enabled: bool | None = None
+
+
+class ApiResourceCreate(BaseModel):
+    type: str = Field(pattern=r"^(incoming|outgoing_scheduled|outgoing_continuous|webhook)$")
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=500)
+    path_slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    enabled: bool = True
+
+
+class ApiResourceResponse(BaseModel):
+    id: str
+    type: str
+    name: str
+    description: str
+    path_slug: str
+    enabled: bool
+    created_at: str
+    updated_at: str
+    endpoint_path: str | None = None
+    endpoint_url: str | None = None
+    secret: str | None = None
 
 
 class InboundReceiveAccepted(BaseModel):
@@ -136,11 +443,60 @@ class ToolMetadataUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
 
 
+class GeneralSettings(BaseModel):
+    environment: str = Field(pattern=r"^(staging|production|lab)$")
+    timezone: str = Field(pattern=r"^(utc|local|ops)$")
+    preview_mode: bool
+
+
+class LoggingSettings(BaseModel):
+    max_stored_entries: int = Field(ge=50, le=5000)
+    max_visible_entries: int = Field(ge=10, le=500)
+    max_detail_characters: int = Field(ge=500, le=20000)
+
+
+class NotificationSettings(BaseModel):
+    channel: str = Field(pattern=r"^(email|slack|pager)$")
+    digest: str = Field(pattern=r"^(realtime|hourly|daily)$")
+    escalate_oncall: bool
+
+
+class SecuritySettings(BaseModel):
+    session_timeout_minutes: int = Field(ge=15, le=60)
+    dual_approval_required: bool
+    token_rotation_days: Literal[30, 60, 90]
+
+
+class DataSettings(BaseModel):
+    payload_redaction: bool
+    export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
+    audit_retention_days: Literal[30, 90, 365]
+
+
+class AppSettingsResponse(BaseModel):
+    general: GeneralSettings
+    logging: LoggingSettings
+    notifications: NotificationSettings
+    security: SecuritySettings
+    data: DataSettings
+
+
+class AppSettingsUpdate(BaseModel):
+    general: GeneralSettings | None = None
+    logging: LoggingSettings | None = None
+    notifications: NotificationSettings | None = None
+    security: SecuritySettings | None = None
+    data: DataSettings | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     connection = connect(Path(app.state.db_path))
     initialize(connection)
+    seed_developer_mock_data(connection)
+    seed_default_settings(connection)
     write_tools_manifest(Path(app.state.root_dir), connection)
+    ensure_built_ui(Path(app.state.root_dir))
     app.state.connection = connection
     try:
         yield
@@ -158,6 +514,81 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/assets", StaticFiles(directory=str(get_ui_dist_dir(get_project_root()) / "assets"), check_dir=False), name="ui-assets")
+app.mount("/scripts", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "scripts"), check_dir=False), name="ui-scripts")
+app.mount("/modals", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "modals"), check_dir=False), name="ui-modals")
+
+
+UI_HTML_ROUTES = {
+    "/": "index.html",
+    "/index.html": "index.html",
+    "/settings.html": "settings.html",
+    "/apis.html": "apis.html",
+    "/tools.html": "tools.html",
+    "/apis/overview.html": "apis/overview.html",
+    "/apis/incoming.html": "apis/incoming.html",
+    "/apis/outgoing.html": "apis/outgoing.html",
+    "/apis/webhooks.html": "apis/webhooks.html",
+    "/tools/overview.html": "tools/overview.html",
+    "/tools/sftp.html": "tools/sftp.html",
+    "/tools/storage.html": "tools/storage.html",
+    "/dashboard/overview.html": "dashboard/overview.html",
+}
+
+
+def get_ui_html_response(relative_path: str, request: Request) -> FileResponse:
+    root_dir = get_root_dir(request)
+    ensure_built_ui(root_dir)
+    html_path = get_built_ui_file(root_dir, relative_path)
+
+    if not html_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UI page not found.")
+
+    return FileResponse(html_path)
+
+
+def build_ui_route(relative_path: str):
+    def serve_ui_route(request: Request) -> FileResponse:
+        return get_ui_html_response(relative_path, request)
+
+    return serve_ui_route
+
+
+@app.get("/dashboard")
+@app.get("/dashboard/")
+def redirect_dashboard_root() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/overview.html")
+
+
+@app.get("/dashboard/devices.html")
+def redirect_dashboard_devices() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/overview.html#/devices")
+
+
+@app.get("/dashboard/logs.html")
+def redirect_dashboard_logs() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/overview.html#/logs")
+
+
+@app.get("/apis")
+@app.get("/apis/")
+def redirect_apis_root() -> RedirectResponse:
+    return RedirectResponse(url="/apis/overview.html")
+
+
+@app.get("/tools")
+@app.get("/tools/")
+def redirect_tools_root() -> RedirectResponse:
+    return RedirectResponse(url="/tools/overview.html")
+
+
+for route_path, relative_path in UI_HTML_ROUTES.items():
+    app.add_api_route(
+        route_path,
+        build_ui_route(relative_path),
+        methods=["GET"],
+        include_in_schema=False,
+    )
 
 
 def get_connection(request: Request) -> sqlite3.Connection:
@@ -168,7 +599,7 @@ def get_root_dir(request: Request) -> Path:
     return Path(request.app.state.root_dir)
 
 
-def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
+def get_api_or_404(connection: sqlite3.Connection, api_id: str, *, include_mock: bool = True) -> sqlite3.Row:
     row = fetch_one(
         connection,
         """
@@ -195,8 +626,9 @@ def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
             ) AS last_delivery_status
         FROM inbound_apis
         WHERE id = ?
+        AND (? = 1 OR inbound_apis.is_mock = 0)
         """,
-        (api_id,),
+        (api_id, int(include_mock)),
     )
 
     if row is None:
@@ -206,22 +638,49 @@ def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
 
 
 def serialize_api_detail(connection: sqlite3.Connection, api_id: str, request: Request) -> InboundApiDetail:
-    api_row = get_api_or_404(connection, api_id)
+    api_row = get_api_or_404(connection, api_id, include_mock=developer_mode_enabled(request))
     event_rows = fetch_all(
         connection,
         """
         SELECT event_id, api_id, received_at, status, request_headers_subset, payload_json, source_ip, error_message
         FROM inbound_api_events
         WHERE api_id = ?
+        AND (? = 1 OR is_mock = 0)
         ORDER BY received_at DESC
         LIMIT 20
         """,
-        (api_id,),
+        (api_id, int(developer_mode_enabled(request))),
     )
     detail = row_to_api_summary(api_row)
     detail["endpoint_url"] = str(request.base_url).rstrip("/") + detail["endpoint_path"]
     detail["events"] = [row_to_event(row) for row in event_rows]
     return InboundApiDetail(**detail)
+
+
+def get_resource_config(resource_type: str) -> dict[str, str]:
+    configs = {
+        "incoming": {
+            "table": "inbound_apis",
+            "id_prefix": "inbound",
+            "path_prefix": "/api/v1/inbound",
+        },
+        "outgoing_scheduled": {
+            "table": "outgoing_scheduled_apis",
+            "id_prefix": "outgoing_scheduled",
+            "path_prefix": "/api/v1/outgoing/scheduled",
+        },
+        "outgoing_continuous": {
+            "table": "outgoing_continuous_apis",
+            "id_prefix": "outgoing_continuous",
+            "path_prefix": "/api/v1/outgoing/continuous",
+        },
+        "webhook": {
+            "table": "webhook_apis",
+            "id_prefix": "webhook",
+            "path_prefix": "/api/v1/webhooks",
+        },
+    }
+    return configs[resource_type]
 
 
 def log_event(
@@ -235,6 +694,7 @@ def log_event(
     payload: Any,
     source_ip: str | None,
     error_message: str | None,
+    is_mock: bool = False,
 ) -> None:
     connection.execute(
         """
@@ -246,8 +706,9 @@ def log_event(
             request_headers_subset,
             payload_json,
             source_ip,
-            error_message
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            error_message,
+            is_mock
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             event_id,
@@ -258,6 +719,7 @@ def log_event(
             json.dumps(payload) if payload is not None else None,
             source_ip,
             error_message,
+            int(is_mock),
         ),
     )
     connection.commit()
@@ -268,28 +730,66 @@ def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/v1/settings", response_model=AppSettingsResponse)
+def get_app_settings(request: Request) -> AppSettingsResponse:
+    payload = get_settings_payload(get_connection(request))
+    return AppSettingsResponse(**payload)
+
+
+@app.patch("/api/v1/settings", response_model=AppSettingsResponse)
+def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSettingsResponse:
+    connection = get_connection(request)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if not changes:
+        return AppSettingsResponse(**get_settings_payload(connection))
+
+    now = utc_now_iso()
+
+    for key, value in changes.items():
+        connection.execute(
+            """
+            INSERT INTO settings (key, value_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value_json = excluded.value_json,
+                updated_at = excluded.updated_at
+            """
+            ,
+            (key, json.dumps(value), now, now),
+        )
+
+    connection.commit()
+    return AppSettingsResponse(**get_settings_payload(connection))
+
+
 @app.get("/api/v1/inbound", response_model=list[InboundApiResponse])
 def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
     connection = get_connection(request)
+    include_mock = developer_mode_enabled(request)
     rows = fetch_all(
         connection,
         """
         SELECT
             inbound_apis.*,
-            COUNT(inbound_api_events.event_id) AS events_count,
-            MAX(inbound_api_events.received_at) AS last_received_at,
+            COUNT(CASE WHEN ? = 1 OR inbound_api_events.is_mock = 0 THEN inbound_api_events.event_id END) AS events_count,
+            MAX(CASE WHEN ? = 1 OR inbound_api_events.is_mock = 0 THEN inbound_api_events.received_at END) AS last_received_at,
             (
                 SELECT status
                 FROM inbound_api_events AS latest_events
                 WHERE latest_events.api_id = inbound_apis.id
+                AND (? = 1 OR latest_events.is_mock = 0)
                 ORDER BY latest_events.received_at DESC
                 LIMIT 1
             ) AS last_delivery_status
         FROM inbound_apis
         LEFT JOIN inbound_api_events ON inbound_api_events.api_id = inbound_apis.id
+        WHERE (? = 1 OR inbound_apis.is_mock = 0)
         GROUP BY inbound_apis.id
         ORDER BY inbound_apis.created_at DESC
         """
+        ,
+        (int(include_mock), int(include_mock), int(include_mock), int(include_mock)),
     )
     return [InboundApiResponse(**row_to_api_summary(row)) for row in rows]
 
@@ -311,10 +811,11 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
                 path_slug,
                 auth_type,
                 secret_hash,
+                is_mock,
                 enabled,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 api_id,
@@ -323,6 +824,7 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
                 payload.path_slug,
                 "bearer",
                 hash_secret(secret),
+                0,
                 int(payload.enabled),
                 now,
                 now,
@@ -338,6 +840,209 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
     return InboundApiCreated(**created)
 
 
+@app.get("/api/v1/outgoing/scheduled", response_model=list[ApiResourceResponse])
+def list_outgoing_scheduled_apis(request: Request) -> list[ApiResourceResponse]:
+    connection = get_connection(request)
+    include_mock = developer_mode_enabled(request)
+    rows = fetch_all(
+        connection,
+        """
+        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        FROM outgoing_scheduled_apis
+        WHERE (? = 1 OR is_mock = 0)
+        ORDER BY created_at DESC
+        """,
+        (int(include_mock),),
+    )
+    return [
+        ApiResourceResponse(**row_to_simple_api_resource(row, api_type="outgoing_scheduled", endpoint_path="/api/v1/outgoing/scheduled"))
+        for row in rows
+    ]
+
+
+@app.get("/api/v1/outgoing/continuous", response_model=list[ApiResourceResponse])
+def list_outgoing_continuous_apis(request: Request) -> list[ApiResourceResponse]:
+    connection = get_connection(request)
+    include_mock = developer_mode_enabled(request)
+    rows = fetch_all(
+        connection,
+        """
+        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        FROM outgoing_continuous_apis
+        WHERE (? = 1 OR is_mock = 0)
+        ORDER BY created_at DESC
+        """,
+        (int(include_mock),),
+    )
+    return [
+        ApiResourceResponse(**row_to_simple_api_resource(row, api_type="outgoing_continuous", endpoint_path="/api/v1/outgoing/continuous"))
+        for row in rows
+    ]
+
+
+@app.get("/api/v1/webhooks", response_model=list[ApiResourceResponse])
+def list_webhook_apis(request: Request) -> list[ApiResourceResponse]:
+    connection = get_connection(request)
+    include_mock = developer_mode_enabled(request)
+    rows = fetch_all(
+        connection,
+        """
+        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        FROM webhook_apis
+        WHERE (? = 1 OR is_mock = 0)
+        ORDER BY created_at DESC
+        """,
+        (int(include_mock),),
+    )
+    return [
+        ApiResourceResponse(**row_to_simple_api_resource(row, api_type="webhook", endpoint_path="/api/v1/webhooks"))
+        for row in rows
+    ]
+
+
+@app.post("/api/v1/apis", response_model=ApiResourceResponse, status_code=status.HTTP_201_CREATED)
+def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiResourceResponse:
+    connection = get_connection(request)
+    now = utc_now_iso()
+    config = get_resource_config(payload.type)
+    api_id = payload.path_slug.replace("-", "_") + "_" + uuid4().hex[:6]
+
+    try:
+        if payload.type == "incoming":
+            secret = generate_secret()
+            connection.execute(
+                """
+                INSERT INTO inbound_apis (
+                    id,
+                    name,
+                    description,
+                    path_slug,
+                    auth_type,
+                    secret_hash,
+                    is_mock,
+                    enabled,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    api_id,
+                    payload.name,
+                    payload.description,
+                    payload.path_slug,
+                    "bearer",
+                    hash_secret(secret),
+                    0,
+                    int(payload.enabled),
+                    now,
+                    now,
+                ),
+            )
+        elif payload.type == "outgoing_scheduled":
+            connection.execute(
+                """
+                INSERT INTO outgoing_scheduled_apis (
+                    id,
+                    name,
+                    description,
+                    path_slug,
+                    is_mock,
+                    enabled,
+                    schedule_expression,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    api_id,
+                    payload.name,
+                    payload.description,
+                    payload.path_slug,
+                    0,
+                    int(payload.enabled),
+                    "0 * * * *",
+                    now,
+                    now,
+                ),
+            )
+        elif payload.type == "outgoing_continuous":
+            connection.execute(
+                """
+                INSERT INTO outgoing_continuous_apis (
+                    id,
+                    name,
+                    description,
+                    path_slug,
+                    is_mock,
+                    enabled,
+                    stream_mode,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    api_id,
+                    payload.name,
+                    payload.description,
+                    payload.path_slug,
+                    0,
+                    int(payload.enabled),
+                    "continuous",
+                    now,
+                    now,
+                ),
+            )
+        else:
+            connection.execute(
+                """
+                INSERT INTO webhook_apis (
+                    id,
+                    name,
+                    description,
+                    path_slug,
+                    is_mock,
+                    enabled,
+                    delivery_mode,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    api_id,
+                    payload.name,
+                    payload.description,
+                    payload.path_slug,
+                    0,
+                    int(payload.enabled),
+                    "webhook",
+                    now,
+                    now,
+                ),
+            )
+        connection.commit()
+    except sqlite3.IntegrityError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+
+    row = fetch_one(
+        connection,
+        f"""
+        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        FROM {config['table']}
+        WHERE id = ?
+        """,
+        (api_id,),
+    )
+    assert row is not None
+    endpoint_path = config["path_prefix"] if payload.type != "incoming" else f"/api/v1/inbound/{api_id}"
+    resource = row_to_simple_api_resource(row, api_type=payload.type, endpoint_path=endpoint_path)
+    resource["endpoint_url"] = str(request.base_url).rstrip("/") + endpoint_path
+
+    if payload.type == "incoming":
+        resource["secret"] = secret
+
+    return ApiResourceResponse(**resource)
+
+
 @app.get("/api/v1/inbound/{api_id}", response_model=InboundApiDetail)
 def get_inbound_api(api_id: str, request: Request) -> InboundApiDetail:
     connection = get_connection(request)
@@ -347,7 +1052,7 @@ def get_inbound_api(api_id: str, request: Request) -> InboundApiDetail:
 @app.patch("/api/v1/inbound/{api_id}", response_model=InboundApiResponse)
 def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
-    current = get_api_or_404(connection, api_id)
+    current = get_api_or_404(connection, api_id, include_mock=True)
     changes = payload.model_dump(exclude_unset=True)
 
     if not changes:
@@ -380,7 +1085,7 @@ def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request)
 @app.post("/api/v1/inbound/{api_id}/rotate-secret", response_model=InboundSecretResponse)
 def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretResponse:
     connection = get_connection(request)
-    api_row = get_api_or_404(connection, api_id)
+    api_row = get_api_or_404(connection, api_id, include_mock=True)
     secret = generate_secret()
     connection.execute(
         "UPDATE inbound_apis SET secret_hash = ?, updated_at = ? WHERE id = ?",
@@ -397,7 +1102,7 @@ def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretRes
 @app.post("/api/v1/inbound/{api_id}/disable", response_model=InboundApiResponse)
 def disable_inbound_api(api_id: str, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
-    get_api_or_404(connection, api_id)
+    get_api_or_404(connection, api_id, include_mock=True)
     connection.execute(
         "UPDATE inbound_apis SET enabled = 0, updated_at = ? WHERE id = ?",
         (utc_now_iso(), api_id),
@@ -436,7 +1141,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     received_at = utc_now_iso()
     headers = header_subset(request.headers)
     source_ip = request.client.host if request.client else None
-    api_row = get_api_or_404(connection, api_id)
+    api_row = get_api_or_404(connection, api_id, include_mock=True)
 
     if not api_row["enabled"]:
         log_event(
@@ -449,6 +1154,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Inbound API is disabled.",
+            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inbound API is disabled.")
 
@@ -466,6 +1172,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Missing bearer token.",
+            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token.")
 
@@ -481,6 +1188,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Invalid bearer token.",
+            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid bearer token.")
 
@@ -495,6 +1203,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Only application/json is supported.",
+            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Only application/json is supported.")
 
@@ -511,6 +1220,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message=str(error),
+            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid JSON payload.") from error
 
@@ -524,6 +1234,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
         payload=payload,
         source_ip=source_ip,
         error_message=None,
+        is_mock=bool(api_row["is_mock"]),
     )
 
     trigger = RuntimeTrigger(
