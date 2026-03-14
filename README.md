@@ -116,9 +116,9 @@ SQLite database used for:
 
 ## Frontend
 
-* React
-* Tailwind CSS
-* Radix / primitive UI components
+* Static HTML (current bootstrap UI)
+
+The UI has been reset to a minimal static `index.html` starter page with stable element IDs and simple navigation.
 
 ## Runtime Management
 

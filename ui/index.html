@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Malcom UI</title>
   </head>
-  <body id="app-body" class="bg-slate-50">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+  <body id="app-body">
+    <header id="app-header">
+      <h1 id="app-title">hello world</h1>
+    </header>
+
+    <nav id="primary-navigation" aria-label="Primary navigation">
+      <ul id="primary-navigation-list">
+        <li id="primary-navigation-item-dashboard"><a id="primary-navigation-link-dashboard" href="#">Dashboard</a></li>
+        <li id="primary-navigation-item-agents"><a id="primary-navigation-link-agents" href="#">Agents</a></li>
+        <li id="primary-navigation-item-runs"><a id="primary-navigation-link-runs" href="#">Runs</a></li>
+      </ul>
+    </nav>
   </body>
 </html>
