@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Top Navigation</title>
+    <title>Malcom - Tools</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-900">
     <div id="topnav" class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
@@ -31,13 +31,23 @@
         </div>
     </div>
 
+    <div class="ml-64 pt-16">
+        <main class="p-8">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4" id="page-title">Tools</h2>
+                <p class="text-gray-600 mb-8" id="page-description">Manage local and external tools connected to the automation engine.</p>
+                <div id="main-content" class="bg-white shadow rounded-lg p-6">
+                    <p>Tool configuration and utilities will appear here.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
     <script>
-        // Simple toggle for developer mode (session storage)
         const checkbox = document.getElementById('developer-mode-checkbox');
         const slider = document.getElementById('developer-mode-slider');
         const knob = document.getElementById('developer-mode-knob');
 
-        // Load initial state
         const initialState = sessionStorage.getItem('developerMode') === 'true';
         checkbox.checked = initialState;
         if (initialState) {
@@ -45,7 +55,6 @@
             knob.classList.add('translate-x-5');
         }
 
-        // Toggle handler
         checkbox.addEventListener('change', () => {
             const isChecked = checkbox.checked;
             sessionStorage.setItem('developerMode', isChecked);

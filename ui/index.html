@@ -11,11 +11,15 @@
     <div id="topnav" class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
+                <div class="flex items-center space-x-6">
                     <h1 class="text-xl font-semibold text-gray-900" id="project-title">Malcom</h1>
+                    <nav class="flex items-center space-x-4" id="topnav-primary">
+                        <a href="index.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-dashboard">Dashboard</a>
+                        <a href="apis.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-apis">APIs</a>
+                        <a href="tools.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-tools">Tools</a>
+                    </nav>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm text-gray-600" id="system-status">System Status: Online</div>
+                <div class="flex items-center" id="dev-mode-area">
                     <label class="flex items-center space-x-2 cursor-pointer" id="developer-mode-toggle">
                         <input type="checkbox" class="sr-only" id="developer-mode-checkbox">
                         <div class="w-10 h-5 bg-gray-300 rounded-full relative transition-colors" id="developer-mode-slider">
