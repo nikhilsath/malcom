@@ -4,28 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Malcom - Local Automation Middleware</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles/styles.css">
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="app-shell">
     <!-- Top Navigation -->
-    <div id="topnav" class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center space-x-6">
-                    <h1 class="text-xl font-semibold text-gray-900" id="project-title">Malcom</h1>
-                    <nav class="flex items-center space-x-4" id="topnav-primary">
-                        <a href="index.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-dashboard">Dashboard</a>
-                        <a href="apis.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-apis">APIs</a>
-                        <a href="tools.html" class="text-sm text-gray-700 hover:text-gray-900" id="nav-tools">Tools</a>
+    <div id="topnav" class="topnav">
+        <div class="container">
+            <div class="topnav__inner">
+                <div id="project-brand" class="topnav__brand project-brand">
+                    <img src="./assets/malcom-icon.svg" alt="Malcom icon" id="project-icon" class="project-icon">
+                    <h1 class="topnav__title" id="project-title">Malcom</h1>
+                    <nav class="topnav__nav" id="topnav-primary">
+                        <a href="index.html" id="nav-dashboard" aria-current="page">Dashboard</a>
+                        <a href="apis.html" id="nav-apis">APIs</a>
+                        <a href="tools.html" id="nav-tools">Tools</a>
                     </nav>
                 </div>
-                <div class="flex items-center" id="dev-mode-area">
-                    <label class="flex items-center space-x-2 cursor-pointer" id="developer-mode-toggle">
+                <div class="topnav__dev" id="dev-mode-area">
+                    <label class="toggle" id="developer-mode-toggle">
                         <input type="checkbox" class="sr-only" id="developer-mode-checkbox">
-                        <div class="w-10 h-5 bg-gray-300 rounded-full relative transition-colors" id="developer-mode-slider">
-                            <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform" id="developer-mode-knob"></div>
+                        <div class="toggle__slider" id="developer-mode-slider" aria-hidden="true">
+                            <div class="toggle__knob" id="developer-mode-knob" aria-hidden="true"></div>
                         </div>
-                        <span class="text-sm text-gray-700">Developer Mode</span>
+                        <span class="toggle__label">Developer Mode</span>
                     </label>
                 </div>
             </div>
@@ -33,64 +34,55 @@
     </div>
 
     <!-- Sidebar Navigation -->
-    <div id="sidenav" class="bg-white shadow-sm w-64 h-screen fixed left-0 top-16 border-r border-gray-200">
-        <nav class="mt-8">
-            <ul class="space-y-2 px-4">
+    <aside id="sidenav" class="sidenav">
+        <nav class="sidenav__nav" id="sidebar-navigation">
+            <ul class="sidenav__list">
                 <li>
-                    <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md" id="nav-automations">Automations</a>
+                    <a href="#" class="sidenav__link" id="nav-automations">Automations</a>
                 </li>
                 <li>
-                    <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md" id="nav-runs">Runs</a>
+                    <a href="#" class="sidenav__link" id="nav-runs">Runs</a>
                 </li>
                 <li>
-                    <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md" id="nav-connectors">Connectors</a>
+                    <a href="#" class="sidenav__link" id="nav-connectors">Connectors</a>
                 </li>
                 <li>
-                    <a href="#" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md" id="nav-settings">Settings</a>
+                    <a href="#" class="sidenav__link" id="nav-settings">Settings</a>
                 </li>
             </ul>
         </nav>
-    </div>
+    </aside>
 
     <!-- Main Content -->
-    <div class="ml-64 pt-16">
-        <main class="p-8">
-            <div class="max-w-7xl mx-auto">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4" id="page-title">Dashboard</h2>
-                <p class="text-gray-600 mb-8" id="page-description">Welcome to the Malcom automation middleware. Manage your local automations here.</p>
-                <!-- Main content area for tables, lists, etc. -->
-                <div id="main-content" class="bg-white shadow rounded-lg p-6">
-                    <p>Content will be loaded here based on navigation.</p>
-                </div>
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header">
+                <h2 class="page-title" id="page-title">Dashboard</h2>
+                <p class="page-description" id="page-description">Welcome to the Malcom automation middleware. Manage your local automations here.</p>
             </div>
-        </main>
-    </div>
+            <!-- Main content area for tables, lists, etc. -->
+            <section id="main-content" class="card">
+                <p>Content will be loaded here based on navigation.</p>
+            </section>
+        </div>
+    </main>
 
     <script>
-        // Simple toggle for developer mode (session storage)
+        const toggle = document.getElementById('developer-mode-toggle');
         const checkbox = document.getElementById('developer-mode-checkbox');
-        const slider = document.getElementById('developer-mode-slider');
-        const knob = document.getElementById('developer-mode-knob');
-
-        // Load initial state
         const initialState = sessionStorage.getItem('developerMode') === 'true';
-        checkbox.checked = initialState;
-        if (initialState) {
-            slider.classList.add('bg-blue-500');
-            knob.classList.add('translate-x-5');
-        }
 
-        // Toggle handler
+        const updateToggleState = (isEnabled) => {
+            toggle.classList.toggle('toggle--on', isEnabled);
+        };
+
+        checkbox.checked = initialState;
+        updateToggleState(initialState);
+
         checkbox.addEventListener('change', () => {
-            const isChecked = checkbox.checked;
-            sessionStorage.setItem('developerMode', isChecked);
-            if (isChecked) {
-                slider.classList.add('bg-blue-500');
-                knob.classList.add('translate-x-5');
-            } else {
-                slider.classList.remove('bg-blue-500');
-                knob.classList.remove('translate-x-5');
-            }
+            const isEnabled = checkbox.checked;
+            sessionStorage.setItem('developerMode', String(isEnabled));
+            updateToggleState(isEnabled);
         });
     </script>
 </body>

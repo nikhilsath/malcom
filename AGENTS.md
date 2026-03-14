@@ -65,3 +65,16 @@ Avoid missing, random, or transient IDs for interactive or structural UI element
 
 ---
 
+### 4. Store Media In The Media Section
+
+For any new UI media added to this project, place the files in the designated **media section** and reference them from there.
+
+Specifically:
+
+- use `ui/media/` for images, icons, illustrations, and similar static media
+- do **not** create or use alternative folders such as `ui/assets/` for new media files
+- when updating existing UI markup, prefer media paths that clearly reflect this convention
+
+This rule exists to keep static resources predictable and prevent media from being scattered across multiple folders.
+
+---
