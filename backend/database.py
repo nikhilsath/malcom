@@ -97,6 +97,30 @@ def initialize(connection: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS automation_runs (
+            run_id TEXT PRIMARY KEY,
+            automation_id TEXT NOT NULL,
+            trigger_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            duration_ms INTEGER,
+            error_summary TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS automation_run_steps (
+            step_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES automation_runs(run_id) ON DELETE CASCADE,
+            step_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            request_summary TEXT,
+            response_summary TEXT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            duration_ms INTEGER,
+            detail_json TEXT
+        );
         """
     )
     _ensure_column(connection, "inbound_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")

@@ -271,6 +271,35 @@ def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+
+
+def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "run_id": row["run_id"],
+        "automation_id": row["automation_id"],
+        "trigger_type": row["trigger_type"],
+        "status": row["status"],
+        "started_at": row["started_at"],
+        "finished_at": row["finished_at"],
+        "duration_ms": row["duration_ms"],
+        "error_summary": row["error_summary"],
+    }
+
+
+def row_to_run_step(row: sqlite3.Row) -> dict[str, Any]:
+    detail_json = row["detail_json"]
+    return {
+        "step_id": row["step_id"],
+        "run_id": row["run_id"],
+        "step_name": row["step_name"],
+        "status": row["status"],
+        "request_summary": row["request_summary"],
+        "response_summary": row["response_summary"],
+        "started_at": row["started_at"],
+        "finished_at": row["finished_at"],
+        "duration_ms": row["duration_ms"],
+        "detail_json": json.loads(detail_json) if detail_json else None,
+    }
 def row_to_simple_api_resource(
     row: sqlite3.Row,
     *,
@@ -432,6 +461,34 @@ class InboundApiDetail(InboundApiResponse):
     events: list[dict[str, Any]]
 
 
+
+
+class AutomationRunStepResponse(BaseModel):
+    step_id: str
+    run_id: str
+    step_name: str
+    status: str
+    request_summary: str | None
+    response_summary: str | None
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+    detail_json: dict[str, Any] | None
+
+
+class AutomationRunResponse(BaseModel):
+    run_id: str
+    automation_id: str
+    trigger_type: str
+    status: str
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+    error_summary: str | None
+
+
+class AutomationRunDetailResponse(AutomationRunResponse):
+    steps: list[AutomationRunStepResponse]
 class ToolMetadataResponse(BaseModel):
     id: str
     name: str
@@ -736,6 +793,134 @@ def log_event(
     connection.commit()
 
 
+
+
+def calculate_duration_ms(started_at: str, finished_at: str) -> int:
+    started = datetime.fromisoformat(started_at)
+    finished = datetime.fromisoformat(finished_at)
+    return max(int((finished - started).total_seconds() * 1000), 0)
+
+
+def create_automation_run(
+    connection: sqlite3.Connection,
+    *,
+    run_id: str,
+    automation_id: str,
+    trigger_type: str,
+    status_value: str,
+    started_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO automation_runs (
+            run_id,
+            automation_id,
+            trigger_type,
+            status,
+            started_at,
+            finished_at,
+            duration_ms,
+            error_summary
+        ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+        """,
+        (run_id, automation_id, trigger_type, status_value, started_at),
+    )
+    connection.commit()
+
+
+def create_automation_run_step(
+    connection: sqlite3.Connection,
+    *,
+    step_id: str,
+    run_id: str,
+    step_name: str,
+    status_value: str,
+    request_summary: str | None,
+    started_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO automation_run_steps (
+            step_id,
+            run_id,
+            step_name,
+            status,
+            request_summary,
+            response_summary,
+            started_at,
+            finished_at,
+            duration_ms,
+            detail_json
+        ) VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL)
+        """,
+        (step_id, run_id, step_name, status_value, request_summary, started_at),
+    )
+    connection.commit()
+
+
+def finalize_automation_run_step(
+    connection: sqlite3.Connection,
+    *,
+    step_id: str,
+    status_value: str,
+    response_summary: str | None,
+    detail: dict[str, Any] | None,
+    finished_at: str,
+) -> None:
+    step_row = fetch_one(connection, "SELECT started_at FROM automation_run_steps WHERE step_id = ?", (step_id,))
+
+    if step_row is None:
+        return
+
+    duration_ms = calculate_duration_ms(step_row["started_at"], finished_at)
+    connection.execute(
+        """
+        UPDATE automation_run_steps
+        SET status = ?,
+            response_summary = ?,
+            finished_at = ?,
+            duration_ms = ?,
+            detail_json = ?
+        WHERE step_id = ?
+        """,
+        (
+            status_value,
+            response_summary,
+            finished_at,
+            duration_ms,
+            json.dumps(detail) if detail is not None else None,
+            step_id,
+        ),
+    )
+    connection.commit()
+
+
+def finalize_automation_run(
+    connection: sqlite3.Connection,
+    *,
+    run_id: str,
+    status_value: str,
+    error_summary: str | None,
+    finished_at: str,
+) -> None:
+    run_row = fetch_one(connection, "SELECT started_at FROM automation_runs WHERE run_id = ?", (run_id,))
+
+    if run_row is None:
+        return
+
+    duration_ms = calculate_duration_ms(run_row["started_at"], finished_at)
+    connection.execute(
+        """
+        UPDATE automation_runs
+        SET status = ?,
+            finished_at = ?,
+            duration_ms = ?,
+            error_summary = ?
+        WHERE run_id = ?
+        """,
+        (status_value, finished_at, duration_ms, error_summary, run_id),
+    )
+    connection.commit()
 @app.get("/health")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
@@ -1255,7 +1440,45 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
         payload=payload,
         received_at=received_at,
     )
+
+    run_id = f"run_{uuid4().hex}"
+    step_id = f"step_{uuid4().hex}"
+    create_automation_run(
+        connection,
+        run_id=run_id,
+        automation_id=api_id,
+        trigger_type=trigger.type,
+        status_value="running",
+        started_at=received_at,
+    )
+    create_automation_run_step(
+        connection,
+        step_id=step_id,
+        run_id=run_id,
+        step_name="emit_runtime_trigger",
+        status_value="running",
+        request_summary=f"event_id={event_id}",
+        started_at=received_at,
+    )
+
+    finished_at = utc_now_iso()
     runtime_event_bus.emit(trigger)
+    finalize_automation_run_step(
+        connection,
+        step_id=step_id,
+        status_value="completed",
+        response_summary="Trigger emitted to runtime event bus.",
+        detail={"event_id": event_id, "api_id": api_id},
+        finished_at=finished_at,
+    )
+    finalize_automation_run(
+        connection,
+        run_id=run_id,
+        status_value="completed",
+        error_summary=None,
+        finished_at=finished_at,
+    )
+
     response.headers["X-Malcom-Event-Id"] = event_id
     return InboundReceiveAccepted(
         status="accepted",
@@ -1270,6 +1493,106 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     )
 
 
+
+
+@app.get("/api/v1/runs", response_model=list[AutomationRunResponse])
+def list_automation_runs(
+    request: Request,
+    status: str | None = None,
+    automation_id: str | None = None,
+    started_after: str | None = None,
+    started_before: str | None = None,
+) -> list[AutomationRunResponse]:
+    connection = get_connection(request)
+    where_clauses: list[str] = []
+    params: list[Any] = []
+
+    if status is not None:
+        where_clauses.append("status = ?")
+        params.append(status)
+
+    if automation_id is not None:
+        where_clauses.append("automation_id = ?")
+        params.append(automation_id)
+
+    if started_after is not None:
+        where_clauses.append("started_at >= ?")
+        params.append(started_after)
+
+    if started_before is not None:
+        where_clauses.append("started_at <= ?")
+        params.append(started_before)
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    rows = fetch_all(
+        connection,
+        f"""
+        SELECT
+            run_id,
+            automation_id,
+            trigger_type,
+            status,
+            started_at,
+            finished_at,
+            duration_ms,
+            error_summary
+        FROM automation_runs
+        {where_sql}
+        ORDER BY started_at DESC
+        """,
+        tuple(params),
+    )
+    return [AutomationRunResponse(**row_to_run(row)) for row in rows]
+
+
+@app.get("/api/v1/runs/{run_id}", response_model=AutomationRunDetailResponse)
+def get_automation_run(run_id: str, request: Request) -> AutomationRunDetailResponse:
+    connection = get_connection(request)
+    run_row = fetch_one(
+        connection,
+        """
+        SELECT
+            run_id,
+            automation_id,
+            trigger_type,
+            status,
+            started_at,
+            finished_at,
+            duration_ms,
+            error_summary
+        FROM automation_runs
+        WHERE run_id = ?
+        """,
+        (run_id,),
+    )
+
+    if run_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Automation run not found.")
+
+    step_rows = fetch_all(
+        connection,
+        """
+        SELECT
+            step_id,
+            run_id,
+            step_name,
+            status,
+            request_summary,
+            response_summary,
+            started_at,
+            finished_at,
+            duration_ms,
+            detail_json
+        FROM automation_run_steps
+        WHERE run_id = ?
+        ORDER BY started_at ASC
+        """,
+        (run_id,),
+    )
+
+    detail = row_to_run(run_row)
+    detail["steps"] = [row_to_run_step(step_row) for step_row in step_rows]
+    return AutomationRunDetailResponse(**detail)
 @app.get("/api/v1/runtime/triggers")
 def list_runtime_triggers() -> list[dict[str, Any]]:
     return [
