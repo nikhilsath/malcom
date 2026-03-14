@@ -167,6 +167,8 @@ const apiState = {
   webhookEntries: []
 };
 
+const developerModeEnabled = () => window.Malcom?.developerModeEnabled?.() ?? false;
+
 const emitApiLog = ({
   level = "info",
   action,
@@ -1123,7 +1125,7 @@ const initApiOverview = async () => {
   try {
     await loadApiDirectory();
     setAlert(
-      window.developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
+      developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
       "info"
     );
   } catch (error) {

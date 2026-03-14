@@ -25,6 +25,12 @@ export const topNavItems = [
     section: "tools"
   },
   {
+    id: "nav-scripts",
+    label: "Scripts",
+    href: "scripts/library.html",
+    section: "scripts"
+  },
+  {
     id: "nav-settings",
     label: "Settings",
     href: "settings/general.html",
@@ -92,6 +98,13 @@ export const shellSections = {
         href: "apis/webhooks.html",
         pageTitle: "API Webhooks",
         description: "Manage webhook endpoints, subscriptions, and verification expectations."
+      },
+      {
+        id: "sidenav-apis-automation",
+        label: "Automation",
+        href: "apis/automation.html",
+        pageTitle: "API Automation",
+        description: "Configure automated workflows and integrations."
       }
     ],
     footer: {
@@ -129,6 +142,18 @@ export const shellSections = {
         href: "tools/storage.html",
         pageTitle: "Storage Tools",
         description: "Inspect storage-oriented tools, mounted targets, and persistence workflows."
+      }
+    ]
+  },
+  scripts: {
+    id: "scripts",
+    items: [
+      {
+        id: "sidenav-scripts-library",
+        label: "Library",
+        href: "scripts/library.html",
+        pageTitle: "Script Library",
+        description: "Manage and organize your automation scripts."
       }
     ]
   },

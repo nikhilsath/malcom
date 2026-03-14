@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Script Library</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="scripts" data-sidenav-item="sidenav-scripts-library" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="scripts-library-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Script Library</h2>
+                <p class="page-description section-header__description--page" id="page-description">Manage and organize your automation scripts</p>
+            </div>
+            <section id="scripts-library-content" class="card script-workspace">
+                <div id="scripts-library-copy" class="section-header script-library-header">
+                    <div id="scripts-library-copy-block" class="section-header__copy script-library-copy">
+                        <p id="scripts-library-eyebrow" class="section-header__eyebrow script-library-eyebrow">Script Management</p>
+                        <h3 id="scripts-library-content-title" class="section-header__title script-library-title">Organize and maintain your collection of scripts</h3>
+                        <p id="scripts-library-content-copy" class="section-header__description script-library-description">Browse, edit, and manage scripts used in automations, integrations, and workflows.</p>
+                    </div>
+                </div>
+
+                <div id="script-library-alert" class="script-system-alert" hidden></div>
+
+                <div id="scripts-library-scripts" class="script-library-scripts">
+                    <p>Scripts will be listed here.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/shell-config.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+</body>
+</html>

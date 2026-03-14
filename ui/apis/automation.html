@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - API Automation</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-automation" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="apis-automation-header">
+                <h2 class="page-title section-header__title--page" id="page-title">API Automation</h2>
+                <p class="page-description section-header__description--page" id="page-description">Configure automated workflows and integrations</p>
+            </div>
+            <section id="apis-automation-content" class="card api-workspace">
+                <div id="apis-automation-copy" class="section-header api-automation-header">
+                    <div id="apis-automation-copy-block" class="section-header__copy api-automation-copy">
+                        <p id="apis-automation-eyebrow" class="section-header__eyebrow api-automation-eyebrow">Automation Workflows</p>
+                        <h3 id="apis-automation-content-title" class="section-header__title api-automation-title">Manage automated processes and integrations</h3>
+                        <p id="apis-automation-content-copy" class="section-header__description api-automation-description">Set up and monitor automated workflows that connect APIs, process data, and trigger actions based on events.</p>
+                    </div>
+                </div>
+
+                <div id="api-automation-alert" class="api-system-alert" hidden></div>
+
+                <div id="apis-automation-workflows" class="api-automation-workflows">
+                    <p>Automation workflows will be listed here.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/shell-config.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+</body>
+</html>
