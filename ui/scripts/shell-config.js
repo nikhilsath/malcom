@@ -27,7 +27,7 @@ export const topNavItems = [
   {
     id: "nav-scripts",
     label: "Scripts",
-    href: "scripts/library.html",
+    href: "scripts.html",
     section: "scripts"
   },
   {
