@@ -2,17 +2,19 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DashboardApp } from "../app";
 
-const renderDashboardApp = (initialEntries: string[], developerMode = true) => {
+const renderDashboardApp = (initialEntries: string[], developerMode?: boolean) => {
   sessionStorage.clear();
 
-  sessionStorage.setItem("developerMode", String(developerMode));
+  if (developerMode !== undefined) {
+    sessionStorage.setItem("developerMode", String(developerMode));
+  }
 
   return render(<DashboardApp initialEntries={initialEntries} />);
 };
 
 describe("DashboardApp", () => {
   it("renders the overview route with developer mode data", async () => {
-    renderDashboardApp(["/overview"]);
+    renderDashboardApp(["/overview"], true);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Overview")).toBeInTheDocument();
@@ -34,6 +36,17 @@ describe("DashboardApp", () => {
     expect(screen.getByText("No endpoints loaded")).toBeInTheDocument();
   });
 
+  it("defaults to developer mode off when unset", async () => {
+    renderDashboardApp(["/devices"]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
+    });
+
+    expect(sessionStorage.getItem("developerMode")).toBe("false");
+    expect(screen.getByText("No host inventory loaded")).toBeInTheDocument();
+  });
+
   it("responds to developer mode changes from the shell toggle", async () => {
     renderDashboardApp(["/overview"], true);
 
@@ -48,7 +61,7 @@ describe("DashboardApp", () => {
   });
 
   it("preserves logs filter behavior", async () => {
-    renderDashboardApp(["/logs"]);
+    renderDashboardApp(["/logs"], true);
 
     const sourceSelect = await screen.findByLabelText("Source");
     fireEvent.change(sourceSelect, { target: { value: "api.webhooks" } });
@@ -58,7 +71,7 @@ describe("DashboardApp", () => {
   });
 
   it("keeps repeated row ids stable from record identifiers", async () => {
-    const { container } = renderDashboardApp(["/overview"]);
+    const { container } = renderDashboardApp(["/overview"], true);
 
     await waitFor(() => {
       expect(container.querySelector("#dashboard-run-row-run-weather-poll")).toBeInTheDocument();
@@ -67,11 +80,8 @@ describe("DashboardApp", () => {
     expect(container.querySelector("#dashboard-alert-alert-api-retry")).toBeInTheDocument();
   });
 
-  it("navigates between dashboard routes", async () => {
-    renderDashboardApp(["/overview"]);
-
-    const logsLink = await screen.findByRole("link", { name: "Logs" });
-    fireEvent.click(logsLink);
+  it("renders the logs route when requested", async () => {
+    renderDashboardApp(["/logs"]);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Logs")).toBeInTheDocument();

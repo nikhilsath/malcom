@@ -278,6 +278,14 @@ const setAlert = (message, tone = "info") => {
   apiElements.alert.className = `api-system-alert api-system-alert--${tone}`;
 };
 
+const normalizeError = (error) => {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+
+  return { message: String(error), stack: undefined };
+};
+
 const resolvePageHref = (absolutePath) => {
   const relativePath = absolutePath.startsWith("/ui/") ? absolutePath.slice(3) : absolutePath;
   return new URL(`..${relativePath}`, window.location.href).href;
@@ -320,13 +328,13 @@ const backendApi = {
     });
   },
   async listOutgoingScheduled() {
-    return window.requestJson("/api/v1/outgoing/scheduled");
+    return window.Malcom?.requestJson?.("/api/v1/outgoing/scheduled");
   },
   async listOutgoingContinuous() {
-    return window.requestJson("/api/v1/outgoing/continuous");
+    return window.Malcom?.requestJson?.("/api/v1/outgoing/continuous");
   },
   async listWebhooks() {
-    return window.requestJson("/api/v1/webhooks");
+    return window.Malcom?.requestJson?.("/api/v1/webhooks");
   }
 };
 
@@ -804,14 +812,17 @@ const bindCreateForm = () => {
         navigateToResourcePage(selectedType);
       }
     } catch (error) {
-      feedback.textContent = error.message;
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      console.error(`Failed to create ${selectedType}`, error);
+      feedback.textContent = errorMessage;
       feedback.className = "api-form-feedback api-form-feedback--error";
       emitApiLog({
         level: "error",
         action: `${selectedType}_create_failed`,
         message: `Failed to create ${selectedType}.`,
         details: {
-          error: error.message,
+          error: errorMessage,
+          stack: errorStack,
           type: selectedType,
           attemptedName: payload.name,
           attemptedSlug: payload.path_slug
@@ -1007,14 +1018,17 @@ const bindDetailActions = () => {
         }
       });
     } catch (error) {
-      setAlert(error.message, "error");
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      console.error("Failed to rotate inbound API bearer secret", error);
+      setAlert(errorMessage, "error");
       emitApiLog({
         level: "error",
         action: "inbound_api_secret_rotate_failed",
         message: "Failed to rotate inbound API bearer secret.",
         details: {
           apiId: apiState.selectedApiId,
-          error: error.message
+          error: errorMessage,
+          stack: errorStack
         }
       });
     }
@@ -1041,14 +1055,17 @@ const bindDetailActions = () => {
         }
       });
     } catch (error) {
-      setAlert(error.message, "error");
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      console.error("Failed to update inbound API status", error);
+      setAlert(errorMessage, "error");
       emitApiLog({
         level: "error",
         action: "inbound_api_toggle_failed",
         message: "Failed to update inbound API status.",
         details: {
           apiId: entry.id,
-          error: error.message
+          error: errorMessage,
+          stack: errorStack
         }
       });
     }
@@ -1068,7 +1085,18 @@ const initModalMarkup = async () => {
     }
 
     apiElements.createModalContent.innerHTML = await response.text();
-  } catch {
+  } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Failed to load create API modal template", error);
+    emitApiLog({
+      level: "error",
+      action: "modal_template_load_failed",
+      message: "Unable to load create API modal template.",
+      details: {
+        error: errorMessage,
+        stack: errorStack
+      }
+    });
     apiElements.createModalContent.innerHTML = modalFallbackMarkup;
   }
 
@@ -1099,6 +1127,8 @@ const initApiOverview = async () => {
       "info"
     );
   } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Unable to load inbound APIs", error);
     setAlert("Unable to load inbound APIs. Start the FastAPI service and refresh the page.", "error");
     renderDetail(null);
     emitApiLog({
@@ -1106,7 +1136,8 @@ const initApiOverview = async () => {
       action: "inbound_api_load_failed",
       message: "Unable to load inbound APIs from the backend.",
       details: {
-        error: error.message
+        error: errorMessage,
+        stack: errorStack
       }
     });
   }
@@ -1120,12 +1151,15 @@ const initOutgoingRegistry = async () => {
   try {
     await loadOutgoingRegistries();
   } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Unable to load outgoing APIs", error);
     emitApiLog({
       level: "error",
       action: "outgoing_api_load_failed",
       message: "Unable to load outgoing APIs from the backend.",
       details: {
-        error: error.message
+        error: errorMessage,
+        stack: errorStack
       }
     });
   }
@@ -1139,12 +1173,15 @@ const initWebhookRegistry = async () => {
   try {
     await loadWebhookRegistry();
   } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Unable to load webhooks", error);
     emitApiLog({
       level: "error",
       action: "webhook_load_failed",
       message: "Unable to load webhooks from the backend.",
       details: {
-        error: error.message
+        error: errorMessage,
+        stack: errorStack
       }
     });
   }
@@ -1156,13 +1193,16 @@ const initApiPage = async () => {
     try {
       await loadOverviewLanding();
     } catch (error) {
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      console.error("Unable to load API overview", error);
       setAlert("Unable to load API overview. Start the FastAPI service and refresh the page.", "error");
       emitApiLog({
         level: "error",
         action: "api_overview_load_failed",
         message: "Unable to load API overview registries from the backend.",
         details: {
-          error: error.message
+          error: errorMessage,
+          stack: errorStack
         }
       });
     }

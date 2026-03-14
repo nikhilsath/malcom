@@ -146,8 +146,9 @@ export const isDeveloperModeEnabled = () => {
   const storedValue = sessionStorage.getItem(developerModeStorageKey);
 
   if (storedValue === null) {
-    sessionStorage.setItem(developerModeStorageKey, "true");
-    return true;
+    // Default developer mode to off for new sessions.
+    sessionStorage.setItem(developerModeStorageKey, "false");
+    return false;
   }
 
   return storedValue === "true";
