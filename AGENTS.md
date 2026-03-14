@@ -1,84 +1,50 @@
-# AGENTS.md
+# agents.md
 
 ## Purpose
 
-Agents represent automated actors capable of executing workflows, running tasks, or interacting with external systems.
+Agents are automated workers that execute tasks within the middleware system.
 
-The middleware may eventually coordinate multiple agents across different machines.
+They may run automations, call APIs, process responses, or coordinate with external tools.  
+Agents operate independently from the UI and interact with the system primarily through the API layer.
 
----
-
-## Agent Responsibilities
-
-Agents may be responsible for:
-
-* executing automation workflows
-* running local scripts
-* calling external APIs
-* interacting with AI tools
-* processing job queues
-
-Agents should be **stateless workers** whenever possible.
-
-Persistent state should be stored in the main system database.
+The middleware acts as the **central coordinator**, while agents perform the actual execution work.
 
 ---
 
-## Agent Types
+# Core Agent Principles
 
-### Local Runtime Agent
+Agents must follow these principles when performing work:
 
-Runs on the main MacBook server.
+### 1. Small, Testable Steps
 
-Responsibilities:
+Agents should **always execute work in small, testable steps**.
 
-* execute workflows
-* schedule jobs
-* process API responses
+Avoid large, multi-stage operations that cannot be verified incrementally.
 
----
+Instead:
 
-### Worker Agents (Future)
+- break complex tasks into smaller operations
+- validate each step before continuing
+- log intermediate results
 
-Optional future agents that run on other machines.
+Example pattern:
 
-These may handle:
-
-* CPU‑heavy work
-* AI processing
-* batch tasks
-
----
-
-## Agent Communication
-
-Agents communicate through the middleware API.
-
-Typical pattern:
-
-1. agent requests job
-2. middleware assigns task
-3. agent executes task
-4. agent returns result
+1. load configuration
+2. validate inputs
+3. perform action
+4. verify response
+5. proceed to next step
 
 ---
 
-## Reliability Rules
+### 2. Provide Testing Instructions
 
-Agents must:
+Whenever an agent performs development work or introduces new functionality, it must include:
 
-* report execution status
-* retry transient failures
-* avoid duplicate task execution
+- clear **testing instructions**
+- expected behavior
+- verification steps
 
----
+Testing instructions should allow a developer to confirm that the change works without needing deep system knowledge.
 
-## Design Principle
-
-Agents should remain:
-
-* lightweight
-* replaceable
-* independent of UI
-
-The middleware remains the central coordinator.
+Example format:
