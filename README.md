@@ -46,6 +46,12 @@ React application used for:
 
 The UI runs in a browser and is designed to later run inside a **mobile WebView wrapper**.
 
+### Developer Mode Toggle
+
+The UI includes a **Developer Mode toggle** intended for local development and QA workflows.
+
+When enabled, it uses browser storage options to seed/populate interface state so developers can quickly load realistic UI scenarios for testing without requiring live backend data.
+
 ### 2. API Layer
 
 FastAPI service responsible for:
