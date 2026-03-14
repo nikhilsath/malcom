@@ -118,7 +118,7 @@ SQLite database used for:
 
 * React
 * TypeScript (preferred for all new UI code)
-* Tailwind CSS
+* CSS with semantic classes and stable IDs
 * Radix / primitive UI components
 
 
@@ -451,7 +451,7 @@ Guidelines:
 Frontend stack assumed by this design template:
 
 * React
-* Tailwind CSS
+* CSS with semantic classes and stable IDs
 * Radix primitives / shadcn-style components
 
 This combination provides:
@@ -468,7 +468,7 @@ This combination provides:
 Based on the latest design advice, the frontend should use:
 
 - React
-- Tailwind CSS
+- CSS with semantic classes and stable IDs
 - Radix UI
 - shadcn-style component patterns
 

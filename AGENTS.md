@@ -49,9 +49,9 @@ Testing instructions should allow a developer to confirm that the change works w
 
 Example format:
 
-### 3. Require Stable Element IDs
+### 3. Require Stable Element IDs and Semantic CSS Classes
 
-For any UI-facing implementation or update, **all rendered elements must have explicit, stable `id` attributes**.
+For any UI-facing implementation or update, **all rendered elements must have explicit, stable `id` attributes** and use **semantic CSS class names**.
 
 Use IDs that are deterministic and human-readable so they can be used for:
 
@@ -59,7 +59,9 @@ Use IDs that are deterministic and human-readable so they can be used for:
 - UI testing
 - accessibility and tooling integrations
 
-Avoid missing, random, or transient IDs for interactive or structural UI elements.
+Use CSS classes that describe the purpose or structure (e.g., `.top-navigation`, `.sidebar-menu`) rather than presentation (e.g., avoid utility classes like `.bg-blue-500`).
+
+Avoid missing, random, or transient IDs for interactive or structural UI elements. Avoid overly complex or misaligned styling by using a traditional class/ID system instead of utility-first frameworks.
 
 ---
 
