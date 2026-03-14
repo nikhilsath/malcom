@@ -523,6 +523,11 @@ UI_HTML_ROUTES = {
     "/": "index.html",
     "/index.html": "index.html",
     "/settings.html": "settings.html",
+    "/settings/general.html": "settings/general.html",
+    "/settings/logging.html": "settings/logging.html",
+    "/settings/notifications.html": "settings/notifications.html",
+    "/settings/security.html": "settings/security.html",
+    "/settings/data.html": "settings/data.html",
     "/apis.html": "apis.html",
     "/tools.html": "tools.html",
     "/apis/overview.html": "apis/overview.html",
@@ -558,6 +563,12 @@ def build_ui_route(relative_path: str):
 @app.get("/dashboard/")
 def redirect_dashboard_root() -> RedirectResponse:
     return RedirectResponse(url="/dashboard/overview.html")
+
+
+@app.get("/settings")
+@app.get("/settings/")
+def redirect_settings_root() -> RedirectResponse:
+    return RedirectResponse(url="/settings/general.html")
 
 
 @app.get("/dashboard/devices.html")

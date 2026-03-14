@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Settings Data</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="data" data-sidenav-item="sidenav-settings-data" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Settings Data</h2>
+                <p class="page-description section-header__description--page" id="page-description">Set redaction, export, and audit retention defaults for stored operational data.</p>
+            </div>
+
+            <section id="settings-data-section" class="card settings-section">
+                <div id="settings-data-header" class="settings-section__header">
+                    <p id="settings-data-eyebrow" class="section-header__eyebrow">Data</p>
+                    <h3 id="settings-data-title" class="settings-card__title">Data handling</h3>
+                    <p id="settings-data-description" class="settings-card__description">Retention and export preferences typically paired with middleware audit surfaces.</p>
+                </div>
+                <form id="settings-form" class="api-form">
+                    <div id="settings-data-grid" class="settings-option-grid">
+                        <article id="settings-data-redaction-card" class="stat-card settings-option-card">
+                            <div id="settings-data-redaction-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-redaction-title" class="settings-option-card__title">Payload redaction</h4>
+                                <p id="settings-data-redaction-description" class="settings-option-card__description">Mask tokens and personally identifying values in stored event samples.</p>
+                            </div>
+                            <label id="settings-data-redaction-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-data-redaction-checkbox" checked>
+                                <div class="toggle__slider" id="settings-data-redaction-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-data-redaction-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-data-redaction-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                        <article id="settings-data-export-card" class="stat-card settings-option-card">
+                            <div id="settings-data-export-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-export-title" class="settings-option-card__title">Scheduled export window</h4>
+                                <p id="settings-data-export-description" class="settings-option-card__description">Choose when audit bundles should be prepared for downstream archival jobs.</p>
+                            </div>
+                            <select id="settings-data-export-select" class="api-form-input">
+                                <option id="settings-data-export-option-0000" value="00:00">00:00 UTC</option>
+                                <option id="settings-data-export-option-0200" value="02:00" selected>02:00 UTC</option>
+                                <option id="settings-data-export-option-0400" value="04:00">04:00 UTC</option>
+                            </select>
+                        </article>
+                        <article id="settings-data-audit-card" class="stat-card settings-option-card">
+                            <div id="settings-data-audit-copy" class="settings-option-card__copy">
+                                <h4 id="settings-data-audit-title" class="settings-option-card__title">Audit evidence retention</h4>
+                                <p id="settings-data-audit-description" class="settings-option-card__description">Define how long signed execution evidence should remain available for review.</p>
+                            </div>
+                            <select id="settings-data-audit-select" class="api-form-input">
+                                <option id="settings-data-audit-option-30" value="30">30 days</option>
+                                <option id="settings-data-audit-option-90" value="90">90 days</option>
+                                <option id="settings-data-audit-option-365" value="365" selected>365 days</option>
+                            </select>
+                        </article>
+                    </div>
+                    <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                    <div id="settings-actions" class="api-form-actions">
+                        <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                        <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/settings.js"></script>
+</body>
+</html>

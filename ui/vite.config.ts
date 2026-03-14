@@ -9,6 +9,11 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, "index.html"),
         settings: resolve(__dirname, "settings.html"),
+        settingsGeneral: resolve(__dirname, "settings/general.html"),
+        settingsLogging: resolve(__dirname, "settings/logging.html"),
+        settingsNotifications: resolve(__dirname, "settings/notifications.html"),
+        settingsSecurity: resolve(__dirname, "settings/security.html"),
+        settingsData: resolve(__dirname, "settings/data.html"),
         apis: resolve(__dirname, "apis.html"),
         tools: resolve(__dirname, "tools.html"),
         dashboardOverview: resolve(__dirname, "dashboard/overview.html"),

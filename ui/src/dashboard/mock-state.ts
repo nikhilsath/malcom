@@ -133,7 +133,7 @@ const quickLinks: DashboardQuickLink[] = [
   {
     id: "settings",
     label: "Settings",
-    href: "../settings.html",
+    href: "../settings/general.html",
     count: 2
   }
 ];

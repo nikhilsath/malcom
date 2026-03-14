@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Settings Notifications</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="notifications" data-sidenav-item="sidenav-settings-notifications" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Settings Notifications</h2>
+                <p class="page-description section-header__description--page" id="page-description">Control alert routing, digest cadence, and escalation defaults for operators.</p>
+            </div>
+
+            <section id="settings-notifications-section" class="card settings-section">
+                <div id="settings-notifications-header" class="settings-section__header">
+                    <p id="settings-notifications-eyebrow" class="section-header__eyebrow">Notifications</p>
+                    <h3 id="settings-notifications-title" class="settings-card__title">Operator alerts</h3>
+                    <p id="settings-notifications-description" class="settings-card__description">Representative settings for alert routing commonly found in internal automation consoles.</p>
+                </div>
+                <form id="settings-form" class="api-form">
+                    <div id="settings-notifications-grid" class="settings-option-grid">
+                        <article id="settings-notifications-channel-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-channel-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-channel-title" class="settings-option-card__title">Primary alert channel</h4>
+                                <p id="settings-notifications-channel-description" class="settings-option-card__description">Select where incident-grade delivery failures should surface first.</p>
+                            </div>
+                            <select id="settings-notifications-channel-select" class="api-form-input">
+                                <option id="settings-notifications-channel-option-email" value="email">Email digest</option>
+                                <option id="settings-notifications-channel-option-slack" value="slack" selected>Slack operations room</option>
+                                <option id="settings-notifications-channel-option-pager" value="pager">Pager duty queue</option>
+                            </select>
+                        </article>
+                        <article id="settings-notifications-digest-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-digest-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-digest-title" class="settings-option-card__title">Digest cadence</h4>
+                                <p id="settings-notifications-digest-description" class="settings-option-card__description">Control the default summary frequency for low-priority events.</p>
+                            </div>
+                            <select id="settings-notifications-digest-select" class="api-form-input">
+                                <option id="settings-notifications-digest-option-realtime" value="realtime">Real time</option>
+                                <option id="settings-notifications-digest-option-hourly" value="hourly" selected>Hourly</option>
+                                <option id="settings-notifications-digest-option-daily" value="daily">Daily</option>
+                            </select>
+                        </article>
+                        <article id="settings-notifications-oncall-card" class="stat-card settings-option-card">
+                            <div id="settings-notifications-oncall-copy" class="settings-option-card__copy">
+                                <h4 id="settings-notifications-oncall-title" class="settings-option-card__title">Escalate to on-call</h4>
+                                <p id="settings-notifications-oncall-description" class="settings-option-card__description">Automatically escalate failed deliveries that exceed the retry policy.</p>
+                            </div>
+                            <label id="settings-notifications-oncall-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-notifications-oncall-checkbox" checked>
+                                <div class="toggle__slider" id="settings-notifications-oncall-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-notifications-oncall-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-notifications-oncall-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                    </div>
+                    <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                    <div id="settings-actions" class="api-form-actions">
+                        <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                        <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/settings.js"></script>
+</body>
+</html>

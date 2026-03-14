@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Settings Logging</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="logging" data-sidenav-item="sidenav-settings-logging" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Settings Logging</h2>
+                <p class="page-description section-header__description--page" id="page-description">Manage log retention, visible history, and maintenance actions for the browser workspace.</p>
+            </div>
+
+            <section id="settings-logging-section" class="settings-stack">
+                <section id="settings-log-card" class="card settings-section">
+                    <div id="settings-log-header" class="settings-section__header">
+                        <p id="settings-log-eyebrow" class="section-header__eyebrow">Logging</p>
+                        <h3 id="settings-log-title" class="settings-card__title">Logging thresholds</h3>
+                        <p id="settings-log-description" class="settings-card__description">These settings are stored in the database and immediately affect the dashboard log view and future retention trimming.</p>
+                    </div>
+                    <form id="settings-form" class="api-form">
+                        <div id="settings-log-grid" class="api-form-grid">
+                            <label id="settings-log-retention-field" class="api-form-field">
+                                <span id="settings-log-retention-label" class="api-form-label">Max stored logs</span>
+                                <input id="settings-log-retention-input" class="api-form-input" type="number" min="50" max="5000" step="10" required>
+                            </label>
+                            <label id="settings-log-visible-field" class="api-form-field">
+                                <span id="settings-log-visible-label" class="api-form-label">Max visible logs</span>
+                                <input id="settings-log-visible-input" class="api-form-input" type="number" min="10" max="500" step="5" required>
+                            </label>
+                            <label id="settings-log-detail-field" class="api-form-field api-form-field--full">
+                                <span id="settings-log-detail-label" class="api-form-label">Max detail characters per panel</span>
+                                <input id="settings-log-detail-input" class="api-form-input" type="number" min="500" max="20000" step="250" required>
+                            </label>
+                        </div>
+                        <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                        <div id="settings-actions" class="api-form-actions">
+                            <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                            <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                            <button type="button" id="settings-clear-logs-button" class="button button--secondary secondary-action-button">Clear stored logs</button>
+                        </div>
+                    </form>
+                </section>
+
+                <aside id="settings-summary-card" class="card settings-section settings-section--aside">
+                    <h3 id="settings-summary-title" class="settings-card__title">Current store</h3>
+                    <p id="settings-summary-description" class="settings-card__description">Use this summary to verify that retention changes and maintenance actions applied as expected.</p>
+                    <div id="settings-summary" class="settings-summary">
+                        <div id="settings-total-item" class="stat-card settings-summary__item">
+                            <span id="settings-total-label" class="settings-summary__label">Stored logs</span>
+                            <span id="settings-log-total-value" class="settings-summary__value">0</span>
+                        </div>
+                        <div id="settings-newest-item" class="stat-card settings-summary__item">
+                            <span id="settings-newest-label" class="settings-summary__label">Newest log</span>
+                            <span id="settings-log-newest-value" class="settings-summary__value">No logs recorded</span>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </main>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/settings.js"></script>
+</body>
+</html>

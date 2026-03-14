@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Settings General</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="general" data-sidenav-item="sidenav-settings-general" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Settings General</h2>
+                <p class="page-description section-header__description--page" id="page-description">Configure workspace defaults that shape new automations and operator-facing timestamps.</p>
+            </div>
+
+            <section id="settings-general-section" class="card settings-section">
+                <div id="settings-general-header" class="settings-section__header">
+                    <p id="settings-general-eyebrow" class="section-header__eyebrow">General</p>
+                    <h3 id="settings-general-title" class="settings-card__title">Workspace defaults</h3>
+                    <p id="settings-general-description" class="settings-card__description">Baseline preferences that operators typically configure first in internal tooling.</p>
+                </div>
+                <form id="settings-form" class="api-form">
+                    <div id="settings-general-grid" class="settings-option-grid">
+                        <article id="settings-general-environment-card" class="stat-card settings-option-card">
+                            <div id="settings-general-environment-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-environment-title" class="settings-option-card__title">Default environment</h4>
+                                <p id="settings-general-environment-description" class="settings-option-card__description">Choose which runtime context new automations target by default.</p>
+                            </div>
+                            <select id="settings-general-environment-select" class="api-form-input">
+                                <option id="settings-general-environment-option-staging" value="staging" selected>Staging</option>
+                                <option id="settings-general-environment-option-production" value="production">Production</option>
+                                <option id="settings-general-environment-option-lab" value="lab">Lab</option>
+                            </select>
+                        </article>
+                        <article id="settings-general-timezone-card" class="stat-card settings-option-card">
+                            <div id="settings-general-timezone-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-timezone-title" class="settings-option-card__title">Display timezone</h4>
+                                <p id="settings-general-timezone-description" class="settings-option-card__description">Keep timestamps aligned across logs, previews, and generated schedules.</p>
+                            </div>
+                            <select id="settings-general-timezone-select" class="api-form-input">
+                                <option id="settings-general-timezone-option-utc" value="utc">UTC</option>
+                                <option id="settings-general-timezone-option-local" value="local" selected>Browser local time</option>
+                                <option id="settings-general-timezone-option-ops" value="ops">Ops control room time</option>
+                            </select>
+                        </article>
+                        <article id="settings-general-preview-card" class="stat-card settings-option-card">
+                            <div id="settings-general-preview-copy" class="settings-option-card__copy">
+                                <h4 id="settings-general-preview-title" class="settings-option-card__title">Automation preview mode</h4>
+                                <p id="settings-general-preview-description" class="settings-option-card__description">Require dry-run previews before a new workflow can be promoted.</p>
+                            </div>
+                            <label id="settings-general-preview-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input type="checkbox" class="sr-only" id="settings-general-preview-checkbox" checked>
+                                <div class="toggle__slider" id="settings-general-preview-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-general-preview-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-general-preview-label" class="toggle__label">Enabled</span>
+                            </label>
+                        </article>
+                    </div>
+                    <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                    <div id="settings-actions" class="api-form-actions">
+                        <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                        <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script src="../scripts/settings.js"></script>
+</body>
+</html>
