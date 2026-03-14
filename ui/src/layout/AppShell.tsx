@@ -10,10 +10,10 @@ export const AppShell = () => {
         <main id="app-main" className="flex-1 p-4">
           <section id="home-intro-panel" className="rounded border border-slate-200 bg-white p-4">
             <h2 id="home-intro-title" className="text-sm font-semibold text-slate-900">
-              Middleware Operations Workspace
+              Hello world
             </h2>
             <p id="home-intro-description" className="mt-2 text-sm text-slate-600">
-              Use the Developer mode switch to choose mock or live behavior for this browser session.
+              The primary navigation is available in the left sidebar.
             </p>
           </section>
         </main>

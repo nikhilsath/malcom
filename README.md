@@ -117,8 +117,12 @@ SQLite database used for:
 ## Frontend
 
 * React
+* TypeScript (preferred for all new UI code)
 * Tailwind CSS
 * Radix / primitive UI components
+
+
+For frontend development, prefer **TypeScript over JavaScript** for components, context providers, tests, and app entry points to improve safety and maintainability.
 
 ## Runtime Management
 
