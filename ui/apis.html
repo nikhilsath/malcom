@@ -6,7 +6,7 @@
     <title>Malcom - APIs</title>
     <link rel="stylesheet" href="styles/styles.css">
 </head>
-<body class="app-shell">
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-overview">
     <div id="topnav" class="topnav">
         <div class="container">
             <div class="topnav__inner">
@@ -34,45 +34,156 @@
 
     <aside id="sidenav" class="sidenav">
         <nav class="sidenav__nav" id="sidebar-navigation">
-            <ul class="sidenav__list">
-                <li><a href="#" class="sidenav__link" id="nav-automations">Automations</a></li>
-                <li><a href="#" class="sidenav__link" id="nav-runs">Runs</a></li>
-                <li><a href="#" class="sidenav__link" id="nav-connectors">Connectors</a></li>
-                <li><a href="#" class="sidenav__link" id="nav-settings">Settings</a></li>
-            </ul>
+            <ul class="sidenav__list" id="sidebar-navigation-list"></ul>
         </nav>
+        <div class="sidenav__footer" id="sidebar-footer">
+            <button
+                type="button"
+                id="apis-create-button"
+                class="sidenav__action-button"
+                aria-controls="apis-create-modal"
+                aria-haspopup="dialog"
+            >
+                Create +
+            </button>
+        </div>
     </aside>
 
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header">
                 <h2 class="page-title" id="page-title">APIs</h2>
-                <p class="page-description" id="page-description">Manage API connectors and credentials.</p>
+                <p class="page-description" id="page-description">Manage inbound webhook endpoints, secrets, and delivery logs.</p>
             </div>
-            <section id="main-content" class="card">
-                <p>API configuration and status will appear here.</p>
+            <section id="main-content" class="card api-workspace">
+                <div id="api-overview-header" class="api-overview-header">
+                    <div id="api-overview-copy" class="api-overview-copy">
+                        <p id="api-overview-eyebrow" class="api-overview-eyebrow">Inbound Webhooks</p>
+                        <h3 id="api-overview-title" class="api-overview-title">Receive authenticated JSON events from external services</h3>
+                        <p id="api-overview-description" class="api-overview-description">Each inbound API gets a stable local endpoint and a bearer secret. Accepted requests are stored and emitted to the runtime as webhook triggers.</p>
+                    </div>
+                    <div id="api-overview-status" class="api-overview-status" aria-live="polite">
+                        <span id="api-overview-count" class="api-overview-count">0 endpoints</span>
+                        <span id="api-overview-helper" class="api-overview-helper">Create an inbound API to start receiving webhook traffic.</span>
+                    </div>
+                </div>
+
+                <div id="api-system-alert" class="api-system-alert" hidden></div>
+
+                <div id="api-summary-grid" class="api-summary-grid">
+                    <article id="api-summary-active" class="api-summary-card">
+                        <p id="api-summary-active-label" class="api-summary-label">Active endpoints</p>
+                        <p id="api-summary-active-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="api-summary-events" class="api-summary-card">
+                        <p id="api-summary-events-label" class="api-summary-label">Logged events</p>
+                        <p id="api-summary-events-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="api-summary-last-event" class="api-summary-card">
+                        <p id="api-summary-last-event-label" class="api-summary-label">Last event</p>
+                        <p id="api-summary-last-event-value" class="api-summary-value">No events yet</p>
+                    </article>
+                </div>
+
+                <div id="api-layout-grid" class="api-layout-grid">
+                    <section id="api-directory-panel" class="api-directory-panel">
+                        <div id="api-directory-header" class="api-panel-header">
+                            <div id="api-directory-header-copy" class="api-panel-header-copy">
+                                <p id="api-directory-eyebrow" class="api-panel-eyebrow">Directory</p>
+                                <h3 id="api-directory-title" class="api-panel-title">Inbound API endpoints</h3>
+                            </div>
+                        </div>
+
+                        <div id="api-directory-empty" class="api-empty-state" hidden>
+                            <h4 id="api-directory-empty-title" class="api-empty-state__title">No inbound APIs configured</h4>
+                            <p id="api-directory-empty-description" class="api-empty-state__description">Use the create action to provision the first webhook endpoint and bearer token.</p>
+                        </div>
+
+                        <div id="api-table-shell" class="api-table-shell">
+                            <table id="api-directory-table" class="api-directory-table">
+                                <thead id="api-directory-head">
+                                    <tr id="api-directory-head-row">
+                                        <th id="api-directory-head-name" scope="col">Name</th>
+                                        <th id="api-directory-head-status" scope="col">Status</th>
+                                        <th id="api-directory-head-path" scope="col">Endpoint</th>
+                                        <th id="api-directory-head-last-received" scope="col">Last received</th>
+                                        <th id="api-directory-head-last-status" scope="col">Recent result</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="api-directory-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section id="api-detail-panel" class="api-detail-panel">
+                        <div id="api-detail-empty" class="api-empty-state">
+                            <h4 id="api-detail-empty-title" class="api-empty-state__title">Select an inbound API</h4>
+                            <p id="api-detail-empty-description" class="api-empty-state__description">Endpoint metadata, sample requests, and recent event logs will appear here.</p>
+                        </div>
+
+                        <div id="api-detail-content" class="api-detail-content" hidden>
+                            <div id="api-detail-header" class="api-panel-header">
+                                <div id="api-detail-header-copy" class="api-panel-header-copy">
+                                    <p id="api-detail-eyebrow" class="api-panel-eyebrow">Details</p>
+                                    <h3 id="api-detail-title" class="api-panel-title">Inbound API</h3>
+                                    <p id="api-detail-description" class="api-panel-description"></p>
+                                </div>
+                                <div id="api-detail-actions" class="api-detail-actions">
+                                    <button type="button" id="api-detail-rotate-secret-button" class="secondary-action-button">Rotate secret</button>
+                                    <button type="button" id="api-detail-toggle-status-button" class="secondary-action-button">Disable endpoint</button>
+                                </div>
+                            </div>
+
+                            <dl id="api-detail-metadata" class="api-detail-metadata"></dl>
+
+                            <section id="api-secret-panel" class="api-secret-panel" hidden>
+                                <div id="api-secret-header" class="api-panel-header">
+                                    <div id="api-secret-header-copy" class="api-panel-header-copy">
+                                        <p id="api-secret-eyebrow" class="api-panel-eyebrow">One-Time Secret</p>
+                                        <h4 id="api-secret-title" class="api-panel-title">Store this bearer token now</h4>
+                                    </div>
+                                </div>
+                                <p id="api-secret-value" class="api-secret-value"></p>
+                                <pre id="api-secret-curl" class="api-code-block"></pre>
+                            </section>
+
+                            <section id="api-logs-panel" class="api-logs-panel">
+                                <div id="api-logs-header" class="api-panel-header">
+                                    <div id="api-logs-header-copy" class="api-panel-header-copy">
+                                        <p id="api-logs-eyebrow" class="api-panel-eyebrow">Logs</p>
+                                        <h4 id="api-logs-title" class="api-panel-title">Recent inbound events</h4>
+                                    </div>
+                                </div>
+
+                                <div id="api-logs-empty" class="api-empty-state" hidden>
+                                    <h5 id="api-logs-empty-title" class="api-empty-state__title">No requests received yet</h5>
+                                    <p id="api-logs-empty-description" class="api-empty-state__description">Send a JSON payload to this endpoint to populate the delivery log.</p>
+                                </div>
+
+                                <div id="api-log-list" class="api-log-list"></div>
+                            </section>
+                        </div>
+                    </section>
+                </div>
             </section>
         </div>
     </main>
 
-    <script>
-        const toggle = document.getElementById('developer-mode-toggle');
-        const checkbox = document.getElementById('developer-mode-checkbox');
+    <div
+        id="apis-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-create-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
+        <div class="modal__dialog" id="apis-create-modal-dialog">
+            <div class="modal__content" id="apis-create-modal-content"></div>
+        </div>
+    </div>
 
-        const initialState = sessionStorage.getItem('developerMode') === 'true';
-        checkbox.checked = initialState;
-
-        const updateToggleState = (isEnabled) => {
-            toggle.classList.toggle('toggle--on', isEnabled);
-        };
-
-        updateToggleState(initialState);
-
-        checkbox.addEventListener('change', () => {
-            const isEnabled = checkbox.checked;
-            sessionStorage.setItem('developerMode', String(isEnabled));
-            updateToggleState(isEnabled);
-        });
-    </script>
+    <script src="scripts/navigation.js"></script>
+    <script src="scripts/apis.js"></script>
 </body>
 </html>

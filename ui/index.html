@@ -6,7 +6,7 @@
     <title>Malcom - Local Automation Middleware</title>
     <link rel="stylesheet" href="styles/styles.css">
 </head>
-<body class="app-shell">
+<body class="app-shell" data-section="dashboard" data-sidenav-item="sidenav-dashboard-overview">
     <!-- Top Navigation -->
     <div id="topnav" class="topnav">
         <div class="container">
@@ -36,20 +36,7 @@
     <!-- Sidebar Navigation -->
     <aside id="sidenav" class="sidenav">
         <nav class="sidenav__nav" id="sidebar-navigation">
-            <ul class="sidenav__list">
-                <li>
-                    <a href="#" class="sidenav__link" id="nav-automations">Automations</a>
-                </li>
-                <li>
-                    <a href="#" class="sidenav__link" id="nav-runs">Runs</a>
-                </li>
-                <li>
-                    <a href="#" class="sidenav__link" id="nav-connectors">Connectors</a>
-                </li>
-                <li>
-                    <a href="#" class="sidenav__link" id="nav-settings">Settings</a>
-                </li>
-            </ul>
+            <ul class="sidenav__list" id="sidebar-navigation-list"></ul>
         </nav>
     </aside>
 
@@ -67,23 +54,6 @@
         </div>
     </main>
 
-    <script>
-        const toggle = document.getElementById('developer-mode-toggle');
-        const checkbox = document.getElementById('developer-mode-checkbox');
-        const initialState = sessionStorage.getItem('developerMode') === 'true';
-
-        const updateToggleState = (isEnabled) => {
-            toggle.classList.toggle('toggle--on', isEnabled);
-        };
-
-        checkbox.checked = initialState;
-        updateToggleState(initialState);
-
-        checkbox.addEventListener('change', () => {
-            const isEnabled = checkbox.checked;
-            sessionStorage.setItem('developerMode', String(isEnabled));
-            updateToggleState(isEnabled);
-        });
-    </script>
+    <script src="scripts/navigation.js"></script>
 </body>
 </html>

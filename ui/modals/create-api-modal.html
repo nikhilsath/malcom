@@ -1,0 +1,57 @@
+<div class="modal__panel" id="create-api-modal-panel">
+  <div class="modal__header" id="create-api-modal-header">
+    <div class="modal__header-copy" id="create-api-modal-header-copy">
+      <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
+      <h3 class="modal__title" id="apis-create-modal-title">New Inbound API</h3>
+      <p class="modal__description" id="create-api-modal-description">Provision a webhook endpoint with a bearer token for authenticated JSON requests.</p>
+    </div>
+    <button
+      type="button"
+      class="modal__close-button"
+      id="create-api-modal-close"
+      aria-label="Close create API modal"
+      data-modal-close="apis-create-modal"
+    >
+      Close
+    </button>
+  </div>
+  <div class="modal__body modal__body--form" id="create-api-modal-body">
+    <form id="create-api-form" class="api-form">
+      <div id="create-api-form-grid" class="api-form-grid">
+        <label id="create-api-name-field" class="api-form-field">
+          <span id="create-api-name-label" class="api-form-label">Name</span>
+          <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
+        </label>
+
+        <label id="create-api-slug-field" class="api-form-field">
+          <span id="create-api-slug-label" class="api-form-label">Path slug</span>
+          <input id="create-api-slug-input" class="api-form-input" name="pathSlug" type="text" maxlength="80" required>
+        </label>
+
+        <label id="create-api-description-field" class="api-form-field api-form-field--full">
+          <span id="create-api-description-label" class="api-form-label">Description</span>
+          <textarea id="create-api-description-input" class="api-form-textarea" name="description" rows="3"></textarea>
+        </label>
+
+        <label id="create-api-auth-field" class="api-form-field">
+          <span id="create-api-auth-label" class="api-form-label">Authentication</span>
+          <input id="create-api-auth-input" class="api-form-input" name="authType" type="text" value="Bearer secret" readonly>
+        </label>
+
+        <label id="create-api-enabled-field" class="api-form-field api-form-field--toggle">
+          <span id="create-api-enabled-label" class="api-form-label">Enabled on create</span>
+          <span id="create-api-enabled-control" class="api-inline-toggle">
+            <input id="create-api-enabled-input" name="enabled" type="checkbox" checked>
+            <span id="create-api-enabled-copy" class="api-inline-toggle__label">Accept requests immediately</span>
+          </span>
+        </label>
+      </div>
+
+      <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+      <div id="create-api-form-actions" class="api-form-actions">
+        <button type="submit" id="create-api-submit-button" class="primary-action-button">Create inbound API</button>
+      </div>
+    </form>
+  </div>
+</div>

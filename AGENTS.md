@@ -1,80 +1,107 @@
-# agents.md
+# AGENTS.md
 
 ## Purpose
 
 Agents are automated workers that execute tasks within the middleware system.
 
-They may run automations, call APIs, process responses, or coordinate with external tools.  
+They may run automations, call APIs, process responses, or coordinate with external tools.
 Agents operate independently from the UI and interact with the system primarily through the API layer.
 
-The middleware acts as the **central coordinator**, while agents perform the actual execution work.
+The middleware acts as the central coordinator, while agents perform the actual execution work.
 
 ---
 
-# Core Agent Principles
+## Machine-Readable Policy
 
-Agents must follow these principles when performing work:
+### Required Workflow
 
-### 1. Small, Testable Steps
+1. Execute work in small, testable steps.
+2. Validate each step before moving to the next.
+3. Log intermediate outcomes when a task has multiple stages.
+4. Include testing instructions whenever code or behavior changes.
 
-Agents should **always execute work in small, testable steps**.
+### GitHub Update Workflow
 
-Avoid large, multi-stage operations that cannot be verified incrementally.
+When the user says to "update github", agents must use this git workflow:
 
-Instead:
+1. run `git add .`
+2. run `git commit -m "<logical, task-specific message>"`
+3. run `git push`
 
-- break complex tasks into smaller operations
-- validate each step before continuing
-- log intermediate results
+Rules:
 
-Example pattern:
+- do not use an empty or generic commit message
+- choose a concise commit message that reflects the actual change
+- do not run `git push` before `git commit`, because the new changes would not be included
 
-1. load configuration
-2. validate inputs
-3. perform action
-4. verify response
-5. proceed to next step
+### Required Output For Development Work
 
----
+Every development-oriented response must include:
 
-### 2. Provide Testing Instructions
-
-Whenever an agent performs development work or introduces new functionality, it must include:
-
-- clear **testing instructions**
+- testing instructions
 - expected behavior
 - verification steps
 
-Testing instructions should allow a developer to confirm that the change works without needing deep system knowledge.
+### UI Requirements
 
-Example format:
+For any UI-facing implementation or update:
 
-### 3. Require Stable Element IDs and Semantic CSS Classes
+- every rendered structural or interactive element must have a stable, deterministic `id`
+- CSS classes must be semantic and purpose-based
+- utility-first or presentation-only class naming should be avoided
 
-For any UI-facing implementation or update, **all rendered elements must have explicit, stable `id` attributes** and use **semantic CSS class names**.
+### Media Requirements
 
-Use IDs that are deterministic and human-readable so they can be used for:
+For new UI media:
 
-- automation hooks
-- UI testing
-- accessibility and tooling integrations
+- store files in `ui/media/`
+- do not add new media under alternative folders such as `ui/assets/`
+- prefer references that make the media location obvious and consistent
 
-Use CSS classes that describe the purpose or structure (e.g., `.top-navigation`, `.sidebar-menu`) rather than presentation (e.g., avoid utility classes like `.bg-blue-500`).
+### Tool Registration Requirements
 
-Avoid missing, random, or transient IDs for interactive or structural UI elements. Avoid overly complex or misaligned styling by using a traditional class/ID system instead of utility-first frameworks.
+Tools are registered by filesystem convention, not by hardcoded UI markup.
+
+Required structure:
+
+- `tools/<tool-id>/tool.json`
+
+Required metadata fields:
+
+- `id`
+- `name`
+- `description`
+
+Validation rules:
+
+- `tool.json` must exist for every tool folder
+- `id` must exactly match the folder name
+- all required fields must be non-empty strings
+
+When adding or changing tools, agents must:
+
+1. create or update `tools/<tool-id>/tool.json`
+2. run `node scripts/generate-tools-manifest.mjs`
+3. verify that `ui/scripts/tools-manifest.js` is updated
+4. verify that `ui/tools.html` renders the tool without manual card markup changes
+
+Agents must not hardcode new tools directly in `ui/tools.html` or `ui/scripts/tools.js`.
 
 ---
 
-### 4. Store Media In The Media Section
+## Example Tool Metadata
 
-For any new UI media added to this project, place the files in the designated **media section** and reference them from there.
+```json
+{
+  "id": "rss-poller",
+  "name": "RSS Poller",
+  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations."
+}
+```
 
-Specifically:
+## Example Verification Flow
 
-- use `ui/media/` for images, icons, illustrations, and similar static media
-- do **not** create or use alternative folders such as `ui/assets/` for new media files
-- when updating existing UI markup, prefer media paths that clearly reflect this convention
-
-This rule exists to keep static resources predictable and prevent media from being scattered across multiple folders.
-
----
+1. Add `tools/rss-poller/tool.json`.
+2. Run `node scripts/generate-tools-manifest.mjs`.
+3. Open `ui/tools.html`.
+4. Confirm the rendered card appears with the expected label and description.

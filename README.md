@@ -102,6 +102,7 @@ SQLite database used for:
 * execution history
 * logs
 * configuration
+* editable tool metadata overrides
 
 ---
 
@@ -257,6 +258,61 @@ Developer Mode enables a **session-only development environment** that:
 * does not modify real automations or stored data
 
 Developer Mode resets when the session ends.
+
+---
+
+# Contributions
+
+## Adding A New Tool
+
+Tools are discovered from the top-level `tools/` directory and surfaced in the UI through a generated manifest.
+
+Each tool must live in its own folder:
+
+* `tools/<tool-id>/tool.json`
+
+Rules:
+
+* the folder name is the tool slug
+* the `id` field in `tool.json` must exactly match the folder name
+* every tool must define `id`, `name`, and `description`
+* keep descriptions concise and UI-ready
+
+Example:
+
+```json
+{
+  "id": "rss-poller",
+  "name": "RSS Poller",
+  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations."
+}
+```
+
+After adding or updating a tool, regenerate the UI manifest:
+
+```bash
+node scripts/generate-tools-manifest.mjs
+```
+
+Expected behavior:
+
+* the command writes `ui/scripts/tools-manifest.js`
+* `ui/tools.html` renders the new tool automatically
+* no manual HTML edits are required to add the card
+* tool folders are still discovered from `tools/<tool-id>/tool.json`
+* saved name and description edits are stored in SQLite as overrides
+
+Local UI note:
+
+* opening `ui/tools.html` directly from disk is supported
+* when opened via `file://`, the UI sends API requests to `http://localhost:8000`
+
+Verification steps:
+
+1. Create `tools/<tool-id>/tool.json`.
+2. Run `node scripts/generate-tools-manifest.mjs`.
+3. Open `ui/tools.html`.
+4. Confirm the new tool card appears with the correct name and description.
 
 ### Sidebar Navigation
 
