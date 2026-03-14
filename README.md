@@ -159,6 +159,8 @@ until they are proven necessary.
 
 The UI should behave like a **clean operational admin tool** rather than a flashy SaaS product.
 
+All UI elements must include explicit, stable `id` attributes so they can be reliably targeted for automation, testing, and accessibility workflows.
+
 Avoid:
 
 * flashy dashboards

@@ -48,3 +48,18 @@ Whenever an agent performs development work or introduces new functionality, it 
 Testing instructions should allow a developer to confirm that the change works without needing deep system knowledge.
 
 Example format:
+
+### 3. Require Stable Element IDs
+
+For any UI-facing implementation or update, **all rendered elements must have explicit, stable `id` attributes**.
+
+Use IDs that are deterministic and human-readable so they can be used for:
+
+- automation hooks
+- UI testing
+- accessibility and tooling integrations
+
+Avoid missing, random, or transient IDs for interactive or structural UI elements.
+
+---
+
