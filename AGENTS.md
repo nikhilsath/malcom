@@ -69,6 +69,15 @@ When adding or changing UI pages that use the main application shell, agents mus
 
 Agents must not hardcode new top navigation or side navigation structures directly into individual HTML pages when the shared shell applies.
 
+### Vite Build Requirements
+
+For new UI pages to be included in the build and served correctly:
+
+- Add new HTML files to the `input` object in `ui/vite.config.ts` using the format: `pageName: resolve(__dirname, "path/to/page.html")`
+- Create redirect pages (e.g., `section.html`) that redirect to the main page (e.g., `section/overview.html`) for top-level navigation consistency
+- Ensure `npm run build` includes the new pages in `dist/` and `npm run dev` serves them without errors
+- Validate that new pages load properly in both development and production builds
+
 ### Media Requirements
 
 For new UI media:
