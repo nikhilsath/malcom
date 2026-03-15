@@ -1,0 +1,538 @@
+# Copilot Instructions
+
+## Purpose
+
+Agents work best in this repo when they follow the real architecture instead of inventing parallel structure.
+
+Malcom is a FastAPI application with:
+
+- a SQLite runtime database
+- server-rendered HTML entry pages built by Vite
+- a mix of React pages and vanilla JavaScript pages
+- database-backed tool metadata, settings, scripts, and automation state
+
+This file is the operating manual for future agent changes.
+
+---
+
+## Machine-Readable Policy
+
+### Required Workflow
+
+1. Execute work in small, testable steps.
+2. Validate each step before moving to the next.
+3. Log intermediate outcomes when a task has multiple stages.
+4. Include testing instructions whenever code or behavior changes.
+5. Match existing repo structure before introducing a new pattern.
+6. Prefer extending the current source of truth over creating a second one.
+
+### GitHub Update Workflow
+
+When the user says to "update github", agents must use this git workflow:
+
+1. run `git add .`
+2. run `git commit -m "<logical, task-specific message>"`
+3. run `git push`
+
+Rules:
+
+- do not use an empty or generic commit message
+- choose a concise commit message that reflects the actual change
+- do not run `git push` before `git commit`, because the new changes would not be included
+
+### Required Output For Development Work
+
+Every development-oriented response must include:
+
+- testing instructions
+- expected behavior
+- verification steps
+
+---
+
+## Repo Map
+
+### Backend
+
+- `backend/main.py`
+  - FastAPI app factory
+  - router registration
+  - static mounts for built assets and raw shell scripts/styles
+- `backend/routes/api.py`
+  - JSON API endpoints
+- `backend/routes/ui.py`
+  - HTML page routes and redirect routes
+  - this is the source of truth for served UI URLs
+- `backend/database.py`
+  - SQLite connection helpers
+  - schema initialization
+  - additive schema evolution via `_ensure_column`
+- `backend/tool_registry.py`
+  - default tool catalog
+  - tool manifest generation
+  - tool database sync logic
+- `backend/services/`
+  - backend business logic and service helpers
+- `backend/schemas.py`
+  - Pydantic request/response models
+- `backend/data/malcom.db`
+  - runtime SQLite database
+- `backend/data/logs/`
+  - application log output
+
+### Frontend
+
+- `ui/<section>/<page>.html`
+  - HTML entry pages
+- `ui/src/`
+  - React/TypeScript application entrypoints and components
+- `ui/scripts/`
+  - vanilla JavaScript controllers and shared shell/runtime helpers
+- `ui/styles/`
+  - shared and page-level CSS
+- `ui/assets/`
+  - source assets consumed by Vite imports
+- `ui/dist/`
+  - generated build output
+  - do not hand edit
+
+### Other
+
+- `scripts/`
+  - developer and maintenance scripts
+- `tests/`
+  - backend/API tests
+- `tools/`
+  - reserved for tool-owned collateral if needed later
+  - not a registration source of truth
+- `media/`
+  - repo-level reference media only, not bundled frontend assets
+
+---
+
+## Database Structure
+
+### Source Of Truth
+
+The schema source of truth is `backend/database.py`, not the checked-in contents of `backend/data/malcom.db`.
+
+Use the live database to inspect current state.
+Use `backend/database.py` to change structure.
+
+### Database Location
+
+- runtime DB: `backend/data/malcom.db`
+- connection helper: `backend/database.py:connect`
+- initialization entrypoint: `backend/database.py:initialize`
+
+### Table Groups
+
+#### API Registry Tables
+
+- `inbound_apis`
+  - inbound API definitions
+  - includes auth type, secret hash, enablement, mock flag, timestamps
+- `inbound_api_events`
+  - inbound request/event history tied to `inbound_apis`
+- `outgoing_scheduled_apis`
+  - scheduled outbound deliveries
+  - includes URL, auth config JSON, payload template, schedule, run timestamps
+- `outgoing_continuous_apis`
+  - continuous/repeating outbound deliveries
+- `webhook_apis`
+  - webhook publisher definitions and verification settings
+
+#### Tool Directory
+
+- `tools`
+  - persisted tool metadata
+  - stores seed metadata plus overrides and enablement
+  - frontend tool catalog and sidenav derive from this flow
+
+#### Workspace Settings
+
+- `settings`
+  - JSON settings payloads keyed by setting name
+
+#### Automation Tables
+
+- `automations`
+  - automation definitions and trigger configuration
+- `automation_steps`
+  - ordered steps for an automation
+- `automation_runs`
+  - execution history for automations
+- `automation_run_steps`
+  - per-step execution history for each run
+
+#### Script Library
+
+- `scripts`
+  - stored script definitions
+  - includes code, language, validation state, timestamps
+
+### Schema Rules
+
+When changing the DB schema, agents must:
+
+1. update `backend/database.py`
+2. add new `CREATE TABLE IF NOT EXISTS` definitions there if introducing a table
+3. use `_ensure_column(...)` for additive column changes to existing tables
+4. keep booleans as SQLite `INTEGER` values
+5. keep structured payloads in `*_json` text columns unless there is a strong reason not to
+6. update API serialization/deserialization logic and tests in the same task
+
+Agents must not:
+
+- treat `backend/data/malcom.db` as the schema source of truth
+- hand-edit SQLite files directly as a substitute for code changes
+- create ad hoc migration files unless the repo adopts a formal migration system first
+
+---
+
+## File Placement Rules
+
+### Backend Files
+
+Place new backend files by responsibility:
+
+- routes: `backend/routes/<feature>.py`
+- service/business logic: `backend/services/<feature>.py`
+- schema/model changes: `backend/schemas.py`
+- DB helpers and schema: `backend/database.py`
+- app wiring and mounts: `backend/main.py`
+- UI route wiring and redirects: `backend/routes/ui.py`
+- tests: `tests/test_<feature>.py`
+
+Backend rules:
+
+- do not put business logic directly in HTML routes unless it is route-only glue
+- do not put SQL in frontend files
+- do not add served HTML routes in `backend/main.py`; add them in `backend/routes/ui.py`
+
+### Frontend Entry Rules
+
+The repo uses two frontend entry styles.
+
+#### React Pages
+
+React pages mount from `ui/src/`.
+
+Current examples:
+
+- `ui/dashboard/home.html` -> `ui/src/dashboard/main.tsx`
+- `ui/dashboard/devices.html` -> `ui/src/dashboard/main.tsx`
+- `ui/dashboard/logs.html` -> `ui/src/dashboard/main.tsx`
+- `ui/automations/overview.html` -> `ui/src/automation/main.tsx`
+- `ui/scripts/library.html` -> `ui/src/scripts-library/main.ts`
+
+Rule:
+
+- if a page is React-driven, its HTML must load a `ui/src/<feature>/main.tsx` or `main.ts` entry
+- React components and tests stay under that same `ui/src/<feature>/` tree
+
+#### Vanilla Pages
+
+Vanilla pages must use page-specific entry files under `ui/scripts/<section>/`.
+
+Rule:
+
+- `ui/<section>/<page>.html` must load `ui/scripts/<section>/<page>.js`
+- page-specific DOM bindings, listeners, and page orchestration belong in that page module or modules under the same folder
+- shared code for a section belongs under the same section folder, not in a new random root-level script
+
+Examples:
+
+- `ui/apis/outgoing.html` -> `ui/scripts/apis/outgoing.js`
+- `ui/settings/workspace.html` -> `ui/scripts/settings/workspace.js`
+- `ui/tools/llm-deepl.html` -> `ui/scripts/tools/llm-deepl.js`
+
+Legacy note:
+
+- existing root-level files such as `ui/scripts/settings.js`, `ui/scripts/tool-config.js`, `ui/scripts/local-llm.js`, and `ui/scripts/tools.js` are shared controllers from the earlier structure
+- agents may import them from page-specific entry files
+- agents must not add new page entry files at the root of `ui/scripts/`
+
+### Shared Shell Requirements
+
+Navigation and brand markup are registered by shared shell convention, not by page-local copy/paste.
+
+Required shell sources:
+
+- `ui/scripts/shell-config.js`
+- `ui/scripts/navigation.js`
+
+When adding or changing UI pages that use the shell, agents must:
+
+1. update shared navigation or brand definitions in `ui/scripts/shell-config.js` when shell navigation changes
+2. use `data-section`, `data-sidenav-item`, and `data-shell-path-prefix` on shell pages
+3. render shell placeholders with `id="topnav"` and `id="sidenav"`
+4. keep the Malcom brand in the shared shell, not page-local markup
+5. avoid duplicating nav labels or hrefs inside individual pages
+
+Agents must not hardcode new topnav or sidenav markup into page HTML when the shared shell applies.
+
+### UI Requirements
+
+For UI-facing work:
+
+- every rendered structural or interactive element must have a stable, deterministic `id`
+- CSS classes must be semantic and purpose-based
+- utility-first or presentation-only class naming should be avoided
+
+### Styles
+
+Style placement rules:
+
+- shared shell/layout styles: `ui/styles/shell.css`, `ui/styles/base.css`, `ui/styles/components.css`
+- section/page styles: `ui/styles/pages/`
+- stylesheet aggregation: `ui/styles/styles.css`
+
+When adding styles:
+
+- extend an existing section stylesheet first if the new UI belongs clearly to that section
+- if a page needs its own stylesheet, place it under `ui/styles/pages/` with a clear section-oriented name
+- wire new page styles through `ui/styles/styles.css`
+
+### Assets And Media
+
+Current frontend asset source of truth is `ui/assets/`, not `ui/media/`.
+
+Rules:
+
+- Vite-consumed frontend assets go in `ui/assets/`
+- repo reference media that is not part of the app bundle may go in `media/`
+- do not create a parallel `ui/media/` convention unless the repo is explicitly migrated to it
+
+---
+
+## Vite Build And UI Routing
+
+### Build Requirements
+
+For a new UI page to exist correctly:
+
+1. create the HTML file under `ui/`
+2. add the HTML file to the `input` object in `ui/vite.config.ts`
+3. ensure the page loads the correct page entry script or React entrypoint
+4. run `npm run build` in `ui/`
+5. verify the generated file appears in `ui/dist/`
+
+### Route Requirements
+
+Served HTML routes live in `backend/routes/ui.py`.
+
+When adding a new page, agents must:
+
+1. add the built page route to `UI_HTML_ROUTES` in `backend/routes/ui.py`
+2. add redirect routes there if the section needs a root redirect or a legacy alias
+3. avoid putting page route registration into `backend/main.py`
+
+Agents must not assume a built HTML file is automatically served just because it exists in `ui/dist/`.
+
+---
+
+## Tool Input/Output Contract
+
+Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:
+- DB sync (stored in `inputs_schema_json` and `outputs_schema_json` on the `tools` table)
+- Frontend tool manifest (`ui/scripts/tools-manifest.js`) for dynamic form rendering in the automation canvas
+- Backend validation in `validate_automation_definition()`
+- Execution engine dispatch and `inputs_json` tracking in `automation_run_steps`
+
+### Field Descriptor Format
+
+Each entry in `inputs` and `outputs` is a dict with:
+
+```python
+{
+    "key": "text",          # machine-readable key, used in tool_inputs dict and template vars
+    "label": "Text to Speak",  # human-readable label shown in the workflow canvas
+    "type": "text",         # string | text | number | select
+    "required": True,       # inputs only; omit or False for optional
+    "options": ["a", "b"],  # select type only
+}
+```
+
+### Supported Types
+
+- `string` — single-line text input
+- `text` — multiline textarea
+- `number` — numeric input
+- `select` — dropdown; requires `options` list
+
+### Adding a New Tool with I/O Contract
+
+1. Add the tool to `DEFAULT_TOOL_CATALOG` in `backend/tool_registry.py` with `inputs` and `outputs` lists
+2. Add the execution handler in `backend/services/support.py`:
+   - Read inputs via `_get_tool_input(step, "key", context)`
+   - Return `RuntimeExecutionResult` with `output` as a dict keyed by output field keys
+   - Add dispatch in `execute_automation_step()` tool handler
+3. Add required-input validation in `validate_automation_definition()`
+4. Run `node scripts/generate-tools-manifest.mjs` and `npm run build` in `ui/`
+
+### Tool Step in a Workflow (User Perspective)
+
+- Step type `"tool"` with `tool_id` set to the tool's catalog id
+- Inputs stored in `config.tool_inputs: { key: value }` (template variables supported)
+- Outputs available as `{{steps.<step_name>.<output_key>}}` in downstream steps
+- Example: a coqui-tts step named `tts` exposes `{{steps.tts.audio_file_path}}`
+
+### Policy
+
+Only add tools to the catalog when:
+- A backend execution handler is designed and implemented
+- Input/output schemas are defined
+- The tool page (`ui/tools/<id>.html`) and script (`ui/scripts/tools/<id>.js`) exist
+
+Do not add placeholder tools. Remove tools from the catalog if their execution backend is removed.
+
+### Currently Implemented Tools
+
+| Tool ID | Inputs | Key Outputs |
+|---------|--------|-------------|
+| `coqui-tts` | text (req), output_filename, speaker, language | `audio_file_path` |
+| `llm-deepl` | user_prompt (req), system_prompt, model_identifier | `response_text`, `model_used` |
+| `smtp` | relay_host (req), relay_port (req), from_address (req), to (req), subject (req), body (req), relay_security, relay_username, relay_password | `status`, `message` |
+
+---
+
+## Tool Registration Requirements
+
+Tools are registered by backend catalog plus database sync, not by static frontend markup and not by per-tool JSON files.
+
+### Source Of Truth
+
+- `backend/tool_registry.py`
+  - default tool catalog seed data
+  - tool metadata validation
+  - sync into SQLite
+- `tools` table in SQLite
+  - persisted tool state, enablement, overrides
+- `ui/scripts/tools-manifest.js`
+  - generated frontend manifest
+- `scripts/generate-tools-manifest.mjs`
+  - manifest generation script
+
+### Required Metadata Fields
+
+- `id`
+- `name`
+- `description`
+
+Validation rules:
+
+- every registered tool must have a backend catalog entry
+- all required fields must be non-empty strings
+- `id` values must remain stable because they map to DB rows, routes, pages, and sidenav items
+
+### Tool Folder Rules
+
+The top-level `tools/` folder is not currently used for registration.
+
+If future tool-specific collateral is needed:
+
+- use `tools/<tool-id>/` for documentation, helper scripts, sample configs, or non-app collateral
+- do not create `tools/<tool-id>/tool.json` as a registration source
+- do not move frontend page logic there
+- do not move primary backend route/service logic there
+
+Primary app code still belongs in `backend/` and `ui/`.
+
+### Tool Change Workflow
+
+When adding or changing tools, agents must:
+
+1. create or update the tool catalog entry in `backend/tool_registry.py`
+2. run `node scripts/generate-tools-manifest.mjs`
+3. verify that `ui/scripts/tools-manifest.js` changed as expected
+4. add or update `ui/tools/<tool-id>.html`
+5. add or update `ui/scripts/tools/<tool-id>.js`
+6. add the page to `ui/vite.config.ts`
+7. add the served HTML route in `backend/routes/ui.py`
+8. verify that `ui/tools/catalog.html` reflects the tool without manual card markup changes
+9. verify that the tools sidenav updates through the shared config/manifest flow
+
+Agents must not:
+
+- hardcode new tools directly into `ui/tools/catalog.html`
+- hardcode new tools directly into `ui/scripts/tools.js`
+- manually hardcode tool sidenav links on individual pages
+- add `tools/<tool-id>/tool.json` files for registration
+
+### Example Tool Metadata
+
+```python
+{
+  "id": "rss-poller",
+  "name": "RSS Poller",
+  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations.",
+}
+```
+
+### Example Verification Flow
+
+1. Add `rss-poller` to the default tool catalog in `backend/tool_registry.py`.
+2. Run `node scripts/generate-tools-manifest.mjs`.
+3. Run `npm run build` in `ui/`.
+4. Open `/tools/catalog.html`.
+5. Confirm the tool card and sidenav entry appear with the expected label and description.
+
+---
+
+## Generated And Runtime Files
+
+Agents must not hand-edit generated or runtime artifact files unless the task explicitly targets them:
+
+- `ui/dist/**`
+- `ui/scripts/tools-manifest.js` without also regenerating it from the script
+- `backend/data/malcom.db` as a substitute for schema/code changes
+- `ui/node_modules/**`
+- `node_modules/**`
+
+If a generated file is expected to change, regenerate it from its source workflow and mention that in verification.
+
+---
+
+## Testing And Verification
+
+Every meaningful code change should include the smallest relevant verification set.
+
+### Backend
+
+- run targeted `pytest` files in `tests/`
+- add or update API tests for route, schema, or DB behavior changes
+
+### Frontend
+
+- run `npm run build` in `ui/` for page wiring, Vite input, or asset changes
+- run `npm run test` in `ui/` for React test coverage when React code changes
+- manually verify the served page route if HTML/script wiring changed
+
+### Verification Minimum
+
+For code changes, agent responses must tell the user:
+
+- what to run
+- what should happen
+- what to click or inspect to confirm the result
+
+---
+
+## Practical Do And Do Not Rules
+
+Do:
+
+- follow the existing DB-backed tool flow
+- keep page entrypoints matched to page paths
+- keep shared shell config centralized
+- place tests beside the backend feature area they cover or under the React feature they cover
+- prefer additive schema evolution over one-off DB edits
+
+Do not:
+
+- create a second source of truth for tools, routes, or settings
+- put new page-entry logic into random root-level script files
+- hardcode navigation that belongs to the shell
+- edit `ui/dist/` directly
+- assume `backend/main.py` is the place for new HTML routes
