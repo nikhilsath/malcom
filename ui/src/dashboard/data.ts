@@ -70,7 +70,7 @@ const defaultLogEntries: DashboardLogEntry[] = [
       endpoint: "/webhooks/inbound/weather"
     },
     context: {
-      path: "/dashboard/overview"
+      path: "/dashboard/home"
     }
   }
 ];

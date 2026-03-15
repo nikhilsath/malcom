@@ -43,7 +43,7 @@ type RouteHandle = {
 
 const dashboardSectionConfig = getSectionConfig("dashboard");
 const dashboardSectionItems = dashboardSectionConfig?.items || [];
-const dashboardOverviewItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-overview");
+const dashboardHomeItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-home");
 const dashboardDevicesItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-devices");
 const dashboardLogsItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-logs");
 
@@ -170,6 +170,10 @@ const DashboardLayout = () => {
     return () => window.removeEventListener("malcom:developerModeChanged", handleDeveloperModeEvent);
   }, []);
 
+  useEffect(() => {
+    document.title = `Malcom - ${routeHandle?.title || "Dashboard"}`;
+  }, [routeHandle]);
+
   return (
     <DashboardUiContext.Provider value={{ developerMode }}>
       <main className="main" id="main-layout">
@@ -193,7 +197,7 @@ const DashboardLayout = () => {
   );
 };
 
-const OverviewPage = () => {
+const HomePage = () => {
   const { developerMode } = useDashboardUi();
   const summary = useSummaryData(developerMode);
   const logs = useLogsData(developerMode);
@@ -473,18 +477,26 @@ const routeDefinitions = [
     children: [
       {
         index: true,
-        element: <OverviewPage />,
+        element: <HomePage />,
         handle: {
-          title: dashboardOverviewItem?.pageTitle || "Dashboard Overview",
-          description: dashboardOverviewItem?.description || "Monitor the middleware at a glance and review the current workspace state."
+          title: dashboardHomeItem?.pageTitle || "Dashboard Home",
+          description: dashboardHomeItem?.description || "Monitor the middleware at a glance and review the current workspace state."
+        } satisfies RouteHandle
+      },
+      {
+        path: "home",
+        element: <HomePage />,
+        handle: {
+          title: dashboardHomeItem?.pageTitle || "Dashboard Home",
+          description: dashboardHomeItem?.description || "Monitor the middleware at a glance and review the current workspace state."
         } satisfies RouteHandle
       },
       {
         path: "overview",
-        element: <OverviewPage />,
+        element: <HomePage />,
         handle: {
-          title: dashboardOverviewItem?.pageTitle || "Dashboard Overview",
-          description: dashboardOverviewItem?.description || "Monitor the middleware at a glance and review the current workspace state."
+          title: dashboardHomeItem?.pageTitle || "Dashboard Home",
+          description: dashboardHomeItem?.description || "Monitor the middleware at a glance and review the current workspace state."
         } satisfies RouteHandle
       },
       {
@@ -509,7 +521,7 @@ const routeDefinitions = [
 
 export const createDashboardRouter = (initialEntries?: string[]) => {
   return createMemoryRouter(routeDefinitions, {
-    initialEntries: initialEntries?.length ? initialEntries : ["/overview"],
+    initialEntries: initialEntries?.length ? initialEntries : ["/home"],
     future: {
       v7_startTransition: true
     }

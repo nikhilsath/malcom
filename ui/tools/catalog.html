@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - Tools Overview</title>
+    <title>Malcom</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-overview" data-shell-path-prefix="../">
+<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-catalog" data-shell-path-prefix="../">
     <div id="topnav"></div>
 
     <aside id="sidenav"></aside>
@@ -14,76 +14,76 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page">
-                <h2 class="page-title section-header__title--page" id="page-title">Tools Overview</h2>
-                <p class="page-description section-header__description--page" id="page-description">Browse available tools.</p>
+                <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                <p class="page-description section-header__description--page" id="page-description"></p>
             </div>
-            <section id="main-content" class="card tools-selection-panel">
+            <section id="main-content" class="card tools-directory-workspace">
                 <div id="tools-selection-header" class="section-header tools-selection-header">
                     <div id="tools-selection-copy" class="section-header__copy tools-selection-copy">
                         <p id="tools-selection-eyebrow" class="section-header__eyebrow tools-selection-eyebrow">Tool Directory</p>
-                        <h3 id="tools-selection-title" class="section-header__title tools-selection-title">Click a tool to open its modal</h3>
-                        <p id="tools-selection-description" class="section-header__description tools-selection-description">Select a tool to inspect it.</p>
+                        <h3 id="tools-selection-title" class="section-header__title tools-selection-title">Select a tool to edit metadata and availability</h3>
+                        <p id="tools-selection-description" class="section-header__description tools-selection-description">Each registered tool gets its own configuration page in the shared sidenav.</p>
                     </div>
                     <div id="tools-selection-status" class="section-status stat-card tools-selection-status" aria-live="polite">
-                        <span id="selected-tools-count" class="selected-tools-count">Modal launch</span>
-                        <span id="selected-tools-helper" class="selected-tools-helper">Select any card below to inspect that tool.</span>
+                        <span id="selected-tools-count" class="selected-tools-count">0 loaded</span>
+                        <span id="selected-tools-helper" class="selected-tools-helper">Select a tool to update metadata or open its configuration page.</span>
                     </div>
                 </div>
 
-                <div id="tools-grid" class="tools-grid" role="list" aria-label="Available tools"></div>
+                <div id="tools-directory-layout" class="tools-directory-layout">
+                    <div id="tools-grid" class="tools-grid" role="list" aria-label="Available tools"></div>
 
-                <div id="selected-tools-summary" class="selected-tools-summary">
-                    <p id="selected-tools-label" class="selected-tools-label">Latest tool opened</p>
-                    <p id="selected-tools-value" class="selected-tools-value">No tool opened yet</p>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <div id="tool-detail-modal" class="modal" aria-hidden="true">
-        <div id="tool-detail-modal-backdrop" class="modal__backdrop" data-modal-close="tool-detail-modal"></div>
-        <div id="tool-detail-modal-dialog" class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="tool-detail-modal-title">
-            <div id="tool-detail-modal-content" class="modal__content">
-                <div id="tool-detail-modal-panel" class="modal__panel">
-                    <div id="tool-detail-modal-header" class="modal__header">
-                        <div id="tool-detail-modal-header-copy" class="modal__header-copy">
-                            <p id="tool-detail-modal-eyebrow" class="modal__eyebrow">Tool details</p>
-                            <h3 id="tool-detail-modal-title" class="modal__title">Tool</h3>
-                            <p id="tool-detail-modal-description" class="modal__description">Review and edit.</p>
+                    <section id="tool-detail-panel" class="card tool-detail-panel" aria-live="polite">
+                        <div id="tool-detail-header" class="section-header tool-detail-panel__header">
+                            <div id="tool-detail-copy" class="section-header__copy">
+                                <p id="tool-detail-eyebrow" class="section-header__eyebrow">Selected tool</p>
+                                <h3 id="tool-detail-title" class="section-header__title">Choose a tool</h3>
+                                <p id="tool-detail-description" class="section-header__description">Tool metadata and enablement are managed here.</p>
+                            </div>
                         </div>
-                        <button type="button" id="tool-detail-modal-close" class="button button--secondary modal__close-button" aria-label="Close tool details modal" data-modal-close="tool-detail-modal">Close</button>
-                    </div>
-                    <div id="tool-detail-modal-body" class="modal__body modal__body--form tool-detail-modal-body">
+
                         <form id="tool-detail-form" class="api-form">
                             <div id="tool-detail-form-grid" class="api-form-grid">
                                 <label id="tool-detail-id-field" class="api-form-field">
                                     <span id="tool-detail-id-label" class="api-form-label">Tool ID</span>
                                     <input id="tool-detail-id-input" class="api-form-input" name="toolId" type="text" readonly>
                                 </label>
-                                <label id="tool-detail-name-field" class="api-form-field">
+
+                                <label id="tool-detail-enabled-field" class="api-form-field">
+                                    <span id="tool-detail-enabled-label" class="api-form-label">Availability</span>
+                                    <select id="tool-detail-enabled-input" class="api-form-input" name="enabled" required>
+                                        <option id="tool-detail-enabled-option-on" value="true">Enabled</option>
+                                        <option id="tool-detail-enabled-option-off" value="false">Disabled</option>
+                                    </select>
+                                </label>
+
+                                <label id="tool-detail-name-field" class="api-form-field api-form-field--full">
                                     <span id="tool-detail-name-label" class="api-form-label">Tool name</span>
                                     <input id="tool-detail-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
                                 </label>
+
                                 <label id="tool-detail-description-field" class="api-form-field api-form-field--full">
                                     <span id="tool-detail-description-label" class="api-form-label">Description</span>
                                     <textarea id="tool-detail-description-input" class="api-form-textarea" name="description" rows="4" maxlength="500" required></textarea>
                                 </label>
                             </div>
+
                             <div id="tool-detail-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
                             <div id="tool-detail-form-actions" class="api-form-actions">
                                 <button type="submit" id="tool-detail-save-button" class="button button--primary primary-action-button">Save tool</button>
+                                <a id="tool-detail-config-link" class="button button--secondary secondary-action-button" href="../tools/catalog.html" aria-disabled="true">Open configuration</a>
                             </div>
                         </form>
-                    </div>
+                    </section>
                 </div>
-            </div>
+            </section>
         </div>
-    </div>
+    </main>
 
     <script type="module" src="../scripts/utils.js"></script>
     <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script type="module" src="../scripts/tools-manifest.js"></script>
     <script type="module" src="../scripts/tools.js"></script>
 </body>
 </html>

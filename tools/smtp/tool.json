@@ -1,5 +1,0 @@
-{
-  "id": "smtp",
-  "name": "SMTP",
-  "description": "Run an SMTP listener on the selected machine so automations can accept email traffic."
-}

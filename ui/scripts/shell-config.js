@@ -1,5 +1,7 @@
+import { toolsManifest } from "./tools-manifest.js";
+
 export const shellBrand = {
-  homeHref: "dashboard/overview.html",
+  homeHref: "dashboard/home.html",
   iconHref: new URL("../assets/malcom-icon.svg", import.meta.url).href,
   iconAlt: "Malcom icon",
   title: "Malcom"
@@ -9,19 +11,19 @@ export const topNavItems = [
   {
     id: "nav-dashboard",
     label: "Dashboard",
-    href: "dashboard/overview.html",
+    href: "dashboard/home.html",
     section: "dashboard"
   },
   {
     id: "nav-apis",
     label: "APIs",
-    href: "apis/overview.html",
+    href: "apis/registry.html",
     section: "apis"
   },
   {
     id: "nav-tools",
     label: "Tools",
-    href: "tools/overview.html",
+    href: "tools/catalog.html",
     section: "tools"
   },
   {
@@ -33,7 +35,7 @@ export const topNavItems = [
   {
     id: "nav-settings",
     label: "Settings",
-    href: "settings/general.html",
+    href: "settings/workspace.html",
     section: "settings"
   }
 ];
@@ -43,16 +45,19 @@ export const shellSections = {
     id: "dashboard",
     items: [
       {
-        id: "sidenav-dashboard-overview",
-        label: "Overview",
-        href: "dashboard/overview.html",
-        pageTitle: "Dashboard Overview",
+        id: "sidenav-dashboard-home",
+        label: "Home",
+        href: "dashboard/home.html",
+        aliases: ["dashboard/overview.html"],
+        dashboardRoutes: ["/home", "/overview"],
+        pageTitle: "Dashboard Home",
         description: "Monitor the middleware at a glance and review the current workspace state."
       },
       {
         id: "sidenav-dashboard-devices",
         label: "Devices",
         href: "dashboard/devices.html",
+        dashboardRoutes: ["/devices"],
         pageTitle: "Dashboard Devices",
         description: "Review connected devices, runtime endpoints, and related middleware assets."
       },
@@ -60,6 +65,7 @@ export const shellSections = {
         id: "sidenav-dashboard-logs",
         label: "Logs",
         href: "dashboard/logs.html",
+        dashboardRoutes: ["/logs"],
         pageTitle: "Dashboard Logs",
         description: "Inspect recent runtime activity, operator events, and system history."
       }
@@ -69,10 +75,11 @@ export const shellSections = {
     id: "apis",
     items: [
       {
-        id: "sidenav-apis-overview",
-        label: "Overview",
-        href: "apis/overview.html",
-        pageTitle: "APIs Overview",
+        id: "sidenav-apis-registry",
+        label: "Registry",
+        href: "apis/registry.html",
+        aliases: ["apis/overview.html"],
+        pageTitle: "APIs Registry",
         description: "Manage inbound webhook endpoints, bearer secrets, and delivery logs."
       },
       {
@@ -121,33 +128,20 @@ export const shellSections = {
     id: "tools",
     items: [
       {
-        id: "sidenav-tools-overview",
-        label: "Overview",
-        href: "tools/overview.html",
-        pageTitle: "Tools Overview",
+        id: "sidenav-tools-catalog",
+        label: "Catalog",
+        href: "tools/catalog.html",
+        aliases: ["tools/overview.html"],
+        pageTitle: "Tools Catalog",
         description: "Manage local and external tools connected to the automation engine."
       },
-      {
-        id: "sidenav-tools-smtp",
-        label: "SMTP",
-        href: "tools/smtp.html",
-        pageTitle: "SMTP Tools",
-        description: "Run and assign SMTP listeners across local and attached worker machines."
-      },
-      {
-        id: "sidenav-tools-sftp",
-        label: "SFTP",
-        href: "tools/sftp.html",
-        pageTitle: "SFTP Tools",
-        description: "Review file transfer tooling, remote hosts, and connection readiness."
-      },
-      {
-        id: "sidenav-tools-storage",
-        label: "Storage",
-        href: "tools/storage.html",
-        pageTitle: "Storage Tools",
-        description: "Inspect storage-oriented tools, mounted targets, and persistence workflows."
-      }
+      ...toolsManifest.map((tool) => ({
+        id: `sidenav-tools-${tool.id}`,
+        label: tool.name,
+        href: tool.pageHref,
+        pageTitle: `${tool.name} Configuration`,
+        description: `Configure ${tool.name} and review its metadata, status, and setup notes.`
+      }))
     ]
   },
   scripts: {
@@ -166,11 +160,12 @@ export const shellSections = {
     id: "settings",
     items: [
       {
-        id: "sidenav-settings-general",
-        label: "General",
-        href: "settings/general.html",
-        pageTitle: "Settings General",
-        description: "Configure workspace defaults that shape new automations and operator-facing timestamps."
+        id: "sidenav-settings-workspace",
+        label: "Workspace",
+        href: "settings/workspace.html",
+        aliases: ["settings/general.html"],
+        pageTitle: "Settings Workspace",
+        description: "Configure live workspace defaults and operator-facing timestamps."
       },
       {
         id: "sidenav-settings-logging",
@@ -187,11 +182,19 @@ export const shellSections = {
         description: "Control alert routing, digest cadence, and escalation defaults for operators."
       },
       {
-        id: "sidenav-settings-security",
+        id: "sidenav-settings-access",
         label: "Access",
-        href: "settings/security.html",
+        href: "settings/access.html",
+        aliases: ["settings/security.html"],
         pageTitle: "Settings Access",
-        description: "Configure approval and session controls that govern access to production workflows."
+        description: "Configure approval and session controls for live workflow access."
+      },
+      {
+        id: "sidenav-settings-connectors",
+        label: "Connectors",
+        href: "settings/connectors.html",
+        pageTitle: "Settings Connectors",
+        description: "Manage workspace connector presets, auth flows, and saved credentials."
       },
       {
         id: "sidenav-settings-data",

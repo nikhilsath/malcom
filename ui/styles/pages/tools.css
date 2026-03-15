@@ -1,7 +1,15 @@
+.tools-directory-workspace,
 .tools-selection-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+.tools-directory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: var(--space-5);
+  align-items: start;
 }
 
 .tools-selection-status {
@@ -10,7 +18,7 @@
 
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-4);
 }
 
@@ -24,7 +32,18 @@
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tool-card__header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
 }
 
 .tool-card:hover {
@@ -53,6 +72,47 @@
   font-weight: 700;
 }
 
+.tool-card__state {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.tool-card__state--enabled {
+  background: color-mix(in srgb, var(--success) 18%, white);
+  color: var(--success-strong, var(--success));
+}
+
+.tool-card__state--disabled {
+  background: color-mix(in srgb, var(--border) 65%, white);
+  color: var(--muted);
+}
+
+.tool-card__description {
+  color: var(--muted);
+}
+
+.tool-card__meta {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.tool-detail-panel,
+.tool-config-panel,
+.tool-config-summary-card,
+.tool-config-guidance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tool-detail-panel__header,
+.tool-config-workspace__header,
+.tool-config-panel__header {
+  align-items: flex-start;
+}
+
 .selected-tools-summary {
   padding-top: var(--space-2);
   border-top: 1px solid var(--border);
@@ -62,6 +122,109 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.tool-config-shell,
+.tool-config-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.tool-config-workspace__status {
+  min-width: 260px;
+}
+
+.tool-config-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.tool-config-summary-list {
+  margin-top: 0;
+}
+
+.tool-config-checklist {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.local-llm-shell,
+.local-llm-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.local-llm-workspace__header {
+  align-items: flex-start;
+}
+
+.local-llm-workspace__status {
+  min-width: 260px;
+}
+
+.local-llm-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.local-llm-endpoints-list {
+  margin-top: 0;
+}
+
+.local-llm-endpoints-list dd {
+  word-break: break-word;
+}
+
+.local-llm-chat-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.local-llm-chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.local-llm-chat-message--user {
+  border-color: var(--primary-soft);
+  background: var(--surface-accent);
+}
+
+.local-llm-chat-message--assistant {
+  border-color: var(--border);
+}
+
+.local-llm-chat-message__role,
+.local-llm-chat-message__content {
+  margin: 0;
+}
+
+.local-llm-chat-message__role {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.local-llm-chat-message__content {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .smtp-workspace {
@@ -89,6 +252,16 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.smtp-summary-grid--expanded {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.smtp-summary-card__support {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
 .smtp-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
@@ -110,6 +283,186 @@
 
 .smtp-activity-list {
   margin-top: 0;
+}
+
+.smtp-runtime-banner__title,
+.smtp-runtime-banner__body {
+  margin: 0;
+}
+
+.smtp-runtime-banner__body {
+  margin-top: 6px;
+}
+
+.smtp-console-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.35fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.smtp-console-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.smtp-console-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.smtp-receive-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--primary-soft);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-accent), var(--panel));
+}
+
+.smtp-receive-card__address {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.smtp-receive-card__hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.smtp-action-row,
+.smtp-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.smtp-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.smtp-mailbox-panel,
+.smtp-message-panel {
+  min-height: 0;
+}
+
+.smtp-mailbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.smtp-mailbox-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.smtp-mailbox-item:hover {
+  border-color: var(--primary-soft);
+  box-shadow: var(--primary-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.smtp-mailbox-item:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.smtp-mailbox-item--selected {
+  border-color: var(--primary);
+  background: var(--surface-accent);
+  box-shadow: var(--primary-shadow-md);
+}
+
+.smtp-mailbox-item--highlighted {
+  border-color: #f59e0b;
+}
+
+.smtp-mailbox-item__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.smtp-mailbox-item__subject,
+.smtp-mailbox-item__timestamp,
+.smtp-mailbox-item__meta,
+.smtp-mailbox-item__preview {
+  margin: 0;
+}
+
+.smtp-mailbox-item__subject {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.smtp-mailbox-item__timestamp,
+.smtp-mailbox-item__meta {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.smtp-mailbox-item__preview {
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.smtp-message-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.smtp-message-detail__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.smtp-message-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smtp-message-detail__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.smtp-message-detail__section-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.smtp-message-detail__code {
+  max-height: 320px;
+  min-height: 120px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.smtp-modal-dialog--wide {
+  width: min(100%, 820px);
 }
 
 .storage-workspace {
@@ -257,18 +610,24 @@
     min-width: 0;
   }
 
+  .tools-directory-layout,
   .tools-grid {
     grid-template-columns: 1fr;
   }
 
+  .tool-config-panels,
   .smtp-summary-grid,
   .smtp-layout,
+  .smtp-console-layout,
   .storage-summary-grid,
   .storage-panels,
-  .storage-type-grid {
+  .storage-type-grid,
+  .smtp-action-grid,
+  .smtp-message-detail__meta {
     grid-template-columns: 1fr;
   }
 
+  .tool-config-workspace__status,
   .smtp-workspace__status,
   .storage-workspace__status {
     width: 100%;
@@ -281,5 +640,11 @@
 
   .storage-preview-list__value {
     text-align: left;
+  }
+
+  .smtp-mailbox-item__header,
+  .smtp-message-detail__section-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

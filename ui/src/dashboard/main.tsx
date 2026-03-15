@@ -7,7 +7,7 @@ import { RouterProvider } from "react-router-dom";
 const rootElement = document.getElementById("dashboard-react-root");
 
 const ensureDashboardHashRoute = () => {
-  const initialRoute = document.body.dataset.dashboardRoute || "/overview";
+  const initialRoute = document.body.dataset.dashboardRoute || "/home";
 
   if (!window.location.hash) {
     window.location.hash = `#${initialRoute}`;

@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - APIs Overview</title>
+    <title>Malcom</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-overview" data-shell-path-prefix="../">
+<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-registry" data-shell-path-prefix="../">
     <div id="topnav"></div>
 
     <aside id="sidenav"></aside>
@@ -14,8 +14,8 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-overview-header">
-                <h2 class="page-title section-header__title--page" id="page-title">APIs Overview</h2>
-                <p class="page-description section-header__description--page" id="page-description">Configured APIs at a glance.</p>
+                <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                <p class="page-description section-header__description--page" id="page-description"></p>
             </div>
             <section id="apis-overview-content" class="card api-workspace">
                 <div id="apis-overview-copy" class="section-header api-overview-header">
@@ -54,6 +54,10 @@
                         <button type="button" id="apis-overview-create-outgoing-continuous" class="api-entry-card" data-create-api-type="outgoing_continuous">
                             <span id="apis-overview-create-outgoing-continuous-title" class="api-entry-card__title">Continuous delivery</span>
                             <span id="apis-overview-create-outgoing-continuous-description" class="api-entry-card__description">Keep an outbound delivery ready for repeated sends at a fixed interval.</span>
+                        </button>
+                        <button type="button" id="apis-overview-create-from-connector" class="api-entry-card" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">
+                            <span id="apis-overview-create-from-connector-title" class="api-entry-card__title">Create from connector</span>
+                            <span id="apis-overview-create-from-connector-description" class="api-entry-card__description">Start with a saved Google, GitHub, Slack, Notion, Trello, or generic connector.</span>
                         </button>
                         <button type="button" id="apis-overview-create-webhook" class="api-entry-card" data-create-api-type="webhook">
                             <span id="apis-overview-create-webhook-title" class="api-entry-card__title">Webhook definition</span>

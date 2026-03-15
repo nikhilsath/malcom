@@ -8,6 +8,38 @@ from pathlib import Path
 from backend.database import connect, fetch_all, fetch_one, initialize
 
 REQUIRED_FIELDS = ("id", "name", "description")
+DEFAULT_TOOL_CATALOG: tuple[dict[str, str], ...] = (
+    {
+        "id": "convert-audio",
+        "name": "Convert - Audio",
+        "description": "Convert audio files between supported formats for downstream processing.",
+    },
+    {
+        "id": "convert-video",
+        "name": "Convert - Video",
+        "description": "Convert video files into delivery-ready formats for automation pipelines.",
+    },
+    {
+        "id": "grafana",
+        "name": "Grafana",
+        "description": "Open-source dashboards and reporting for operational logs, with room to wire retained events into richer incident and trend reports.",
+    },
+    {
+        "id": "llm-deepl",
+        "name": "Local LLM",
+        "description": "Run a locally hosted language model through configurable OpenAI-compatible or LM Studio endpoints.",
+    },
+    {
+        "id": "ocr-transcribe",
+        "name": "OCR/Transcribe",
+        "description": "Extract text from images and transcribe spoken content into structured output.",
+    },
+    {
+        "id": "smtp",
+        "name": "SMTP",
+        "description": "Run an SMTP listener on the selected machine so automations can accept email traffic.",
+    },
+)
 
 
 def utc_now_iso() -> str:
@@ -18,21 +50,17 @@ def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def get_tools_dir(root_dir: Path) -> Path:
-    return root_dir / "tools"
-
-
 def get_manifest_path(root_dir: Path) -> Path:
     return root_dir / "ui" / "scripts" / "tools-manifest.js"
 
 
-def validate_tool_metadata(metadata: dict[str, object], directory_name: str, metadata_path: Path) -> dict[str, str]:
+def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> dict[str, str]:
     validated: dict[str, str] = {}
 
     for field in REQUIRED_FIELDS:
         value = metadata.get(field)
         if not isinstance(value, str) or value.strip() == "":
-            raise ValueError(f'Missing required field "{field}" in {metadata_path}')
+            raise ValueError(f'Missing required field "{field}" for tool "{directory_name}"')
         validated[field] = value
 
     if validated["id"] != directory_name:
@@ -41,21 +69,19 @@ def validate_tool_metadata(metadata: dict[str, object], directory_name: str, met
     return validated
 
 
-def read_tool_metadata(root_dir: Path, directory_name: str) -> dict[str, str]:
-    metadata_path = get_tools_dir(root_dir) / directory_name / "tool.json"
-    raw_metadata = metadata_path.read_text(encoding="utf-8")
-    metadata = json.loads(raw_metadata)
-    return validate_tool_metadata(metadata, directory_name, metadata_path.relative_to(root_dir))
+def discover_tools(root_dir: Path | None = None) -> list[dict[str, str]]:
+    _ = root_dir
+    seen_ids: set[str] = set()
+    tools: list[dict[str, str]] = []
 
+    for metadata in DEFAULT_TOOL_CATALOG:
+        validated = validate_tool_metadata(metadata, str(metadata.get("id") or ""))
+        if validated["id"] in seen_ids:
+            raise ValueError(f'Duplicate tool id "{validated["id"]}" in default tool catalog')
+        seen_ids.add(validated["id"])
+        tools.append(validated)
 
-def discover_tools(root_dir: Path) -> list[dict[str, str]]:
-    tools_dir = get_tools_dir(root_dir)
-    tool_directories = sorted(
-        entry.name
-        for entry in tools_dir.iterdir()
-        if entry.is_dir()
-    )
-    return [read_tool_metadata(root_dir, directory_name) for directory_name in tool_directories]
+    return tools
 
 
 def row_to_tool_metadata(row: sqlite3.Row) -> dict[str, str]:
@@ -63,6 +89,18 @@ def row_to_tool_metadata(row: sqlite3.Row) -> dict[str, str]:
         "id": row["id"],
         "name": row["name_override"] or row["source_name"],
         "description": row["description_override"] or row["source_description"],
+        "pageHref": f"tools/{row['id']}.html",
+    }
+
+
+def row_to_tool_directory_entry(row: sqlite3.Row, *, enabled: bool | None = None) -> dict[str, object]:
+    resolved_enabled = bool(row["enabled"]) if enabled is None else enabled
+    return {
+        "id": row["id"],
+        "name": row["name_override"] or row["source_name"],
+        "description": row["description_override"] or row["source_description"],
+        "enabled": resolved_enabled,
+        "page_href": f"/tools/{row['id']}.html",
     }
 
 
@@ -89,11 +127,12 @@ def sync_tools_to_database(root_dir: Path, connection: sqlite3.Connection) -> li
                     id,
                     source_name,
                     source_description,
+                    enabled,
                     name_override,
                     description_override,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, NULL, NULL, ?, ?)
+                ) VALUES (?, ?, ?, 0, NULL, NULL, ?, ?)
                 """,
                 (tool["id"], tool["name"], tool["description"], now, now),
             )
@@ -136,6 +175,7 @@ def load_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = 
             db,
             """
             SELECT id, source_name, source_description, name_override, description_override
+                 , enabled
             FROM tools
             ORDER BY id
             """,
@@ -149,9 +189,11 @@ def load_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = 
 def write_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = None) -> list[dict[str, str]]:
     tools = load_tools_manifest(root_dir, connection)
     manifest_source = [
-        "window.TOOLS_MANIFEST = Object.freeze(",
-        json.dumps(tools, indent=2),
-        ");",
+        f"export const toolsManifest = Object.freeze({json.dumps(tools, indent=2)});",
+        "",
+        'if (typeof window !== "undefined") {',
+        "  window.TOOLS_MANIFEST = toolsManifest;",
+        "}",
         "",
     ]
     get_manifest_path(root_dir).write_text("\n".join(manifest_source), encoding="utf-8")
@@ -171,6 +213,7 @@ def update_tool_metadata(
         connection,
         """
         SELECT id, source_name, source_description, name_override, description_override
+             , enabled
         FROM tools
         WHERE id = ?
         """,
@@ -204,6 +247,7 @@ def update_tool_metadata(
         connection,
         """
         SELECT id, source_name, source_description, name_override, description_override
+             , enabled
         FROM tools
         WHERE id = ?
         """,
@@ -214,3 +258,70 @@ def update_tool_metadata(
         raise FileNotFoundError(tool_id)
 
     return row_to_tool_metadata(updated_row)
+
+
+def set_tool_enabled(
+    root_dir: Path,
+    connection: sqlite3.Connection,
+    tool_id: str,
+    *,
+    enabled: bool,
+) -> dict[str, object]:
+    sync_tools_to_database(root_dir, connection)
+    row = fetch_one(
+        connection,
+        """
+        SELECT id
+        FROM tools
+        WHERE id = ?
+        """,
+        (tool_id,),
+    )
+
+    if row is None:
+        raise FileNotFoundError(tool_id)
+
+    connection.execute(
+        """
+        UPDATE tools
+        SET enabled = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (int(enabled), utc_now_iso(), tool_id),
+    )
+    connection.commit()
+
+    updated_row = fetch_one(
+        connection,
+        """
+        SELECT id, source_name, source_description, name_override, description_override, enabled
+        FROM tools
+        WHERE id = ?
+        """,
+        (tool_id,),
+    )
+    if updated_row is None:
+        raise FileNotFoundError(tool_id)
+
+    return row_to_tool_directory_entry(updated_row)
+
+
+def load_tool_directory(root_dir: Path, connection: sqlite3.Connection | None = None) -> list[dict[str, object]]:
+    managed_connection = connection is None
+    db = connection or connect()
+
+    try:
+        initialize(db)
+        sync_tools_to_database(root_dir, db)
+        rows = fetch_all(
+            db,
+            """
+            SELECT id, source_name, source_description, name_override, description_override, enabled
+            FROM tools
+            ORDER BY id
+            """,
+        )
+        return [row_to_tool_directory_entry(row) for row in rows]
+    finally:
+        if managed_connection:
+            db.close()

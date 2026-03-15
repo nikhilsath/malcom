@@ -28,21 +28,22 @@ class SettingsApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["general"]["environment"], "staging")
+        self.assertEqual(body["general"]["environment"], "live")
         self.assertEqual(body["logging"]["max_stored_entries"], 250)
         self.assertEqual(body["logging"]["max_file_size_mb"], 5)
         self.assertEqual(body["notifications"]["channel"], "slack")
         self.assertTrue(body["security"]["dual_approval_required"])
         self.assertEqual(body["data"]["audit_retention_days"], 365)
+        self.assertEqual(body["connectors"]["records"], [])
+        self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
 
     def test_patch_settings_persists_updates_to_database(self) -> None:
         response = self.client.patch(
             "/api/v1/settings",
             json={
                 "general": {
-                    "environment": "production",
+                    "environment": "live",
                     "timezone": "utc",
-                    "preview_mode": False,
                 },
                 "logging": {
                     "max_stored_entries": 500,
@@ -55,8 +56,7 @@ class SettingsApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["general"]["environment"], "production")
-        self.assertFalse(body["general"]["preview_mode"])
+        self.assertEqual(body["general"]["environment"], "live")
         self.assertEqual(body["logging"]["max_stored_entries"], 500)
         self.assertEqual(body["logging"]["max_file_size_mb"], 8)
         self.assertEqual(body["notifications"]["digest"], "hourly")
@@ -75,10 +75,69 @@ class SettingsApiTestCase(unittest.TestCase):
             connection.close()
 
         saved_settings = {row["key"]: json.loads(row["value_json"]) for row in rows}
-        self.assertEqual(saved_settings["general"]["environment"], "production")
+        self.assertEqual(saved_settings["general"]["environment"], "live")
         self.assertEqual(saved_settings["logging"]["max_visible_entries"], 100)
         self.assertEqual(saved_settings["logging"]["max_file_size_mb"], 8)
         self.assertEqual(saved_settings["notifications"]["channel"], "slack")
+
+    def test_patch_connectors_masks_secret_values_and_stores_protected_payload(self) -> None:
+        response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "connectors": {
+                    "records": [
+                        {
+                            "id": "google-calendar-primary",
+                            "provider": "google_calendar",
+                            "name": "Google Calendar",
+                            "status": "draft",
+                            "auth_type": "oauth2",
+                            "scopes": ["https://www.googleapis.com/auth/calendar"],
+                            "base_url": "https://www.googleapis.com/calendar/v3",
+                            "owner": "Workspace",
+                            "auth_config": {
+                                "client_id": "calendar-client-id",
+                                "client_secret_input": "calendar-client-secret",
+                                "access_token_input": "calendar-access-token",
+                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_calendar/oauth/callback",
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        record = body["connectors"]["records"][0]
+        self.assertEqual(record["provider"], "google_calendar")
+        self.assertIsNotNone(record["auth_config"]["client_secret_masked"])
+        self.assertIsNotNone(record["auth_config"]["access_token_masked"])
+        self.assertNotIn("calendar-client-secret", json.dumps(body))
+        self.assertNotIn("calendar-access-token", json.dumps(body))
+
+        connection = connect(self.db_path)
+        try:
+            row = fetch_all(
+                connection,
+                """
+                SELECT value_json
+                FROM settings
+                WHERE key = 'connectors'
+                """,
+            )[0]
+        finally:
+            connection.close()
+
+        stored_value = row["value_json"]
+        self.assertNotIn("calendar-client-secret", stored_value)
+        self.assertNotIn("calendar-access-token", stored_value)
+
+    def test_oauth_callback_rejects_invalid_state(self) -> None:
+        response = self.client.get("/api/v1/connectors/google_calendar/oauth/callback?state=invalid&code=demo")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Invalid OAuth state.")
 
     def test_get_settings_backfills_missing_logging_fields_from_defaults(self) -> None:
         connection = connect(self.db_path)

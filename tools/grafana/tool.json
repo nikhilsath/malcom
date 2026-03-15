@@ -1,5 +1,0 @@
-{
-  "id": "grafana",
-  "name": "Grafana",
-  "description": "Open-source dashboards and reporting for operational logs, with room to wire retained events into richer incident and trend reports."
-}

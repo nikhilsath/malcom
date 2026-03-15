@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-type TriggerType = "manual" | "schedule" | "inbound_api";
-type StepType = "log" | "outbound_request" | "script" | "tool" | "condition";
+type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
+type StepType = "log" | "outbound_request" | "script" | "tool" | "condition" | "llm_chat";
 
 type AutomationStep = {
   id?: string;
@@ -12,11 +12,15 @@ type AutomationStep = {
     destination_url?: string;
     http_method?: string;
     auth_type?: string;
+    connector_id?: string;
     payload_template?: string;
     script_id?: string;
     tool_id?: string;
     expression?: string;
     stop_on_false?: boolean;
+    system_prompt?: string;
+    user_prompt?: string;
+    model_identifier?: string;
   };
 };
 
@@ -29,6 +33,8 @@ type Automation = {
   trigger_config: {
     schedule_time?: string | null;
     inbound_api_id?: string | null;
+    smtp_subject?: string | null;
+    smtp_recipient_email?: string | null;
   };
   step_count: number;
   created_at: string;
@@ -73,6 +79,14 @@ type RuntimeStatus = {
   last_tick_finished_at: string | null;
   last_error: string | null;
   job_count: number;
+};
+
+type ConnectorRecord = {
+  id: string;
+  provider: string;
+  name: string;
+  auth_type: string;
+  base_url?: string | null;
 };
 
 declare global {
@@ -133,26 +147,39 @@ const stepTemplates: Record<StepType, AutomationStep> = {
       destination_url: "https://example.com/hooks/run",
       http_method: "POST",
       auth_type: "none",
+      connector_id: "",
       payload_template: "{\"automation_id\":\"{{automation.id}}\"}"
     }
   },
   script: { type: "script", name: "Script step", config: { script_id: "" } },
   tool: { type: "tool", name: "Tool step", config: { tool_id: "" } },
-  condition: { type: "condition", name: "Condition step", config: { expression: "true", stop_on_false: true } }
+  condition: { type: "condition", name: "Condition step", config: { expression: "true", stop_on_false: true } },
+  llm_chat: {
+    type: "llm_chat",
+    name: "LLM chat",
+    config: {
+      system_prompt: "You are a helpful email automation assistant.",
+      user_prompt: "Subject: {{payload.subject}}\n\nFrom: {{payload.mail_from}}\n\nEmail body:\n{{payload.body}}",
+      model_identifier: ""
+    }
+  }
 };
 
-const validateDraft = (draft: AutomationDetail) => {
+const validateAutomationDefinition = (automation: AutomationDetail) => {
   const issues: string[] = [];
-  if (!draft.name.trim()) {
+  if (!automation.name.trim()) {
     issues.push("Name is required.");
   }
-  if (draft.trigger_type === "schedule" && !draft.trigger_config.schedule_time) {
+  if (automation.trigger_type === "schedule" && !automation.trigger_config.schedule_time) {
     issues.push("Schedule time is required for scheduled automations.");
   }
-  if (draft.trigger_type === "inbound_api" && !draft.trigger_config.inbound_api_id) {
+  if (automation.trigger_type === "inbound_api" && !automation.trigger_config.inbound_api_id) {
     issues.push("Inbound API id is required for inbound-triggered automations.");
   }
-  if (draft.steps.length === 0) {
+  if (automation.trigger_type === "smtp_email" && !automation.trigger_config.smtp_subject) {
+    issues.push("Email subject is required for SMTP-triggered automations.");
+  }
+  if (automation.steps.length === 0) {
     issues.push("At least one step is required.");
   }
   return issues;
@@ -160,29 +187,32 @@ const validateDraft = (draft: AutomationDetail) => {
 
 export const AutomationApp = () => {
   const [automations, setAutomations] = useState<Automation[]>([]);
-  const [draft, setDraft] = useState<AutomationDetail>(emptyDetail);
+  const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
   const [selectedRun, setSelectedRun] = useState<AutomationRunDetail | null>(null);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [schedulerJobs, setSchedulerJobs] = useState<Array<Record<string, unknown>>>([]);
+  const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState("");
 
   const loadRuntime = async () => {
-    const [status, jobs] = await Promise.all([
+    const [status, jobs, settings] = await Promise.all([
       requestJson("/api/v1/runtime/status"),
-      requestJson("/api/v1/scheduler/jobs")
+      requestJson("/api/v1/scheduler/jobs"),
+      requestJson("/api/v1/settings")
     ]);
     setRuntimeStatus(status);
     setSchedulerJobs(jobs);
+    setConnectors(settings.connectors?.records || []);
   };
 
   const loadAutomations = async (nextSelectedId?: string) => {
     const list = (await requestJson("/api/v1/automations")) as Automation[];
     setAutomations(list);
-    const targetId = nextSelectedId || draft.id || list[0]?.id;
+    const targetId = nextSelectedId || currentAutomation.id || list[0]?.id;
     if (!targetId) {
-      setDraft(emptyDetail());
+      setCurrentAutomation(emptyDetail());
       setRuns([]);
       setSelectedRun(null);
       return;
@@ -195,7 +225,7 @@ export const AutomationApp = () => {
       requestJson(`/api/v1/automations/${automationId}`),
       requestJson(`/api/v1/automations/${automationId}/runs`)
     ]);
-    setDraft(detail);
+    setCurrentAutomation(detail);
     setRuns(automationRuns);
     setSelectedRun(null);
   };
@@ -211,7 +241,7 @@ export const AutomationApp = () => {
   useEffect(() => {
     const createButton = document.getElementById("apis-create-button");
     const handleCreate = () => {
-      setDraft(emptyDetail());
+      setCurrentAutomation(emptyDetail());
       setRuns([]);
       setSelectedRun(null);
       setFeedback("");
@@ -221,19 +251,19 @@ export const AutomationApp = () => {
     return () => createButton?.removeEventListener("click", handleCreate);
   }, []);
 
-  const patchDraft = (patch: Partial<AutomationDetail>) => {
-    setDraft((current) => ({ ...current, ...patch }));
+  const patchAutomation = (patch: Partial<AutomationDetail>) => {
+    setCurrentAutomation((current) => ({ ...current, ...patch }));
   };
 
   const patchStep = (index: number, nextStep: AutomationStep) => {
-    setDraft((current) => ({
+    setCurrentAutomation((current) => ({
       ...current,
       steps: current.steps.map((step, stepIndex) => (stepIndex === index ? nextStep : step))
     }));
   };
 
   const saveAutomation = async () => {
-    const issues = validateDraft(draft);
+    const issues = validateAutomationDefinition(currentAutomation);
     if (issues.length > 0) {
       setFeedback(issues.join(" "));
       setFeedbackTone("error");
@@ -241,55 +271,55 @@ export const AutomationApp = () => {
     }
 
     const payload = {
-      name: draft.name,
-      description: draft.description,
-      enabled: draft.enabled,
-      trigger_type: draft.trigger_type,
-      trigger_config: draft.trigger_config,
-      steps: draft.steps
+      name: currentAutomation.name,
+      description: currentAutomation.description,
+      enabled: currentAutomation.enabled,
+      trigger_type: currentAutomation.trigger_type,
+      trigger_config: currentAutomation.trigger_config,
+      steps: currentAutomation.steps
     };
 
-    const response = draft.id
-      ? await requestJson(`/api/v1/automations/${draft.id}`, { method: "PATCH", body: JSON.stringify(payload) })
+    const response = currentAutomation.id
+      ? await requestJson(`/api/v1/automations/${currentAutomation.id}`, { method: "PATCH", body: JSON.stringify(payload) })
       : await requestJson("/api/v1/automations", { method: "POST", body: JSON.stringify(payload) });
 
-    setFeedback(draft.id ? "Automation updated." : "Automation created.");
+    setFeedback(currentAutomation.id ? "Automation updated." : "Automation created.");
     setFeedbackTone("success");
     await loadAutomations(response.id);
     await loadRuntime();
   };
 
   const executeAutomation = async () => {
-    if (!draft.id) {
+    if (!currentAutomation.id) {
       setFeedback("Save the automation before running it.");
       setFeedbackTone("error");
       return;
     }
-    const run = (await requestJson(`/api/v1/automations/${draft.id}/execute`, { method: "POST" })) as AutomationRunDetail;
+    const run = (await requestJson(`/api/v1/automations/${currentAutomation.id}/execute`, { method: "POST" })) as AutomationRunDetail;
     setSelectedRun(run);
     setFeedback("Automation executed.");
     setFeedbackTone("success");
-    await selectAutomation(draft.id);
+    await selectAutomation(currentAutomation.id);
     await loadRuntime();
   };
 
   const validateAutomation = async () => {
-    const issues = validateDraft(draft);
-    if (!draft.id) {
-      setFeedback(issues.length > 0 ? issues.join(" ") : "Draft is valid.");
+    const issues = validateAutomationDefinition(currentAutomation);
+    if (!currentAutomation.id) {
+      setFeedback(issues.length > 0 ? issues.join(" ") : "Automation is valid.");
       setFeedbackTone(issues.length > 0 ? "error" : "success");
       return;
     }
-    const response = await requestJson(`/api/v1/automations/${draft.id}/validate`, { method: "POST" });
+    const response = await requestJson(`/api/v1/automations/${currentAutomation.id}/validate`, { method: "POST" });
     setFeedback(response.valid ? "Automation definition is valid." : response.issues.join(" "));
     setFeedbackTone(response.valid ? "success" : "error");
   };
 
   const deleteAutomation = async () => {
-    if (!draft.id) {
+    if (!currentAutomation.id) {
       return;
     }
-    await requestJson(`/api/v1/automations/${draft.id}`, { method: "DELETE" });
+    await requestJson(`/api/v1/automations/${currentAutomation.id}`, { method: "DELETE" });
     setFeedback("Automation deleted.");
     setFeedbackTone("success");
     await loadAutomations();
@@ -297,7 +327,7 @@ export const AutomationApp = () => {
   };
 
   const addStep = (stepType: StepType) => {
-    setDraft((current) => ({
+    setCurrentAutomation((current) => ({
       ...current,
       steps: [...current.steps, { ...stepTemplates[stepType], config: { ...stepTemplates[stepType].config } }]
     }));
@@ -310,17 +340,17 @@ export const AutomationApp = () => {
           <div id="automation-workspace-summary-copy" className="section-header__copy">
             <p id="automation-workspace-summary-eyebrow" className="section-header__eyebrow">Automation Workflows</p>
             <h3 id="automation-workspace-summary-title" className="section-header__title">Current editor state</h3>
-            <p id="automation-workspace-summary-description" className="section-header__description">Keep runtime health, saved workflows, and the active draft visible from the same APIs workspace.</p>
+            <p id="automation-workspace-summary-description" className="section-header__description">Keep runtime health, saved workflows, and the active live workflow visible from the same APIs workspace.</p>
           </div>
         </div>
         <div id="automation-workspace-summary-grid" className="summary-grid">
           <article id="automation-workspace-summary-selected-card" className="stat-card summary-card">
             <p id="automation-workspace-summary-selected-label" className="summary-card__label">Selected workflow</p>
-            <p id="automation-workspace-summary-selected-value" className="summary-card__value">{draft.name || "New draft"}</p>
+            <p id="automation-workspace-summary-selected-value" className="summary-card__value">{currentAutomation.name || "New automation"}</p>
           </article>
           <article id="automation-workspace-summary-trigger-card" className="stat-card summary-card">
             <p id="automation-workspace-summary-trigger-label" className="summary-card__label">Trigger</p>
-            <p id="automation-workspace-summary-trigger-value" className="summary-card__value">{draft.trigger_type.replace("_", " ")}</p>
+            <p id="automation-workspace-summary-trigger-value" className="summary-card__value">{currentAutomation.trigger_type.replace("_", " ")}</p>
           </article>
           <article id="automation-workspace-summary-runs-card" className="stat-card summary-card">
             <p id="automation-workspace-summary-runs-label" className="summary-card__label">Loaded runs</p>
@@ -329,18 +359,18 @@ export const AutomationApp = () => {
         </div>
         <div id="automation-workspace-summary-actions" className="api-form-actions">
           <button
-            id="automation-reset-draft-button"
+            id="automation-reset-automation-button"
             type="button"
             className="button button--secondary"
             onClick={() => {
-              setDraft(emptyDetail());
+              setCurrentAutomation(emptyDetail());
               setRuns([]);
               setSelectedRun(null);
               setFeedback("");
               setFeedbackTone("");
             }}
           >
-            New draft
+            New automation
           </button>
         </div>
         <div id="automation-feedback" className={feedbackTone ? `api-form-feedback api-form-feedback--${feedbackTone}` : "api-form-feedback"}>{feedback}</div>
@@ -403,8 +433,8 @@ export const AutomationApp = () => {
                 key={automation.id}
                 id={`automation-list-item-${automation.id}`}
                 type="button"
-                className={draft.id === automation.id ? "tool-card tool-card--selected" : "tool-card"}
-                aria-pressed={draft.id === automation.id}
+                className={currentAutomation.id === automation.id ? "tool-card tool-card--selected" : "tool-card"}
+                aria-pressed={currentAutomation.id === automation.id}
                 onClick={() => {
                   selectAutomation(automation.id).catch((error: Error) => {
                     setFeedback(error.message);
@@ -422,56 +452,80 @@ export const AutomationApp = () => {
         <section id="automation-editor-card" className="card">
           <div id="automation-editor-header" className="section-header">
             <div id="automation-editor-copy" className="section-header__copy">
-              <h3 id="automation-editor-title" className="section-header__title">{draft.id ? "Automation editor" : "New automation"}</h3>
+              <h3 id="automation-editor-title" className="section-header__title">{currentAutomation.id ? "Automation editor" : "New automation"}</h3>
               <p id="automation-editor-description" className="section-header__description">Edit trigger settings, maintain step order, then validate or execute the workflow.</p>
             </div>
           </div>
           <div id="automation-editor-form" className="api-form-grid">
             <label id="automation-name-field" className="api-form-field api-form-field--full">
               <span id="automation-name-label" className="api-form-label">Name</span>
-              <input id="automation-name-input" className="api-form-input" value={draft.name} onChange={(event) => patchDraft({ name: event.target.value })} />
+              <input id="automation-name-input" className="api-form-input" value={currentAutomation.name} onChange={(event) => patchAutomation({ name: event.target.value })} />
             </label>
             <label id="automation-description-field" className="api-form-field api-form-field--full">
               <span id="automation-description-label" className="api-form-label">Description</span>
-              <textarea id="automation-description-input" className="api-form-textarea" rows={3} value={draft.description} onChange={(event) => patchDraft({ description: event.target.value })} />
+              <textarea id="automation-description-input" className="api-form-textarea" rows={3} value={currentAutomation.description} onChange={(event) => patchAutomation({ description: event.target.value })} />
             </label>
             <label id="automation-enabled-field" className="api-form-field api-form-field--toggle">
               <span id="automation-enabled-label" className="api-form-label">Enabled</span>
               <span id="automation-enabled-control" className="api-inline-toggle">
-                <input id="automation-enabled-input" type="checkbox" checked={draft.enabled} onChange={(event) => patchDraft({ enabled: event.target.checked })} />
-                <span id="automation-enabled-copy" className="api-inline-toggle__label">{draft.enabled ? "Automation can run" : "Automation paused"}</span>
+                <input id="automation-enabled-input" type="checkbox" checked={currentAutomation.enabled} onChange={(event) => patchAutomation({ enabled: event.target.checked })} />
+                <span id="automation-enabled-copy" className="api-inline-toggle__label">{currentAutomation.enabled ? "Automation can run" : "Automation paused"}</span>
               </span>
             </label>
             <label id="automation-trigger-type-field" className="api-form-field">
               <span id="automation-trigger-type-label" className="api-form-label">Trigger type</span>
-              <select id="automation-trigger-type-input" className="api-form-input" value={draft.trigger_type} onChange={(event) => patchDraft({ trigger_type: event.target.value as TriggerType, trigger_config: {} })}>
+              <select id="automation-trigger-type-input" className="api-form-input" value={currentAutomation.trigger_type} onChange={(event) => patchAutomation({ trigger_type: event.target.value as TriggerType, trigger_config: {} })}>
                 <option value="manual">Manual</option>
                 <option value="schedule">Schedule</option>
                 <option value="inbound_api">Inbound API</option>
+                <option value="smtp_email">SMTP email</option>
               </select>
             </label>
-            {draft.trigger_type === "schedule" ? (
+            {currentAutomation.trigger_type === "schedule" ? (
               <label id="automation-schedule-time-field" className="api-form-field">
                 <span id="automation-schedule-time-label" className="api-form-label">Daily run time</span>
                 <input
                   id="automation-schedule-time-input"
                   className="api-form-input"
                   type="time"
-                  value={draft.trigger_config.schedule_time || ""}
-                  onChange={(event) => patchDraft({ trigger_config: { ...draft.trigger_config, schedule_time: event.target.value } })}
+                  value={currentAutomation.trigger_config.schedule_time || ""}
+                  onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, schedule_time: event.target.value } })}
                 />
               </label>
             ) : null}
-            {draft.trigger_type === "inbound_api" ? (
+            {currentAutomation.trigger_type === "inbound_api" ? (
               <label id="automation-inbound-api-field" className="api-form-field">
                 <span id="automation-inbound-api-label" className="api-form-label">Inbound API id</span>
                 <input
                   id="automation-inbound-api-input"
                   className="api-form-input"
-                  value={draft.trigger_config.inbound_api_id || ""}
-                  onChange={(event) => patchDraft({ trigger_config: { ...draft.trigger_config, inbound_api_id: event.target.value } })}
+                  value={currentAutomation.trigger_config.inbound_api_id || ""}
+                  onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, inbound_api_id: event.target.value } })}
                 />
               </label>
+            ) : null}
+            {currentAutomation.trigger_type === "smtp_email" ? (
+              <>
+                <label id="automation-smtp-subject-field" className="api-form-field api-form-field--full">
+                  <span id="automation-smtp-subject-label" className="api-form-label">Email subject</span>
+                  <input
+                    id="automation-smtp-subject-input"
+                    className="api-form-input"
+                    value={currentAutomation.trigger_config.smtp_subject || ""}
+                    onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, smtp_subject: event.target.value } })}
+                  />
+                </label>
+                <label id="automation-smtp-recipient-field" className="api-form-field api-form-field--full">
+                  <span id="automation-smtp-recipient-label" className="api-form-label">Recipient filter</span>
+                  <input
+                    id="automation-smtp-recipient-input"
+                    className="api-form-input"
+                    placeholder="Optional mailbox filter"
+                    value={currentAutomation.trigger_config.smtp_recipient_email || ""}
+                    onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, smtp_recipient_email: event.target.value } })}
+                  />
+                </label>
+              </>
             ) : null}
           </div>
 
@@ -482,7 +536,7 @@ export const AutomationApp = () => {
                 <p id="automation-steps-description" className="section-header__description">Use a structured step list for logging, HTTP requests, scripts, tools, and conditions.</p>
               </div>
             </div>
-            {draft.steps.map((step, index) => (
+            {currentAutomation.steps.map((step, index) => (
               <div id={`automation-step-card-${index}`} className="card" key={step.id || `${step.type}-${index}`}>
                 <div id={`automation-step-header-${index}`} className="api-form-grid">
                   <label id={`automation-step-name-field-${index}`} className="api-form-field">
@@ -507,6 +561,7 @@ export const AutomationApp = () => {
                       <option value="script">Script</option>
                       <option value="tool">Tool</option>
                       <option value="condition">Condition</option>
+                      <option value="llm_chat">LLM chat</option>
                     </select>
                   </label>
                 </div>
@@ -523,6 +578,35 @@ export const AutomationApp = () => {
                 ) : null}
                 {step.type === "outbound_request" ? (
                   <div id={`automation-step-http-grid-${index}`} className="api-form-grid">
+                    <label id={`automation-step-connector-field-${index}`} className="api-form-field api-form-field--full">
+                      <span id={`automation-step-connector-label-${index}`} className="api-form-label">Saved connector</span>
+                      <select
+                        id={`automation-step-connector-input-${index}`}
+                        className="api-form-input"
+                        value={step.config.connector_id || ""}
+                        onChange={(event) => {
+                          const connector = connectors.find((item) => item.id === event.target.value);
+                          patchStep(index, {
+                            ...step,
+                            config: {
+                              ...step.config,
+                              connector_id: event.target.value,
+                              destination_url: step.config.destination_url || connector?.base_url || "",
+                              auth_type: connector?.auth_type === "oauth2"
+                                ? "bearer"
+                                : connector?.auth_type === "api_key"
+                                  ? "header"
+                                  : connector?.auth_type || step.config.auth_type
+                            }
+                          });
+                        }}
+                      >
+                        <option value="">Custom destination</option>
+                        {connectors.map((connector) => (
+                          <option key={connector.id} value={connector.id}>{connector.name}</option>
+                        ))}
+                      </select>
+                    </label>
                     <label id={`automation-step-destination-field-${index}`} className="api-form-field api-form-field--full">
                       <span id={`automation-step-destination-label-${index}`} className="api-form-label">Destination URL</span>
                       <input
@@ -591,6 +675,40 @@ export const AutomationApp = () => {
                     </label>
                   </div>
                 ) : null}
+                {step.type === "llm_chat" ? (
+                  <div id={`automation-step-llm-grid-${index}`} className="api-form-grid">
+                    <label id={`automation-step-llm-model-field-${index}`} className="api-form-field api-form-field--full">
+                      <span id={`automation-step-llm-model-label-${index}`} className="api-form-label">Model override</span>
+                      <input
+                        id={`automation-step-llm-model-input-${index}`}
+                        className="api-form-input"
+                        placeholder="Leave blank to use the configured Local LLM model"
+                        value={step.config.model_identifier || ""}
+                        onChange={(event) => patchStep(index, { ...step, config: { ...step.config, model_identifier: event.target.value } })}
+                      />
+                    </label>
+                    <label id={`automation-step-llm-system-field-${index}`} className="api-form-field api-form-field--full">
+                      <span id={`automation-step-llm-system-label-${index}`} className="api-form-label">System prompt</span>
+                      <textarea
+                        id={`automation-step-llm-system-input-${index}`}
+                        className="api-form-textarea"
+                        rows={4}
+                        value={step.config.system_prompt || ""}
+                        onChange={(event) => patchStep(index, { ...step, config: { ...step.config, system_prompt: event.target.value } })}
+                      />
+                    </label>
+                    <label id={`automation-step-llm-user-field-${index}`} className="api-form-field api-form-field--full">
+                      <span id={`automation-step-llm-user-label-${index}`} className="api-form-label">User prompt</span>
+                      <textarea
+                        id={`automation-step-llm-user-input-${index}`}
+                        className="api-form-textarea"
+                        rows={6}
+                        value={step.config.user_prompt || ""}
+                        onChange={(event) => patchStep(index, { ...step, config: { ...step.config, user_prompt: event.target.value } })}
+                      />
+                    </label>
+                  </div>
+                ) : null}
               </div>
             ))}
             <div id="automation-step-add-actions" className="api-form-actions">
@@ -599,6 +717,7 @@ export const AutomationApp = () => {
               <button id="automation-add-script-step" type="button" className="button button--secondary" onClick={() => addStep("script")}>Add script</button>
               <button id="automation-add-tool-step" type="button" className="button button--secondary" onClick={() => addStep("tool")}>Add tool</button>
               <button id="automation-add-condition-step" type="button" className="button button--secondary" onClick={() => addStep("condition")}>Add condition</button>
+              <button id="automation-add-llm-step" type="button" className="button button--secondary" onClick={() => addStep("llm_chat")}>Add LLM chat</button>
             </div>
             <div id="automation-editor-actions" className="api-form-actions">
               <button id="automation-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>Save automation</button>

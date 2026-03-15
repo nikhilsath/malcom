@@ -296,7 +296,7 @@ export const ReportBuilderPanel = () => (
         <a
           id="dashboard-logs-report-builder-link"
           className="button button--secondary secondary-action-button"
-          href="../tools/overview.html"
+          href="../tools/catalog.html"
         >
           Open tools catalog
         </a>
@@ -317,7 +317,7 @@ export const ReportBuilderPanel = () => (
       <dl id="dashboard-logs-report-builder-metadata" className="dashboard-report-builder-card__metadata">
         <div id="dashboard-logs-report-builder-source-group">
           <dt className="summary-card__label">Catalog entry</dt>
-          <dd id="dashboard-logs-report-builder-source-value">tools/grafana/tool.json</dd>
+          <dd id="dashboard-logs-report-builder-source-value">tools/grafana</dd>
         </div>
         <div id="dashboard-logs-report-builder-focus-group">
           <dt className="summary-card__label">Best fit</dt>

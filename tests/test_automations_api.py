@@ -1,23 +1,35 @@
 from __future__ import annotations
 
+import smtplib
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
-from backend.main import app
+from backend.main import LocalLlmChatResponse, app, get_local_worker_id
 
 
 class AutomationsApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
-        app.state.db_path = str(Path(self.tempdir.name) / "malcom-test.db")
+        self.root_dir = Path(self.tempdir.name)
+        (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        self.previous_root_dir = app.state.root_dir
+        self.previous_db_path = app.state.db_path
+        self.previous_skip_ui_build_check = getattr(app.state, "skip_ui_build_check", False)
+        app.state.root_dir = self.root_dir
+        app.state.db_path = str(self.root_dir / "malcom-test.db")
+        app.state.skip_ui_build_check = True
         self.client = TestClient(app)
         self.client.__enter__()
 
     def tearDown(self) -> None:
         self.client.__exit__(None, None, None)
+        app.state.root_dir = self.previous_root_dir
+        app.state.db_path = self.previous_db_path
+        app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 
     def create_inbound_api(self) -> dict:
@@ -149,6 +161,108 @@ class AutomationsApiTestCase(unittest.TestCase):
         runs = runs_response.json()
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["trigger_type"], "inbound_api")
+
+    def test_manual_automation_can_execute_llm_chat_step(self) -> None:
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Local LLM automation",
+                "description": "Runs a chat step.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "llm_chat",
+                        "name": "Ask the model",
+                        "config": {
+                            "system_prompt": "You are concise.",
+                            "user_prompt": "Summarize {{automation.name}}",
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+
+        with mock.patch(
+            "backend.services.support.execute_local_llm_chat_request",
+            return_value=LocalLlmChatResponse(
+                ok=True,
+                model_identifier="qwen/qwen3.5-9b",
+                response_text="Summary complete.",
+                response_id="response_123",
+            ),
+        ):
+            execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(run["steps"][0]["step_name"], "Ask the model")
+        self.assertIn("Summary complete.", run["steps"][0]["response_summary"])
+
+    def test_smtp_email_triggered_automation_runs_when_matching_subject_arrives(self) -> None:
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "SMTP automation",
+                "description": "Runs when a matching email is received.",
+                "enabled": True,
+                "trigger_type": "smtp_email",
+                "trigger_config": {
+                    "smtp_subject": "Process this invoice",
+                    "smtp_recipient_email": "recipient@example.com",
+                },
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Email log",
+                        "config": {
+                            "message": "Email received: {{payload.subject}} from {{payload.mail_from}}",
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+
+        local_worker_id = get_local_worker_id()
+        patch_response = self.client.patch(
+            "/api/v1/tools/smtp",
+            json={
+                "enabled": True,
+                "target_worker_id": local_worker_id,
+                "bind_host": "127.0.0.1",
+                "port": 0,
+                "recipient_email": "recipient@example.com",
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+
+        start_response = self.client.post("/api/v1/tools/smtp/start")
+        self.assertEqual(start_response.status_code, 200)
+        started_payload = start_response.json()
+        if started_payload["runtime"]["status"] == "error" and "Operation not permitted" in (started_payload["runtime"]["last_error"] or ""):
+            self.skipTest("SMTP listener binding is not permitted in the current sandbox.")
+
+        listening_port = started_payload["runtime"]["listening_port"]
+        self.assertIsInstance(listening_port, int)
+
+        with smtplib.SMTP("127.0.0.1", listening_port, timeout=3) as client:
+            client.sendmail(
+                "sender@example.com",
+                ["recipient@example.com"],
+                "Subject: Process this invoice\r\n\r\ninvoice body",
+            )
+
+        runs_response = self.client.get(f"/api/v1/automations/{automation['id']}/runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["trigger_type"], "smtp_email")
 
 
 if __name__ == "__main__":

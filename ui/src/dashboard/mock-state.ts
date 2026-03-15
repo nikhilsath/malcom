@@ -116,7 +116,7 @@ const quickLinks: DashboardQuickLink[] = [
   {
     id: "automations",
     label: "Automations",
-    href: "../apis/overview.html",
+    href: "../apis/registry.html",
     count: 13
   },
   {
@@ -128,13 +128,13 @@ const quickLinks: DashboardQuickLink[] = [
   {
     id: "tools",
     label: "Tools",
-    href: "../tools/overview.html",
+    href: "../tools/catalog.html",
     count: 3
   },
   {
     id: "settings",
     label: "Settings",
-    href: "../settings/general.html",
+    href: "../settings/workspace.html",
     count: 2
   }
 ];

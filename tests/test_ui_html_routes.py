@@ -19,10 +19,12 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         (dist_dir / "assets").mkdir(parents=True, exist_ok=True)
 
         html_pages = {
-            "index.html": "<html><body>Home</body></html>",
-            "dashboard/overview.html": "<html><body>Dashboard</body></html>",
-            "dashboard/devices.html": "<html><body>Devices</body></html>",
-            "dashboard/logs.html": "<html><body>Logs</body></html>",
+            "dashboard/home.html": "<html><body>Dashboard</body></html>",
+            "settings/workspace.html": "<html><body>Settings Workspace</body></html>",
+            "settings/access.html": "<html><body>Settings Access</body></html>",
+            "settings/connectors.html": "<html><body>Settings Connectors</body></html>",
+            "apis/registry.html": "<html><body>APIs Registry</body></html>",
+            "tools/catalog.html": "<html><body>Tools Catalog</body></html>",
             "scripts.html": "<html><body>Scripts Redirect</body></html>",
             "scripts/library.html": "<html><body>Script Library</body></html>",
             "apis/automation.html": "<html><body>API Automation</body></html>",
@@ -42,16 +44,47 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         self.client.__exit__(None, None, None)
         self.tempdir.cleanup()
 
-    def test_serves_registered_html_pages_for_scripts_and_api_automation(self) -> None:
-        for path in ("/scripts.html", "/scripts/library.html", "/apis/automation.html"):
+    def test_serves_registered_html_pages_for_canonical_routes(self) -> None:
+        for path in (
+            "/dashboard/home.html",
+            "/settings/workspace.html",
+            "/settings/access.html",
+            "/settings/connectors.html",
+            "/apis/registry.html",
+            "/tools/catalog.html",
+            "/scripts.html",
+            "/scripts/library.html",
+            "/apis/automation.html",
+        ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200, path)
             self.assertIn("text/html", response.headers.get("content-type", ""))
 
-    def test_redirects_scripts_root_to_scripts_html(self) -> None:
-        response = self.client.get("/scripts", follow_redirects=False)
-        self.assertEqual(response.status_code, 307)
-        self.assertEqual(response.headers.get("location"), "/scripts.html")
+    def test_redirects_legacy_and_root_routes_to_canonical_paths(self) -> None:
+        redirect_expectations = {
+            "/": "/dashboard/home.html",
+            "/index.html": "/dashboard/home.html",
+            "/dashboard": "/dashboard/home.html",
+            "/dashboard/overview.html": "/dashboard/home.html",
+            "/dashboard/devices.html": "/dashboard/home.html#/devices",
+            "/dashboard/logs.html": "/dashboard/home.html#/logs",
+            "/settings": "/settings/workspace.html",
+            "/settings.html": "/settings/workspace.html",
+            "/settings/general.html": "/settings/workspace.html",
+            "/settings/security.html": "/settings/access.html",
+            "/apis": "/apis/registry.html",
+            "/apis.html": "/apis/registry.html",
+            "/apis/overview.html": "/apis/registry.html",
+            "/tools": "/tools/catalog.html",
+            "/tools.html": "/tools/catalog.html",
+            "/tools/overview.html": "/tools/catalog.html",
+            "/scripts": "/scripts.html",
+        }
+
+        for path, expected_location in redirect_expectations.items():
+            response = self.client.get(path, follow_redirects=False)
+            self.assertEqual(response.status_code, 307, path)
+            self.assertEqual(response.headers.get("location"), expected_location, path)
 
 
 if __name__ == "__main__":

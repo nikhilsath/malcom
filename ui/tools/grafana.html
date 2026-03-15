@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Grafana Configuration</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-grafana" data-shell-path-prefix="../" data-tool-id="grafana">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell tool-config-shell">
+            <div class="page-header section-header--page">
+                <h2 class="page-title section-header__title--page" id="page-title">Grafana Configuration</h2>
+                <p class="page-description section-header__description--page" id="page-description">Configure metadata and activation state for the Grafana tool.</p>
+            </div>
+
+            <section id="tools-config-workspace" class="card tool-config-workspace">
+                <div id="tools-config-overview-header" class="section-header tool-config-workspace__header">
+                    <div id="tools-config-overview-copy" class="section-header__copy">
+                        <p id="tools-config-overview-eyebrow" class="section-header__eyebrow">Tool Setup</p>
+                        <h3 id="tools-config-title" class="section-header__title">Grafana configuration</h3>
+                        <p id="tools-config-description" class="section-header__description">Loading tool metadata.</p>
+                    </div>
+                    <div id="tools-config-status-card" class="stat-card tool-config-workspace__status" aria-live="polite">
+                        <p id="tools-config-status-label" class="stat-card__label">Directory state</p>
+                        <p id="tools-config-status-value" class="stat-card__value">Loading</p>
+                        <p id="tools-config-status-message" class="api-directory-description">Fetching tool registration details.</p>
+                    </div>
+                </div>
+
+                <div id="tools-config-panels" class="tool-config-panels">
+                    <section id="tools-config-form-panel" class="card tool-config-panel">
+                        <div id="tools-config-form-header" class="section-header tool-config-panel__header">
+                            <div id="tools-config-form-copy" class="section-header__copy">
+                                <p id="tools-config-form-eyebrow" class="section-header__eyebrow">Metadata</p>
+                                <h3 id="tools-config-form-title" class="section-header__title">Directory settings</h3>
+                                <p id="tools-config-form-copy-text" class="section-header__description">Update the displayed label, description, and enabled state.</p>
+                            </div>
+                        </div>
+
+                        <form id="tools-config-form" class="api-form">
+                            <div id="tools-config-form-grid" class="api-form-grid">
+                                <label id="tools-config-enabled-field" class="api-form-field">
+                                    <span id="tools-config-enabled-label" class="api-form-label">Availability</span>
+                                    <select id="tools-config-enabled-input" class="api-form-input" name="enabled">
+                                        <option id="tools-config-enabled-option-on" value="true">Enabled</option>
+                                        <option id="tools-config-enabled-option-off" value="false">Disabled</option>
+                                    </select>
+                                </label>
+
+                                <label id="tools-config-name-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-config-name-label" class="api-form-label">Tool name</span>
+                                    <input id="tools-config-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
+                                </label>
+
+                                <label id="tools-config-description-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-config-description-label" class="api-form-label">Description</span>
+                                    <textarea id="tools-config-description-input" class="api-form-textarea" name="description" rows="4" maxlength="500" required></textarea>
+                                </label>
+                            </div>
+
+                            <div id="tools-config-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                            <div id="tools-config-form-actions" class="api-form-actions">
+                                <button type="submit" id="tools-config-save-button" class="button button--primary primary-action-button">Save configuration</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="tools-config-summary-panel" class="card tool-config-panel">
+                        <div id="tools-config-summary-header" class="section-header tool-config-panel__header">
+                            <div id="tools-config-summary-copy" class="section-header__copy">
+                                <p id="tools-config-summary-eyebrow" class="section-header__eyebrow">Setup</p>
+                                <h3 id="tools-config-summary-title" class="section-header__title">Registration summary</h3>
+                                <p id="tools-config-summary-description" class="section-header__description">Use this page to track what is required before the tool is enabled.</p>
+                            </div>
+                        </div>
+
+                        <article id="tools-config-summary-card" class="stat-card tool-config-summary-card">
+                            <p id="tools-config-metadata-name-label" class="stat-card__label">Displayed name</p>
+                            <p id="tools-config-metadata-name-value" class="stat-card__value">Loading</p>
+                            <dl id="tools-config-summary-list" class="dashboard-host-card__metadata tool-config-summary-list">
+                                <div id="tools-config-metadata-id-group">
+                                    <dt class="summary-card__label">Tool ID</dt>
+                                    <dd id="tools-config-metadata-id-value">Loading</dd>
+                                </div>
+                                <div id="tools-config-metadata-path-group">
+                                    <dt class="summary-card__label">Page path</dt>
+                                    <dd id="tools-config-metadata-path-value">Loading</dd>
+                                </div>
+                            </dl>
+                        </article>
+
+                        <section id="tools-config-guidance" class="tool-config-guidance">
+                            <div id="tools-config-guidance-header" class="section-header tool-config-panel__header">
+                                <div id="tools-config-guidance-copy" class="section-header__copy">
+                                    <p id="tools-config-guidance-eyebrow" class="section-header__eyebrow">Checklist</p>
+                                    <h3 id="tools-config-guidance-title" class="section-header__title">Build steps</h3>
+                                    <p id="tools-config-guidance-description" class="section-header__description">Use this checklist when wiring the actual runtime integration.</p>
+                                </div>
+                            </div>
+                            <ol id="tools-config-checklist" class="tool-config-checklist"></ol>
+                        </section>
+                    </section>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/tool-config.js"></script>
+</body>
+</html>

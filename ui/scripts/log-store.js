@@ -4,9 +4,8 @@ const malcomLogStorageKeys = {
 
 const malcomDefaultAppSettings = {
   general: {
-    environment: "staging",
-    timezone: "local",
-    preview_mode: true
+    environment: "live",
+    timezone: "local"
   },
   logging: {
     max_stored_entries: 250,
@@ -28,6 +27,15 @@ const malcomDefaultAppSettings = {
     payload_redaction: true,
     export_window_utc: "02:00",
     audit_retention_days: 365
+  },
+  connectors: {
+    catalog: [],
+    records: [],
+    auth_policy: {
+      rotation_interval_days: 90,
+      reconnect_requires_approval: true,
+      credential_visibility: "masked"
+    }
   }
 };
 
@@ -108,7 +116,8 @@ let pendingSettingsRequest = null;
 const normalizeAppSettings = (settings = {}) => ({
   general: {
     ...malcomDefaultAppSettings.general,
-    ...(settings.general || {})
+    ...(settings.general || {}),
+    environment: "live"
   },
   logging: sanitizeLoggingSettings(settings.logging),
   notifications: {
@@ -122,6 +131,16 @@ const normalizeAppSettings = (settings = {}) => ({
   data: {
     ...malcomDefaultAppSettings.data,
     ...(settings.data || {})
+  },
+  connectors: {
+    ...cloneJsonValue(malcomDefaultAppSettings.connectors),
+    ...(settings.connectors || {}),
+    catalog: Array.isArray(settings.connectors?.catalog) ? settings.connectors.catalog : [],
+    records: Array.isArray(settings.connectors?.records) ? settings.connectors.records : [],
+    auth_policy: {
+      ...malcomDefaultAppSettings.connectors.auth_policy,
+      ...(settings.connectors?.auth_policy || {})
+    }
   }
 });
 

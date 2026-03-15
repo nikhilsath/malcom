@@ -25,6 +25,29 @@ const createElement = (tagName, attributes = {}, textContent = "") => {
 
 const getShellPathPrefix = () => document.body?.dataset.shellPathPrefix || "";
 
+const getBaseUrl = () => {
+  if (window.location.protocol === "file:" || window.location.origin === "null") {
+    return "http://localhost:8000";
+  }
+
+  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
+    return "";
+  }
+
+  return window.location.origin;
+};
+
+const fetchJson = async (path, options = {}) => {
+  const response = await fetch(`${getBaseUrl()}${path}`, options);
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.detail || "Navigation request failed.");
+  }
+
+  return payload;
+};
+
 const getDashboardHashRoute = () => {
   const currentHash = window.location.hash || "";
   return currentHash.startsWith("#/") ? currentHash.slice(1) : "";
@@ -39,12 +62,18 @@ const getDashboardItemRoute = (item) => {
   return `/${pageName.replace(/\.html$/, "")}`;
 };
 
+const getDashboardItemRoutes = (item) => item?.dashboardRoutes?.length
+  ? item.dashboardRoutes
+  : [getDashboardItemRoute(item)].filter(Boolean);
+
+const getItemHrefs = (item) => [item.href, ...(item.aliases || [])];
+
 const getNavItemHref = (sectionId, pathPrefix, item) => {
   if (sectionId !== "dashboard") {
     return resolveShellHref(pathPrefix, item.href);
   }
 
-  const route = getDashboardItemRoute(item);
+  const route = getDashboardItemRoutes(item)[0];
 
   if (!route) {
     return resolveShellHref(pathPrefix, item.href);
@@ -59,21 +88,64 @@ const getTopNavActiveId = () => {
   return activeItem?.id || null;
 };
 
+const getToolItemsWithEnabledState = async () => {
+  const sectionConfig = getSectionConfig("tools");
+
+  if (!sectionConfig) {
+    return [];
+  }
+
+  const [catalogItem, ...manifestToolItems] = sectionConfig.items;
+  const toolsDirectory = await fetchJson("/api/v1/tools");
+  const enabledToolIds = new Set(
+    toolsDirectory
+      .filter((tool) => tool.enabled)
+      .map((tool) => tool.id)
+  );
+
+  return [
+    catalogItem,
+    ...manifestToolItems.filter((item) => enabledToolIds.has(item.id.replace("sidenav-tools-", "")))
+  ];
+};
+
+const getSectionConfigForRender = async (sectionId) => {
+  const sectionConfig = getSectionConfig(sectionId);
+
+  if (!sectionConfig) {
+    return null;
+  }
+
+  if (sectionId !== "tools") {
+    return sectionConfig;
+  }
+
+  try {
+    return {
+      ...sectionConfig,
+      items: await getToolItemsWithEnabledState()
+    };
+  } catch (error) {
+    console.error("Unable to load live tool directory for sidenav.", error);
+    return sectionConfig;
+  }
+};
+
 const getActiveSideNavItem = (items, fallbackItemId) => {
   const section = document.body?.dataset.section;
   const currentHash = window.location.hash;
   const currentPath = `${window.location.pathname}${currentHash}`;
 
   if (section === "dashboard") {
-    const currentRoute = getDashboardHashRoute() || document.body?.dataset.dashboardRoute || "/overview";
-    const matchedDashboardItem = items.find((item) => getDashboardItemRoute(item) === currentRoute);
+    const currentRoute = getDashboardHashRoute() || document.body?.dataset.dashboardRoute || "/home";
+    const matchedDashboardItem = items.find((item) => getDashboardItemRoutes(item).includes(currentRoute));
 
     if (matchedDashboardItem) {
       return matchedDashboardItem.id;
     }
   }
 
-  const matchedItem = items.find((item) => currentPath.endsWith(item.href) || currentHash && item.href.endsWith(currentHash));
+  const matchedItem = items.find((item) => getItemHrefs(item).some((href) => currentPath.endsWith(href) || currentHash && href.endsWith(currentHash)));
 
   if (matchedItem) {
     return matchedItem.id;
@@ -179,7 +251,7 @@ const renderSidebarFooter = (sectionConfig) => {
   return footer;
 };
 
-const renderSideNav = () => {
+const renderSideNav = async () => {
   const body = document.body;
   const sideNav = document.getElementById("sidenav");
 
@@ -187,7 +259,7 @@ const renderSideNav = () => {
     return;
   }
 
-  const sectionConfig = getSectionConfig(body.dataset.section);
+  const sectionConfig = await getSectionConfigForRender(body.dataset.section);
 
   if (!sectionConfig) {
     return;
@@ -274,6 +346,12 @@ const renderSideNav = () => {
   if (pageDescription && activeItem?.description) {
     pageDescription.textContent = activeItem.description;
   }
+
+  if (activeItem?.pageTitle) {
+    document.title = `Malcom - ${activeItem.pageTitle}`;
+  }
+
+  initSidebarCollapse();
 };
 
 const emitRuntimeLog = (entry) => {
@@ -384,7 +462,11 @@ const initSidebarCollapse = () => {
 
 renderTopNav();
 renderSideNav();
-window.addEventListener("hashchange", renderSideNav);
+window.addEventListener("hashchange", () => {
+  renderSideNav();
+});
+window.addEventListener("malcom:tools-directory-updated", () => {
+  renderSideNav();
+});
 initDeveloperModeToggle();
-initSidebarCollapse();
 logPageView();

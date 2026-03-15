@@ -72,6 +72,33 @@ For static pages, the expected pattern is:
 
 Do not manually duplicate top navigation or side navigation markup on new pages.
 
+### Tool Registration And Configuration Pages
+
+The Tools section is registration-driven.
+
+Source of truth:
+
+* `backend/tool_registry.py` for the default tool catalog seed data
+* the `tools` table in SQLite for persisted enabled state and metadata overrides
+* `scripts/generate-tools-manifest.mjs` to regenerate `ui/scripts/tools-manifest.js`
+* `ui/scripts/shell-config.js` consuming the generated manifest to build the tools sidenav
+* `ui/tools/catalog.html` as the directory page for metadata edits and enable/disable state
+* `ui/tools/<tool-id>.html` as the per-tool configuration page in the sidenav
+
+Expected workflow for adding a new tool:
+
+1. Add the tool entry to the catalog in `backend/tool_registry.py` with `id`, `name`, and `description`.
+2. Add `ui/tools/<tool-id>.html` and use the shared shell placeholders: `id="topnav"` and `id="sidenav"`.
+3. Set `data-section="tools"`, `data-sidenav-item="sidenav-tools-<tool-id>"`, `data-shell-path-prefix="../"`, and `data-tool-id="<tool-id>"` on the page body.
+4. Add the page to `ui/vite.config.ts`.
+5. Add the built route to `backend/main.py` so the backend can serve the HTML page.
+6. Run `node scripts/generate-tools-manifest.mjs`.
+7. Build the UI and confirm the tool appears in both the catalog page and the sidenav without manual nav edits.
+
+The catalog page edits metadata and enabled state through `/api/v1/tools` and `/api/v1/tools/{tool_id}/directory`.
+Tool-specific runtime configuration, when needed, should live on the per-tool page rather than being embedded in the catalog.
+Do not create new `tools/<tool-id>/tool.json` files for tool registration. That legacy filesystem flow has been replaced by database-backed tool records plus the generated manifest.
+
 ### 2. API Layer
 
 FastAPI service responsible for:
@@ -135,6 +162,7 @@ SQLite database used for:
 * logs
 * configuration
 * editable tool metadata overrides
+* persisted tool catalog records and enablement state
 
 ### Inbound API Secret Policy
 
@@ -179,6 +207,25 @@ For frontend development, prefer **TypeScript over JavaScript** for components, 
 ## Runtime Management
 
 * macOS launchd
+
+---
+
+# Tool Development
+
+Use this workflow whenever a new tool is introduced or an existing tool page is expanded.
+
+1. Register the tool in `backend/tool_registry.py`.
+2. Build or update the tool page in `ui/tools/<tool-id>.html`.
+3. Prefer shared scripts for common tool-page behavior and add tool-specific scripts only when runtime behavior differs, such as `ui/scripts/smtp.js`.
+4. Run `node scripts/generate-tools-manifest.mjs` so the overview and sidenav use the latest metadata.
+5. Run `npm run build` in `ui/`.
+6. Verify the built page is emitted in `ui/dist/tools/`.
+7. Open `tools/catalog.html`, edit the tool metadata, toggle enabled/disabled, and confirm the matching sidenav entry opens the correct configuration page.
+
+Legacy note:
+
+* `tools/<tool-id>/tool.json` is no longer used for new tool registration.
+* new tools must be added to the backend catalog seed and then propagated through the generated manifest.
 
 ---
 
@@ -355,26 +402,28 @@ cd ui && npm run build
 
 ## Adding A New Tool
 
-Tools are discovered from the top-level `tools/` directory and surfaced in the UI through a generated manifest.
+Tools are defined in the backend catalog and surfaced in the UI through a generated manifest.
 
-Each tool must live in its own folder:
+Primary registration sources:
 
-* `tools/<tool-id>/tool.json`
+* `backend/tool_registry.py`
+* the SQLite `tools` table
+* `ui/scripts/tools-manifest.js`
 
 Rules:
 
-* the folder name is the tool slug
-* the `id` field in `tool.json` must exactly match the folder name
+* the tool `id` is the stable slug used by routes, DB rows, and sidenav items
 * every tool must define `id`, `name`, and `description`
 * keep descriptions concise and UI-ready
+* do not add new `tools/<tool-id>/tool.json` files
 
 Example:
 
-```json
+```python
 {
   "id": "rss-poller",
   "name": "RSS Poller",
-  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations."
+  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations.",
 }
 ```
 
@@ -387,21 +436,21 @@ node scripts/generate-tools-manifest.mjs
 Expected behavior:
 
 * the command writes `ui/scripts/tools-manifest.js`
-* `ui/tools.html` renders the new tool automatically
+* `ui/tools/catalog.html` renders the new tool automatically
 * no manual HTML edits are required to add the card
-* tool folders are still discovered from `tools/<tool-id>/tool.json`
+* the manifest is generated from the backend tool catalog and stored DB records
 * saved name and description edits are stored in SQLite as overrides
 
 Local UI note:
 
-* opening `ui/tools.html` directly from disk is supported
+* opening `ui/tools/catalog.html` directly from disk is supported
 * when opened via `file://`, the UI sends API requests to `http://localhost:8000`
 
 Verification steps:
 
-1. Create `tools/<tool-id>/tool.json`.
+1. Add the tool entry in `backend/tool_registry.py`.
 2. Run `node scripts/generate-tools-manifest.mjs`.
-3. Open `ui/tools.html`.
+3. Open `ui/tools/catalog.html`.
 4. Confirm the new tool card appears with the correct name and description.
 
 ### Sidebar Navigation

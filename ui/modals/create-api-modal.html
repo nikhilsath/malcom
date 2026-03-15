@@ -75,6 +75,13 @@
         </div>
 
         <div id="create-api-outgoing-grid" class="api-form-grid">
+          <label id="create-api-connector-field" class="api-form-field api-form-field--full">
+            <span id="create-api-connector-label" class="api-form-label">Saved connector</span>
+            <select id="create-api-connector-input" class="api-form-input" name="connectorId">
+              <option value="">Custom destination</option>
+            </select>
+          </label>
+
           <label id="create-api-destination-field" class="api-form-field api-form-field--full">
             <span id="create-api-destination-label" class="api-form-label">Destination URL</span>
             <input id="create-api-destination-input" class="api-form-input" name="destinationUrl" type="url" inputmode="url" placeholder="https://example.com/webhooks/orders">

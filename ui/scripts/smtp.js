@@ -10,7 +10,12 @@ const smtpElements = {
   stopButton: document.getElementById("tools-smtp-stop-button"),
   runtimeStatusValue: document.getElementById("tools-smtp-runtime-status-value"),
   runtimeStatusMessage: document.getElementById("tools-smtp-runtime-status-message"),
+  runtimeBanner: document.getElementById("tools-smtp-runtime-banner"),
+  runtimeBannerTitle: document.getElementById("tools-smtp-runtime-banner-title"),
+  runtimeBannerBody: document.getElementById("tools-smtp-runtime-banner-body"),
   summaryMachineValue: document.getElementById("tools-smtp-summary-machine-value"),
+  summaryReceiveValue: document.getElementById("tools-smtp-summary-receive-value"),
+  summaryReceiveCopy: document.getElementById("tools-smtp-summary-receive-copy"),
   summaryEndpointValue: document.getElementById("tools-smtp-summary-endpoint-value"),
   summaryMessagesValue: document.getElementById("tools-smtp-summary-messages-value"),
   activityStartedValue: document.getElementById("tools-smtp-activity-started-value"),
@@ -19,12 +24,60 @@ const smtpElements = {
   activityLastMessageValue: document.getElementById("tools-smtp-activity-last-message-value"),
   activitySenderValue: document.getElementById("tools-smtp-activity-sender-value"),
   activityRecipientValue: document.getElementById("tools-smtp-activity-recipient-value"),
-  machinesBody: document.getElementById("tools-smtp-machines-body")
+  machinesBody: document.getElementById("tools-smtp-machines-body"),
+  receiveAddress: document.getElementById("tools-smtp-receive-address"),
+  receiveHint: document.getElementById("tools-smtp-receive-hint"),
+  copyEmailButton: document.getElementById("tools-smtp-copy-email-button"),
+  copyEndpointButton: document.getElementById("tools-smtp-copy-endpoint-button"),
+  outboundFeedback: document.getElementById("tools-smtp-outbound-feedback"),
+  openTestModalButton: document.getElementById("tools-smtp-open-test-modal-button"),
+  openRelayModalButton: document.getElementById("tools-smtp-open-relay-modal-button"),
+  mailboxEmpty: document.getElementById("tools-smtp-mailbox-empty"),
+  mailboxList: document.getElementById("tools-smtp-mailbox-list"),
+  messageEmpty: document.getElementById("tools-smtp-message-empty"),
+  messageDetail: document.getElementById("tools-smtp-message-detail"),
+  messageSubjectValue: document.getElementById("tools-smtp-message-meta-subject-value"),
+  messageFromValue: document.getElementById("tools-smtp-message-meta-from-value"),
+  messageToValue: document.getElementById("tools-smtp-message-meta-to-value"),
+  messageTimeValue: document.getElementById("tools-smtp-message-meta-time-value"),
+  messagePeerValue: document.getElementById("tools-smtp-message-meta-peer-value"),
+  messageSizeValue: document.getElementById("tools-smtp-message-meta-size-value"),
+  messageBodyValue: document.getElementById("tools-smtp-message-body-value"),
+  messageRawValue: document.getElementById("tools-smtp-message-raw-value"),
+  copyRawMessageButton: document.getElementById("tools-smtp-copy-raw-message-button"),
+  testModal: document.getElementById("tools-smtp-test-modal"),
+  testForm: document.getElementById("tools-smtp-test-form"),
+  testFromInput: document.getElementById("tools-smtp-test-from-input"),
+  testToInput: document.getElementById("tools-smtp-test-to-input"),
+  testSubjectInput: document.getElementById("tools-smtp-test-subject-input"),
+  testBodyInput: document.getElementById("tools-smtp-test-body-input"),
+  testFeedback: document.getElementById("tools-smtp-test-feedback"),
+  testSubmitButton: document.getElementById("tools-smtp-test-submit-button"),
+  relayModal: document.getElementById("tools-smtp-relay-modal"),
+  relayForm: document.getElementById("tools-smtp-relay-form"),
+  relayHostInput: document.getElementById("tools-smtp-relay-host-input"),
+  relayPortInput: document.getElementById("tools-smtp-relay-port-input"),
+  relaySecurityInput: document.getElementById("tools-smtp-relay-security-input"),
+  relayAuthModeInput: document.getElementById("tools-smtp-relay-auth-mode-input"),
+  relayUsernameInput: document.getElementById("tools-smtp-relay-username-input"),
+  relayPasswordInput: document.getElementById("tools-smtp-relay-password-input"),
+  relayFromInput: document.getElementById("tools-smtp-relay-from-input"),
+  relayToInput: document.getElementById("tools-smtp-relay-to-input"),
+  relaySubjectInput: document.getElementById("tools-smtp-relay-subject-input"),
+  relayBodyInput: document.getElementById("tools-smtp-relay-body-input"),
+  relayFeedback: document.getElementById("tools-smtp-relay-feedback"),
+  relaySubmitButton: document.getElementById("tools-smtp-relay-submit-button"),
+  relayUsernameField: document.getElementById("tools-smtp-relay-username-field"),
+  relayPasswordField: document.getElementById("tools-smtp-relay-password-field")
 };
 
-let smtpState = null;
-let pendingRequest = false;
-let refreshTimer = null;
+const smtpState = {
+  tool: null,
+  pendingRequest: false,
+  refreshTimer: null,
+  selectedMessageId: null,
+  highlightedMessageId: null
+};
 
 const getBaseUrl = () => {
   if (window.location.protocol === "file:" || window.location.origin === "null") {
@@ -38,11 +91,13 @@ const getBaseUrl = () => {
   return window.location.origin;
 };
 
-const setFeedback = (message, tone = "") => {
-  smtpElements.feedback.textContent = message;
-  smtpElements.feedback.className = tone
-    ? `api-form-feedback api-form-feedback--${tone}`
-    : "api-form-feedback";
+const setFeedback = (element, message, tone = "") => {
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message;
+  element.className = tone ? `api-form-feedback api-form-feedback--${tone}` : "api-form-feedback";
 };
 
 const emitSmtpLog = ({
@@ -88,12 +143,45 @@ const formatDateTime = (value, fallback) => {
   }).format(parsed);
 };
 
+const formatSize = (value) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "Unknown";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  return `${(value / 1024).toFixed(1)} KB`;
+};
+
 const getSelectedMachine = (machines, machineId) => (
   machines.find((machine) => machine.id === machineId)
   || machines.find((machine) => machine.is_local)
   || machines[0]
   || null
 );
+
+const getUiState = (data) => {
+  const status = data?.runtime?.status || "stopped";
+  return {
+    canStart: status === "stopped" || status === "error",
+    canStop: status === "running" || status === "assigned",
+    isRemoteAssignment: status === "assigned",
+    isLocalListening: status === "running" && Boolean(data?.runtime?.listening_host) && data?.runtime?.listening_port !== null
+  };
+};
+
+const fetchJson = async (path, options = {}) => {
+  const response = await fetch(`${getBaseUrl()}${path}`, options);
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.detail || "SMTP request failed.");
+  }
+
+  return payload;
+};
 
 const renderMachineOptions = (data) => {
   const selectedMachineId = data.config.target_worker_id || getSelectedMachine(data.machines, null)?.id || "";
@@ -104,9 +192,7 @@ const renderMachineOptions = (data) => {
     option.id = `tools-smtp-machine-option-${machine.id}`;
     option.value = machine.id;
     option.textContent = machine.is_local ? `${machine.name} (Local)` : `${machine.name} (${machine.address})`;
-    if (machine.id === selectedMachineId) {
-      option.selected = true;
-    }
+    option.selected = machine.id === selectedMachineId;
     fragment.appendChild(option);
   });
 
@@ -134,9 +220,7 @@ const renderMachinesTable = (machines) => {
 
     const capabilitiesCell = document.createElement("td");
     capabilitiesCell.id = `tools-smtp-machine-capabilities-${machine.id}`;
-    capabilitiesCell.textContent = machine.capabilities.length > 0
-      ? machine.capabilities.join(", ")
-      : "No declared capabilities";
+    capabilitiesCell.textContent = machine.capabilities.length > 0 ? machine.capabilities.join(", ") : "No declared capabilities";
 
     row.append(nameCell, addressCell, statusCell, capabilitiesCell);
     fragment.appendChild(row);
@@ -145,82 +229,154 @@ const renderMachinesTable = (machines) => {
   smtpElements.machinesBody.replaceChildren(fragment);
 };
 
-const applyState = (data) => {
-  const previousMessageCount = smtpState?.runtime?.message_count ?? 0;
-  smtpState = data;
-  renderMachineOptions(data);
-  renderMachinesTable(data.machines);
+const renderRuntimeBanner = (data, uiState) => {
+  let tone = "";
+  let title = "SMTP listener is stopped";
+  let body = "Start the listener to receive mail and unlock the local test-send flow.";
 
-  smtpElements.bindHostInput.value = data.config.bind_host;
-  smtpElements.portInput.value = String(data.config.port);
-  smtpElements.recipientEmailInput.value = data.config.recipient_email || "";
-  smtpElements.runtimeStatusValue.textContent = data.runtime.status;
-  smtpElements.runtimeStatusMessage.textContent = data.runtime.message;
+  if (uiState.isLocalListening) {
+    tone = "success";
+    title = "SMTP listener is running locally";
+    body = data.inbound_identity.connection_hint;
+  } else if (uiState.isRemoteAssignment) {
+    tone = "warning";
+    title = "SMTP is assigned remotely";
+    body = "Remote execution is visible for planning purposes, but only local listener execution is wired today.";
+  } else if (data.runtime.status === "error") {
+    tone = "error";
+    title = "SMTP listener failed to start";
+    body = data.runtime.last_error || data.runtime.message;
+  }
 
-  const selectedMachine = getSelectedMachine(data.machines, data.config.target_worker_id || data.runtime.selected_machine_id);
-  smtpElements.summaryMachineValue.textContent = selectedMachine ? selectedMachine.name : "Unassigned";
-  smtpElements.summaryEndpointValue.textContent = data.runtime.listening_host && data.runtime.listening_port !== null
-    ? `${data.runtime.listening_host}:${data.runtime.listening_port}`
-    : "Not listening";
-  smtpElements.summaryMessagesValue.textContent = String(data.runtime.message_count);
+  smtpElements.runtimeBanner.className = tone ? `api-system-alert api-system-alert--${tone}` : "api-system-alert";
+  smtpElements.runtimeBannerTitle.textContent = title;
+  smtpElements.runtimeBannerBody.textContent = body;
+};
 
-  smtpElements.activityStartedValue.textContent = formatDateTime(data.runtime.last_started_at, "Never");
-  smtpElements.activityStoppedValue.textContent = formatDateTime(data.runtime.last_stopped_at, "Never");
-  smtpElements.activitySessionsValue.textContent = String(data.runtime.session_count);
-  smtpElements.activityLastMessageValue.textContent = formatDateTime(data.runtime.last_message_at, "No mail received yet");
-  smtpElements.activitySenderValue.textContent = data.runtime.last_mail_from || "Unknown";
-  smtpElements.activityRecipientValue.textContent = data.runtime.last_recipient || "Unknown";
+const renderReceiveIdentity = (data) => {
+  const identity = data.inbound_identity;
+  smtpElements.summaryReceiveValue.textContent = identity.display_address;
+  smtpElements.summaryReceiveCopy.textContent = identity.accepts_any_recipient
+    ? "Catch-all mode accepts any recipient at the current listener endpoint."
+    : "Only the configured mailbox address is accepted by the listener.";
+  smtpElements.receiveAddress.textContent = identity.display_address;
+  smtpElements.receiveHint.textContent = identity.connection_hint;
+  smtpElements.copyEmailButton.disabled = !identity.configured_recipient_email;
+  smtpElements.copyEndpointButton.disabled = !(identity.listening_host && identity.listening_port !== null);
+};
 
+const renderMailboxList = (data) => {
   const recentMessages = Array.isArray(data.runtime.recent_messages) ? data.runtime.recent_messages : [];
-  recentMessages.forEach((messageEntry) => {
-    if (hasExistingLogEntry(messageEntry.id)) {
-      return;
-    }
+  smtpElements.mailboxEmpty.hidden = recentMessages.length > 0;
 
-    emitSmtpLog({
-      id: messageEntry.id,
-      timestamp: messageEntry.received_at,
-      action: "smtp_message_received",
-      message: `Email received for ${messageEntry.recipients?.[0] || "configured mailbox"}.`,
-      details: {
-        subject: messageEntry.subject || null,
-        body_preview: messageEntry.body_preview || null,
-        recipients: messageEntry.recipients || [],
-        peer: messageEntry.peer,
-        size_bytes: messageEntry.size_bytes
-      },
-      context: {
-        mail_from: messageEntry.mail_from,
-        tool: "smtp"
-      }
-    });
+  if (recentMessages.length === 0) {
+    smtpElements.mailboxList.replaceChildren();
+    smtpState.selectedMessageId = null;
+    renderSelectedMessage(null);
+    return;
+  }
+
+  if (!recentMessages.some((messageEntry) => messageEntry.id === smtpState.selectedMessageId)) {
+    smtpState.selectedMessageId = smtpState.highlightedMessageId && recentMessages.some((messageEntry) => messageEntry.id === smtpState.highlightedMessageId)
+      ? smtpState.highlightedMessageId
+      : recentMessages[0].id;
+  }
+
+  const fragment = document.createDocumentFragment();
+  recentMessages.forEach((messageEntry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = `tools-smtp-mailbox-item-${messageEntry.id}`;
+    button.className = "smtp-mailbox-item";
+    if (messageEntry.id === smtpState.selectedMessageId) {
+      button.classList.add("smtp-mailbox-item--selected");
+    }
+    if (messageEntry.id === smtpState.highlightedMessageId) {
+      button.classList.add("smtp-mailbox-item--highlighted");
+    }
+    button.dataset.messageId = messageEntry.id;
+
+    const header = document.createElement("div");
+    header.id = `tools-smtp-mailbox-item-header-${messageEntry.id}`;
+    header.className = "smtp-mailbox-item__header";
+
+    const subject = document.createElement("p");
+    subject.id = `tools-smtp-mailbox-item-subject-${messageEntry.id}`;
+    subject.className = "smtp-mailbox-item__subject";
+    subject.textContent = messageEntry.subject || "(No subject)";
+
+    const timestamp = document.createElement("p");
+    timestamp.id = `tools-smtp-mailbox-item-timestamp-${messageEntry.id}`;
+    timestamp.className = "smtp-mailbox-item__timestamp";
+    timestamp.textContent = formatDateTime(messageEntry.received_at, "Unknown");
+
+    const from = document.createElement("p");
+    from.id = `tools-smtp-mailbox-item-from-${messageEntry.id}`;
+    from.className = "smtp-mailbox-item__meta";
+    from.textContent = `From ${messageEntry.mail_from || "unknown sender"}`;
+
+    const to = document.createElement("p");
+    to.id = `tools-smtp-mailbox-item-to-${messageEntry.id}`;
+    to.className = "smtp-mailbox-item__meta";
+    to.textContent = `To ${(messageEntry.recipients || []).join(", ") || "unknown recipient"}`;
+
+    const preview = document.createElement("p");
+    preview.id = `tools-smtp-mailbox-item-preview-${messageEntry.id}`;
+    preview.className = "smtp-mailbox-item__preview";
+    preview.textContent = messageEntry.body_preview || "No preview available.";
+
+    header.append(subject, timestamp);
+    button.append(header, from, to, preview);
+    fragment.appendChild(button);
   });
 
-  if (data.runtime.message_count > previousMessageCount && recentMessages[0]) {
-    setFeedback(`Received email for ${recentMessages[0].recipients?.[0] || "configured mailbox"}.`, "success");
+  smtpElements.mailboxList.replaceChildren(fragment);
+  renderSelectedMessage(recentMessages.find((entry) => entry.id === smtpState.selectedMessageId) || recentMessages[0]);
+};
+
+const renderSelectedMessage = (messageEntry) => {
+  if (!messageEntry) {
+    smtpElements.messageEmpty.hidden = false;
+    smtpElements.messageDetail.hidden = true;
+    return;
   }
+
+  smtpElements.messageEmpty.hidden = true;
+  smtpElements.messageDetail.hidden = false;
+  smtpElements.messageSubjectValue.textContent = messageEntry.subject || "(No subject)";
+  smtpElements.messageFromValue.textContent = messageEntry.mail_from || "Unknown";
+  smtpElements.messageToValue.textContent = (messageEntry.recipients || []).join(", ") || "Unknown";
+  smtpElements.messageTimeValue.textContent = formatDateTime(messageEntry.received_at, "Unknown");
+  smtpElements.messagePeerValue.textContent = messageEntry.peer || "Unknown";
+  smtpElements.messageSizeValue.textContent = formatSize(messageEntry.size_bytes);
+  smtpElements.messageBodyValue.textContent = messageEntry.body || messageEntry.body_preview || "No body available.";
+  smtpElements.messageRawValue.textContent = messageEntry.raw_message || "No raw message available.";
+  smtpElements.copyRawMessageButton.disabled = !messageEntry.raw_message;
 };
 
 const setBusyState = (isBusy, actionLabel = "") => {
-  pendingRequest = isBusy;
+  smtpState.pendingRequest = isBusy;
   smtpElements.saveButton.disabled = isBusy;
   smtpElements.startButton.disabled = isBusy;
   smtpElements.stopButton.disabled = isBusy;
+  smtpElements.testSubmitButton.disabled = isBusy;
+  smtpElements.relaySubmitButton.disabled = isBusy;
 
   smtpElements.saveButton.textContent = isBusy && actionLabel === "save" ? "Saving..." : "Save assignment";
   smtpElements.startButton.textContent = isBusy && actionLabel === "start" ? "Starting..." : "Start SMTP server";
   smtpElements.stopButton.textContent = isBusy && actionLabel === "stop" ? "Stopping..." : "Stop SMTP server";
+  smtpElements.testSubmitButton.textContent = isBusy && actionLabel === "test" ? "Sending..." : "Send test email";
+  smtpElements.relaySubmitButton.textContent = isBusy && actionLabel === "relay" ? "Sending..." : "Send relay email";
 };
 
-const fetchJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, options);
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.detail || "SMTP request failed.");
+const toggleModal = (modal, shouldOpen) => {
+  if (!modal) {
+    return;
   }
 
-  return payload;
+  modal.classList.toggle("modal--open", shouldOpen);
+  modal.setAttribute("aria-hidden", String(!shouldOpen));
+  document.body.classList.toggle("modal-open", Boolean(document.querySelector(".modal.modal--open")));
 };
 
 const readFormPayload = () => {
@@ -248,17 +404,130 @@ const readFormPayload = () => {
   };
 };
 
+const readTestPayload = () => {
+  const mailFrom = smtpElements.testFromInput.value.trim().toLowerCase();
+  const recipient = smtpElements.testToInput.value.trim().toLowerCase();
+  if (!mailFrom || !recipient) {
+    throw new Error("Both sender and recipient email addresses are required.");
+  }
+
+  return {
+    mail_from: mailFrom,
+    recipients: [recipient],
+    subject: smtpElements.testSubjectInput.value.trim(),
+    body: smtpElements.testBodyInput.value
+  };
+};
+
+const readRelayPayload = () => {
+  const host = smtpElements.relayHostInput.value.trim();
+  const port = Number.parseInt(smtpElements.relayPortInput.value, 10);
+  const recipients = smtpElements.relayToInput.value
+    .split(/[\n,]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!host) {
+    throw new Error("SMTP host is required.");
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("Port must be between 1 and 65535.");
+  }
+
+  return {
+    host,
+    port,
+    security: smtpElements.relaySecurityInput.value,
+    auth_mode: smtpElements.relayAuthModeInput.value,
+    username: smtpElements.relayUsernameInput.value.trim() || null,
+    password: smtpElements.relayPasswordInput.value || null,
+    mail_from: smtpElements.relayFromInput.value.trim().toLowerCase(),
+    recipients,
+    subject: smtpElements.relaySubjectInput.value.trim(),
+    body: smtpElements.relayBodyInput.value
+  };
+};
+
+const applyState = (data) => {
+  const previousMessageCount = smtpState.tool?.runtime?.message_count ?? 0;
+  smtpState.tool = data;
+
+  renderMachineOptions(data);
+  renderMachinesTable(data.machines);
+
+  smtpElements.bindHostInput.value = data.config.bind_host;
+  smtpElements.portInput.value = String(data.config.port);
+  smtpElements.recipientEmailInput.value = data.config.recipient_email || "";
+  smtpElements.runtimeStatusValue.textContent = data.runtime.status;
+  smtpElements.runtimeStatusMessage.textContent = data.runtime.message;
+
+  const selectedMachine = getSelectedMachine(data.machines, data.config.target_worker_id || data.runtime.selected_machine_id);
+  smtpElements.summaryMachineValue.textContent = selectedMachine ? selectedMachine.name : "Unassigned";
+  smtpElements.summaryEndpointValue.textContent = data.runtime.listening_host && data.runtime.listening_port !== null
+    ? `${data.runtime.listening_host}:${data.runtime.listening_port}`
+    : "Not listening";
+  smtpElements.summaryMessagesValue.textContent = String(data.runtime.message_count);
+
+  smtpElements.activityStartedValue.textContent = formatDateTime(data.runtime.last_started_at, "Never");
+  smtpElements.activityStoppedValue.textContent = formatDateTime(data.runtime.last_stopped_at, "Never");
+  smtpElements.activitySessionsValue.textContent = String(data.runtime.session_count);
+  smtpElements.activityLastMessageValue.textContent = formatDateTime(data.runtime.last_message_at, "No mail received yet");
+  smtpElements.activitySenderValue.textContent = data.runtime.last_mail_from || "Unknown";
+  smtpElements.activityRecipientValue.textContent = data.runtime.last_recipient || "Unknown";
+
+  const uiState = getUiState(data);
+  smtpElements.startButton.hidden = !uiState.canStart;
+  smtpElements.stopButton.hidden = !uiState.canStop;
+  smtpElements.openTestModalButton.disabled = !uiState.isLocalListening || smtpState.pendingRequest;
+  smtpElements.openRelayModalButton.disabled = smtpState.pendingRequest;
+
+  smtpElements.relayUsernameField.hidden = smtpElements.relayAuthModeInput.value !== "password";
+  smtpElements.relayPasswordField.hidden = smtpElements.relayAuthModeInput.value !== "password";
+
+  renderRuntimeBanner(data, uiState);
+  renderReceiveIdentity(data);
+  renderMailboxList(data);
+
+  const recentMessages = Array.isArray(data.runtime.recent_messages) ? data.runtime.recent_messages : [];
+  recentMessages.forEach((messageEntry) => {
+    if (hasExistingLogEntry(messageEntry.id)) {
+      return;
+    }
+
+    emitSmtpLog({
+      id: messageEntry.id,
+      timestamp: messageEntry.received_at,
+      action: "smtp_message_received",
+      message: `Email received for ${messageEntry.recipients?.[0] || "configured mailbox"}.`,
+      details: {
+        subject: messageEntry.subject || null,
+        body_preview: messageEntry.body_preview || null,
+        recipients: messageEntry.recipients || [],
+        peer: messageEntry.peer,
+        size_bytes: messageEntry.size_bytes
+      },
+      context: {
+        mail_from: messageEntry.mail_from,
+        tool: "smtp"
+      }
+    });
+  });
+
+  if (data.runtime.message_count > previousMessageCount && recentMessages[0]) {
+    smtpState.highlightedMessageId = recentMessages[0].id;
+    smtpState.selectedMessageId = recentMessages[0].id;
+    renderMailboxList(data);
+    setFeedback(smtpElements.feedback, `Received email for ${recentMessages[0].recipients?.[0] || "configured mailbox"}.`, "success");
+  }
+};
+
 const refreshState = async () => {
   const data = await fetchJson("/api/v1/tools/smtp");
   applyState(data);
 };
 
-const saveSmtpConfig = async (extraPayload = {}) => {
-  const payload = {
-    ...readFormPayload(),
-    ...extraPayload
-  };
-
+const saveSmtpConfig = async () => {
+  const payload = readFormPayload();
   const data = await fetchJson("/api/v1/tools/smtp", {
     method: "PATCH",
     headers: {
@@ -272,26 +541,36 @@ const saveSmtpConfig = async (extraPayload = {}) => {
 
 const startSmtpServer = async () => {
   await saveSmtpConfig();
-  const data = await fetchJson("/api/v1/tools/smtp/start", {
-    method: "POST"
-  });
+  const data = await fetchJson("/api/v1/tools/smtp/start", { method: "POST" });
   applyState(data);
 };
 
 const stopSmtpServer = async () => {
-  const data = await fetchJson("/api/v1/tools/smtp/stop", {
-    method: "POST"
-  });
+  const data = await fetchJson("/api/v1/tools/smtp/stop", { method: "POST" });
   applyState(data);
 };
 
-const scheduleRefresh = () => {
-  if (refreshTimer !== null) {
-    window.clearInterval(refreshTimer);
+const copyText = async (text, successMessage) => {
+  if (!text) {
+    setFeedback(smtpElements.outboundFeedback, "Nothing available to copy.", "error");
+    return;
   }
 
-  refreshTimer = window.setInterval(() => {
-    if (pendingRequest) {
+  try {
+    await navigator.clipboard.writeText(text);
+    setFeedback(smtpElements.outboundFeedback, successMessage, "success");
+  } catch (error) {
+    setFeedback(smtpElements.outboundFeedback, error instanceof Error ? error.message : "Unable to copy value.", "error");
+  }
+};
+
+const scheduleRefresh = () => {
+  if (smtpState.refreshTimer !== null) {
+    window.clearInterval(smtpState.refreshTimer);
+  }
+
+  smtpState.refreshTimer = window.setInterval(() => {
+    if (smtpState.pendingRequest) {
       return;
     }
 
@@ -301,61 +580,242 @@ const scheduleRefresh = () => {
 
 smtpElements.form?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (pendingRequest) {
+  if (smtpState.pendingRequest) {
     return;
   }
 
   setBusyState(true, "save");
-  setFeedback("");
+  setFeedback(smtpElements.feedback, "");
 
   try {
     await saveSmtpConfig();
-    setFeedback("SMTP assignment saved.", "success");
+    setFeedback(smtpElements.feedback, "SMTP assignment saved.", "success");
   } catch (error) {
-    setFeedback(error instanceof Error ? error.message : "Unable to save SMTP assignment.", "error");
+    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to save SMTP assignment.", "error");
   } finally {
     setBusyState(false);
+    if (smtpState.tool) {
+      applyState(smtpState.tool);
+    }
   }
 });
 
 smtpElements.startButton?.addEventListener("click", async () => {
-  if (pendingRequest) {
+  if (smtpState.pendingRequest) {
     return;
   }
 
   setBusyState(true, "start");
-  setFeedback("");
+  setFeedback(smtpElements.feedback, "");
 
   try {
     await startSmtpServer();
-    setFeedback("SMTP server state updated.", "success");
+    setFeedback(smtpElements.feedback, "SMTP server started.", "success");
   } catch (error) {
-    setFeedback(error instanceof Error ? error.message : "Unable to start SMTP server.", "error");
+    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to start SMTP server.", "error");
   } finally {
     setBusyState(false);
+    if (smtpState.tool) {
+      applyState(smtpState.tool);
+    }
   }
 });
 
 smtpElements.stopButton?.addEventListener("click", async () => {
-  if (pendingRequest) {
+  if (smtpState.pendingRequest) {
     return;
   }
 
   setBusyState(true, "stop");
-  setFeedback("");
+  setFeedback(smtpElements.feedback, "");
 
   try {
     await stopSmtpServer();
-    setFeedback("SMTP server stopped.", "success");
+    setFeedback(smtpElements.feedback, "SMTP server stopped.", "success");
   } catch (error) {
-    setFeedback(error instanceof Error ? error.message : "Unable to stop SMTP server.", "error");
+    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to stop SMTP server.", "error");
   } finally {
     setBusyState(false);
+    if (smtpState.tool) {
+      applyState(smtpState.tool);
+    }
+  }
+});
+
+smtpElements.mailboxList?.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-message-id]");
+  if (!(trigger instanceof HTMLElement) || !smtpState.tool) {
+    return;
+  }
+
+  smtpState.selectedMessageId = trigger.dataset.messageId || null;
+  smtpState.highlightedMessageId = smtpState.highlightedMessageId === smtpState.selectedMessageId ? null : smtpState.highlightedMessageId;
+  renderMailboxList(smtpState.tool);
+});
+
+smtpElements.openTestModalButton?.addEventListener("click", () => {
+  const identity = smtpState.tool?.inbound_identity;
+  smtpElements.testFromInput.value ||= "smtp-test@malcom.local";
+  smtpElements.testToInput.value = identity?.configured_recipient_email || "";
+  smtpElements.testToInput.disabled = !identity?.accepts_any_recipient && Boolean(identity?.configured_recipient_email);
+  setFeedback(smtpElements.testFeedback, "");
+  toggleModal(smtpElements.testModal, true);
+});
+
+smtpElements.openRelayModalButton?.addEventListener("click", () => {
+  setFeedback(smtpElements.relayFeedback, "");
+  toggleModal(smtpElements.relayModal, true);
+});
+
+smtpElements.testForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (smtpState.pendingRequest) {
+    return;
+  }
+
+  setBusyState(true, "test");
+  setFeedback(smtpElements.testFeedback, "");
+  setFeedback(smtpElements.outboundFeedback, "");
+
+  try {
+    const payload = readTestPayload();
+    const result = await fetchJson("/api/v1/tools/smtp/send-test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    emitSmtpLog({
+      id: `smtp_test_send_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: "smtp_test_send_succeeded",
+      message: `Sent a test email to ${payload.recipients[0]}.`,
+      details: payload
+    });
+    smtpState.highlightedMessageId = result.message_id || null;
+    await refreshState();
+    setFeedback(smtpElements.testFeedback, result.message, "success");
+    setFeedback(smtpElements.outboundFeedback, result.message, "success");
+  } catch (error) {
+    emitSmtpLog({
+      id: `smtp_test_send_failed_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      level: "error",
+      action: "smtp_test_send_failed",
+      message: "Failed to send a local SMTP test message."
+    });
+    setFeedback(smtpElements.testFeedback, error instanceof Error ? error.message : "Unable to send test email.", "error");
+  } finally {
+    setBusyState(false);
+    if (smtpState.tool) {
+      applyState(smtpState.tool);
+    }
+  }
+});
+
+smtpElements.relayForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (smtpState.pendingRequest) {
+    return;
+  }
+
+  setBusyState(true, "relay");
+  setFeedback(smtpElements.relayFeedback, "");
+  setFeedback(smtpElements.outboundFeedback, "");
+
+  try {
+    const payload = readRelayPayload();
+    const result = await fetchJson("/api/v1/tools/smtp/send-relay", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    emitSmtpLog({
+      id: `smtp_relay_send_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: "smtp_relay_send_succeeded",
+      message: `Relay email sent through ${payload.host}:${payload.port}.`,
+      details: {
+        host: payload.host,
+        port: payload.port,
+        security: payload.security,
+        recipients: payload.recipients
+      }
+    });
+    setFeedback(smtpElements.relayFeedback, result.message, "success");
+    setFeedback(smtpElements.outboundFeedback, result.message, "success");
+  } catch (error) {
+    emitSmtpLog({
+      id: `smtp_relay_send_failed_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      level: "error",
+      action: "smtp_relay_send_failed",
+      message: "Failed to send an external relay email."
+    });
+    setFeedback(smtpElements.relayFeedback, error instanceof Error ? error.message : "Unable to send relay email.", "error");
+  } finally {
+    setBusyState(false);
+    if (smtpState.tool) {
+      applyState(smtpState.tool);
+    }
+  }
+});
+
+smtpElements.copyEmailButton?.addEventListener("click", () => {
+  copyText(smtpState.tool?.inbound_identity?.configured_recipient_email || "", "Receive email copied.");
+});
+
+smtpElements.copyEndpointButton?.addEventListener("click", () => {
+  const identity = smtpState.tool?.inbound_identity;
+  const endpoint = identity?.listening_host && identity?.listening_port !== null
+    ? `${identity.listening_host}:${identity.listening_port}`
+    : "";
+  copyText(endpoint, "Listener endpoint copied.");
+});
+
+smtpElements.copyRawMessageButton?.addEventListener("click", () => {
+  copyText(smtpElements.messageRawValue.textContent || "", "Raw SMTP content copied.");
+});
+
+smtpElements.relayAuthModeInput?.addEventListener("change", () => {
+  const usesPassword = smtpElements.relayAuthModeInput.value === "password";
+  smtpElements.relayUsernameField.hidden = !usesPassword;
+  smtpElements.relayPasswordField.hidden = !usesPassword;
+});
+
+document.addEventListener("click", (event) => {
+  const closeTarget = event.target.closest("[data-modal-close]");
+  if (!(closeTarget instanceof HTMLElement)) {
+    return;
+  }
+
+  const modalId = closeTarget.dataset.modalClose;
+  if (modalId === "tools-smtp-test-modal") {
+    toggleModal(smtpElements.testModal, false);
+  }
+  if (modalId === "tools-smtp-relay-modal") {
+    toggleModal(smtpElements.relayModal, false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (smtpElements.testModal?.classList.contains("modal--open")) {
+    toggleModal(smtpElements.testModal, false);
+  }
+  if (smtpElements.relayModal?.classList.contains("modal--open")) {
+    toggleModal(smtpElements.relayModal, false);
   }
 });
 
 refreshState().catch((error) => {
-  setFeedback(error instanceof Error ? error.message : "Unable to load SMTP tool.", "error");
+  setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to load SMTP tool.", "error");
 });
 
 scheduleRefresh();

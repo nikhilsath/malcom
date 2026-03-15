@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="workspace" data-sidenav-item="sidenav-settings-workspace" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                <p class="page-description section-header__description--page" id="page-description"></p>
+            </div>
+
+            <section id="settings-workspace-section" class="card settings-section">
+                <div id="settings-workspace-header" class="settings-section__header">
+                    <p id="settings-workspace-eyebrow" class="section-header__eyebrow">Workspace</p>
+                    <h3 id="settings-workspace-title" class="settings-card__title">Workspace defaults</h3>
+                    <p id="settings-workspace-description" class="settings-card__description">Baseline preferences that operators typically configure first in internal tooling.</p>
+                </div>
+                <form id="settings-form" class="api-form">
+                    <div id="settings-workspace-grid" class="settings-option-grid">
+                        <article id="settings-workspace-environment-card" class="stat-card settings-option-card">
+                            <div id="settings-workspace-environment-copy" class="settings-option-card__copy">
+                                <h4 id="settings-workspace-environment-title" class="settings-option-card__title">Runtime environment</h4>
+                                <p id="settings-workspace-environment-description" class="settings-option-card__description">All automations run against the live environment in this workspace.</p>
+                            </div>
+                            <input id="settings-workspace-environment-select" class="api-form-input" type="text" value="Live" readonly>
+                        </article>
+                        <article id="settings-workspace-timezone-card" class="stat-card settings-option-card">
+                            <div id="settings-workspace-timezone-copy" class="settings-option-card__copy">
+                                <h4 id="settings-workspace-timezone-title" class="settings-option-card__title">Display timezone</h4>
+                                <p id="settings-workspace-timezone-description" class="settings-option-card__description">Keep timestamps aligned across logs, previews, and generated schedules.</p>
+                            </div>
+                            <select id="settings-workspace-timezone-select" class="api-form-input">
+                                <option id="settings-workspace-timezone-option-utc" value="utc">UTC</option>
+                                <option id="settings-workspace-timezone-option-local" value="local" selected>Browser local time</option>
+                                <option id="settings-workspace-timezone-option-ops" value="ops">Ops control room time</option>
+                            </select>
+                        </article>
+                    </div>
+                    <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
+                    <div id="settings-actions" class="api-form-actions">
+                        <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
+                        <button type="button" id="settings-reset-button" class="button button--secondary secondary-action-button">Reset defaults</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/settings.js"></script>
+</body>
+</html>

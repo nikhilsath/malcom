@@ -88,11 +88,14 @@ For new UI media:
 
 ### Tool Registration Requirements
 
-Tools are registered by filesystem convention, not by hardcoded UI markup.
+Tools are registered by the backend tool catalog and database-backed manifest flow, not by hardcoded UI markup.
 
-Required structure:
+Source of truth:
 
-- `tools/<tool-id>/tool.json`
+- `backend/tool_registry.py` for the default tool catalog seed data
+- the `tools` table in SQLite for persisted tool records, enabled state, and metadata overrides
+- `ui/scripts/tools-manifest.js` as the generated frontend manifest
+- `scripts/generate-tools-manifest.mjs` to regenerate the manifest after catalog changes
 
 Required metadata fields:
 
@@ -102,34 +105,40 @@ Required metadata fields:
 
 Validation rules:
 
-- `tool.json` must exist for every tool folder
-- `id` must exactly match the folder name
+- every registered tool must have a backend catalog entry
 - all required fields must be non-empty strings
+- `id` values must remain stable because they map to routes, DB records, and sidenav items
 
 When adding or changing tools, agents must:
 
-1. create or update `tools/<tool-id>/tool.json`
+1. create or update the tool catalog entry in `backend/tool_registry.py`
 2. run `node scripts/generate-tools-manifest.mjs`
 3. verify that `ui/scripts/tools-manifest.js` is updated
-4. verify that `ui/tools.html` renders the tool without manual card markup changes
+4. add or update `ui/tools/<tool-id>.html` for the tool configuration page
+5. add the page to `ui/vite.config.ts`
+6. add the served HTML route in `backend/main.py`
+7. verify that `ui/tools/catalog.html` renders the tool without manual card markup changes
+8. verify that the tools sidenav includes the tool without hardcoded shell edits outside the generated manifest flow
 
-Agents must not hardcode new tools directly in `ui/tools.html` or `ui/scripts/tools.js`.
+Agents must not hardcode new tools directly in `ui/tools/catalog.html` or `ui/scripts/tools.js`.
+Agents must not manually hardcode tool sidenav links in individual tool pages when the shared shell applies.
+Agents must not add new `tools/<tool-id>/tool.json` files for tool registration.
 
 ---
 
 ## Example Tool Metadata
 
-```json
+```python
 {
   "id": "rss-poller",
   "name": "RSS Poller",
-  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations."
+  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations.",
 }
 ```
 
 ## Example Verification Flow
 
-1. Add `tools/rss-poller/tool.json`.
+1. Add `rss-poller` to the default tool catalog in `backend/tool_registry.py`.
 2. Run `node scripts/generate-tools-manifest.mjs`.
-3. Open `ui/tools.html`.
+3. Open `ui/tools/catalog.html`.
 4. Confirm the rendered card appears with the expected label and description.

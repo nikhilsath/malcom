@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Local LLM</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-llm-deepl" data-shell-path-prefix="../" data-tool-id="llm-deepl">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell local-llm-shell" id="tools-local-llm-shell">
+            <div class="page-header section-header--page" id="tools-local-llm-page-header">
+                <h2 class="page-title section-header__title--page" id="page-title">Local LLM</h2>
+                <p class="page-description section-header__description--page" id="page-description">Configure a locally hosted LLM server, model identifier, and endpoint paths.</p>
+            </div>
+
+            <section id="tools-local-llm-workspace" class="card local-llm-workspace">
+                <div id="tools-local-llm-overview-header" class="section-header local-llm-workspace__header">
+                    <div id="tools-local-llm-overview-copy" class="section-header__copy">
+                        <p id="tools-local-llm-overview-eyebrow" class="section-header__eyebrow">Runtime Setup</p>
+                        <h3 id="tools-local-llm-title" class="section-header__title">Local LLM configuration</h3>
+                        <p id="tools-local-llm-description" class="section-header__description">Load a preset or define custom endpoints for your local inference server.</p>
+                    </div>
+                    <div id="tools-local-llm-status-card" class="stat-card local-llm-workspace__status" aria-live="polite">
+                        <p id="tools-local-llm-status-label" class="stat-card__label">Tool status</p>
+                        <p id="tools-local-llm-status-value" class="stat-card__value">Loading</p>
+                        <p id="tools-local-llm-status-message" class="api-directory-description">Fetching local LLM settings.</p>
+                    </div>
+                </div>
+
+                <div id="tools-local-llm-summary-grid" class="summary-grid local-llm-summary-grid">
+                    <article id="tools-local-llm-summary-preset-card" class="stat-card summary-card">
+                        <p id="tools-local-llm-summary-preset-label" class="summary-card__label">Preset</p>
+                        <p id="tools-local-llm-summary-preset-value" class="summary-card__value">Loading</p>
+                    </article>
+                    <article id="tools-local-llm-summary-server-card" class="stat-card summary-card">
+                        <p id="tools-local-llm-summary-server-label" class="summary-card__label">Server</p>
+                        <p id="tools-local-llm-summary-server-value" class="summary-card__value">Not configured</p>
+                    </article>
+                    <article id="tools-local-llm-summary-model-card" class="stat-card summary-card">
+                        <p id="tools-local-llm-summary-model-label" class="summary-card__label">Model</p>
+                        <p id="tools-local-llm-summary-model-value" class="summary-card__value">Not configured</p>
+                    </article>
+                </div>
+
+                <div id="tools-local-llm-panels" class="tool-config-panels">
+                    <section id="tools-local-llm-form-panel" class="card tool-config-panel">
+                        <div id="tools-local-llm-form-header" class="section-header tool-config-panel__header">
+                            <div id="tools-local-llm-form-copy" class="section-header__copy">
+                                <p id="tools-local-llm-form-eyebrow" class="section-header__eyebrow">Connection</p>
+                                <h3 id="tools-local-llm-form-title" class="section-header__title">Server and model</h3>
+                                <p id="tools-local-llm-form-description" class="section-header__description">Choose a preset, then adjust the base URL and paths if your local runtime differs.</p>
+                            </div>
+                        </div>
+
+                        <form id="tools-local-llm-form" class="api-form">
+                            <div id="tools-local-llm-form-grid" class="api-form-grid">
+                                <label id="tools-local-llm-enabled-field" class="api-form-field">
+                                    <span id="tools-local-llm-enabled-label" class="api-form-label">Availability</span>
+                                    <select id="tools-local-llm-enabled-input" class="api-form-input" name="enabled">
+                                        <option id="tools-local-llm-enabled-option-on" value="true">Enabled</option>
+                                        <option id="tools-local-llm-enabled-option-off" value="false">Disabled</option>
+                                    </select>
+                                </label>
+
+                                <label id="tools-local-llm-provider-field" class="api-form-field">
+                                    <span id="tools-local-llm-provider-label" class="api-form-label">Endpoint preset</span>
+                                    <select id="tools-local-llm-provider-input" class="api-form-input" name="provider"></select>
+                                </label>
+
+                                <label id="tools-local-llm-server-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-server-label" class="api-form-label">Local server base URL</span>
+                                    <input id="tools-local-llm-server-input" class="api-form-input" name="serverBaseUrl" type="url" inputmode="url" placeholder="http://127.0.0.1:1234">
+                                </label>
+
+                                <label id="tools-local-llm-model-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-model-label" class="api-form-label">Model identifier</span>
+                                    <input id="tools-local-llm-model-input" class="api-form-input" name="modelIdentifier" type="text" maxlength="255" placeholder="qwen/qwen3.5-9b">
+                                </label>
+
+                                <label id="tools-local-llm-models-endpoint-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-models-endpoint-label" class="api-form-label">Models endpoint</span>
+                                    <input id="tools-local-llm-models-endpoint-input" class="api-form-input" name="modelsEndpoint" type="text" maxlength="255" placeholder="/api/v1/models">
+                                </label>
+
+                                <label id="tools-local-llm-chat-endpoint-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-chat-endpoint-label" class="api-form-label">Chat endpoint</span>
+                                    <input id="tools-local-llm-chat-endpoint-input" class="api-form-input" name="chatEndpoint" type="text" maxlength="255" placeholder="/api/v1/chat">
+                                </label>
+
+                                <label id="tools-local-llm-load-endpoint-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-load-endpoint-label" class="api-form-label">Model load endpoint</span>
+                                    <input id="tools-local-llm-load-endpoint-input" class="api-form-input" name="modelLoadEndpoint" type="text" maxlength="255" placeholder="/api/v1/models/load">
+                                </label>
+
+                                <label id="tools-local-llm-download-endpoint-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-download-endpoint-label" class="api-form-label">Model download endpoint</span>
+                                    <input id="tools-local-llm-download-endpoint-input" class="api-form-input" name="modelDownloadEndpoint" type="text" maxlength="255" placeholder="/api/v1/models/download">
+                                </label>
+
+                                <label id="tools-local-llm-download-status-endpoint-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-local-llm-download-status-endpoint-label" class="api-form-label">Download status endpoint</span>
+                                    <input id="tools-local-llm-download-status-endpoint-input" class="api-form-input" name="modelDownloadStatusEndpoint" type="text" maxlength="255" placeholder="/api/v1/models/download/status/:job_id">
+                                </label>
+                            </div>
+
+                            <div id="tools-local-llm-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                            <div id="tools-local-llm-form-actions" class="api-form-actions">
+                                <button type="button" id="tools-local-llm-apply-preset-button" class="button button--secondary secondary-action-button">Apply preset</button>
+                                <button type="submit" id="tools-local-llm-save-button" class="button button--primary primary-action-button">Save configuration</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="tools-local-llm-summary-panel" class="card tool-config-panel">
+                        <div id="tools-local-llm-endpoints-header" class="section-header tool-config-panel__header">
+                            <div id="tools-local-llm-endpoints-copy" class="section-header__copy">
+                                <p id="tools-local-llm-endpoints-eyebrow" class="section-header__eyebrow">Resolved Paths</p>
+                                <h3 id="tools-local-llm-endpoints-title" class="section-header__title">Endpoint preview</h3>
+                                <p id="tools-local-llm-endpoints-description" class="section-header__description">These are the full request targets the middleware will use once the tool is enabled.</p>
+                            </div>
+                        </div>
+
+                        <dl id="tools-local-llm-endpoints-list" class="dashboard-host-card__metadata local-llm-endpoints-list">
+                            <div id="tools-local-llm-endpoints-models-group">
+                                <dt class="summary-card__label">Models</dt>
+                                <dd id="tools-local-llm-endpoints-models-value">Loading</dd>
+                            </div>
+                            <div id="tools-local-llm-endpoints-chat-group">
+                                <dt class="summary-card__label">Chat</dt>
+                                <dd id="tools-local-llm-endpoints-chat-value">Loading</dd>
+                            </div>
+                            <div id="tools-local-llm-endpoints-load-group">
+                                <dt class="summary-card__label">Model load</dt>
+                                <dd id="tools-local-llm-endpoints-load-value">Loading</dd>
+                            </div>
+                            <div id="tools-local-llm-endpoints-download-group">
+                                <dt class="summary-card__label">Model download</dt>
+                                <dd id="tools-local-llm-endpoints-download-value">Loading</dd>
+                            </div>
+                            <div id="tools-local-llm-endpoints-download-status-group">
+                                <dt class="summary-card__label">Download status</dt>
+                                <dd id="tools-local-llm-endpoints-download-status-value">Loading</dd>
+                            </div>
+                        </dl>
+
+                        <section id="tools-local-llm-guidance" class="tool-config-guidance">
+                            <div id="tools-local-llm-guidance-header" class="section-header tool-config-panel__header">
+                                <div id="tools-local-llm-guidance-copy" class="section-header__copy">
+                                    <p id="tools-local-llm-guidance-eyebrow" class="section-header__eyebrow">Preset Notes</p>
+                                    <h3 id="tools-local-llm-guidance-title" class="section-header__title">LM Studio API v1</h3>
+                                    <p id="tools-local-llm-guidance-description" class="section-header__description">Applying the LM Studio preset preloads the standard local server address and API v1 paths shown in your reference.</p>
+                                </div>
+                            </div>
+                            <ol id="tools-local-llm-guidance-list" class="tool-config-checklist">
+                                <li id="tools-local-llm-guidance-item-1">Start with the preset if LM Studio is serving on `http://127.0.0.1:1234`.</li>
+                                <li id="tools-local-llm-guidance-item-2">Set the model identifier to the exact value your local server exposes.</li>
+                                <li id="tools-local-llm-guidance-item-3">Only enable the tool after the server, model, and endpoints are all reachable.</li>
+                            </ol>
+                        </section>
+                    </section>
+                </div>
+
+                <section id="tools-local-llm-chat-panel" class="card tool-config-panel">
+                    <div id="tools-local-llm-chat-header" class="section-header tool-config-panel__header">
+                        <div id="tools-local-llm-chat-copy" class="section-header__copy">
+                            <p id="tools-local-llm-chat-eyebrow" class="section-header__eyebrow">Live Chat</p>
+                            <h3 id="tools-local-llm-chat-title" class="section-header__title">Talk to the configured model</h3>
+                            <p id="tools-local-llm-chat-description" class="section-header__description">Chat history stays in-memory for this page session only. Responses stream in as the model generates them.</p>
+                        </div>
+                    </div>
+
+                    <div id="tools-local-llm-chat-transcript" class="local-llm-chat-transcript" aria-live="polite"></div>
+
+                    <form id="tools-local-llm-chat-form" class="api-form">
+                        <div id="tools-local-llm-chat-form-grid" class="api-form-grid">
+                            <label id="tools-local-llm-chat-system-field" class="api-form-field api-form-field--full">
+                                <span id="tools-local-llm-chat-system-label" class="api-form-label">System prompt</span>
+                                <textarea id="tools-local-llm-chat-system-input" class="api-form-textarea" rows="3" placeholder="Optional system instructions for this chat session"></textarea>
+                            </label>
+                            <label id="tools-local-llm-chat-user-field" class="api-form-field api-form-field--full">
+                                <span id="tools-local-llm-chat-user-label" class="api-form-label">Message</span>
+                                <textarea id="tools-local-llm-chat-user-input" class="api-form-textarea" rows="5" placeholder="Send a prompt to the configured Local LLM"></textarea>
+                            </label>
+                        </div>
+
+                        <div id="tools-local-llm-chat-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                        <div id="tools-local-llm-chat-actions" class="api-form-actions">
+                            <button type="button" id="tools-local-llm-chat-clear-button" class="button button--secondary secondary-action-button">Clear session</button>
+                            <button type="submit" id="tools-local-llm-chat-send-button" class="button button--primary primary-action-button">Send message</button>
+                        </div>
+                    </form>
+                </section>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/local-llm.js"></script>
+</body>
+</html>

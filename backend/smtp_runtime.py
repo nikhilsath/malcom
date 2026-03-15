@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import logging
 import itertools
+import logging
 import socketserver
 import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email import policy
 from email.parser import Parser
+from typing import Any, Callable
 
 
 MAX_RECENT_MESSAGES = 25
@@ -30,6 +31,39 @@ def build_message_preview(message_data: str, *, max_characters: int = 500) -> st
     if len(stripped) <= max_characters:
         return stripped
     return f"{stripped[:max_characters]}..."
+
+
+def extract_message_body(message_data: str) -> str | None:
+    try:
+        parsed_message = Parser(policy=policy.default).parsestr(message_data)
+    except Exception:
+        return None
+
+    body_parts: list[str] = []
+    try:
+        if parsed_message.is_multipart():
+            for part in parsed_message.walk():
+                if part.get_content_maintype() == "multipart":
+                    continue
+                try:
+                    content = part.get_content()
+                except Exception:
+                    continue
+                if isinstance(content, str) and content.strip():
+                    body_parts.append(content.strip())
+        else:
+            content = parsed_message.get_content()
+            if isinstance(content, str) and content.strip():
+                body_parts.append(content.strip())
+    except Exception:
+        return None
+
+    if body_parts:
+        return "\n\n".join(body_parts)
+
+    _, _, body = message_data.partition("\n\n")
+    fallback = body.strip()
+    return fallback or None
 
 
 def extract_message_subject(message_data: str) -> str | None:
@@ -192,6 +226,11 @@ class SmtpRuntimeManager:
         self._configured_recipient_email: str | None = None
         self._recent_messages: list[dict[str, object]] = []
         self._message_sequence = itertools.count(1)
+        self._message_callback: Callable[[dict[str, Any]], None] | None = None
+
+    def set_message_callback(self, callback: Callable[[dict[str, Any]], None] | None) -> None:
+        with self._lock:
+            self._message_callback = callback
 
     def sync(
         self,
@@ -285,37 +324,44 @@ class SmtpRuntimeManager:
     def record_message(self, *, mail_from: str, recipients: list[str], message_data: str, peer: str) -> None:
         received_at = utc_now_iso()
         subject = extract_message_subject(message_data)
-        body_preview = build_message_preview(message_data)
+        body = extract_message_body(message_data)
+        body_preview = build_message_preview(body or message_data)
         message_id = f"smtp_{next(self._message_sequence)}"
+        normalized_mail_from = normalize_email_address(mail_from) or mail_from
+        normalized_recipients = [normalize_email_address(recipient) or recipient for recipient in recipients]
+        message_record = {
+            "id": message_id,
+            "received_at": received_at,
+            "mail_from": normalized_mail_from,
+            "recipients": list(normalized_recipients),
+            "peer": peer,
+            "size_bytes": len(message_data.encode("utf-8")),
+            "subject": subject,
+            "body_preview": body_preview,
+            "body": body,
+            "raw_message": message_data,
+        }
         with self._lock:
             self._message_count += 1
             self._last_message_at = received_at
-            self._last_mail_from = mail_from
-            self._last_recipient = recipients[0] if recipients else None
-            self._recent_messages.insert(
-                0,
-                {
-                    "id": message_id,
-                    "received_at": received_at,
-                    "mail_from": mail_from,
-                    "recipients": list(recipients),
-                    "peer": peer,
-                    "size_bytes": len(message_data.encode("utf-8")),
-                    "subject": subject,
-                    "body_preview": body_preview,
-                },
-            )
+            self._last_mail_from = normalized_mail_from
+            self._last_recipient = normalized_recipients[0] if normalized_recipients else None
+            self._recent_messages.insert(0, dict(message_record))
             self._recent_messages = self._recent_messages[:MAX_RECENT_MESSAGES]
+            message_callback = self._message_callback
 
         if self._logger is not None:
             self._logger.info(
                 '{"event": "smtp_message_received", "mail_from": "%s", "recipient_count": %d, "peer": "%s", "size_bytes": %d, "subject": "%s"}',
-                mail_from,
-                len(recipients),
+                normalized_mail_from,
+                len(normalized_recipients),
                 peer,
                 len(message_data.encode("utf-8")),
                 subject or "",
             )
+
+        if message_callback is not None:
+            message_callback(dict(message_record))
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:

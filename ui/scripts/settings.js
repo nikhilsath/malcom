@@ -5,9 +5,8 @@ const settingsElements = {
   clearButton: document.getElementById("settings-clear-logs-button"),
   totalLogsValue: document.getElementById("settings-log-total-value"),
   newestLogValue: document.getElementById("settings-log-newest-value"),
-  generalEnvironmentSelect: document.getElementById("settings-general-environment-select"),
-  generalTimezoneSelect: document.getElementById("settings-general-timezone-select"),
-  generalPreviewCheckbox: document.getElementById("settings-general-preview-checkbox"),
+  workspaceEnvironmentSelect: document.getElementById("settings-workspace-environment-select"),
+  workspaceTimezoneSelect: document.getElementById("settings-workspace-timezone-select"),
   retentionInput: document.getElementById("settings-log-retention-input"),
   visibleInput: document.getElementById("settings-log-visible-input"),
   detailInput: document.getElementById("settings-log-detail-input"),
@@ -15,9 +14,9 @@ const settingsElements = {
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
   notificationsOncallCheckbox: document.getElementById("settings-notifications-oncall-checkbox"),
-  securitySessionSelect: document.getElementById("settings-security-session-select"),
-  securityApprovalCheckbox: document.getElementById("settings-security-approval-checkbox"),
-  securityTokenSelect: document.getElementById("settings-security-token-select"),
+  accessSessionSelect: document.getElementById("settings-access-session-select"),
+  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
+  accessTokenSelect: document.getElementById("settings-access-token-select"),
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
   dataAuditSelect: document.getElementById("settings-data-audit-select")
@@ -96,12 +95,11 @@ const initSettingsToggles = () => {
 };
 
 const buildSectionPatch = (section, fallbackSettings) => {
-  if (section === "general") {
+  if (section === "workspace") {
     return {
       general: {
-        environment: settingsElements.generalEnvironmentSelect?.value || fallbackSettings.general.environment,
-        timezone: settingsElements.generalTimezoneSelect?.value || fallbackSettings.general.timezone,
-        preview_mode: settingsElements.generalPreviewCheckbox?.checked ?? fallbackSettings.general.preview_mode
+        environment: "live",
+        timezone: settingsElements.workspaceTimezoneSelect?.value || fallbackSettings.general.timezone
       }
     };
   }
@@ -127,12 +125,12 @@ const buildSectionPatch = (section, fallbackSettings) => {
     };
   }
 
-  if (section === "security") {
+  if (section === "access") {
     return {
       security: {
-        session_timeout_minutes: Number.parseInt(settingsElements.securitySessionSelect?.value || "", 10),
-        dual_approval_required: settingsElements.securityApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
-        token_rotation_days: Number.parseInt(settingsElements.securityTokenSelect?.value || "", 10)
+        session_timeout_minutes: Number.parseInt(settingsElements.accessSessionSelect?.value || "", 10),
+        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
+        token_rotation_days: Number.parseInt(settingsElements.accessTokenSelect?.value || "", 10)
       }
     };
   }
@@ -160,16 +158,12 @@ const buildSettingsPayload = () => {
 };
 
 const applySettingsToPage = (settings) => {
-  if (settingsElements.generalEnvironmentSelect) {
-    settingsElements.generalEnvironmentSelect.value = settings.general.environment;
+  if (settingsElements.workspaceEnvironmentSelect) {
+    settingsElements.workspaceEnvironmentSelect.value = "Live";
   }
 
-  if (settingsElements.generalTimezoneSelect) {
-    settingsElements.generalTimezoneSelect.value = settings.general.timezone;
-  }
-
-  if (settingsElements.generalPreviewCheckbox) {
-    settingsElements.generalPreviewCheckbox.checked = settings.general.preview_mode;
+  if (settingsElements.workspaceTimezoneSelect) {
+    settingsElements.workspaceTimezoneSelect.value = settings.general.timezone;
   }
 
   if (settingsElements.retentionInput) {
@@ -200,16 +194,16 @@ const applySettingsToPage = (settings) => {
     settingsElements.notificationsOncallCheckbox.checked = settings.notifications.escalate_oncall;
   }
 
-  if (settingsElements.securitySessionSelect) {
-    settingsElements.securitySessionSelect.value = String(settings.security.session_timeout_minutes);
+  if (settingsElements.accessSessionSelect) {
+    settingsElements.accessSessionSelect.value = String(settings.security.session_timeout_minutes);
   }
 
-  if (settingsElements.securityApprovalCheckbox) {
-    settingsElements.securityApprovalCheckbox.checked = settings.security.dual_approval_required;
+  if (settingsElements.accessApprovalCheckbox) {
+    settingsElements.accessApprovalCheckbox.checked = settings.security.dual_approval_required;
   }
 
-  if (settingsElements.securityTokenSelect) {
-    settingsElements.securityTokenSelect.value = String(settings.security.token_rotation_days);
+  if (settingsElements.accessTokenSelect) {
+    settingsElements.accessTokenSelect.value = String(settings.security.token_rotation_days);
   }
 
   if (settingsElements.dataRedactionCheckbox) {

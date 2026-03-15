@@ -27,11 +27,11 @@ beforeEach(() => {
 });
 
 describe("DashboardApp", () => {
-  it("renders the overview route with developer mode data", async () => {
-    renderDashboardApp(["/overview"], true);
+  it("renders the home route with developer mode data", async () => {
+    renderDashboardApp(["/home"], true);
 
     await waitFor(() => {
-      expect(screen.getByText("Dashboard Overview")).toBeInTheDocument();
+      expect(screen.getByText("Dashboard Home")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("DashboardApp", () => {
   });
 
   it("responds to developer mode changes from the shell toggle", async () => {
-    renderDashboardApp(["/overview"], true);
+    renderDashboardApp(["/home"], true);
 
     // Simulate the shell toggle updating session storage and dispatching the shared event.
     act(() => {
@@ -157,7 +157,7 @@ describe("DashboardApp", () => {
   });
 
   it("keeps repeated row ids stable from record identifiers", async () => {
-    const { container } = renderDashboardApp(["/overview"], true);
+    const { container } = renderDashboardApp(["/home"], true);
 
     await waitFor(() => {
       expect(container.querySelector("#dashboard-service-runtime")).toBeInTheDocument();

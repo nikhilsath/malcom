@@ -105,6 +105,7 @@ def initialize(connection: sqlite3.Connection) -> None:
             id TEXT PRIMARY KEY,
             source_name TEXT NOT NULL,
             source_description TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 0,
             name_override TEXT,
             description_override TEXT,
             created_at TEXT NOT NULL,
@@ -210,6 +211,7 @@ def initialize(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "webhook_apis", "signing_secret", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "signature_header", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "event_filter", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "tools", "enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "automation_runs", "worker_id", "TEXT")
     _ensure_column(connection, "automation_runs", "worker_name", "TEXT")
     _ensure_column(connection, "scripts", "validation_status", "TEXT NOT NULL DEFAULT 'unknown'")
