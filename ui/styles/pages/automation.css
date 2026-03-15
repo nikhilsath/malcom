@@ -24,7 +24,8 @@
 }
 
 .overview-stat {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 20px 22px;
   border: 1px solid var(--border);
