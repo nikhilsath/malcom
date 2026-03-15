@@ -86,7 +86,14 @@ export const shellSections = {
         href: "automations/overview.html",
         aliases: ["apis/automation.html"],
         pageTitle: "Automation Overview",
-        description: "Design and operate automation workflows from a dedicated control surface."
+        description: "Monitor your automation workflows, check tool availability, and manage your middleware operations."
+      },
+      {
+        id: "sidenav-automations-builder",
+        label: "Builder",
+        href: "automations/builder.html",
+        pageTitle: "Automation Builder",
+        description: "Design and configure automation workflows on the visual canvas."
       }
     ],
     footer: {

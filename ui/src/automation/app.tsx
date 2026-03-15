@@ -564,7 +564,23 @@ export const AutomationApp = () => {
   };
 
   useEffect(() => {
-    loadAutomations().catch((error: Error) => {
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get("id") ?? undefined;
+    const isNewDraft = params.get("new") === "true";
+
+    if (isNewDraft) {
+      loadRuntime().catch(() => undefined);
+      requestJson("/api/v1/automations").then((list: unknown) => {
+        setAutomations(list as Automation[]);
+        applyNewAutomationDraft();
+      }).catch((error: Error) => {
+        setFeedback(error.message);
+        setFeedbackTone("error");
+      });
+      return;
+    }
+
+    loadAutomations(urlId).catch((error: Error) => {
       setFeedback(error.message);
       setFeedbackTone("error");
     });
