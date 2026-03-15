@@ -2,6 +2,7 @@ import type {
   DashboardAlertsResponse,
   DashboardDevice,
   DashboardDevicesResponse,
+  DashboardHost,
   DashboardQuickLink,
   DashboardRunsResponse,
   DashboardSummaryResponse,
@@ -138,16 +139,29 @@ const quickLinks: DashboardQuickLink[] = [
   }
 ];
 
+const host: DashboardHost = {
+  id: "host-malcom-macbook",
+  name: "Malcom host",
+  kind: "host",
+  status: "healthy",
+  location: "Local MacBook runtime",
+  detail: "Low-power host running launchd-managed scheduler, local API, and automation runtime.",
+  lastSeenAt: isoMinutesAgo(1),
+  hostname: "malcom-macbook.local",
+  operatingSystem: "macOS 15.3",
+  architecture: "arm64",
+  memoryTotalBytes: 17179869184,
+  memoryUsedBytes: 9663676416,
+  memoryAvailableBytes: 7516192768,
+  memoryUsagePercent: 56.3,
+  storageTotalBytes: 494384795648,
+  storageUsedBytes: 286474158080,
+  storageFreeBytes: 207910637568,
+  storageUsagePercent: 57.9,
+  sampledAt: isoMinutesAgo(1)
+};
+
 const devices: DashboardDevice[] = [
-  {
-    id: "host-malcom-macbook",
-    name: "Malcom host",
-    kind: "host",
-    status: "healthy",
-    location: "Local MacBook runtime",
-    detail: "Low-power host running launchd-managed scheduler, local API, and automation runtime.",
-    lastSeenAt: isoMinutesAgo(1)
-  },
   {
     id: "service-runtime-endpoint",
     name: "Runtime command endpoint",
@@ -208,8 +222,8 @@ export const mockAlertsResponse: DashboardAlertsResponse = {
 };
 
 export const mockDevicesResponse: DashboardDevicesResponse = {
-  host: devices[0],
-  devices: devices.slice(1)
+  host,
+  devices
 };
 
 export const mockDashboardState: DeveloperModeDashboardState = {

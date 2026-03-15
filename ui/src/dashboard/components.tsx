@@ -3,6 +3,7 @@ import type {
   AlertSeverity,
   DashboardAlert,
   DashboardDevice,
+  DashboardHost,
   DashboardLogEntry,
   DashboardQuickLink,
   DashboardRunSummary,
@@ -10,7 +11,7 @@ import type {
   RuntimeServiceStatus,
   RunStatus
 } from "./types";
-import { formatDateTime, formatDuration, stringifyValue } from "./data";
+import { formatBytes, formatDateTime, formatDuration, stringifyValue } from "./data";
 
 const badgeToneMap: Record<string, string> = {
   healthy: "status-badge--success",
@@ -331,7 +332,7 @@ export const DevicesTable = ({
   host,
   devices
 }: {
-  host: DashboardDevice | null;
+  host: DashboardHost | null;
   devices: DashboardDevice[];
 }) => (
   <div id="dashboard-devices-layout" className="stacked-card-layout">
@@ -366,19 +367,87 @@ export const DevicesTable = ({
               <dd id={`dashboard-device-host-location-${host.id}`}>{host.location}</dd>
             </div>
             <div>
-              <dt className="summary-card__label">Last seen</dt>
-              <dd id={`dashboard-device-host-last-seen-${host.id}`}>{formatDateTime(host.lastSeenAt)}</dd>
+              <dt className="summary-card__label">Hostname</dt>
+              <dd id={`dashboard-device-host-hostname-${host.id}`}>{host.hostname}</dd>
+            </div>
+            <div>
+              <dt className="summary-card__label">OS</dt>
+              <dd id={`dashboard-device-host-os-${host.id}`}>{host.operatingSystem}</dd>
+            </div>
+            <div>
+              <dt className="summary-card__label">Architecture</dt>
+              <dd id={`dashboard-device-host-architecture-${host.id}`}>{host.architecture}</dd>
+            </div>
+            <div>
+              <dt className="summary-card__label">Sampled</dt>
+              <dd id={`dashboard-device-host-sampled-${host.id}`}>{formatDateTime(host.sampledAt)}</dd>
             </div>
           </dl>
         </div>
       )}
     </section>
 
+    {host ? (
+      <section id="dashboard-devices-summary-card" className="card">
+        <SectionToolbar
+          id="dashboard-devices-summary-toolbar"
+          title="Resource summary"
+          description="Current RAM and primary disk usage from the machine running Malcom."
+        />
+        <div id="dashboard-devices-summary-grid" className="summary-grid">
+          <article id="dashboard-devices-ram-total-card" className="stat-card summary-card">
+            <p id="dashboard-devices-ram-total-card-label" className="summary-card__label">
+              Total RAM
+            </p>
+            <p id="dashboard-devices-ram-total-card-value" className="summary-card__value">
+              {formatBytes(host.memoryTotalBytes)}
+            </p>
+            <p id="dashboard-devices-ram-total-card-detail" className="api-directory-description">
+              Available {formatBytes(host.memoryAvailableBytes)}
+            </p>
+          </article>
+          <article id="dashboard-devices-ram-used-card" className="stat-card summary-card">
+            <p id="dashboard-devices-ram-used-card-label" className="summary-card__label">
+              RAM used
+            </p>
+            <p id="dashboard-devices-ram-used-card-value" className="summary-card__value">
+              {formatBytes(host.memoryUsedBytes)}
+            </p>
+            <p id="dashboard-devices-ram-used-card-detail" className="api-directory-description">
+              {host.memoryUsagePercent.toFixed(1)}% of total RAM
+            </p>
+          </article>
+          <article id="dashboard-devices-storage-total-card" className="stat-card summary-card">
+            <p id="dashboard-devices-storage-total-card-label" className="summary-card__label">
+              Total storage
+            </p>
+            <p id="dashboard-devices-storage-total-card-value" className="summary-card__value">
+              {formatBytes(host.storageTotalBytes)}
+            </p>
+            <p id="dashboard-devices-storage-total-card-detail" className="api-directory-description">
+              Used {formatBytes(host.storageUsedBytes)}
+            </p>
+          </article>
+          <article id="dashboard-devices-storage-free-card" className="stat-card summary-card">
+            <p id="dashboard-devices-storage-free-card-label" className="summary-card__label">
+              Storage free
+            </p>
+            <p id="dashboard-devices-storage-free-card-value" className="summary-card__value">
+              {formatBytes(host.storageFreeBytes)}
+            </p>
+            <p id="dashboard-devices-storage-free-card-detail" className="api-directory-description">
+              {host.storageUsagePercent.toFixed(1)}% of disk in use
+            </p>
+          </article>
+        </div>
+      </section>
+    ) : null}
+
     <section id="dashboard-devices-inventory-card" className="card">
       <SectionToolbar
         id="dashboard-devices-inventory-toolbar"
         title="Runtime endpoints"
-        description="Middleware-managed services and attached endpoints, kept separate from the tool catalog."
+        description="Malcom-managed services and attached endpoints, separate from the host machine telemetry above."
       />
       {devices.length === 0 ? (
         <EmptyState

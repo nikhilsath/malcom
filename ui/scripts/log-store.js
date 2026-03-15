@@ -11,7 +11,8 @@ const malcomDefaultAppSettings = {
   logging: {
     max_stored_entries: 250,
     max_visible_entries: 50,
-    max_detail_characters: 4000
+    max_detail_characters: 4000,
+    max_file_size_mb: 5
   },
   notifications: {
     channel: "slack",
@@ -92,6 +93,12 @@ const sanitizeLoggingSettings = (loggingSettings = {}) => ({
     500,
     20000,
     malcomDefaultAppSettings.logging.max_detail_characters
+  ),
+  max_file_size_mb: clampInteger(
+    loggingSettings.max_file_size_mb,
+    1,
+    100,
+    malcomDefaultAppSettings.logging.max_file_size_mb
   )
 });
 
@@ -171,7 +178,8 @@ const getAppSettings = () => cloneJsonValue(cachedAppSettings);
 const getLogSettings = () => ({
   maxStoredEntries: cachedAppSettings.logging.max_stored_entries,
   maxVisibleEntries: cachedAppSettings.logging.max_visible_entries,
-  maxDetailCharacters: cachedAppSettings.logging.max_detail_characters
+  maxDetailCharacters: cachedAppSettings.logging.max_detail_characters,
+  maxFileSizeMb: cachedAppSettings.logging.max_file_size_mb
 });
 
 const readLogEntries = () => {
@@ -259,7 +267,8 @@ window.MalcomLogStore = {
   defaults: {
     maxStoredEntries: malcomDefaultAppSettings.logging.max_stored_entries,
     maxVisibleEntries: malcomDefaultAppSettings.logging.max_visible_entries,
-    maxDetailCharacters: malcomDefaultAppSettings.logging.max_detail_characters
+    maxDetailCharacters: malcomDefaultAppSettings.logging.max_detail_characters,
+    maxFileSizeMb: malcomDefaultAppSettings.logging.max_file_size_mb
   },
   ready: () => loadAppSettings(),
   getAppSettings() {
@@ -280,19 +289,22 @@ window.MalcomLogStore = {
       logging: {
         max_stored_entries: settings.maxStoredEntries,
         max_visible_entries: settings.maxVisibleEntries,
-        max_detail_characters: settings.maxDetailCharacters
+        max_detail_characters: settings.maxDetailCharacters,
+        max_file_size_mb: settings.maxFileSizeMb
       }
     }).then((nextSettings) => ({
       maxStoredEntries: nextSettings.logging.max_stored_entries,
       maxVisibleEntries: nextSettings.logging.max_visible_entries,
-      maxDetailCharacters: nextSettings.logging.max_detail_characters
+      maxDetailCharacters: nextSettings.logging.max_detail_characters,
+      maxFileSizeMb: nextSettings.logging.max_file_size_mb
     }));
   },
   resetSettings() {
     return resetAppSettings().then((nextSettings) => ({
       maxStoredEntries: nextSettings.logging.max_stored_entries,
       maxVisibleEntries: nextSettings.logging.max_visible_entries,
-      maxDetailCharacters: nextSettings.logging.max_detail_characters
+      maxDetailCharacters: nextSettings.logging.max_detail_characters,
+      maxFileSizeMb: nextSettings.logging.max_file_size_mb
     }));
   },
   getLogs() {

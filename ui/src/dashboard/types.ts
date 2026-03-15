@@ -57,6 +57,21 @@ export interface DashboardDevice {
   lastSeenAt: string;
 }
 
+export interface DashboardHost extends DashboardDevice {
+  hostname: string;
+  operatingSystem: string;
+  architecture: string;
+  memoryTotalBytes: number;
+  memoryUsedBytes: number;
+  memoryAvailableBytes: number;
+  memoryUsagePercent: number;
+  storageTotalBytes: number;
+  storageUsedBytes: number;
+  storageFreeBytes: number;
+  storageUsagePercent: number;
+  sampledAt: string;
+}
+
 export interface DashboardLogEntry {
   id: string;
   timestamp: string;
@@ -93,7 +108,7 @@ export interface DashboardAlertsResponse {
 }
 
 export interface DashboardDevicesResponse {
-  host: DashboardDevice | null;
+  host: DashboardHost | null;
   devices: DashboardDevice[];
 }
 

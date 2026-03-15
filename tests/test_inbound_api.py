@@ -190,6 +190,41 @@ class InboundApiTestCase(unittest.TestCase):
         self.assert_secret_format(second)
         self.assertNotEqual(first, second)
 
+    def test_backend_writes_rotating_log_file_and_applies_size_setting(self) -> None:
+        patch_response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "logging": {
+                    "max_stored_entries": 250,
+                    "max_visible_entries": 50,
+                    "max_detail_characters": 4000,
+                    "max_file_size_mb": 7,
+                }
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+        self.assertEqual(app.state.log_handler.maxBytes, 7 * 1024 * 1024)
+
+        created = self.create_api()
+        response = self.client.post(
+            f"/api/v1/inbound/{created['id']}",
+            headers={
+                "Authorization": f"Bearer {created['secret']}",
+                "Content-Type": "application/json",
+            },
+            json={"order_id": 99},
+        )
+        self.assertEqual(response.status_code, 202)
+
+        log_path = Path(app.state.log_file_path)
+        self.assertTrue(log_path.exists())
+        contents = log_path.read_text(encoding="utf-8")
+        self.assertIn("http_request_completed", contents)
+        self.assertIn("runtime_trigger_emitted", contents)
+        self.assertIn("inbound_api_event_recorded", contents)
+        self.assertIn(f'\"api_id\": \"{created["id"]}\"', contents)
+        self.assertIn('\"event\": \"runtime_trigger_emitted\"', contents)
+
 
 if __name__ == "__main__":
     unittest.main()

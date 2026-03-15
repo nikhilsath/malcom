@@ -11,6 +11,7 @@ const settingsElements = {
   retentionInput: document.getElementById("settings-log-retention-input"),
   visibleInput: document.getElementById("settings-log-visible-input"),
   detailInput: document.getElementById("settings-log-detail-input"),
+  fileSizeInput: document.getElementById("settings-log-file-size-input"),
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
   notificationsOncallCheckbox: document.getElementById("settings-notifications-oncall-checkbox"),
@@ -110,7 +111,8 @@ const buildSectionPatch = (section, fallbackSettings) => {
       logging: {
         max_stored_entries: Number.parseInt(settingsElements.retentionInput?.value || "", 10),
         max_visible_entries: Number.parseInt(settingsElements.visibleInput?.value || "", 10),
-        max_detail_characters: Number.parseInt(settingsElements.detailInput?.value || "", 10)
+        max_detail_characters: Number.parseInt(settingsElements.detailInput?.value || "", 10),
+        max_file_size_mb: Number.parseInt(settingsElements.fileSizeInput?.value || "", 10)
       }
     };
   }
@@ -180,6 +182,10 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.detailInput) {
     settingsElements.detailInput.value = String(settings.logging.max_detail_characters);
+  }
+
+  if (settingsElements.fileSizeInput) {
+    settingsElements.fileSizeInput.value = String(settings.logging.max_file_size_mb);
   }
 
   if (settingsElements.notificationsChannelSelect) {

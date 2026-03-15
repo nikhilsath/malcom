@@ -30,6 +30,7 @@ class SettingsApiTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["general"]["environment"], "staging")
         self.assertEqual(body["logging"]["max_stored_entries"], 250)
+        self.assertEqual(body["logging"]["max_file_size_mb"], 5)
         self.assertEqual(body["notifications"]["channel"], "slack")
         self.assertTrue(body["security"]["dual_approval_required"])
         self.assertEqual(body["data"]["audit_retention_days"], 365)
@@ -47,6 +48,7 @@ class SettingsApiTestCase(unittest.TestCase):
                     "max_stored_entries": 500,
                     "max_visible_entries": 100,
                     "max_detail_characters": 6000,
+                    "max_file_size_mb": 8,
                 },
             },
         )
@@ -56,6 +58,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["general"]["environment"], "production")
         self.assertFalse(body["general"]["preview_mode"])
         self.assertEqual(body["logging"]["max_stored_entries"], 500)
+        self.assertEqual(body["logging"]["max_file_size_mb"], 8)
         self.assertEqual(body["notifications"]["digest"], "hourly")
 
         connection = connect(self.db_path)
@@ -74,7 +77,43 @@ class SettingsApiTestCase(unittest.TestCase):
         saved_settings = {row["key"]: json.loads(row["value_json"]) for row in rows}
         self.assertEqual(saved_settings["general"]["environment"], "production")
         self.assertEqual(saved_settings["logging"]["max_visible_entries"], 100)
+        self.assertEqual(saved_settings["logging"]["max_file_size_mb"], 8)
         self.assertEqual(saved_settings["notifications"]["channel"], "slack")
+
+    def test_get_settings_backfills_missing_logging_fields_from_defaults(self) -> None:
+        connection = connect(self.db_path)
+        try:
+            connection.execute(
+                """
+                INSERT INTO settings (key, value_json, created_at, updated_at)
+                VALUES (?, ?, datetime('now'), datetime('now'))
+                ON CONFLICT(key) DO UPDATE SET
+                    value_json = excluded.value_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    "logging",
+                    json.dumps(
+                        {
+                            "max_stored_entries": 300,
+                            "max_visible_entries": 75,
+                            "max_detail_characters": 5000,
+                        }
+                    ),
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        response = self.client.get("/api/v1/settings")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["logging"]["max_stored_entries"], 300)
+        self.assertEqual(body["logging"]["max_visible_entries"], 75)
+        self.assertEqual(body["logging"]["max_detail_characters"], 5000)
+        self.assertEqual(body["logging"]["max_file_size_mb"], 5)
 
 
 if __name__ == "__main__":

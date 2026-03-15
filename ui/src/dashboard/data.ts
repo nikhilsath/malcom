@@ -5,6 +5,9 @@ import {
 } from "./mock-state";
 import type {
   DashboardAlert,
+  DashboardDevice,
+  DashboardDevicesResponse,
+  DashboardHost,
   DashboardLogEntry,
   DashboardLogSettings,
   DashboardLogsResponse,
@@ -74,6 +77,42 @@ const defaultLogEntries: DashboardLogEntry[] = [
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
+type DashboardDevicesApiHost = {
+  id: string;
+  name: string;
+  status: DashboardHost["status"];
+  location: string;
+  detail: string;
+  last_seen_at: string;
+  hostname: string;
+  operating_system: string;
+  architecture: string;
+  memory_total_bytes: number;
+  memory_used_bytes: number;
+  memory_available_bytes: number;
+  memory_usage_percent: number;
+  storage_total_bytes: number;
+  storage_used_bytes: number;
+  storage_free_bytes: number;
+  storage_usage_percent: number;
+  sampled_at: string;
+};
+
+type DashboardDevicesApiDevice = {
+  id: string;
+  name: string;
+  kind: DashboardDevice["kind"];
+  status: DashboardDevice["status"];
+  location: string;
+  detail: string;
+  last_seen_at: string;
+};
+
+type DashboardDevicesApiResponse = {
+  host: DashboardDevicesApiHost | null;
+  devices: DashboardDevicesApiDevice[];
+};
+
 const readStoredJson = <T,>(storageKey: string, fallbackValue: T): T => {
   try {
     const rawValue = sessionStorage.getItem(storageKey);
@@ -91,6 +130,38 @@ const readStoredJson = <T,>(storageKey: string, fallbackValue: T): T => {
 const writeStoredJson = (storageKey: string, value: unknown) => {
   sessionStorage.setItem(storageKey, JSON.stringify(value));
 };
+
+const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
+  id: host.id,
+  name: host.name,
+  kind: "host",
+  status: host.status,
+  location: host.location,
+  detail: host.detail,
+  lastSeenAt: host.last_seen_at,
+  hostname: host.hostname,
+  operatingSystem: host.operating_system,
+  architecture: host.architecture,
+  memoryTotalBytes: host.memory_total_bytes,
+  memoryUsedBytes: host.memory_used_bytes,
+  memoryAvailableBytes: host.memory_available_bytes,
+  memoryUsagePercent: host.memory_usage_percent,
+  storageTotalBytes: host.storage_total_bytes,
+  storageUsedBytes: host.storage_used_bytes,
+  storageFreeBytes: host.storage_free_bytes,
+  storageUsagePercent: host.storage_usage_percent,
+  sampledAt: host.sampled_at
+});
+
+const mapApiDevice = (device: DashboardDevicesApiDevice): DashboardDevice => ({
+  id: device.id,
+  name: device.name,
+  kind: device.kind,
+  status: device.status,
+  location: device.location,
+  detail: device.detail,
+  lastSeenAt: device.last_seen_at
+});
 
 const createFallbackLogStore = (): MalcomLogStore => {
   let settings = { ...defaultLogSettings };
@@ -205,9 +276,23 @@ export const dashboardApi = {
     return clone(ensureMockDashboardState().summary);
   },
 
-  async getDevices(developerMode: boolean) {
+  async getDevices(developerMode: boolean): Promise<DashboardDevicesResponse> {
     if (!developerMode) {
-      return { host: null, devices: [] };
+      try {
+        const response = await fetch("/api/v1/dashboard/devices");
+
+        if (!response.ok) {
+          return { host: null, devices: [] };
+        }
+
+        const payload = (await response.json()) as DashboardDevicesApiResponse;
+        return {
+          host: payload.host ? mapApiHost(payload.host) : null,
+          devices: payload.devices.map(mapApiDevice)
+        };
+      } catch {
+        return { host: null, devices: [] };
+      }
     }
 
     return clone(ensureMockDashboardState().devices || mockDevicesResponse);
@@ -269,6 +354,24 @@ export const formatDuration = (value: number | null) => {
   }
 
   return `${(value / 1000).toFixed(1)}s`;
+};
+
+export const formatBytes = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let scaledValue = value;
+  let unitIndex = 0;
+
+  while (scaledValue >= 1024 && unitIndex < units.length - 1) {
+    scaledValue /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = scaledValue >= 100 ? 0 : scaledValue >= 10 ? 1 : 2;
+  return `${scaledValue.toFixed(digits)} ${units[unitIndex]}`;
 };
 
 export const stringifyValue = (value: unknown, maxCharacters: number) => {

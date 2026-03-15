@@ -1,7 +1,9 @@
 ui/node_modules
+node_modules
 ui/dist
 .DS_Store
 .venv/
 __pycache__/
 *.pyc
 backend/data/*.db
+backend/data/logs/

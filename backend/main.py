@@ -4,6 +4,8 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import platform
 import secrets
 import sqlite3
 import urllib.error
@@ -11,6 +13,7 @@ import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -28,6 +31,9 @@ from backend.tool_registry import get_project_root, update_tool_metadata, write_
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
 INBOUND_SECRET_BYTES = 32
+LOGGER_NAME = "malcom"
+DEFAULT_LOG_FILE_NAME = "malcom.log"
+DEFAULT_LOG_BACKUP_COUNT = 5
 
 
 def utc_now_iso() -> str:
@@ -57,6 +63,85 @@ def ensure_built_ui(root_dir: Path) -> None:
             "Built UI assets are missing. Run './malcom' or 'npm run build' in 'ui/' before starting the backend. "
             f"Missing: {missing_display}"
         )
+
+
+def get_log_dir(root_dir: Path) -> Path:
+    return root_dir / "backend" / "data" / "logs"
+
+
+def get_log_file_path(root_dir: Path) -> Path:
+    return get_log_dir(root_dir) / DEFAULT_LOG_FILE_NAME
+
+
+def mb_to_bytes(size_mb: int) -> int:
+    return size_mb * 1024 * 1024
+
+
+def json_safe(value: Any) -> Any:
+    try:
+        json.dumps(value)
+        return value
+    except TypeError:
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, dict):
+            return {str(key): json_safe(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [json_safe(item) for item in value]
+        return str(value)
+
+
+def configure_application_logger(app: FastAPI, *, root_dir: Path, max_file_size_mb: int) -> logging.Logger:
+    log_dir = get_log_dir(root_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file_path = get_log_file_path(root_dir)
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    current_handler: RotatingFileHandler | None = getattr(app.state, "log_handler", None)
+    desired_max_bytes = mb_to_bytes(max_file_size_mb)
+    should_replace_handler = (
+        current_handler is None
+        or Path(current_handler.baseFilename) != log_file_path
+        or current_handler.maxBytes != desired_max_bytes
+    )
+
+    if should_replace_handler:
+        if current_handler is not None:
+            logger.removeHandler(current_handler)
+            current_handler.close()
+
+        handler = RotatingFileHandler(
+            log_file_path,
+            maxBytes=desired_max_bytes,
+            backupCount=DEFAULT_LOG_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+        app.state.log_handler = handler
+
+    app.state.log_file_path = str(log_file_path)
+    app.state.log_file_max_bytes = desired_max_bytes
+    return logger
+
+
+def get_application_logger(request: Request) -> logging.Logger:
+    logger = getattr(request.app.state, "logger", None)
+    if logger is None:
+        logger = configure_application_logger(
+            request.app,
+            root_dir=get_root_dir(request),
+            max_file_size_mb=DEFAULT_APP_SETTINGS["logging"]["max_file_size_mb"],
+        )
+        request.app.state.logger = logger
+    return logger
+
+
+def write_application_log(logger: logging.Logger, level: int, event: str, **fields: Any) -> None:
+    payload = {"event": event, **{key: json_safe(value) for key, value in fields.items()}}
+    logger.log(level, json.dumps(payload, sort_keys=True))
 
 
 def get_built_ui_file(root_dir: Path, relative_path: str) -> Path:
@@ -344,6 +429,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "max_stored_entries": 250,
         "max_visible_entries": 50,
         "max_detail_characters": 4000,
+        "max_file_size_mb": 5,
     },
     "notifications": {
         "channel": "slack",
@@ -365,6 +451,15 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
 
 def get_default_settings() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
+
+
+def merge_settings_section(default_value: Any, stored_value: Any) -> Any:
+    if not isinstance(default_value, dict) or not isinstance(stored_value, dict):
+        return stored_value
+
+    merged_value = dict(default_value)
+    merged_value.update(stored_value)
+    return merged_value
 
 
 def seed_default_settings(connection: sqlite3.Connection) -> None:
@@ -396,7 +491,10 @@ def get_settings_payload(connection: sqlite3.Connection) -> dict[str, Any]:
     for row in rows:
         if row["key"] not in settings:
             continue
-        settings[row["key"]] = json.loads(row["value_json"])
+        settings[row["key"]] = merge_settings_section(
+            settings[row["key"]],
+            json.loads(row["value_json"]),
+        )
 
     return settings
 
@@ -519,6 +617,42 @@ class InboundApiDetail(InboundApiResponse):
     events: list[dict[str, Any]]
 
 
+class DashboardDeviceResponse(BaseModel):
+    id: str
+    name: str
+    kind: str
+    status: str
+    location: str
+    detail: str
+    last_seen_at: str
+
+
+class HostMachineSummary(BaseModel):
+    id: str
+    name: str
+    status: str
+    location: str
+    detail: str
+    last_seen_at: str
+    hostname: str
+    operating_system: str
+    architecture: str
+    memory_total_bytes: int
+    memory_used_bytes: int
+    memory_available_bytes: int
+    memory_usage_percent: float
+    storage_total_bytes: int
+    storage_used_bytes: int
+    storage_free_bytes: int
+    storage_usage_percent: float
+    sampled_at: str
+
+
+class DashboardDevicesApiResponse(BaseModel):
+    host: HostMachineSummary | None
+    devices: list[DashboardDeviceResponse]
+
+
 
 
 class AutomationRunStepResponse(BaseModel):
@@ -568,6 +702,7 @@ class LoggingSettings(BaseModel):
     max_stored_entries: int = Field(ge=50, le=5000)
     max_visible_entries: int = Field(ge=10, le=500)
     max_detail_characters: int = Field(ge=500, le=20000)
+    max_file_size_mb: int = Field(ge=1, le=100)
 
 
 class NotificationSettings(BaseModel):
@@ -613,9 +748,27 @@ async def lifespan(app: FastAPI):
     write_tools_manifest(Path(app.state.root_dir), connection)
     ensure_built_ui(Path(app.state.root_dir))
     app.state.connection = connection
+    configured_settings = get_settings_payload(connection)
+    app.state.logger = configure_application_logger(
+        app,
+        root_dir=Path(app.state.root_dir),
+        max_file_size_mb=configured_settings["logging"]["max_file_size_mb"],
+    )
+    write_application_log(
+        app.state.logger,
+        logging.INFO,
+        "app_started",
+        db_path=app.state.db_path,
+        log_file_path=app.state.log_file_path,
+        log_file_max_bytes=app.state.log_file_max_bytes,
+    )
     try:
         yield
     finally:
+        write_application_log(app.state.logger, logging.INFO, "app_stopped")
+        log_handler: RotatingFileHandler | None = getattr(app.state, "log_handler", None)
+        if log_handler is not None:
+            log_handler.flush()
         connection.close()
 
 
@@ -629,6 +782,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_http_requests(request: Request, call_next):
+    started_at = datetime.now(UTC)
+
+    try:
+        response = await call_next(request)
+    except Exception as error:
+        logger = get_application_logger(request)
+        duration_ms = max(int((datetime.now(UTC) - started_at).total_seconds() * 1000), 0)
+        write_application_log(
+            logger,
+            logging.ERROR,
+            "http_request_failed",
+            method=request.method,
+            path=request.url.path,
+            query=request.url.query,
+            duration_ms=duration_ms,
+            client_ip=request.client.host if request.client else None,
+            error=str(error),
+        )
+        raise
+
+    logger = get_application_logger(request)
+    duration_ms = max(int((datetime.now(UTC) - started_at).total_seconds() * 1000), 0)
+    level = logging.ERROR if response.status_code >= 500 else logging.INFO
+    write_application_log(
+        logger,
+        level,
+        "http_request_completed",
+        method=request.method,
+        path=request.url.path,
+        query=request.url.query,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+        client_ip=request.client.host if request.client else None,
+    )
+    return response
+
 UI_HTML_ROUTES = {
     "/": "index.html",
     "/index.html": "index.html",
@@ -734,6 +927,84 @@ def get_connection(request: Request) -> sqlite3.Connection:
 
 def get_root_dir(request: Request) -> Path:
     return Path(request.app.state.root_dir)
+
+
+def get_runtime_devices_response() -> DashboardDevicesApiResponse:
+    sampled_at = utc_now_iso()
+    hostname = platform.node() or "Unknown host"
+    operating_system = f"{platform.system()} {platform.release()}".strip()
+    architecture = platform.machine() or "Unknown architecture"
+
+    try:
+        import psutil
+
+        memory = psutil.virtual_memory()
+        storage = psutil.disk_usage("/")
+    except Exception:
+        host = HostMachineSummary(
+            id="host-malcom-runtime",
+            name="Malcom host",
+            status="offline",
+            location=hostname,
+            detail="Host telemetry is temporarily unavailable from the local runtime.",
+            last_seen_at=sampled_at,
+            hostname=hostname,
+            operating_system=operating_system,
+            architecture=architecture,
+            memory_total_bytes=0,
+            memory_used_bytes=0,
+            memory_available_bytes=0,
+            memory_usage_percent=0,
+            storage_total_bytes=0,
+            storage_used_bytes=0,
+            storage_free_bytes=0,
+            storage_usage_percent=0,
+            sampled_at=sampled_at,
+        )
+    else:
+        host = HostMachineSummary(
+            id="host-malcom-runtime",
+            name="Malcom host",
+            status="healthy",
+            location=hostname,
+            detail="Local runtime host serving the API, dashboard, and scheduler process set.",
+            last_seen_at=sampled_at,
+            hostname=hostname,
+            operating_system=operating_system,
+            architecture=architecture,
+            memory_total_bytes=int(memory.total),
+            memory_used_bytes=int(memory.used),
+            memory_available_bytes=int(memory.available),
+            memory_usage_percent=float(memory.percent),
+            storage_total_bytes=int(storage.total),
+            storage_used_bytes=int(storage.used),
+            storage_free_bytes=int(storage.free),
+            storage_usage_percent=float(getattr(storage, "percent", 0.0)),
+            sampled_at=sampled_at,
+        )
+
+    devices = [
+        DashboardDeviceResponse(
+            id="service-runtime-endpoint",
+            name="Runtime command endpoint",
+            kind="service",
+            status="healthy",
+            location="127.0.0.1",
+            detail="Command executor is available for automation step dispatch.",
+            last_seen_at=sampled_at,
+        ),
+        DashboardDeviceResponse(
+            id="service-api-endpoint",
+            name="FastAPI server",
+            kind="service",
+            status="healthy",
+            location="localhost:8000",
+            detail="Serving local endpoints for the dashboard, settings, runs, and automations.",
+            last_seen_at=sampled_at,
+        ),
+    ]
+
+    return DashboardDevicesApiResponse(host=host, devices=devices)
 
 
 def get_api_or_404(connection: sqlite3.Connection, api_id: str, *, include_mock: bool = True) -> sqlite3.Row:
@@ -949,6 +1220,7 @@ def execute_outgoing_test_delivery(payload: OutgoingApiTestRequest) -> OutgoingA
 
 def log_event(
     connection: sqlite3.Connection,
+    logger: logging.Logger,
     *,
     event_id: str,
     api_id: str,
@@ -987,6 +1259,19 @@ def log_event(
         ),
     )
     connection.commit()
+    write_application_log(
+        logger,
+        logging.WARNING if error_message else logging.INFO,
+        "inbound_api_event_recorded",
+        event_id=event_id,
+        api_id=api_id,
+        status=status_value,
+        source_ip=source_ip,
+        headers=headers,
+        payload=payload,
+        error_message=error_message,
+        is_mock=is_mock,
+    )
 
 
 
@@ -1128,9 +1413,15 @@ def get_app_settings(request: Request) -> AppSettingsResponse:
     return AppSettingsResponse(**payload)
 
 
+@app.get("/api/v1/dashboard/devices", response_model=DashboardDevicesApiResponse)
+def get_dashboard_devices() -> DashboardDevicesApiResponse:
+    return get_runtime_devices_response()
+
+
 @app.patch("/api/v1/settings", response_model=AppSettingsResponse)
 def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSettingsResponse:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     changes = payload.model_dump(exclude_unset=True)
 
     if not changes:
@@ -1152,7 +1443,22 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
         )
 
     connection.commit()
-    return AppSettingsResponse(**get_settings_payload(connection))
+    settings_payload = get_settings_payload(connection)
+    if "logging" in changes:
+        request.app.state.logger = configure_application_logger(
+            request.app,
+            root_dir=get_root_dir(request),
+            max_file_size_mb=settings_payload["logging"]["max_file_size_mb"],
+        )
+        logger = request.app.state.logger
+    write_application_log(
+        logger,
+        logging.INFO,
+        "settings_updated",
+        changed_sections=sorted(changes.keys()),
+        logging=settings_payload.get("logging"),
+    )
+    return AppSettingsResponse(**settings_payload)
 
 
 @app.get("/api/v1/inbound", response_model=list[InboundApiResponse])
@@ -1189,6 +1495,7 @@ def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
 @app.post("/api/v1/inbound", response_model=InboundApiCreated, status_code=status.HTTP_201_CREATED)
 def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundApiCreated:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     now = utc_now_iso()
     api_id = payload.path_slug.replace("-", "_") + "_" + uuid4().hex[:6]
     secret = generate_secret()
@@ -1229,6 +1536,14 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
     created = row_to_api_summary(get_api_or_404(connection, api_id))
     created["secret"] = secret
     created["endpoint_url"] = str(request.base_url).rstrip("/") + created["endpoint_path"]
+    write_application_log(
+        logger,
+        logging.INFO,
+        "inbound_api_created",
+        api_id=api_id,
+        path_slug=payload.path_slug,
+        enabled=payload.enabled,
+    )
     return InboundApiCreated(**created)
 
 
@@ -1482,6 +1797,7 @@ def get_inbound_api(api_id: str, request: Request) -> InboundApiDetail:
 @app.patch("/api/v1/inbound/{api_id}", response_model=InboundApiResponse)
 def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     current = get_api_or_404(connection, api_id, include_mock=True)
     changes = payload.model_dump(exclude_unset=True)
 
@@ -1509,12 +1825,20 @@ def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
 
     updated = row_to_api_summary(get_api_or_404(connection, api_id))
+    write_application_log(
+        logger,
+        logging.INFO,
+        "inbound_api_updated",
+        api_id=api_id,
+        changed_fields=sorted(changes.keys()),
+    )
     return InboundApiResponse(**updated)
 
 
 @app.post("/api/v1/inbound/{api_id}/rotate-secret", response_model=InboundSecretResponse)
 def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretResponse:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     api_row = get_api_or_404(connection, api_id, include_mock=True)
     secret = generate_secret()
     connection.execute(
@@ -1522,6 +1846,12 @@ def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretRes
         (hash_secret(secret), utc_now_iso(), api_row["id"]),
     )
     connection.commit()
+    write_application_log(
+        logger,
+        logging.WARNING,
+        "inbound_api_secret_rotated",
+        api_id=api_id,
+    )
     return InboundSecretResponse(
         id=api_id,
         secret=secret,
@@ -1532,12 +1862,19 @@ def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretRes
 @app.post("/api/v1/inbound/{api_id}/disable", response_model=InboundApiResponse)
 def disable_inbound_api(api_id: str, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     get_api_or_404(connection, api_id, include_mock=True)
     connection.execute(
         "UPDATE inbound_apis SET enabled = 0, updated_at = ? WHERE id = ?",
         (utc_now_iso(), api_id),
     )
     connection.commit()
+    write_application_log(
+        logger,
+        logging.WARNING,
+        "inbound_api_disabled",
+        api_id=api_id,
+    )
     return InboundApiResponse(**row_to_api_summary(get_api_or_404(connection, api_id)))
 
 
@@ -1567,6 +1904,7 @@ def patch_tool_metadata(tool_id: str, payload: ToolMetadataUpdate, request: Requ
 @app.post("/api/v1/inbound/{api_id}", response_model=InboundReceiveAccepted, status_code=status.HTTP_202_ACCEPTED)
 async def receive_inbound_event(api_id: str, request: Request, response: Response) -> InboundReceiveAccepted:
     connection = get_connection(request)
+    logger = get_application_logger(request)
     event_id = f"evt_{uuid4().hex[:10]}"
     received_at = utc_now_iso()
     headers = header_subset(request.headers)
@@ -1576,6 +1914,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     if not api_row["enabled"]:
         log_event(
             connection,
+            logger,
             event_id=event_id,
             api_id=api_id,
             received_at=received_at,
@@ -1594,6 +1933,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     if not auth_header.startswith("Bearer "):
         log_event(
             connection,
+            logger,
             event_id=event_id,
             api_id=api_id,
             received_at=received_at,
@@ -1610,6 +1950,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     if not hmac.compare_digest(hash_secret(provided_secret), expected_secret_hash):
         log_event(
             connection,
+            logger,
             event_id=event_id,
             api_id=api_id,
             received_at=received_at,
@@ -1625,6 +1966,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
         log_event(
             connection,
+            logger,
             event_id=event_id,
             api_id=api_id,
             received_at=received_at,
@@ -1642,6 +1984,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     except json.JSONDecodeError as error:
         log_event(
             connection,
+            logger,
             event_id=event_id,
             api_id=api_id,
             received_at=received_at,
@@ -1656,6 +1999,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
 
     log_event(
         connection,
+        logger,
         event_id=event_id,
         api_id=api_id,
         received_at=received_at,
@@ -1697,6 +2041,14 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
 
     finished_at = utc_now_iso()
     runtime_event_bus.emit(trigger)
+    write_application_log(
+        logger,
+        logging.INFO,
+        "runtime_trigger_emitted",
+        api_id=api_id,
+        event_id=event_id,
+        trigger_type=trigger.type,
+    )
     finalize_automation_run_step(
         connection,
         step_id=step_id,
