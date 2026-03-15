@@ -336,7 +336,7 @@ localLlmElements.chatForm?.addEventListener("submit", async (event) => {
   if (systemPrompt && chatMessages.length === 0) {
     requestMessages.push({ role: "system", content: systemPrompt });
   }
-  if (chatMessages.length > 0 && !(localLlmState.config.endpoints.chat || "").endsWith("/api/v1/chat")) {
+  if (chatMessages.length > 0) {
     requestMessages.push(...chatMessages.filter((message) => message.role !== "system"));
   }
   requestMessages.push({ role: "user", content: userMessage });

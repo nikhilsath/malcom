@@ -1,14 +1,15 @@
 from __future__ import annotations
-
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+import httpx
 from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_one
 from backend.main import LocalLlmChatResponse, app
+from backend.services.support import build_local_llm_native_chat_body, build_local_llm_stream, execute_local_llm_chat_request
 
 
 class ToolMetadataApiTestCase(unittest.TestCase):
@@ -189,6 +190,138 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["response_text"], "Hello from local model.")
         execute_chat.assert_called_once()
+
+    def test_local_llm_chat_request_falls_back_to_openai_route_on_native_404(self) -> None:
+        self.client.patch(
+            "/api/v1/tools/llm-deepl/local-llm",
+            json={
+                "enabled": True,
+                "provider": "lm_studio_api_v1",
+                "server_base_url": "http://127.0.0.1:1234",
+                "model_identifier": "qwen/qwen3.5-9b",
+                "endpoints": {"chat": "/api/v1/chat"},
+            },
+        )
+
+        connection = connect(self.db_path)
+        native_request = httpx.Request("POST", "http://127.0.0.1:1234/api/v1/chat")
+        native_response = httpx.Response(404, request=native_request)
+        fallback_response = mock.Mock()
+        fallback_response.raise_for_status.return_value = None
+        fallback_response.json.return_value = {
+            "choices": [{"message": {"content": "Fallback response."}}],
+            "id": "response_fallback",
+        }
+        try:
+            with mock.patch(
+                "backend.services.support.httpx.post",
+                side_effect=[
+                    httpx.HTTPStatusError("Not Found", request=native_request, response=native_response),
+                    fallback_response,
+                ],
+            ) as mocked_post:
+                response = execute_local_llm_chat_request(
+                    connection,
+                    messages=[{"role": "user", "content": "Say hello"}],
+                )
+        finally:
+            connection.close()
+
+        self.assertEqual(response.response_text, "Fallback response.")
+        self.assertEqual(response.response_id, "response_fallback")
+        self.assertEqual(mocked_post.call_args_list[0].args[0], "http://127.0.0.1:1234/api/v1/chat")
+        self.assertEqual(mocked_post.call_args_list[1].args[0], "http://127.0.0.1:1234/v1/chat/completions")
+        self.assertEqual(
+            mocked_post.call_args_list[1].kwargs["json"]["messages"],
+            [{"role": "user", "content": "Say hello"}],
+        )
+
+    def test_local_llm_stream_falls_back_to_openai_route_on_native_404(self) -> None:
+        self.client.patch(
+            "/api/v1/tools/llm-deepl/local-llm",
+            json={
+                "enabled": True,
+                "provider": "lm_studio_api_v1",
+                "server_base_url": "http://127.0.0.1:1234",
+                "model_identifier": "qwen/qwen3.5-9b",
+                "endpoints": {"chat": "/api/v1/chat"},
+            },
+        )
+
+        class FakeStreamResponse:
+            def __init__(self, *, status_code: int, lines: list[str], url: str) -> None:
+                self.status_code = status_code
+                self._lines = lines
+                self.request = httpx.Request("POST", url)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def raise_for_status(self) -> None:
+                if self.status_code >= 400:
+                    raise httpx.HTTPStatusError(
+                        "Not Found",
+                        request=self.request,
+                        response=httpx.Response(self.status_code, request=self.request),
+                    )
+
+            def iter_lines(self):
+                for line in self._lines:
+                    yield line
+
+        connection = connect(self.db_path)
+        try:
+            with mock.patch(
+                "backend.services.support.httpx.stream",
+                side_effect=[
+                    FakeStreamResponse(status_code=404, lines=[], url="http://127.0.0.1:1234/api/v1/chat"),
+                    FakeStreamResponse(
+                        status_code=200,
+                        lines=[
+                            'data: {"choices":[{"delta":{"content":"Fallback "}}]}',
+                            "",
+                            'data: {"choices":[{"delta":{"content":"stream"}}]}',
+                            "",
+                            "data: [DONE]",
+                            "",
+                        ],
+                        url="http://127.0.0.1:1234/v1/chat/completions",
+                    ),
+                ],
+            ) as mocked_stream:
+                chunks = list(
+                    build_local_llm_stream(
+                        connection,
+                        messages=[{"role": "user", "content": "Stream hello"}],
+                    )
+                )
+        finally:
+            connection.close()
+
+        decoded = b"".join(chunks).decode("utf-8")
+        self.assertIn('"content": "Fallback "', decoded)
+        self.assertIn('"content": "stream"', decoded)
+        self.assertIn('"response_text": "Fallback stream"', decoded)
+        self.assertEqual(mocked_stream.call_args_list[0].args[1], "http://127.0.0.1:1234/api/v1/chat")
+        self.assertEqual(mocked_stream.call_args_list[1].args[1], "http://127.0.0.1:1234/v1/chat/completions")
+
+    def test_local_llm_native_chat_body_embeds_system_prompt_in_input(self) -> None:
+        body = build_local_llm_native_chat_body(
+            model_identifier="qwen/qwen3.5-9b",
+            messages=[
+                {"role": "system", "content": "Reply with yes only."},
+                {"role": "user", "content": "Test Message"},
+            ],
+            stream=True,
+        )
+
+        self.assertEqual(body["model"], "qwen/qwen3.5-9b")
+        self.assertNotIn("system", body)
+        self.assertIn("System instructions:\nReply with yes only.", body["input"])
+        self.assertIn("User: Test Message", body["input"])
 
 
 if __name__ == "__main__":

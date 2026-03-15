@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.schemas import *
 from backend.database import DEFAULT_DB_PATH, connect, fetch_all, fetch_one, initialize
 import httpx
+from pydantic import ValidationError
 from backend.runtime import (
     RegisteredWorker,
     RuntimeExecutionResult,
@@ -1111,6 +1112,20 @@ def write_settings_section(connection: sqlite3.Connection, key: str, value: Any)
         (key, json.dumps(value), now, now),
     )
     connection.commit()
+def normalize_settings_response_section(section_key: str, value: Any) -> Any:
+    schema_map = {
+        "general": GeneralSettings,
+        "logging": LoggingSettings,
+        "notifications": NotificationSettings,
+        "security": SecuritySettings,
+        "data": DataSettings,
+        "connectors": ConnectorSettingsResponse,
+    }
+    schema = schema_map[section_key]
+    try:
+        return schema.model_validate(value).model_dump()
+    except ValidationError:
+        return schema.model_validate(get_default_settings()[section_key]).model_dump()
 def get_settings_payload(connection: sqlite3.Connection, *, protection_secret: str | None = None) -> dict[str, Any]:
     settings = get_default_settings()
     connector_secret = protection_secret or get_connector_protection_secret()
@@ -1125,7 +1140,10 @@ def get_settings_payload(connection: sqlite3.Connection, *, protection_secret: s
     for row in rows:
         if row["key"] not in settings:
             continue
-        stored_value = json.loads(row["value_json"])
+        try:
+            stored_value = json.loads(row["value_json"])
+        except json.JSONDecodeError:
+            continue
         if row["key"] == "connectors":
             settings[row["key"]] = sanitize_connector_settings_for_response(stored_value, connector_secret)
         else:
@@ -1133,6 +1151,9 @@ def get_settings_payload(connection: sqlite3.Connection, *, protection_secret: s
                 settings[row["key"]],
                 stored_value,
             )
+
+    for section_key in tuple(settings.keys()):
+        settings[section_key] = normalize_settings_response_section(section_key, settings[section_key])
 
     return settings
 def get_default_smtp_tool_config() -> dict[str, Any]:
@@ -1254,6 +1275,17 @@ def build_local_llm_endpoint_url(config: dict[str, Any], endpoint_key: str) -> s
 def local_llm_uses_native_chat_api(config: dict[str, Any]) -> bool:
     chat_path = str((config.get("endpoints") or {}).get("chat") or "").strip().lower()
     return chat_path.endswith("/api/v1/chat")
+def build_local_llm_openai_chat_url(config: dict[str, Any]) -> str:
+    base_url = str(config.get("server_base_url") or "").strip().rstrip("/")
+    if not base_url:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Local LLM server base URL is not configured.")
+    return f"{base_url}/v1/chat/completions"
+def should_retry_local_llm_with_openai_chat(config: dict[str, Any], error: httpx.HTTPError) -> bool:
+    if not local_llm_uses_native_chat_api(config):
+        return False
+    if not isinstance(error, httpx.HTTPStatusError):
+        return False
+    return error.response.status_code == status.HTTP_404_NOT_FOUND
 def extract_text_from_content_parts(parts: Any) -> str:
     if isinstance(parts, str):
         return parts
@@ -1315,15 +1347,28 @@ def build_local_llm_native_chat_body(
     stream: bool,
 ) -> dict[str, Any]:
     latest_user_message = next((message["content"] for message in reversed(messages) if message["role"] == "user"), "")
+    system_message = next((message["content"] for message in messages if message["role"] == "system"), None)
+
+    if previous_response_id:
+        native_input = latest_user_message
+    else:
+        transcript_lines: list[str] = []
+        if system_message:
+            transcript_lines.append(f"System instructions:\n{system_message}")
+        conversation_messages = [message for message in messages if message["role"] != "system"]
+        if conversation_messages:
+            transcript_lines.append("Conversation:")
+            transcript_lines.extend(
+                f"{message['role'].capitalize()}: {message['content']}" for message in conversation_messages
+            )
+        native_input = "\n\n".join(line for line in transcript_lines if line.strip()) or latest_user_message
+
     body: dict[str, Any] = {
         "model": model_identifier,
-        "input": latest_user_message,
+        "input": native_input,
         "stream": stream,
         "store": False,
     }
-    system_message = next((message["content"] for message in messages if message["role"] == "system"), None)
-    if system_message:
-        body["system"] = system_message
     if previous_response_id:
         body["previous_response_id"] = previous_response_id
     return body
@@ -1373,6 +1418,23 @@ def prepare_local_llm_chat_request(
     return config, model_identifier, chat_url, request_body
 
 
+def build_local_llm_fallback_chat_request(
+    config: dict[str, Any],
+    *,
+    model_identifier: str,
+    messages: list[dict[str, str]],
+    stream: bool,
+) -> tuple[str, dict[str, Any]]:
+    return (
+        build_local_llm_openai_chat_url(config),
+        build_local_llm_openai_chat_body(
+            model_identifier=model_identifier,
+            messages=messages,
+            stream=stream,
+        ),
+    )
+
+
 def execute_local_llm_chat_request(
     connection: sqlite3.Connection,
     *,
@@ -1380,7 +1442,7 @@ def execute_local_llm_chat_request(
     model_identifier_override: str | None = None,
     previous_response_id: str | None = None,
 ) -> LocalLlmChatResponse:
-    _, model_identifier, chat_url, request_body = prepare_local_llm_chat_request(
+    config, model_identifier, chat_url, request_body = prepare_local_llm_chat_request(
         connection,
         messages=messages,
         model_identifier_override=model_identifier_override,
@@ -1391,7 +1453,19 @@ def execute_local_llm_chat_request(
         response = httpx.post(chat_url, json=request_body, timeout=60.0)
         response.raise_for_status()
     except httpx.HTTPError as error:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Local LLM request failed: {error}") from error
+        if not should_retry_local_llm_with_openai_chat(config, error):
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Local LLM request failed: {error}") from error
+        try:
+            fallback_chat_url, fallback_body = build_local_llm_fallback_chat_request(
+                config,
+                model_identifier=model_identifier,
+                messages=messages,
+                stream=False,
+            )
+            response = httpx.post(fallback_chat_url, json=fallback_body, timeout=60.0)
+            response.raise_for_status()
+        except httpx.HTTPError as fallback_error:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Local LLM request failed: {fallback_error}") from fallback_error
 
     payload = response.json()
     response_text = extract_local_llm_response_text(payload)
@@ -1407,6 +1481,59 @@ def encode_sse_event(event: str, data: dict[str, Any]) -> bytes:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
 
 
+def iter_local_llm_stream_events(response: httpx.Response, *, collected_fragments: list[str]):
+    response_id: str | None = None
+    event_name = "message"
+    data_lines: list[str] = []
+
+    for raw_line in response.iter_lines():
+        line = raw_line if isinstance(raw_line, str) else raw_line.decode("utf-8", errors="replace")
+        if line == "":
+            if not data_lines:
+                event_name = "message"
+                continue
+            data_payload = "\n".join(data_lines)
+            if data_payload == "[DONE]":
+                break
+            try:
+                parsed = json.loads(data_payload)
+            except json.JSONDecodeError:
+                parsed = {"raw": data_payload}
+
+            fragment = ""
+            if event_name == "message.delta":
+                fragment = extract_text_from_content_parts(parsed.get("delta"))
+            elif isinstance(parsed, dict):
+                if isinstance(parsed.get("choices"), list) and parsed["choices"]:
+                    choice = parsed["choices"][0]
+                    if isinstance(choice, dict):
+                        delta = choice.get("delta") or {}
+                        if isinstance(delta, dict) and isinstance(delta.get("content"), str):
+                            fragment = delta["content"]
+                if not fragment:
+                    fragment = extract_local_llm_response_text(parsed)
+                if response_id is None:
+                    response_id = extract_local_llm_response_id(parsed)
+
+            if fragment:
+                collected_fragments.append(fragment)
+                yield encode_sse_event("delta", {"content": fragment})
+
+            if event_name in {"chat.end", "response.completed"} and response_id is None and isinstance(parsed, dict):
+                response_id = extract_local_llm_response_id(parsed)
+
+            event_name = "message"
+            data_lines = []
+            continue
+
+        if line.startswith("event:"):
+            event_name = line[6:].strip() or "message"
+        elif line.startswith("data:"):
+            data_lines.append(line[5:].lstrip())
+
+    return response_id
+
+
 def build_local_llm_stream(
     connection: sqlite3.Connection,
     *,
@@ -1414,7 +1541,7 @@ def build_local_llm_stream(
     model_identifier_override: str | None = None,
     previous_response_id: str | None = None,
 ):
-    _, model_identifier, chat_url, request_body = prepare_local_llm_chat_request(
+    config, model_identifier, chat_url, request_body = prepare_local_llm_chat_request(
         connection,
         messages=messages,
         model_identifier_override=model_identifier_override,
@@ -1426,54 +1553,22 @@ def build_local_llm_stream(
         response_id: str | None = None
         collected_fragments: list[str] = []
         try:
-            with httpx.stream("POST", chat_url, json=request_body, timeout=60.0) as response:
-                response.raise_for_status()
-                event_name = "message"
-                data_lines: list[str] = []
-                for raw_line in response.iter_lines():
-                    line = raw_line if isinstance(raw_line, str) else raw_line.decode("utf-8", errors="replace")
-                    if line == "":
-                        if not data_lines:
-                            event_name = "message"
-                            continue
-                        data_payload = "\n".join(data_lines)
-                        if data_payload == "[DONE]":
-                            break
-                        try:
-                            parsed = json.loads(data_payload)
-                        except json.JSONDecodeError:
-                            parsed = {"raw": data_payload}
-
-                        fragment = ""
-                        if event_name == "message.delta":
-                            fragment = extract_text_from_content_parts(parsed.get("delta"))
-                        elif isinstance(parsed, dict):
-                            if isinstance(parsed.get("choices"), list) and parsed["choices"]:
-                                choice = parsed["choices"][0]
-                                if isinstance(choice, dict):
-                                    delta = choice.get("delta") or {}
-                                    if isinstance(delta, dict) and isinstance(delta.get("content"), str):
-                                        fragment = delta["content"]
-                            if not fragment:
-                                fragment = extract_local_llm_response_text(parsed)
-                            if response_id is None:
-                                response_id = extract_local_llm_response_id(parsed)
-
-                        if fragment:
-                            collected_fragments.append(fragment)
-                            yield encode_sse_event("delta", {"content": fragment})
-
-                        if event_name in {"chat.end", "response.completed"} and response_id is None and isinstance(parsed, dict):
-                            response_id = extract_local_llm_response_id(parsed)
-
-                        event_name = "message"
-                        data_lines = []
-                        continue
-
-                    if line.startswith("event:"):
-                        event_name = line[6:].strip() or "message"
-                    elif line.startswith("data:"):
-                        data_lines.append(line[5:].lstrip())
+            try:
+                with httpx.stream("POST", chat_url, json=request_body, timeout=60.0) as response:
+                    response.raise_for_status()
+                    response_id = yield from iter_local_llm_stream_events(response, collected_fragments=collected_fragments)
+            except httpx.HTTPError as error:
+                if not should_retry_local_llm_with_openai_chat(config, error):
+                    raise
+                fallback_chat_url, fallback_body = build_local_llm_fallback_chat_request(
+                    config,
+                    model_identifier=model_identifier,
+                    messages=messages,
+                    stream=True,
+                )
+                with httpx.stream("POST", fallback_chat_url, json=fallback_body, timeout=60.0) as response:
+                    response.raise_for_status()
+                    response_id = yield from iter_local_llm_stream_events(response, collected_fragments=collected_fragments)
 
             yield encode_sse_event(
                 "done",
