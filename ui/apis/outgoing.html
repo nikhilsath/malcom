@@ -15,15 +15,25 @@
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-outgoing-header">
                 <h2 class="page-title section-header__title--page" id="page-title">Outgoing APIs</h2>
-                <p class="page-description section-header__description--page" id="page-description">Review outbound requests, destination services, and delivery readiness.</p>
+                <p class="page-description section-header__description--page" id="page-description">Review outbound deliveries.</p>
             </div>
             <section id="apis-outgoing-content" class="card api-workspace">
                 <div id="apis-outgoing-copy" class="section-header api-panel-header">
                     <div id="apis-outgoing-copy-block" class="section-header__copy api-panel-header-copy">
                         <p id="apis-outgoing-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Outgoing Registry</p>
-                        <h3 id="apis-outgoing-content-title" class="section-header__title api-panel-title">Outbound delivery definitions</h3>
-                        <p id="apis-outgoing-content-copy" class="section-header__description api-panel-description">Scheduled and continuous outbound APIs created from the modal are listed here so each record maps back to its own backend table row.</p>
+                        <div id="apis-outgoing-content-title-row" class="api-panel-title-row">
+                            <h3 id="apis-outgoing-content-title" class="section-header__title api-panel-title">Outbound delivery definitions</h3>
+                            <button type="button" id="apis-outgoing-content-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain outgoing deliveries" aria-expanded="false" aria-controls="apis-outgoing-content-tooltip">i</button>
+                        </div>
                     </div>
+                    <div id="apis-outgoing-actions" class="api-form-actions">
+                        <button type="button" id="apis-outgoing-create-scheduled-button" class="primary-action-button" data-create-api-type="outgoing_scheduled">Create scheduled API</button>
+                        <button type="button" id="apis-outgoing-create-continuous-button" class="button button--secondary secondary-action-button" data-create-api-type="outgoing_continuous">Create continuous API</button>
+                    </div>
+                </div>
+                <div id="apis-outgoing-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled and continuous deliveries, destination readiness, and quick actions from one registry.</div>
+                <div id="apis-outgoing-status-bar" class="api-directory-status-bar">
+                    <p id="apis-outgoing-status-copy" class="api-directory-status-copy">Active deliveries show in green and inactive deliveries show in yellow.</p>
                 </div>
                 <div id="apis-outgoing-list-empty" class="empty-state api-empty-state" hidden>
                     <h4 id="apis-outgoing-list-empty-title" class="api-empty-state__title">No outgoing APIs configured</h4>
@@ -48,9 +58,23 @@
         </div>
     </div>
 
-    <script src="../scripts/utils.js"></script>
-    <script src="../scripts/log-store.js"></script>
+    <div
+        id="outgoing-api-edit-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="outgoing-api-edit-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="outgoing-api-edit-modal-backdrop" data-modal-close="outgoing-api-edit-modal"></div>
+        <div class="modal__dialog modal__dialog--wide" id="outgoing-api-edit-modal-dialog">
+            <div class="modal__content" id="outgoing-api-edit-modal-content"></div>
+        </div>
+    </div>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script src="../scripts/apis.js"></script>
+    <script type="module" src="../scripts/apis.js"></script>
 </body>
 </html>

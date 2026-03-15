@@ -25,6 +25,7 @@ export default defineConfig({
         apisWebhooks: resolve(__dirname, "apis/webhooks.html"),
         apisAutomation: resolve(__dirname, "apis/automation.html"),
         toolsOverview: resolve(__dirname, "tools/overview.html"),
+        toolsSmtp: resolve(__dirname, "tools/smtp.html"),
         toolsSftp: resolve(__dirname, "tools/sftp.html"),
         toolsStorage: resolve(__dirname, "tools/storage.html"),
         scripts: resolve(__dirname, "scripts.html"),

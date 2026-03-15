@@ -15,7 +15,7 @@
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-incoming-header">
                 <h2 class="page-title section-header__title--page" id="page-title">Incoming APIs</h2>
-                <p class="page-description section-header__description--page" id="page-description">Browse inbound APIs from the directory and open each one in a modal for endpoint details and recent activity.</p>
+                <p class="page-description section-header__description--page" id="page-description">Browse inbound endpoints.</p>
             </div>
             <section id="apis-incoming-content" class="card api-workspace">
                 <div id="api-system-alert" class="api-system-alert" hidden></div>
@@ -24,9 +24,19 @@
                     <div id="api-directory-header" class="api-panel-header">
                         <div id="api-directory-header-copy" class="api-panel-header-copy">
                             <p id="api-directory-eyebrow" class="api-panel-eyebrow">Directory</p>
-                            <h3 id="api-directory-title" class="api-panel-title">Created incoming APIs</h3>
-                            <p id="api-directory-description" class="api-panel-description">Select any inbound API to open its endpoint metadata, secret controls, and event logs in a modal.</p>
+                            <div id="api-directory-title-row" class="api-panel-title-row">
+                                <h3 id="api-directory-title" class="api-panel-title">Created incoming APIs</h3>
+                                <button type="button" id="api-directory-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain the incoming API directory" aria-expanded="false" aria-controls="api-directory-tooltip">i</button>
+                            </div>
                         </div>
+                        <div id="api-directory-actions" class="api-form-actions">
+                            <button type="button" id="api-directory-create-button" class="primary-action-button" data-create-api-type="incoming">Create incoming API</button>
+                        </div>
+                    </div>
+                    <div id="api-directory-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Select a row to inspect endpoint details, secrets, and recent request activity.</div>
+
+                    <div id="api-directory-status-bar" class="api-directory-status-bar">
+                        <p id="api-directory-status-copy" class="api-directory-status-copy">Select a row to open details.</p>
                     </div>
 
                     <div id="api-directory-empty" class="api-empty-state" hidden>
@@ -113,9 +123,71 @@
 
                         <section id="api-logs-panel" class="api-logs-panel">
                             <div id="api-logs-header" class="api-panel-header">
-                                <div id="api-logs-header-copy" class="api-panel-header-copy">
-                                    <p id="api-logs-eyebrow" class="api-panel-eyebrow">Logs</p>
+                            <div id="api-logs-header-copy" class="api-panel-header-copy">
+                                <p id="api-logs-eyebrow" class="api-panel-eyebrow">Logs</p>
+                                <div id="api-logs-title-row" class="api-panel-title-row">
                                     <h4 id="api-logs-title" class="api-panel-title">Recent inbound events</h4>
+                                    <button type="button" id="api-logs-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain inbound event logs" aria-expanded="false" aria-controls="api-logs-tooltip">i</button>
+                                </div>
+                            </div>
+                            </div>
+                            <div id="api-logs-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Filter and inspect recent request results without leaving the modal.</div>
+
+                            <div id="api-logs-toolbar" class="api-logs-toolbar">
+                                <div id="api-logs-summary" class="api-logs-summary" aria-live="polite">
+                                    <div id="api-logs-summary-total" class="api-log-summary-card">
+                                        <span id="api-logs-summary-total-label" class="api-log-summary-card__label">Visible</span>
+                                        <span id="api-logs-summary-total-value" class="api-log-summary-card__value">0</span>
+                                    </div>
+                                    <div id="api-logs-summary-accepted" class="api-log-summary-card">
+                                        <span id="api-logs-summary-accepted-label" class="api-log-summary-card__label">Accepted</span>
+                                        <span id="api-logs-summary-accepted-value" class="api-log-summary-card__value">0</span>
+                                    </div>
+                                    <div id="api-logs-summary-errors" class="api-log-summary-card">
+                                        <span id="api-logs-summary-errors-label" class="api-log-summary-card__label">Needs attention</span>
+                                        <span id="api-logs-summary-errors-value" class="api-log-summary-card__value">0</span>
+                                    </div>
+                                </div>
+
+                                <div id="api-logs-controls" class="api-logs-controls api-logs-controls--compact">
+                                    <label id="api-logs-search-field" class="api-form-field api-logs-search-field">
+                                        <span id="api-logs-search-label" class="api-form-label">Search logs</span>
+                                        <input id="api-logs-search-input" class="api-form-input" type="search" placeholder="Search event id, payload, error, or source IP">
+                                    </label>
+                                    <label id="api-logs-status-field" class="api-form-field">
+                                        <span id="api-logs-status-label" class="api-form-label">Status</span>
+                                        <select id="api-logs-status-filter" class="api-form-input">
+                                            <option value="all" selected>All statuses</option>
+                                            <option value="accepted">Accepted</option>
+                                            <option value="unauthorized">Unauthorized</option>
+                                            <option value="invalid_json">Invalid JSON</option>
+                                            <option value="unsupported_media_type">Unsupported media type</option>
+                                            <option value="disabled">Disabled</option>
+                                        </select>
+                                    </label>
+                                    <label id="api-logs-source-field" class="api-form-field">
+                                        <span id="api-logs-source-label" class="api-form-label">Source</span>
+                                        <select id="api-logs-source-filter" class="api-form-input">
+                                            <option value="all" selected>All sources</option>
+                                            <option value="external">External requests</option>
+                                            <option value="internal">Internal or mock</option>
+                                            <option value="unknown">Unknown source</option>
+                                        </select>
+                                    </label>
+                                    <label id="api-logs-sort-field" class="api-form-field">
+                                        <span id="api-logs-sort-label" class="api-form-label">Sort</span>
+                                        <select id="api-logs-sort-input" class="api-form-input">
+                                            <option value="newest" selected>Newest first</option>
+                                            <option value="oldest">Oldest first</option>
+                                            <option value="status">Group by status</option>
+                                        </select>
+                                    </label>
+                                    <div id="api-logs-actions-field" class="api-form-field">
+                                        <span id="api-logs-actions-label" class="api-form-label">Actions</span>
+                                        <div id="api-logs-actions" class="api-form-actions api-form-actions--compact">
+                                            <button type="button" id="api-logs-reset-button" class="button button--secondary secondary-action-button">Reset filters</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -132,9 +204,9 @@
         </div>
     </div>
 
-    <script src="../scripts/utils.js"></script>
-    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script src="../scripts/apis.js"></script>
+    <script type="module" src="../scripts/apis.js"></script>
 </body>
 </html>

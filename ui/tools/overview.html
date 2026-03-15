@@ -15,14 +15,14 @@
         <div class="content-shell">
             <div class="page-header section-header--page">
                 <h2 class="page-title section-header__title--page" id="page-title">Tools Overview</h2>
-                <p class="page-description section-header__description--page" id="page-description">Browse the available tools and open each one to review its details.</p>
+                <p class="page-description section-header__description--page" id="page-description">Browse available tools.</p>
             </div>
             <section id="main-content" class="card tools-selection-panel">
                 <div id="tools-selection-header" class="section-header tools-selection-header">
                     <div id="tools-selection-copy" class="section-header__copy tools-selection-copy">
                         <p id="tools-selection-eyebrow" class="section-header__eyebrow tools-selection-eyebrow">Tool Directory</p>
                         <h3 id="tools-selection-title" class="section-header__title tools-selection-title">Click a tool to open its modal</h3>
-                        <p id="tools-selection-description" class="section-header__description tools-selection-description">The catalog is rendered from a single configuration so each tool can open a consistent detail view without changing the page layout.</p>
+                        <p id="tools-selection-description" class="section-header__description tools-selection-description">Select a tool to inspect it.</p>
                     </div>
                     <div id="tools-selection-status" class="section-status stat-card tools-selection-status" aria-live="polite">
                         <span id="selected-tools-count" class="selected-tools-count">Modal launch</span>
@@ -49,7 +49,7 @@
                         <div id="tool-detail-modal-header-copy" class="modal__header-copy">
                             <p id="tool-detail-modal-eyebrow" class="modal__eyebrow">Tool details</p>
                             <h3 id="tool-detail-modal-title" class="modal__title">Tool</h3>
-                            <p id="tool-detail-modal-description" class="modal__description">Review and edit the selected tool.</p>
+                            <p id="tool-detail-modal-description" class="modal__description">Review and edit.</p>
                         </div>
                         <button type="button" id="tool-detail-modal-close" class="button button--secondary modal__close-button" aria-label="Close tool details modal" data-modal-close="tool-detail-modal">Close</button>
                     </div>
@@ -80,10 +80,10 @@
         </div>
     </div>
 
-    <script src="../scripts/utils.js"></script>
-    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script src="../scripts/tools-manifest.js"></script>
-    <script src="../scripts/tools.js"></script>
+    <script type="module" src="../scripts/tools-manifest.js"></script>
+    <script type="module" src="../scripts/tools.js"></script>
 </body>
 </html>

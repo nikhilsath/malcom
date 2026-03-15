@@ -1,7 +1,13 @@
+import createApiModalMarkup from "../modals/create-api-modal.html?raw";
+import createApiTypeModalMarkup from "../modals/create-api-type-modal.html?raw";
+import outgoingApiEditModalMarkup from "../modals/outgoing-api-edit-modal.html?raw";
+
 const apiElements = {
   createModal: document.getElementById("apis-create-modal"),
   createModalContent: document.getElementById("apis-create-modal-content"),
   detailModal: document.getElementById("api-detail-modal"),
+  automationPlaceholderModal: document.getElementById("apis-automation-placeholder-modal"),
+  automationAlert: document.getElementById("api-automation-alert"),
   alert: document.getElementById("api-system-alert"),
   tableBody: document.getElementById("api-directory-body"),
   tableShell: document.getElementById("api-table-shell"),
@@ -16,10 +22,20 @@ const apiElements = {
   secretPanel: document.getElementById("api-secret-panel"),
   secretValue: document.getElementById("api-secret-value"),
   secretCurl: document.getElementById("api-secret-curl"),
+  logsSummaryTotalValue: document.getElementById("api-logs-summary-total-value"),
+  logsSummaryAcceptedValue: document.getElementById("api-logs-summary-accepted-value"),
+  logsSummaryErrorsValue: document.getElementById("api-logs-summary-errors-value"),
+  logsSearchInput: document.getElementById("api-logs-search-input"),
+  logsStatusFilter: document.getElementById("api-logs-status-filter"),
+  logsSourceFilter: document.getElementById("api-logs-source-filter"),
+  logsSortInput: document.getElementById("api-logs-sort-input"),
+  logsResetButton: document.getElementById("api-logs-reset-button"),
   logsEmpty: document.getElementById("api-logs-empty"),
   logList: document.getElementById("api-log-list"),
   outgoingList: document.getElementById("apis-outgoing-list"),
   outgoingListEmpty: document.getElementById("apis-outgoing-list-empty"),
+  outgoingEditModal: document.getElementById("outgoing-api-edit-modal"),
+  outgoingEditModalContent: document.getElementById("outgoing-api-edit-modal-content"),
   webhooksList: document.getElementById("apis-webhooks-list"),
   webhooksListEmpty: document.getElementById("apis-webhooks-list-empty"),
   overviewAlert: document.getElementById("api-system-alert"),
@@ -43,7 +59,13 @@ const hasCreateModalElements = () => Boolean(
 
 const getCreateOpenButton = () => document.getElementById("apis-create-button");
 
-const getCreateTypePopover = () => document.getElementById("apis-create-type-popover");
+const getCreateTypeModal = () => document.getElementById("apis-create-type-modal");
+
+const hasAutomationPlaceholderElements = () => Boolean(
+  apiElements.automationPlaceholderModal
+);
+
+const isAutomationPage = () => Boolean(apiElements.automationAlert);
 
 const hasOverviewElements = () => Boolean(
   apiElements.alert
@@ -60,12 +82,24 @@ const hasOverviewElements = () => Boolean(
   && apiElements.secretPanel
   && apiElements.secretValue
   && apiElements.secretCurl
+  && apiElements.logsSummaryTotalValue
+  && apiElements.logsSummaryAcceptedValue
+  && apiElements.logsSummaryErrorsValue
+  && apiElements.logsSearchInput
+  && apiElements.logsStatusFilter
+  && apiElements.logsSourceFilter
+  && apiElements.logsSortInput
+  && apiElements.logsResetButton
   && apiElements.logsEmpty
   && apiElements.logList
 );
 
 const hasOutgoingRegistryElements = () => Boolean(
   apiElements.outgoingList && apiElements.outgoingListEmpty
+);
+
+const hasOutgoingEditModalElements = () => Boolean(
+  apiElements.outgoingEditModal && apiElements.outgoingEditModalContent
 );
 
 const hasWebhookRegistryElements = () => Boolean(
@@ -79,12 +113,6 @@ const hasOverviewLandingElements = () => Boolean(
   && apiElements.overviewCallsPerHour
   && apiElements.overviewCallsPerDay
   && apiElements.overviewMonitoredWebhooksCount
-  && apiElements.overviewIncomingList
-  && apiElements.overviewIncomingEmpty
-  && apiElements.overviewOutgoingList
-  && apiElements.overviewOutgoingEmpty
-  && apiElements.overviewWebhooksList
-  && apiElements.overviewWebhooksEmpty
 );
 
 const modalFallbackMarkup = `
@@ -92,134 +120,87 @@ const modalFallbackMarkup = `
     <div class="modal__header" id="create-api-modal-header">
       <div class="modal__header-copy" id="create-api-modal-header-copy">
         <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
-        <h3 class="modal__title" id="apis-create-modal-title">Create API</h3>
-        <p class="modal__description" id="create-api-modal-description">Choose the type of API resource you want to create and Malcom will store it in the corresponding backend table.</p>
+        <div class="api-panel-title-row" id="create-api-modal-title-row">
+          <h3 class="modal__title" id="apis-create-modal-title">Create API</h3>
+          <button type="button" id="create-api-modal-description-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain this API type" aria-expanded="false" aria-controls="create-api-modal-description">i</button>
+        </div>
       </div>
       <button type="button" class="button button--secondary modal__close-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">Close</button>
+    </div>
+    <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The shared create form could not be loaded.</div>
+    <div class="modal__body" id="create-api-modal-body">
+      <p id="create-api-modal-fallback-copy" class="modal__description">Refresh the page and try again. If the problem persists, check the UI asset path for the shared modal template.</p>
+    </div>
   </div>
-  <div class="modal__body modal__body--form" id="create-api-modal-body">
-    <form id="create-api-form" class="api-form">
-      <input id="create-api-type-input" name="resourceType" type="hidden" value="incoming">
-      <div id="create-api-form-grid" class="api-form-grid">
-          <label id="create-api-name-field" class="api-form-field">
-            <span id="create-api-name-label" class="api-form-label">Name</span>
-            <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
-          </label>
-          <label id="create-api-slug-field" class="api-form-field">
-            <span id="create-api-slug-label" class="api-form-label">Path slug</span>
-            <input id="create-api-slug-input" class="api-form-input" name="pathSlug" type="text" maxlength="80" required>
-          </label>
-          <label id="create-api-description-field" class="api-form-field api-form-field--full">
-            <span id="create-api-description-label" class="api-form-label">Description</span>
-            <textarea id="create-api-description-input" class="api-form-textarea" name="description" rows="3"></textarea>
-          </label>
-          <label id="create-api-auth-field" class="api-form-field">
-            <span id="create-api-auth-label" class="api-form-label">Authentication</span>
-            <input id="create-api-auth-input" class="api-form-input" name="authTypeSummary" type="text" value="Bearer secret" readonly>
-          </label>
-          <label id="create-api-enabled-field" class="api-form-field api-form-field--toggle">
-            <span id="create-api-enabled-label" class="api-form-label">Enabled on create</span>
-            <span id="create-api-enabled-control" class="api-inline-toggle">
-              <input id="create-api-enabled-input" name="enabled" type="checkbox" checked>
-              <span id="create-api-enabled-copy" class="api-inline-toggle__label">Accept requests immediately</span>
-            </span>
-          </label>
-          <section id="create-api-outgoing-panel" class="api-form-field api-form-field--full" hidden>
-            <div id="create-api-outgoing-panel-copy" class="api-form-section-copy">
-              <p id="create-api-outgoing-panel-eyebrow" class="api-form-label">Outgoing delivery</p>
-              <p id="create-api-outgoing-panel-description" class="api-form-section-description">Configure the request Malcom should send on schedule or as a continuous outbound stream.</p>
+`;
+
+const createTypeModalFallbackMarkup = `
+  <div
+    id="apis-create-type-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="apis-create-type-modal-title"
+    aria-describedby="apis-create-type-modal-description"
+    aria-hidden="true"
+  >
+    <div class="modal__backdrop" id="apis-create-type-modal-backdrop" data-modal-close="apis-create-type-modal"></div>
+    <div class="modal__dialog" id="apis-create-type-modal-dialog">
+      <div class="modal__content" id="apis-create-type-modal-content">
+        <div class="modal__panel api-create-type-modal-panel" id="apis-create-type-modal-panel">
+          <div class="modal__header" id="apis-create-type-modal-header">
+            <div class="modal__header-copy" id="apis-create-type-modal-header-copy">
+              <p class="modal__eyebrow" id="apis-create-type-modal-eyebrow">Create</p>
+              <h3 class="modal__title" id="apis-create-type-modal-title">Choose an API surface</h3>
+              <p class="modal__description" id="apis-create-type-modal-description">Select the workflow you want to create and the full form will open with the relevant fields.</p>
             </div>
-            <div id="create-api-outgoing-grid" class="api-form-grid">
-              <label id="create-api-destination-field" class="api-form-field api-form-field--full">
-                <span id="create-api-destination-label" class="api-form-label">Destination URL</span>
-                <input id="create-api-destination-input" class="api-form-input" name="destinationUrl" type="url" inputmode="url" placeholder="https://example.com/webhooks/orders">
-              </label>
-              <label id="create-api-method-field" class="api-form-field">
-                <span id="create-api-method-label" class="api-form-label">HTTP method</span>
-                <select id="create-api-method-input" class="api-form-input" name="httpMethod">
-                  <option value="POST" selected>POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="PATCH">PATCH</option>
-                  <option value="DELETE">DELETE</option>
-                  <option value="GET">GET</option>
-                </select>
-              </label>
-              <label id="create-api-scheduled-time-field" class="api-form-field" hidden>
-                <span id="create-api-scheduled-time-label" class="api-form-label">Send time</span>
-                <input id="create-api-scheduled-time-input" class="api-form-input" name="scheduledTime" type="time" value="09:00">
-              </label>
-              <label id="create-api-scheduled-repeat-field" class="api-form-field api-form-field--toggle" hidden>
-                <span id="create-api-scheduled-repeat-label" class="api-form-label">Repeat daily</span>
-                <span id="create-api-scheduled-repeat-control" class="api-inline-toggle">
-                  <input id="create-api-scheduled-repeat-input" name="repeatEnabledScheduled" type="checkbox">
-                  <span id="create-api-scheduled-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
-                </span>
-              </label>
-              <label id="create-api-continuous-repeat-field" class="api-form-field api-form-field--toggle" hidden>
-                <span id="create-api-continuous-repeat-label" class="api-form-label">Repeat continuously</span>
-                <span id="create-api-continuous-repeat-control" class="api-inline-toggle">
-                  <input id="create-api-continuous-repeat-input" name="repeatEnabledContinuous" type="checkbox">
-                  <span id="create-api-continuous-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
-                </span>
-              </label>
-              <label id="create-api-continuous-interval-value-field" class="api-form-field" hidden>
-                <span id="create-api-continuous-interval-value-label" class="api-form-label">Repeat every</span>
-                <input id="create-api-continuous-interval-value-input" class="api-form-input" name="repeatIntervalValue" type="number" min="1" max="168" step="1" value="5">
-              </label>
-              <label id="create-api-continuous-interval-unit-field" class="api-form-field" hidden>
-                <span id="create-api-continuous-interval-unit-label" class="api-form-label">Interval unit</span>
-                <select id="create-api-continuous-interval-unit-input" class="api-form-input" name="repeatIntervalUnit">
-                  <option value="minutes" selected>Minutes</option>
-                  <option value="hours">Hours</option>
-                </select>
-              </label>
-              <label id="create-api-outgoing-auth-type-field" class="api-form-field">
-                <span id="create-api-outgoing-auth-type-label" class="api-form-label">Destination auth</span>
-                <select id="create-api-outgoing-auth-type-input" class="api-form-input" name="outgoingAuthType">
-                  <option value="none" selected>None</option>
-                  <option value="bearer">Bearer token</option>
-                  <option value="basic">Basic auth</option>
-                  <option value="header">Custom header</option>
-                </select>
-              </label>
-              <label id="create-api-auth-token-field" class="api-form-field api-form-field--full" hidden>
-                <span id="create-api-auth-token-label" class="api-form-label">Bearer token</span>
-                <input id="create-api-auth-token-input" class="api-form-input" name="authToken" type="password" autocomplete="off">
-              </label>
-              <label id="create-api-auth-username-field" class="api-form-field" hidden>
-                <span id="create-api-auth-username-label" class="api-form-label">Username</span>
-                <input id="create-api-auth-username-input" class="api-form-input" name="authUsername" type="text" autocomplete="off">
-              </label>
-              <label id="create-api-auth-password-field" class="api-form-field" hidden>
-                <span id="create-api-auth-password-label" class="api-form-label">Password</span>
-                <input id="create-api-auth-password-input" class="api-form-input" name="authPassword" type="password" autocomplete="off">
-              </label>
-              <label id="create-api-auth-header-name-field" class="api-form-field" hidden>
-                <span id="create-api-auth-header-name-label" class="api-form-label">Header name</span>
-                <input id="create-api-auth-header-name-input" class="api-form-input" name="authHeaderName" type="text" autocomplete="off" placeholder="X-API-Key">
-              </label>
-              <label id="create-api-auth-header-value-field" class="api-form-field" hidden>
-                <span id="create-api-auth-header-value-label" class="api-form-label">Header value</span>
-                <input id="create-api-auth-header-value-input" class="api-form-input" name="authHeaderValue" type="password" autocomplete="off">
-              </label>
-              <label id="create-api-payload-field" class="api-form-field api-form-field--full">
-                <span id="create-api-payload-label" class="api-form-label">Payload template</span>
-                <textarea id="create-api-payload-input" class="api-form-textarea" name="payloadTemplate" rows="8" spellcheck="false">{ "event": "scheduled.delivery", "sent_at": "{{timestamp}}" }</textarea>
-              </label>
-              <div id="create-api-test-actions-field" class="api-form-field api-form-field--full">
-                <div id="create-api-test-actions" class="api-form-actions">
-                  <button type="button" id="create-api-test-button" class="button button--secondary secondary-action-button">Send test payload</button>
-                </div>
-                <div id="create-api-test-feedback" class="api-form-feedback" aria-live="polite"></div>
-              </div>
+            <button type="button" class="button button--secondary modal__close-button" id="apis-create-type-modal-close" aria-label="Close create API type modal" data-modal-close="apis-create-type-modal">Close</button>
+          </div>
+          <div class="modal__body modal__body--form api-create-type-modal-body" id="apis-create-type-modal-body">
+            <div id="apis-create-type-modal-options" class="api-create-type-modal-options">
+              <button type="button" id="apis-create-type-option-incoming" class="api-create-type-modal-option" data-api-type="incoming">
+                <span id="apis-create-type-option-incoming-title" class="api-create-type-modal-option__title">Incoming</span>
+                <span id="apis-create-type-option-incoming-description" class="api-create-type-modal-option__description">Provision an authenticated inbound endpoint for JSON callbacks.</span>
+              </button>
+              <button type="button" id="apis-create-type-option-outgoing-scheduled" class="api-create-type-modal-option" data-api-type="outgoing_scheduled">
+                <span id="apis-create-type-option-outgoing-scheduled-title" class="api-create-type-modal-option__title">Outgoing scheduled</span>
+                <span id="apis-create-type-option-outgoing-scheduled-description" class="api-create-type-modal-option__description">Send a payload on a defined daily schedule.</span>
+              </button>
+              <button type="button" id="apis-create-type-option-outgoing-continuous" class="api-create-type-modal-option" data-api-type="outgoing_continuous">
+                <span id="apis-create-type-option-outgoing-continuous-title" class="api-create-type-modal-option__title">Outgoing continuous</span>
+                <span id="apis-create-type-option-outgoing-continuous-description" class="api-create-type-modal-option__description">Keep an outbound delivery ready on a repeating interval.</span>
+              </button>
+              <button type="button" id="apis-create-type-option-webhook" class="api-create-type-modal-option" data-api-type="webhook">
+                <span id="apis-create-type-option-webhook-title" class="api-create-type-modal-option__title">Webhook</span>
+                <span id="apis-create-type-option-webhook-description" class="api-create-type-modal-option__description">Store publisher verification and signing details.</span>
+              </button>
+              <button type="button" id="apis-create-type-option-automation" class="api-create-type-modal-option" data-api-type="automation">
+                <span id="apis-create-type-option-automation-title" class="api-create-type-modal-option__title">Automation</span>
+                <span id="apis-create-type-option-automation-description" class="api-create-type-modal-option__description">Open the automation workflow placeholder and start a new draft.</span>
+              </button>
             </div>
-          </section>
+          </div>
         </div>
-        <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
-        <div id="create-api-form-actions" class="api-form-actions">
-          <button type="submit" id="create-api-submit-button" class="button button--primary primary-action-button">Create inbound API</button>
+      </div>
+    </div>
+  </div>
+`;
+
+const outgoingEditModalFallbackMarkup = `
+  <div class="modal__panel" id="outgoing-api-edit-modal-panel">
+    <div class="modal__header" id="outgoing-api-edit-modal-header">
+      <div class="modal__header-copy" id="outgoing-api-edit-modal-header-copy">
+        <p class="modal__eyebrow" id="outgoing-api-edit-modal-eyebrow">Outgoing</p>
+        <div class="api-panel-title-row" id="outgoing-api-edit-modal-title-row">
+          <h3 class="modal__title" id="outgoing-api-edit-modal-title">Edit outgoing API</h3>
+          <button type="button" id="outgoing-api-edit-modal-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain outgoing API editing" aria-expanded="false" aria-controls="outgoing-api-edit-modal-description">i</button>
         </div>
-      </form>
+      </div>
+      <button type="button" class="button button--secondary modal__close-button" id="outgoing-api-edit-modal-close" aria-label="Close outgoing API modal" data-modal-close="outgoing-api-edit-modal">Close</button>
+    </div>
+    <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The outgoing edit form could not be loaded.</div>
+    <div class="modal__body" id="outgoing-api-edit-modal-body">
+      <p id="outgoing-api-edit-modal-fallback-copy" class="modal__description">Refresh the page and try again. If the problem persists, check the UI asset path for the outgoing edit modal template.</p>
     </div>
   </div>
 `;
@@ -232,7 +213,16 @@ const apiState = {
   outgoingEntries: [],
   webhookEntries: [],
   createModalType: "incoming",
-  createTypeReturnFocusElement: null
+  createTypeReturnFocusElement: null,
+  outgoingEditReturnFocusElement: null,
+  selectedOutgoingApiId: null,
+  detailEvents: [],
+  detailLogFilters: {
+    search: "",
+    status: "all",
+    source: "all",
+    sort: "newest"
+  }
 };
 
 const developerModeEnabled = () => window.Malcom?.developerModeEnabled?.() ?? false;
@@ -301,33 +291,6 @@ const apiResourceTypes = {
   }
 };
 
-const createTypeOptions = [
-  {
-    id: "incoming",
-    buttonId: "apis-create-type-option-incoming",
-    title: "Incoming",
-    description: "Provision an authenticated inbound endpoint."
-  },
-  {
-    id: "outgoing_scheduled",
-    buttonId: "apis-create-type-option-outgoing-scheduled",
-    title: "Outgoing scheduled",
-    description: "Configure a timed outbound delivery."
-  },
-  {
-    id: "outgoing_continuous",
-    buttonId: "apis-create-type-option-outgoing-continuous",
-    title: "Outgoing continuous",
-    description: "Keep a continuous outbound stream ready."
-  },
-  {
-    id: "webhook",
-    buttonId: "apis-create-type-option-webhook",
-    title: "Webhook",
-    description: "Register a webhook callback definition."
-  }
-];
-
 const sanitizeSlug = (value) => value
   .trim()
   .toLowerCase()
@@ -336,6 +299,25 @@ const sanitizeSlug = (value) => value
   .replace(/^-|-$/g, "");
 
 const isOutgoingType = (type) => type === "outgoing_scheduled" || type === "outgoing_continuous";
+
+const extractPayloadVariables = (value) => {
+  const matches = value.matchAll(/{{\s*([^{}]+?)\s*}}/g);
+  const variables = [];
+  const seen = new Set();
+
+  for (const match of matches) {
+    const variableName = match[1]?.trim();
+
+    if (!variableName || seen.has(variableName)) {
+      continue;
+    }
+
+    seen.add(variableName);
+    variables.push(variableName);
+  }
+
+  return variables;
+};
 
 const titleCase = (value) => value
   .split("_")
@@ -359,6 +341,18 @@ const getEntryStatusTone = (entry) => {
 
   return entry.enabled ? "status-badge--success" : "status-badge--muted";
 };
+
+const getOutgoingRegistryStatusLabel = (entry) => {
+  if (entry.type === "outgoing_scheduled") {
+    return getScheduledStatus(entry) === "active" ? "Active" : "Inactive";
+  }
+
+  return entry.enabled ? "Active" : "Inactive";
+};
+
+const getOutgoingRegistryStatusTone = (entry) => (getOutgoingRegistryStatusLabel(entry) === "Active"
+  ? "status-badge--success"
+  : "status-badge--warning");
 
 const formatRate = (value) => value.toFixed(1);
 
@@ -392,6 +386,178 @@ const formatDateTime = (value) => {
   }).format(date);
 };
 
+const formatOutgoingSendTime = (entry) => {
+  if (entry.type === "outgoing_scheduled") {
+    return entry.scheduled_time || "Not set";
+  }
+
+  if (!entry.repeat_enabled) {
+    return "Manual";
+  }
+
+  return entry.repeat_interval_minutes
+    ? `Every ${formatIntervalMinutes(entry.repeat_interval_minutes)}`
+    : "Repeating";
+};
+
+const formatRelativeActivity = (value) => {
+  if (!value) {
+    return "No recent activity";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Recent activity unknown";
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
+};
+
+const getEntryPrimaryLocation = (entry) => {
+  if (entry.type === "incoming") {
+    return entry.endpoint_path || `/api/v1/inbound/${entry.id}`;
+  }
+
+  if (entry.type?.startsWith("outgoing")) {
+    return entry.destination_url || "Not configured";
+  }
+
+  if (entry.type === "webhook") {
+    return entry.callback_path || "Not configured";
+  }
+
+  return entry.path_slug || "Not configured";
+};
+
+const getEntryLastActivity = (entry) => entry.last_received_at || entry.updated_at || entry.created_at || "";
+
+const getLogSettings = () => window.MalcomLogStore?.getSettings?.() || window.MalcomLogStore?.defaults || {
+  maxDetailCharacters: 4000
+};
+
+const formatBytes = (value) => {
+  if (!Number.isFinite(value) || value < 0) {
+    return "0 B";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const sortEventsByStatus = (left, right) => {
+  const statusWeight = {
+    accepted: 0,
+    queued: 1,
+    unauthorized: 2,
+    invalid_json: 3,
+    unsupported_media_type: 4,
+    disabled: 5
+  };
+
+  const leftWeight = statusWeight[left.status] ?? 99;
+  const rightWeight = statusWeight[right.status] ?? 99;
+
+  if (leftWeight !== rightWeight) {
+    return leftWeight - rightWeight;
+  }
+
+  return new Date(right.received_at || 0) - new Date(left.received_at || 0);
+};
+
+const classifyEventSource = (eventItem) => {
+  const sourceIp = eventItem.source_ip || "";
+
+  if (!sourceIp) {
+    return "unknown";
+  }
+
+  if (sourceIp === "127.0.0.1" || sourceIp === "::1" || sourceIp.startsWith("192.168.") || sourceIp.startsWith("10.")) {
+    return "internal";
+  }
+
+  return "external";
+};
+
+const deriveEventLabel = (eventItem) => {
+  const payload = eventItem.payload_json;
+
+  if (payload && typeof payload === "object") {
+    if (typeof payload.event === "string" && payload.event.trim()) {
+      return payload.event.trim();
+    }
+
+    if (typeof payload.type === "string" && payload.type.trim()) {
+      return payload.type.trim();
+    }
+  }
+
+  return "Request event";
+};
+
+const stringifyPreviewValue = (value) => {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+};
+
+const truncatePreview = (value) => {
+  const preview = stringifyPreviewValue(value);
+  const maxDetailCharacters = Math.max(500, Number(getLogSettings().maxDetailCharacters) || 4000);
+
+  if (preview.length <= maxDetailCharacters) {
+    return {
+      preview,
+      truncated: false
+    };
+  }
+
+  return {
+    preview: `${preview.slice(0, maxDetailCharacters)}\n… truncated`,
+    truncated: true
+  };
+};
+
+const buildEventSearchValue = (eventItem) => [
+  eventItem.event_id,
+  eventItem.status,
+  eventItem.source_ip,
+  eventItem.error_message,
+  stringifyPreviewValue(eventItem.payload_json),
+  stringifyPreviewValue(eventItem.request_headers_subset)
+].join(" ").toLowerCase();
+
 const escapeHtml = (value) => String(value)
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
@@ -415,6 +581,23 @@ const setAlert = (message, tone = "info") => {
   apiElements.alert.className = `api-system-alert api-system-alert--${tone}`;
 };
 
+const setAutomationAlert = (message, tone = "info") => {
+  if (!apiElements.automationAlert) {
+    return;
+  }
+
+  if (!message) {
+    apiElements.automationAlert.hidden = true;
+    apiElements.automationAlert.textContent = "";
+    apiElements.automationAlert.className = "api-system-alert";
+    return;
+  }
+
+  apiElements.automationAlert.hidden = false;
+  apiElements.automationAlert.textContent = message;
+  apiElements.automationAlert.className = `api-system-alert api-system-alert--${tone}`;
+};
+
 const normalizeError = (error) => {
   if (error instanceof Error) {
     return { message: error.message, stack: error.stack };
@@ -428,7 +611,7 @@ const resolvePageHref = (absolutePath) => {
   return new URL(`..${relativePath}`, window.location.href).href;
 };
 
-const buildEndpointUrl = (apiId) => `${window.getBaseUrl()}/api/v1/inbound/${apiId}`;
+const buildEndpointUrl = (apiId) => `${window.Malcom?.getBaseUrl?.() ?? ""}/api/v1/inbound/${apiId}`;
 
 const buildSampleCurl = (apiId, secret) => {
   const endpoint = buildEndpointUrl(apiId);
@@ -440,9 +623,23 @@ const buildSampleCurl = (apiId, secret) => {
   -d '${jsonPayload}'`;
 };
 
+const normalizeResourceEntries = (response, fallbackType) => {
+  const entries = Array.isArray(response)
+    ? response
+    : Array.isArray(response?.items)
+      ? response.items
+      : [];
+
+  return entries.map((entry) => ({
+    ...entry,
+    type: entry?.type || fallbackType
+  }));
+};
+
 const backendApi = {
   async list() {
-    return window.Malcom?.requestJson?.("/api/v1/inbound");
+    const response = await window.Malcom?.requestJson?.("/api/v1/inbound");
+    return normalizeResourceEntries(response, "incoming");
   },
   async create(payload) {
     return window.Malcom?.requestJson?.("/api/v1/apis", {
@@ -471,23 +668,29 @@ const backendApi = {
     });
   },
   async listOutgoingScheduled() {
-    return window.Malcom?.requestJson?.("/api/v1/outgoing/scheduled");
+    const response = await window.Malcom?.requestJson?.("/api/v1/outgoing/scheduled");
+    return normalizeResourceEntries(response, "outgoing_scheduled");
   },
   async listOutgoingContinuous() {
-    return window.Malcom?.requestJson?.("/api/v1/outgoing/continuous");
+    const response = await window.Malcom?.requestJson?.("/api/v1/outgoing/continuous");
+    return normalizeResourceEntries(response, "outgoing_continuous");
+  },
+  async detailOutgoing(apiId, apiType) {
+    return window.Malcom?.requestJson?.(`/api/v1/outgoing/${apiId}?api_type=${encodeURIComponent(apiType)}`);
+  },
+  async updateOutgoing(apiId, payload) {
+    return window.Malcom?.requestJson?.(`/api/v1/outgoing/${apiId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
   },
   async listWebhooks() {
-    return window.Malcom?.requestJson?.("/api/v1/webhooks");
+    const response = await window.Malcom?.requestJson?.("/api/v1/webhooks");
+    return normalizeResourceEntries(response, "webhook");
   }
 };
 
-const syncSummary = () => {
-  if (!hasOverviewElements()) {
-    return;
-  }
-};
-
-const closeOverviewTooltips = () => {
+const closeApiTooltips = () => {
   document.querySelectorAll(".api-tooltip-toggle[aria-controls]").forEach((toggle) => {
     const tooltipId = toggle.getAttribute("aria-controls");
     if (!tooltipId) {
@@ -502,7 +705,7 @@ const closeOverviewTooltips = () => {
   });
 };
 
-const bindOverviewTooltips = () => {
+const bindApiTooltips = () => {
   const toggles = document.querySelectorAll(".api-tooltip-toggle[aria-controls]");
 
   if (toggles.length === 0) {
@@ -530,7 +733,7 @@ const bindOverviewTooltips = () => {
       }
 
       const shouldOpen = toggle.getAttribute("aria-expanded") !== "true";
-      closeOverviewTooltips();
+      closeApiTooltips();
       toggle.setAttribute("aria-expanded", String(shouldOpen));
       tooltip.hidden = !shouldOpen;
     });
@@ -546,18 +749,18 @@ const bindOverviewTooltips = () => {
     const target = event.target;
 
     if (!(target instanceof Element)) {
-      closeOverviewTooltips();
+      closeApiTooltips();
       return;
     }
 
     if (!target.closest(".api-tooltip-toggle") && !target.closest(".api-tooltip-content")) {
-      closeOverviewTooltips();
+      closeApiTooltips();
     }
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      closeOverviewTooltips();
+      closeApiTooltips();
     }
   });
 };
@@ -666,43 +869,119 @@ const renderSecretPanel = (entry) => {
   apiElements.secretCurl.textContent = buildSampleCurl(entry.id, latestSecret);
 };
 
+const renderLogSummary = (events) => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
+  const acceptedCount = events.filter((eventItem) => eventItem.status === "accepted").length;
+  const needsAttentionCount = events.filter((eventItem) => eventItem.status !== "accepted").length;
+
+  apiElements.logsSummaryTotalValue.textContent = String(events.length);
+  apiElements.logsSummaryAcceptedValue.textContent = String(acceptedCount);
+  apiElements.logsSummaryErrorsValue.textContent = String(needsAttentionCount);
+};
+
+const getFilteredEvents = (events) => {
+  const filters = apiState.detailLogFilters;
+  const searchTerm = filters.search.trim().toLowerCase();
+
+  const filteredEvents = events.filter((eventItem) => {
+    if (filters.status !== "all" && eventItem.status !== filters.status) {
+      return false;
+    }
+
+    if (filters.source !== "all" && classifyEventSource(eventItem) !== filters.source) {
+      return false;
+    }
+
+    if (searchTerm && !buildEventSearchValue(eventItem).includes(searchTerm)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (filters.sort === "oldest") {
+    return filteredEvents.sort((left, right) => new Date(left.received_at || 0) - new Date(right.received_at || 0));
+  }
+
+  if (filters.sort === "status") {
+    return filteredEvents.sort(sortEventsByStatus);
+  }
+
+  return filteredEvents.sort((left, right) => new Date(right.received_at || 0) - new Date(left.received_at || 0));
+};
+
 const renderLogs = (events) => {
   if (!hasOverviewElements()) {
     return;
   }
 
   apiElements.logList.textContent = "";
-  apiElements.logsEmpty.hidden = events.length > 0;
+  const filteredEvents = getFilteredEvents(events);
+  renderLogSummary(filteredEvents);
+  apiElements.logsEmpty.hidden = filteredEvents.length > 0;
 
-  if (events.length === 0) {
+  const logsEmptyTitle = document.getElementById("api-logs-empty-title");
+  const logsEmptyDescription = document.getElementById("api-logs-empty-description");
+
+  if (logsEmptyTitle && logsEmptyDescription) {
+    if (events.length > 0 && filteredEvents.length === 0) {
+      logsEmptyTitle.textContent = "No logs match the current filters";
+      logsEmptyDescription.textContent = "Clear the current search or filters to see the full event history for this endpoint.";
+    } else {
+      logsEmptyTitle.textContent = "No requests received yet";
+      logsEmptyDescription.textContent = "Send a JSON payload to this endpoint to populate the delivery log.";
+    }
+  }
+
+  if (filteredEvents.length === 0) {
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
-  events.forEach((eventItem) => {
+  filteredEvents.forEach((eventItem) => {
     const card = document.createElement("article");
     card.id = `api-log-card-${eventItem.event_id}`;
     card.className = "api-log-card";
-    const payloadPreview = JSON.stringify(eventItem.payload_json, null, 2);
-    const headersPreview = JSON.stringify(eventItem.request_headers_subset, null, 2);
+    const payloadPreview = truncatePreview(eventItem.payload_json);
+    const headersPreview = truncatePreview(eventItem.request_headers_subset);
+    const headerCount = Object.keys(eventItem.request_headers_subset || {}).length;
+    const payloadBytes = stringifyPreviewValue(eventItem.payload_json).length;
+    const sourceClass = classifyEventSource(eventItem);
+    const eventLabel = deriveEventLabel(eventItem);
+    const statusTone = eventItem.status === "accepted" ? "status-badge--success" : "status-badge--warning";
 
     card.innerHTML = `
       <div id="api-log-header-${eventItem.event_id}" class="api-log-card__header">
         <div id="api-log-header-copy-${eventItem.event_id}" class="api-log-card__header-copy">
-          <h5 id="api-log-title-${eventItem.event_id}" class="api-log-card__title">${escapeHtml(eventItem.event_id)}</h5>
+          <h5 id="api-log-title-${eventItem.event_id}" class="api-log-card__title">${escapeHtml(eventLabel)}</h5>
           <p id="api-log-meta-${eventItem.event_id}" class="api-log-card__meta">${escapeHtml(formatDateTime(eventItem.received_at))} • ${escapeHtml(eventItem.source_ip || "Unknown source")}</p>
+          <div id="api-log-summary-${eventItem.event_id}" class="api-log-card__summary">
+            <span id="api-log-summary-id-${eventItem.event_id}" class="api-log-card__metric">${escapeHtml(eventItem.event_id)}</span>
+            <span id="api-log-summary-source-${eventItem.event_id}" class="api-log-card__metric">${escapeHtml(titleCase(sourceClass))} source</span>
+            <span id="api-log-summary-headers-${eventItem.event_id}" class="api-log-card__metric">${escapeHtml(`${headerCount} headers`)}</span>
+            <span id="api-log-summary-bytes-${eventItem.event_id}" class="api-log-card__metric">${escapeHtml(formatBytes(payloadBytes))}</span>
+          </div>
         </div>
-        <span id="api-log-status-${eventItem.event_id}" class="status-badge ${eventItem.status === "accepted" ? "status-badge--success" : "status-badge--warning"}">${escapeHtml(eventItem.status)}</span>
+        <div id="api-log-actions-${eventItem.event_id}" class="api-log-card__actions">
+          <span id="api-log-status-${eventItem.event_id}" class="status-badge ${statusTone}">${escapeHtml(eventItem.status)}</span>
+          <button type="button" id="api-log-copy-payload-${eventItem.event_id}" class="button button--secondary secondary-action-button" data-copy-log="payload" data-event-id="${escapeHtml(eventItem.event_id)}">Copy payload</button>
+          <button type="button" id="api-log-copy-headers-${eventItem.event_id}" class="button button--secondary secondary-action-button" data-copy-log="headers" data-event-id="${escapeHtml(eventItem.event_id)}">Copy headers</button>
+        </div>
       </div>
       <div id="api-log-grid-${eventItem.event_id}" class="api-log-card__grid">
         <div id="api-log-headers-panel-${eventItem.event_id}" class="api-log-card__panel">
           <p id="api-log-headers-label-${eventItem.event_id}" class="api-log-card__label">Headers</p>
-          <pre id="api-log-headers-value-${eventItem.event_id}" class="api-code-block">${escapeHtml(headersPreview)}</pre>
+          <pre id="api-log-headers-value-${eventItem.event_id}" class="api-code-block">${escapeHtml(headersPreview.preview)}</pre>
+          <p id="api-log-headers-helper-${eventItem.event_id}" class="api-log-card__helper" ${headersPreview.truncated ? "" : "hidden"}>Header preview trimmed to match current logging detail settings.</p>
         </div>
         <div id="api-log-payload-panel-${eventItem.event_id}" class="api-log-card__panel">
           <p id="api-log-payload-label-${eventItem.event_id}" class="api-log-card__label">Payload</p>
-          <pre id="api-log-payload-value-${eventItem.event_id}" class="api-code-block">${escapeHtml(payloadPreview)}</pre>
+          <pre id="api-log-payload-value-${eventItem.event_id}" class="api-code-block">${escapeHtml(payloadPreview.preview)}</pre>
+          <p id="api-log-payload-helper-${eventItem.event_id}" class="api-log-card__helper" ${payloadPreview.truncated ? "" : "hidden"}>Payload preview trimmed to match current logging detail settings.</p>
         </div>
       </div>
       <p id="api-log-error-${eventItem.event_id}" class="api-log-card__error" ${eventItem.error_message ? "" : "hidden"}>${escapeHtml(eventItem.error_message || "")}</p>
@@ -728,18 +1007,29 @@ const renderDetail = (entry) => {
     return;
   }
 
+  const statusCopy = document.getElementById("api-directory-status-copy");
+
   if (!entry) {
+    apiState.detailEvents = [];
+    renderLogSummary([]);
     setDetailState(false);
+    if (statusCopy) {
+      statusCopy.textContent = "Choose a row to open the detail workspace. The selected endpoint stays highlighted in the directory.";
+    }
     return;
   }
 
   setDetailState(true);
+  apiState.detailEvents = Array.isArray(entry.events) ? entry.events : [];
   apiElements.detailTitle.textContent = entry.name;
   apiElements.detailDescription.textContent = entry.description || "No description provided.";
   apiElements.toggleStatusButton.textContent = entry.enabled ? "Disable endpoint" : "Enable endpoint";
+  if (statusCopy) {
+    statusCopy.textContent = `Inspecting ${entry.name}. The directory highlight tracks the active endpoint while you review logs and metadata.`;
+  }
   renderMetadata(entry);
   renderSecretPanel(entry);
-  renderLogs(entry.events || []);
+  renderLogs(apiState.detailEvents);
 };
 
 const loadApiDirectory = async () => {
@@ -752,7 +1042,6 @@ const loadApiDirectory = async () => {
     apiState.selectedApiId = null;
   }
 
-  syncSummary();
   renderTable();
 
   if (apiState.selectedApiId) {
@@ -776,8 +1065,24 @@ async function loadApiDetail(apiId, options = {}) {
   } = options;
 
   apiState.selectedApiId = apiId;
+  apiElements.detailTitle.textContent = "Loading inbound API";
+  apiElements.detailDescription.textContent = "Fetching endpoint metadata and recent events.";
+  setDetailState(true);
+
+  if (syncTableSelection) {
+    renderTable();
+  }
+
   const detail = await backendApi.detail(apiId);
   renderDetail(detail);
+  emitApiLog({
+    action: "inbound_api_detail_viewed",
+    message: `Viewed inbound API "${detail.name}".`,
+    details: {
+      apiId: detail.id,
+      eventCount: Array.isArray(detail.events) ? detail.events.length : 0
+    }
+  });
 
   if (openDetailModal) {
     openDetailModalView();
@@ -803,89 +1108,64 @@ const syncCreateTypeTriggerState = (isExpanded) => {
   }
 };
 
-const ensureCreateTypePopover = () => {
+const ensureCreateTypeModal = () => {
   const createOpenButton = getCreateOpenButton();
 
-  if (!createOpenButton || getCreateTypePopover()) {
-    return getCreateTypePopover();
-  }
-
-  const footer = createOpenButton.closest(".sidenav__footer");
-
-  if (!footer) {
+  if (!createOpenButton) {
     return null;
   }
 
-  const popover = document.createElement("div");
-  popover.id = "apis-create-type-popover";
-  popover.className = "api-create-popover";
-  popover.hidden = true;
-  popover.setAttribute("role", "dialog");
-  popover.setAttribute("aria-modal", "false");
-  popover.setAttribute("aria-labelledby", "apis-create-type-popover-title");
-  popover.setAttribute("aria-describedby", "apis-create-type-popover-description");
+  let modal = getCreateTypeModal();
 
-  const title = document.createElement("p");
-  title.id = "apis-create-type-popover-title";
-  title.className = "api-create-popover__title";
-  title.textContent = "Create API";
+  if (modal) {
+    return modal;
+  }
 
-  const description = document.createElement("p");
-  description.id = "apis-create-type-popover-description";
-  description.className = "api-create-popover__description";
-  description.textContent = "Choose a type to open the full create form.";
+  const modalHost = document.createElement("div");
+  modalHost.id = "apis-create-type-modal-host";
+  modalHost.innerHTML = createApiTypeModalMarkup.trim() || createTypeModalFallbackMarkup.trim();
+  document.body.appendChild(modalHost);
+  modal = getCreateTypeModal();
 
-  const optionList = document.createElement("div");
-  optionList.id = "apis-create-type-popover-options";
-  optionList.className = "api-create-popover__options";
+  if (!modal) {
+    modalHost.innerHTML = createTypeModalFallbackMarkup.trim();
+    modal = getCreateTypeModal();
+  }
 
-  createTypeOptions.forEach((option) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.id = option.buttonId;
-    button.className = "api-create-popover__option";
-    button.dataset.apiType = option.id;
-    button.innerHTML = `
-      <span id="${option.buttonId}-title" class="api-create-popover__option-title">${escapeHtml(option.title)}</span>
-      <span id="${option.buttonId}-description" class="api-create-popover__option-description">${escapeHtml(option.description)}</span>
-    `;
-    optionList.appendChild(button);
-  });
-
-  popover.append(title, description, optionList);
-  footer.appendChild(popover);
-  return popover;
+  return modal;
 };
 
-const openCreateTypePopover = () => {
-  const popover = ensureCreateTypePopover();
+const openCreateTypeModal = () => {
+  const modal = ensureCreateTypeModal();
 
-  if (!popover) {
+  if (!modal) {
     openCreateModal("incoming");
     return;
   }
 
   apiState.createTypeReturnFocusElement = getCreateOpenButton();
-  popover.hidden = false;
-  popover.classList.add("api-create-popover--open");
+  modal.classList.add("modal--open");
+  modal.setAttribute("aria-hidden", "false");
   syncCreateTypeTriggerState(true);
-  const firstOption = popover.querySelector(".api-create-popover__option");
+  syncModalBodyState();
+  const firstOption = modal.querySelector(".api-create-type-modal-option");
 
   if (firstOption instanceof HTMLElement) {
     firstOption.focus();
   }
 };
 
-const closeCreateTypePopover = ({ restoreFocus = true } = {}) => {
-  const popover = getCreateTypePopover();
+const closeCreateTypeModal = ({ restoreFocus = true } = {}) => {
+  const modal = getCreateTypeModal();
 
-  if (!popover) {
+  if (!modal) {
     return;
   }
 
-  popover.hidden = true;
-  popover.classList.remove("api-create-popover--open");
+  modal.classList.remove("modal--open");
+  modal.setAttribute("aria-hidden", "true");
   syncCreateTypeTriggerState(false);
+  syncModalBodyState();
 
   if (restoreFocus && apiState.createTypeReturnFocusElement instanceof HTMLElement) {
     apiState.createTypeReturnFocusElement.focus();
@@ -910,6 +1190,7 @@ const openCreateModal = (selectedType = apiState.createModalType) => {
     return;
   }
 
+  closeApiTooltips();
   setCreateModalType(selectedType);
   apiElements.createModal.classList.add("modal--open");
   apiElements.createModal.setAttribute("aria-hidden", "false");
@@ -921,9 +1202,163 @@ const closeCreateModal = () => {
     return;
   }
 
+  closeApiTooltips();
   apiElements.createModal.classList.remove("modal--open");
   apiElements.createModal.setAttribute("aria-hidden", "true");
   syncModalBodyState();
+
+  const createOpenButton = apiState.createTypeReturnFocusElement || getCreateOpenButton();
+
+  if (createOpenButton) {
+    createOpenButton.focus();
+  }
+};
+
+const openOutgoingEditModal = () => {
+  if (!apiElements.outgoingEditModal) {
+    return;
+  }
+
+  closeApiTooltips();
+  apiElements.outgoingEditModal.classList.add("modal--open");
+  apiElements.outgoingEditModal.setAttribute("aria-hidden", "false");
+  syncModalBodyState();
+};
+
+const closeOutgoingEditModal = () => {
+  if (!apiElements.outgoingEditModal) {
+    return;
+  }
+
+  closeApiTooltips();
+  apiElements.outgoingEditModal.classList.remove("modal--open");
+  apiElements.outgoingEditModal.setAttribute("aria-hidden", "true");
+  syncModalBodyState();
+
+  if (apiState.outgoingEditReturnFocusElement instanceof HTMLElement) {
+    apiState.outgoingEditReturnFocusElement.focus();
+  }
+};
+
+const syncOutgoingEditRowSelection = () => {
+  document.querySelectorAll(".apis-outgoing-list__row[data-outgoing-id]").forEach((row) => {
+    const isSelected = row.getAttribute("data-outgoing-id") === apiState.selectedOutgoingApiId;
+    row.setAttribute("aria-pressed", String(isSelected));
+    row.classList.toggle("apis-outgoing-list__row--selected", isSelected);
+  });
+};
+
+const loadOutgoingEditDetail = async (entryId, entryType, triggerElement = null) => {
+  const feedback = document.getElementById("outgoing-api-edit-form-feedback");
+
+  apiState.selectedOutgoingApiId = entryId;
+  apiState.outgoingEditReturnFocusElement = triggerElement instanceof HTMLElement ? triggerElement : null;
+  syncOutgoingEditRowSelection();
+
+  if (feedback) {
+    setFormMessage(feedback, "Loading outgoing API...", "info");
+  }
+
+  const detail = await backendApi.detailOutgoing(entryId, entryType);
+  const form = document.getElementById("outgoing-api-edit-form");
+  const title = document.getElementById("outgoing-api-edit-modal-title");
+  const typeInput = document.getElementById("outgoing-api-edit-type-input");
+  const idInput = document.getElementById("outgoing-api-edit-id-input");
+  const nameInput = document.getElementById("outgoing-api-edit-name-input");
+  const slugInput = document.getElementById("outgoing-api-edit-slug-input");
+  const descriptionInput = document.getElementById("outgoing-api-edit-description-input");
+  const enabledInput = document.getElementById("outgoing-api-edit-enabled-input");
+  const destinationInput = document.getElementById("outgoing-api-edit-destination-input");
+  const methodInput = document.getElementById("outgoing-api-edit-method-input");
+  const scheduledTimeInput = document.getElementById("outgoing-api-edit-scheduled-time-input");
+  const scheduledRepeatInput = document.getElementById("outgoing-api-edit-scheduled-repeat-input");
+  const continuousRepeatInput = document.getElementById("outgoing-api-edit-continuous-repeat-input");
+  const continuousIntervalValueInput = document.getElementById("outgoing-api-edit-continuous-interval-value-input");
+  const continuousIntervalUnitInput = document.getElementById("outgoing-api-edit-continuous-interval-unit-input");
+  const authTypeInput = document.getElementById("outgoing-api-edit-auth-type-input");
+  const authTokenInput = document.getElementById("outgoing-api-edit-auth-token-input");
+  const authUsernameInput = document.getElementById("outgoing-api-edit-auth-username-input");
+  const authPasswordInput = document.getElementById("outgoing-api-edit-auth-password-input");
+  const authHeaderNameInput = document.getElementById("outgoing-api-edit-auth-header-name-input");
+  const authHeaderValueInput = document.getElementById("outgoing-api-edit-auth-header-value-input");
+  const payloadInput = document.getElementById("outgoing-api-edit-payload-input");
+
+  if (!form || !typeInput || !idInput || !nameInput || !slugInput || !descriptionInput || !enabledInput || !destinationInput || !methodInput || !authTypeInput || !payloadInput) {
+    return;
+  }
+
+  if (title) {
+    title.textContent = detail.type === "outgoing_scheduled" ? "Edit scheduled API" : "Edit continuous API";
+  }
+
+  typeInput.value = detail.type;
+  idInput.value = detail.id;
+  nameInput.value = detail.name || "";
+  slugInput.value = detail.path_slug || "";
+  descriptionInput.value = detail.description || "";
+  enabledInput.checked = Boolean(detail.enabled);
+  destinationInput.value = detail.destination_url || "";
+  methodInput.value = detail.http_method || "POST";
+  if (scheduledTimeInput) {
+    scheduledTimeInput.value = detail.scheduled_time || "09:00";
+  }
+  if (scheduledRepeatInput) {
+    scheduledRepeatInput.checked = Boolean(detail.repeat_enabled);
+  }
+  if (continuousRepeatInput) {
+    continuousRepeatInput.checked = Boolean(detail.repeat_enabled);
+  }
+  if (continuousIntervalValueInput && continuousIntervalUnitInput) {
+    const repeatInterval = Number(detail.repeat_interval_minutes || 5);
+    if (repeatInterval % 60 === 0) {
+      continuousIntervalUnitInput.value = "hours";
+      continuousIntervalValueInput.value = String(Math.max(1, repeatInterval / 60));
+    } else {
+      continuousIntervalUnitInput.value = "minutes";
+      continuousIntervalValueInput.value = String(Math.max(1, repeatInterval));
+    }
+  }
+  authTypeInput.value = detail.auth_type || "none";
+  authTokenInput.value = detail.auth_config?.token || "";
+  authUsernameInput.value = detail.auth_config?.username || "";
+  authPasswordInput.value = detail.auth_config?.password || "";
+  authHeaderNameInput.value = detail.auth_config?.header_name || "";
+  authHeaderValueInput.value = detail.auth_config?.header_value || "";
+  payloadInput.value = detail.payload_template || "{}";
+
+  form.dataset.outgoingType = detail.type;
+  form.dataset.outgoingId = detail.id;
+  form.dispatchEvent(new CustomEvent("outgoing-edit-sync"));
+  setFormMessage(feedback, "", "info");
+  openOutgoingEditModal();
+};
+
+const openAutomationPlaceholderModal = () => {
+  if (!apiElements.automationPlaceholderModal) {
+    return;
+  }
+
+  if (isAutomationPage() && window.location.hash !== "#create-automation-placeholder") {
+    window.history.replaceState(null, "", `${window.location.pathname}#create-automation-placeholder`);
+  }
+
+  apiElements.automationPlaceholderModal.classList.add("modal--open");
+  apiElements.automationPlaceholderModal.setAttribute("aria-hidden", "false");
+  syncModalBodyState();
+};
+
+const closeAutomationPlaceholderModal = () => {
+  if (!apiElements.automationPlaceholderModal) {
+    return;
+  }
+
+  apiElements.automationPlaceholderModal.classList.remove("modal--open");
+  apiElements.automationPlaceholderModal.setAttribute("aria-hidden", "true");
+  syncModalBodyState();
+
+  if (isAutomationPage() && window.location.hash === "#create-automation-placeholder") {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
 
   const createOpenButton = apiState.createTypeReturnFocusElement || getCreateOpenButton();
 
@@ -956,6 +1391,17 @@ const closeDetailModalView = () => {
   }
 };
 
+const navigateToAutomationPlaceholder = () => {
+  const targetHref = resolvePageHref("/ui/apis/automation.html#create-automation-placeholder");
+
+  if (window.location.href !== targetHref) {
+    window.location.assign(targetHref);
+    return;
+  }
+
+  openAutomationPlaceholderModal();
+};
+
 const bindModalEvents = () => {
   if (hasCreateModalElements()) {
     document.addEventListener("click", (event) => {
@@ -964,30 +1410,53 @@ const bindModalEvents = () => {
       if (openTarget) {
         event.preventDefault();
 
-        if (getCreateTypePopover()?.hidden === false) {
-          closeCreateTypePopover();
+        if (getCreateTypeModal()?.classList.contains("modal--open")) {
+          closeCreateTypeModal();
           return;
         }
 
-        openCreateTypePopover();
+        openCreateTypeModal();
         return;
       }
 
-      const typeTarget = event.target.closest(".api-create-popover__option");
+      const directCreateTarget = event.target.closest("[data-create-api-type]");
 
-      if (typeTarget instanceof HTMLElement) {
-        const selectedType = typeTarget.dataset.apiType || "incoming";
-        apiState.createTypeReturnFocusElement = getCreateOpenButton();
-        closeCreateTypePopover({ restoreFocus: false });
+      if (directCreateTarget instanceof HTMLElement) {
+        const selectedType = directCreateTarget.dataset.createApiType || "incoming";
+        apiState.createTypeReturnFocusElement = directCreateTarget;
+        closeCreateTypeModal({ restoreFocus: false });
         openCreateModal(selectedType);
         return;
       }
 
-      if (
-        getCreateTypePopover()?.hidden === false
-        && !event.target.closest("#apis-create-type-popover")
-      ) {
-        closeCreateTypePopover({ restoreFocus: false });
+      const typeTarget = event.target.closest(".api-create-type-modal-option");
+
+      if (typeTarget instanceof HTMLElement) {
+        const selectedType = typeTarget.dataset.apiType || "incoming";
+        apiState.createTypeReturnFocusElement = getCreateOpenButton();
+        closeCreateTypeModal({ restoreFocus: false });
+
+        if (selectedType === "automation") {
+          if (isAutomationPage() && hasAutomationPlaceholderElements()) {
+            openAutomationPlaceholderModal();
+          } else {
+            navigateToAutomationPlaceholder();
+          }
+          return;
+        }
+
+        openCreateModal(selectedType);
+        return;
+      }
+    });
+
+    const createTypeModal = ensureCreateTypeModal();
+
+    createTypeModal?.addEventListener("click", (event) => {
+      const closeTarget = event.target.closest("[data-modal-close]");
+
+      if (closeTarget) {
+        closeCreateTypeModal();
       }
     });
 
@@ -996,6 +1465,14 @@ const bindModalEvents = () => {
 
       if (closeTarget) {
         closeCreateModal();
+      }
+    });
+
+    apiElements.outgoingEditModal?.addEventListener("click", (event) => {
+      const closeTarget = event.target.closest("[data-modal-close]");
+
+      if (closeTarget) {
+        closeOutgoingEditModal();
       }
     });
   }
@@ -1010,7 +1487,17 @@ const bindModalEvents = () => {
     });
   }
 
-  if (!hasCreateModalElements() && !apiElements.detailModal) {
+  if (apiElements.automationPlaceholderModal) {
+    apiElements.automationPlaceholderModal.addEventListener("click", (event) => {
+      const closeTarget = event.target.closest("[data-modal-close]");
+
+      if (closeTarget) {
+        closeAutomationPlaceholderModal();
+      }
+    });
+  }
+
+  if (!hasCreateModalElements() && !apiElements.detailModal && !apiElements.outgoingEditModal) {
     return;
   }
 
@@ -1024,13 +1511,23 @@ const bindModalEvents = () => {
       return;
     }
 
+    if (apiElements.automationPlaceholderModal?.classList.contains("modal--open")) {
+      closeAutomationPlaceholderModal();
+      return;
+    }
+
     if (apiElements.createModal?.classList.contains("modal--open")) {
       closeCreateModal();
       return;
     }
 
-    if (getCreateTypePopover()?.hidden === false) {
-      closeCreateTypePopover();
+    if (apiElements.outgoingEditModal?.classList.contains("modal--open")) {
+      closeOutgoingEditModal();
+      return;
+    }
+
+    if (getCreateTypeModal()?.classList.contains("modal--open")) {
+      closeCreateTypeModal();
     }
   });
 };
@@ -1043,6 +1540,7 @@ const syncCreateModalType = (selectedType) => {
   const enabledCopy = document.getElementById("create-api-enabled-copy");
   const submitButton = document.getElementById("create-api-submit-button");
   const outgoingPanel = document.getElementById("create-api-outgoing-panel");
+  const webhookPanel = document.getElementById("create-api-webhook-panel");
   const scheduledTimeField = document.getElementById("create-api-scheduled-time-field");
   const scheduledRepeatField = document.getElementById("create-api-scheduled-repeat-field");
   const continuousRepeatField = document.getElementById("create-api-continuous-repeat-field");
@@ -1057,6 +1555,7 @@ const syncCreateModalType = (selectedType) => {
 
   if (description) {
     description.textContent = config.description;
+    description.hidden = true;
   }
 
   if (authInput) {
@@ -1073,6 +1572,10 @@ const syncCreateModalType = (selectedType) => {
 
   if (outgoingPanel) {
     outgoingPanel.hidden = !isOutgoingType(selectedType);
+  }
+
+  if (webhookPanel) {
+    webhookPanel.hidden = selectedType !== "webhook";
   }
 
   if (scheduledTimeField) {
@@ -1093,6 +1596,12 @@ const syncCreateModalType = (selectedType) => {
 
   if (continuousIntervalUnitField) {
     continuousIntervalUnitField.hidden = !showContinuousIntervalFields;
+  }
+
+  const payloadInput = document.getElementById("create-api-payload-input");
+
+  if (payloadInput instanceof HTMLTextAreaElement) {
+    payloadInput.dispatchEvent(new Event("input"));
   }
 };
 
@@ -1126,6 +1635,15 @@ const bindCreateForm = () => {
   const authHeaderNameInput = document.getElementById("create-api-auth-header-name-input");
   const authHeaderValueInput = document.getElementById("create-api-auth-header-value-input");
   const payloadTemplateInput = document.getElementById("create-api-payload-input");
+  const payloadLayout = document.getElementById("create-api-payload-layout");
+  const payloadVariablesPanel = document.getElementById("create-api-payload-variables-panel");
+  const payloadVariablesList = document.getElementById("create-api-payload-variables-list");
+  const createModalDialog = document.getElementById("apis-create-modal-dialog");
+  const webhookCallbackPathInput = document.getElementById("create-api-webhook-callback-input");
+  const webhookVerificationTokenInput = document.getElementById("create-api-webhook-verification-input");
+  const webhookSigningSecretInput = document.getElementById("create-api-webhook-signing-input");
+  const webhookSignatureHeaderInput = document.getElementById("create-api-webhook-header-input");
+  const webhookEventFilterInput = document.getElementById("create-api-webhook-event-input");
   const testButton = document.getElementById("create-api-test-button");
   const testFeedback = document.getElementById("create-api-test-feedback");
 
@@ -1209,6 +1727,35 @@ const bindCreateForm = () => {
     }
   };
 
+  const syncPayloadVariablePreview = () => {
+    if (!payloadLayout || !payloadVariablesPanel || !payloadVariablesList || !createModalDialog) {
+      return;
+    }
+
+    const selectedType = getSelectedType();
+    const variables = isOutgoingType(selectedType)
+      ? extractPayloadVariables(payloadTemplateInput?.value || "")
+      : [];
+    const hasVariables = variables.length > 0;
+
+    payloadVariablesList.textContent = "";
+
+    variables.forEach((variableName, index) => {
+      const chip = document.createElement("span");
+      chip.id = `create-api-payload-variable-${variableName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "value"}-${index + 1}`;
+      chip.className = "api-payload-variable-chip";
+      chip.textContent = `{{${variableName}}}`;
+      payloadVariablesList.appendChild(chip);
+    });
+
+    payloadVariablesPanel.hidden = !hasVariables;
+    payloadLayout.classList.toggle("api-payload-layout--expanded", hasVariables);
+    createModalDialog.classList.toggle("modal__dialog--payload-expanded", hasVariables);
+  };
+
   const buildOutgoingDraft = () => {
     const selectedType = getSelectedType();
 
@@ -1240,9 +1787,41 @@ const bindCreateForm = () => {
     };
   };
 
+  const buildWebhookDraft = () => ({
+    callback_path: webhookCallbackPathInput?.value.trim() || "",
+    verification_token: webhookVerificationTokenInput?.value || "",
+    signing_secret: webhookSigningSecretInput?.value || "",
+    signature_header: webhookSignatureHeaderInput?.value.trim() || "",
+    event_filter: webhookEventFilterInput?.value.trim() || ""
+  });
+
   const validateDraft = (draft, { requireName = true } = {}) => {
     if (requireName && (!draft.name || !draft.path_slug)) {
       return "Name and path slug are required.";
+    }
+
+    if (draft.type === "webhook") {
+      if (!draft.callback_path) {
+        return "Callback path is required for webhooks.";
+      }
+
+      if (!draft.callback_path.startsWith("/")) {
+        return "Callback path must start with '/'.";
+      }
+
+      if (!draft.verification_token) {
+        return "Verification token is required for webhooks.";
+      }
+
+      if (!draft.signing_secret) {
+        return "Signing secret is required for webhooks.";
+      }
+
+      if (!draft.signature_header) {
+        return "Signature header is required for webhooks.";
+      }
+
+      return "";
     }
 
     if (!isOutgoingType(draft.type)) {
@@ -1346,7 +1925,26 @@ const bindCreateForm = () => {
     }
     syncOutgoingAuthFields();
     syncOutgoingRepeatFields();
+    syncPayloadVariablePreview();
     setFormMessage(testFeedback, "", "info");
+  };
+
+  const resetWebhookFields = () => {
+    if (webhookCallbackPathInput) {
+      webhookCallbackPathInput.value = "";
+    }
+    if (webhookVerificationTokenInput) {
+      webhookVerificationTokenInput.value = "";
+    }
+    if (webhookSigningSecretInput) {
+      webhookSigningSecretInput.value = "";
+    }
+    if (webhookSignatureHeaderInput) {
+      webhookSignatureHeaderInput.value = "";
+    }
+    if (webhookEventFilterInput) {
+      webhookEventFilterInput.value = "";
+    }
   };
 
   nameInput.addEventListener("input", () => {
@@ -1364,6 +1962,7 @@ const bindCreateForm = () => {
   scheduledRepeatInput?.addEventListener("change", syncOutgoingRepeatFields);
   continuousRepeatInput?.addEventListener("change", syncOutgoingRepeatFields);
   continuousIntervalUnitInput?.addEventListener("change", syncContinuousIntervalConstraints);
+  payloadTemplateInput?.addEventListener("input", syncPayloadVariablePreview);
 
   testButton?.addEventListener("click", async () => {
     const selectedType = getSelectedType();
@@ -1385,9 +1984,32 @@ const bindCreateForm = () => {
       const result = await backendApi.testOutgoingDelivery(buildOutgoingDraft());
       const responsePreview = result.response_body ? ` Response: ${result.response_body}` : "";
       setFormMessage(testFeedback, `Test delivery returned ${result.status_code}.${responsePreview}`.trim(), result.ok ? "success" : "error");
+      emitApiLog({
+        level: result.ok ? "info" : "warning",
+        action: "outgoing_api_test_delivery_completed",
+        message: `Test delivery returned ${result.status_code}.`,
+        details: {
+          type: selectedType,
+          destinationUrl: buildOutgoingDraft()?.destination_url || "",
+          statusCode: result.status_code,
+          ok: result.ok
+        }
+      });
     } catch (error) {
-      const { message: errorMessage } = normalizeError(error);
+      const draft = buildOutgoingDraft();
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
       setFormMessage(testFeedback, errorMessage, "error");
+      emitApiLog({
+        level: "error",
+        action: "outgoing_api_test_delivery_failed",
+        message: "Test delivery failed before a response was returned.",
+        details: {
+          type: selectedType,
+          destinationUrl: draft?.destination_url || "",
+          error: errorMessage,
+          stack: errorStack
+        }
+      });
     } finally {
       testButton.disabled = false;
     }
@@ -1397,6 +2019,7 @@ const bindCreateForm = () => {
   syncCreateModalType(getSelectedType());
   syncContinuousIntervalConstraints();
   syncOutgoingRepeatFields();
+  syncPayloadVariablePreview();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1413,6 +2036,10 @@ const bindCreateForm = () => {
 
     if (isOutgoingType(selectedType)) {
       Object.assign(payload, buildOutgoingDraft());
+    }
+
+    if (selectedType === "webhook") {
+      Object.assign(payload, buildWebhookDraft());
     }
 
     const validationMessage = validateDraft(payload);
@@ -1448,6 +2075,7 @@ const bindCreateForm = () => {
       enabledInput.checked = true;
       delete slugInput.dataset.userEdited;
       resetOutgoingFields();
+      resetWebhookFields();
       setCreateModalType("incoming");
       setFormMessage(feedback, apiResourceTypes[selectedType].successMessage, "success");
       closeCreateModal();
@@ -1486,6 +2114,264 @@ const bindCreateForm = () => {
   });
 };
 
+const bindOutgoingEditForm = () => {
+  const form = document.getElementById("outgoing-api-edit-form");
+
+  if (!(form instanceof HTMLFormElement) || form.dataset.bound === "true") {
+    return;
+  }
+
+  form.dataset.bound = "true";
+
+  const idInput = document.getElementById("outgoing-api-edit-id-input");
+  const typeInput = document.getElementById("outgoing-api-edit-type-input");
+  const nameInput = document.getElementById("outgoing-api-edit-name-input");
+  const slugInput = document.getElementById("outgoing-api-edit-slug-input");
+  const descriptionInput = document.getElementById("outgoing-api-edit-description-input");
+  const enabledInput = document.getElementById("outgoing-api-edit-enabled-input");
+  const destinationInput = document.getElementById("outgoing-api-edit-destination-input");
+  const methodInput = document.getElementById("outgoing-api-edit-method-input");
+  const scheduledTimeInput = document.getElementById("outgoing-api-edit-scheduled-time-input");
+  const scheduledTimeField = document.getElementById("outgoing-api-edit-scheduled-time-field");
+  const scheduledRepeatInput = document.getElementById("outgoing-api-edit-scheduled-repeat-input");
+  const scheduledRepeatField = document.getElementById("outgoing-api-edit-scheduled-repeat-field");
+  const continuousRepeatInput = document.getElementById("outgoing-api-edit-continuous-repeat-input");
+  const continuousRepeatField = document.getElementById("outgoing-api-edit-continuous-repeat-field");
+  const continuousIntervalValueInput = document.getElementById("outgoing-api-edit-continuous-interval-value-input");
+  const continuousIntervalValueField = document.getElementById("outgoing-api-edit-continuous-interval-value-field");
+  const continuousIntervalUnitInput = document.getElementById("outgoing-api-edit-continuous-interval-unit-input");
+  const continuousIntervalUnitField = document.getElementById("outgoing-api-edit-continuous-interval-unit-field");
+  const authTypeInput = document.getElementById("outgoing-api-edit-auth-type-input");
+  const authTokenInput = document.getElementById("outgoing-api-edit-auth-token-input");
+  const authTokenField = document.getElementById("outgoing-api-edit-auth-token-field");
+  const authUsernameInput = document.getElementById("outgoing-api-edit-auth-username-input");
+  const authUsernameField = document.getElementById("outgoing-api-edit-auth-username-field");
+  const authPasswordInput = document.getElementById("outgoing-api-edit-auth-password-input");
+  const authPasswordField = document.getElementById("outgoing-api-edit-auth-password-field");
+  const authHeaderNameInput = document.getElementById("outgoing-api-edit-auth-header-name-input");
+  const authHeaderNameField = document.getElementById("outgoing-api-edit-auth-header-name-field");
+  const authHeaderValueInput = document.getElementById("outgoing-api-edit-auth-header-value-input");
+  const authHeaderValueField = document.getElementById("outgoing-api-edit-auth-header-value-field");
+  const payloadInput = document.getElementById("outgoing-api-edit-payload-input");
+  const testButton = document.getElementById("outgoing-api-edit-test-button");
+  const testFeedback = document.getElementById("outgoing-api-edit-test-feedback");
+  const feedback = document.getElementById("outgoing-api-edit-form-feedback");
+
+  const getSelectedType = () => typeInput?.value || form.dataset.outgoingType || "outgoing_scheduled";
+
+  const syncAuthFields = () => {
+    const authType = authTypeInput?.value || "none";
+    [authTokenField, authUsernameField, authPasswordField, authHeaderNameField, authHeaderValueField].forEach((field) => {
+      if (field) {
+        field.hidden = true;
+      }
+    });
+
+    if (authType === "bearer" && authTokenField) {
+      authTokenField.hidden = false;
+    }
+
+    if (authType === "basic") {
+      if (authUsernameField) {
+        authUsernameField.hidden = false;
+      }
+      if (authPasswordField) {
+        authPasswordField.hidden = false;
+      }
+    }
+
+    if (authType === "header") {
+      if (authHeaderNameField) {
+        authHeaderNameField.hidden = false;
+      }
+      if (authHeaderValueField) {
+        authHeaderValueField.hidden = false;
+      }
+    }
+  };
+
+  const syncTypeFields = () => {
+    const selectedType = getSelectedType();
+    const isScheduled = selectedType === "outgoing_scheduled";
+    const isContinuous = selectedType === "outgoing_continuous";
+    const continuousRepeating = Boolean(continuousRepeatInput?.checked);
+
+    if (scheduledTimeField) {
+      scheduledTimeField.hidden = !isScheduled;
+    }
+    if (scheduledRepeatField) {
+      scheduledRepeatField.hidden = !isScheduled;
+    }
+    if (continuousRepeatField) {
+      continuousRepeatField.hidden = !isContinuous;
+    }
+    if (continuousIntervalValueField) {
+      continuousIntervalValueField.hidden = !isContinuous || !continuousRepeating;
+    }
+    if (continuousIntervalUnitField) {
+      continuousIntervalUnitField.hidden = !isContinuous || !continuousRepeating;
+    }
+  };
+
+  const buildRepeatIntervalMinutes = () => {
+    const rawValue = Number(continuousIntervalValueInput?.value || "0");
+    const unit = continuousIntervalUnitInput?.value || "minutes";
+    return unit === "hours" ? rawValue * 60 : rawValue;
+  };
+
+  const buildPayload = () => ({
+    type: getSelectedType(),
+    name: nameInput?.value.trim() || "",
+    path_slug: sanitizeSlug(slugInput?.value || ""),
+    description: descriptionInput?.value.trim() || "",
+    enabled: Boolean(enabledInput?.checked),
+    repeat_enabled: getSelectedType() === "outgoing_scheduled"
+      ? Boolean(scheduledRepeatInput?.checked)
+      : Boolean(continuousRepeatInput?.checked),
+    repeat_interval_minutes: getSelectedType() === "outgoing_continuous" && continuousRepeatInput?.checked
+      ? buildRepeatIntervalMinutes()
+      : null,
+    destination_url: destinationInput?.value.trim() || "",
+    http_method: methodInput?.value || "POST",
+    auth_type: authTypeInput?.value || "none",
+    auth_config: {
+      token: authTokenInput?.value || "",
+      username: authUsernameInput?.value || "",
+      password: authPasswordInput?.value || "",
+      header_name: authHeaderNameInput?.value || "",
+      header_value: authHeaderValueInput?.value || ""
+    },
+    payload_template: payloadInput?.value.trim() || "",
+    scheduled_time: getSelectedType() === "outgoing_scheduled" ? (scheduledTimeInput?.value || "") : undefined
+  });
+
+  const validatePayload = (payload) => {
+    if (!payload.name || !payload.path_slug) {
+      return "Name and path slug are required.";
+    }
+    if (!payload.destination_url) {
+      return "Destination URL is required.";
+    }
+    if (!/^https?:\/\//i.test(payload.destination_url)) {
+      return "Destination URL must start with http:// or https://.";
+    }
+    if (!payload.payload_template) {
+      return "A JSON payload template is required.";
+    }
+    try {
+      JSON.parse(payload.payload_template);
+    } catch {
+      return "Payload template must be valid JSON.";
+    }
+    if (payload.type === "outgoing_scheduled" && !payload.scheduled_time) {
+      return "Choose a send time for the scheduled outgoing API.";
+    }
+    if (payload.type === "outgoing_continuous" && payload.repeat_enabled) {
+      if (!payload.repeat_interval_minutes) {
+        return "Choose a repeat interval for the continuous outgoing API.";
+      }
+      if (payload.repeat_interval_minutes < 1 || payload.repeat_interval_minutes > 10080) {
+        return "Continuous repeat intervals must be between 1 minute and 168 hours.";
+      }
+    }
+    if (payload.auth_type === "bearer" && !payload.auth_config.token) {
+      return "Enter a bearer token or change destination auth.";
+    }
+    if (payload.auth_type === "basic" && (!payload.auth_config.username || !payload.auth_config.password)) {
+      return "Basic auth requires both a username and password.";
+    }
+    if (payload.auth_type === "header" && (!payload.auth_config.header_name || !payload.auth_config.header_value)) {
+      return "Custom header auth requires both a header name and value.";
+    }
+    return "";
+  };
+
+  authTypeInput?.addEventListener("change", syncAuthFields);
+  scheduledRepeatInput?.addEventListener("change", syncTypeFields);
+  continuousRepeatInput?.addEventListener("change", syncTypeFields);
+  form.addEventListener("outgoing-edit-sync", () => {
+    syncAuthFields();
+    syncTypeFields();
+  });
+
+  testButton?.addEventListener("click", async () => {
+    const payload = buildPayload();
+    const validationMessage = validatePayload(payload);
+
+    if (validationMessage) {
+      setFormMessage(testFeedback, validationMessage, "error");
+      return;
+    }
+
+    testButton.disabled = true;
+    setFormMessage(testFeedback, "Sending test payload...", "info");
+
+    try {
+      const result = await backendApi.testOutgoingDelivery(payload);
+      const responsePreview = result.response_body ? ` Response: ${result.response_body}` : "";
+      setFormMessage(testFeedback, `Test delivery returned ${result.status_code}.${responsePreview}`.trim(), result.ok ? "success" : "error");
+    } catch (error) {
+      const { message: errorMessage } = normalizeError(error);
+      setFormMessage(testFeedback, errorMessage, "error");
+    } finally {
+      testButton.disabled = false;
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const entryId = idInput?.value || form.dataset.outgoingId || "";
+    const payload = buildPayload();
+    const validationMessage = validatePayload(payload);
+
+    if (!entryId) {
+      setFormMessage(feedback, "Outgoing API id is missing.", "error");
+      return;
+    }
+
+    if (validationMessage) {
+      setFormMessage(feedback, validationMessage, "error");
+      return;
+    }
+
+    setFormMessage(feedback, "Saving outgoing API...", "info");
+
+    try {
+      await backendApi.updateOutgoing(entryId, payload);
+      await loadOutgoingRegistries();
+      setFormMessage(feedback, "Outgoing API saved.", "success");
+      setAlert("Outgoing API updated.", "success");
+      closeOutgoingEditModal();
+      emitApiLog({
+        action: "outgoing_api_updated",
+        message: `Updated outgoing API "${payload.name}".`,
+        details: {
+          apiId: entryId,
+          type: payload.type,
+          enabled: payload.enabled
+        }
+      });
+    } catch (error) {
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      setFormMessage(feedback, errorMessage, "error");
+      emitApiLog({
+        level: "error",
+        action: "outgoing_api_update_failed",
+        message: "Failed to update outgoing API.",
+        details: {
+          apiId: entryId,
+          error: errorMessage,
+          stack: errorStack
+        }
+      });
+    }
+  });
+
+  syncAuthFields();
+  syncTypeFields();
+};
+
 const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => {
   if (!container || !emptyState) {
     return;
@@ -1500,8 +2386,14 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
 
   const fragment = document.createDocumentFragment();
 
-  entries.forEach((entry, index) => {
+  entries.forEach((entry) => {
     const metadataItems = [];
+    const signalItems = [
+      getEntryStatusLabel(entry),
+      getEntryPrimaryLocation(entry),
+      formatRelativeActivity(getEntryLastActivity(entry))
+    ];
+    const quickActions = [];
 
     if (entry.type.startsWith("outgoing")) {
       metadataItems.push(
@@ -1523,11 +2415,62 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
             : "One-time send, auto-disable after delivery"
         });
       }
+
+      quickActions.push(
+        {
+          id: `${sectionIdPrefix}-copy-destination-${entry.id}`,
+          label: "Copy destination",
+          action: "copy-entry-value",
+          value: entry.destination_url || "",
+          valueLabel: "Destination URL"
+        },
+        {
+          id: `${sectionIdPrefix}-open-outgoing-${entry.id}`,
+          label: "Open outgoing",
+          href: resolvePageHref("/ui/apis/outgoing.html")
+        }
+      );
+    } else if (entry.type === "webhook") {
+      metadataItems.push(
+        { label: "Callback path", value: entry.callback_path || "Not configured" },
+        { label: "Signature header", value: entry.signature_header || "Not configured" },
+        { label: "Event filter", value: entry.event_filter || "All events" }
+      );
+
+      quickActions.push(
+        {
+          id: `${sectionIdPrefix}-copy-callback-${entry.id}`,
+          label: "Copy callback",
+          action: "copy-entry-value",
+          value: entry.callback_path || "",
+          valueLabel: "Callback path"
+        },
+        {
+          id: `${sectionIdPrefix}-open-webhooks-${entry.id}`,
+          label: "Open webhooks",
+          href: resolvePageHref("/ui/apis/webhooks.html")
+        }
+      );
     } else {
       metadataItems.push(
-        { label: "Type", value: entry.type },
-        { label: "Row slug", value: entry.path_slug },
-        { label: "Created", value: formatDateTime(entry.created_at) }
+        { label: "Endpoint", value: entry.endpoint_path || `/api/v1/inbound/${entry.id}` },
+        { label: "Last received", value: formatDateTime(entry.last_received_at) },
+        { label: "Recent result", value: entry.last_delivery_status || "No deliveries" }
+      );
+
+      quickActions.push(
+        {
+          id: `${sectionIdPrefix}-copy-endpoint-${entry.id}`,
+          label: "Copy endpoint",
+          action: "copy-entry-value",
+          value: entry.endpoint_url || buildEndpointUrl(entry.id),
+          valueLabel: "Endpoint URL"
+        },
+        {
+          id: `${sectionIdPrefix}-open-incoming-${entry.id}`,
+          label: "Open incoming",
+          href: resolvePageHref("/ui/apis/incoming.html")
+        }
       );
     }
 
@@ -1542,13 +2485,24 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
         </div>
         <span id="${sectionIdPrefix}-status-${entry.id}" class="status-badge ${getEntryStatusTone(entry)}">${escapeHtml(getEntryStatusLabel(entry))}</span>
       </div>
+      <div id="${sectionIdPrefix}-signals-${entry.id}" class="resource-card__signal-row">
+        ${signalItems.map((item, signalIndex) => `
+          <span id="${sectionIdPrefix}-signal-${signalIndex}-${entry.id}" class="resource-card__signal">${escapeHtml(item)}</span>
+        `).join("")}
+      </div>
       <div id="${sectionIdPrefix}-meta-${entry.id}" class="resource-card__meta">
         ${metadataItems.map((item, metaIndex) => `
-          <div id="${sectionIdPrefix}-meta-${metaIndex}-${index}" class="resource-card__meta-item">
-            <span id="${sectionIdPrefix}-meta-label-${metaIndex}-${index}" class="resource-card__meta-label">${escapeHtml(item.label)}</span>
-            <span id="${sectionIdPrefix}-meta-value-${metaIndex}-${index}" class="resource-card__meta-value">${escapeHtml(item.value)}</span>
+          <div id="${sectionIdPrefix}-meta-${metaIndex}-${entry.id}" class="resource-card__meta-item">
+            <span id="${sectionIdPrefix}-meta-label-${metaIndex}-${entry.id}" class="resource-card__meta-label">${escapeHtml(item.label)}</span>
+            <span id="${sectionIdPrefix}-meta-value-${metaIndex}-${entry.id}" class="resource-card__meta-value">${escapeHtml(item.value)}</span>
           </div>
         `).join("")}
+      </div>
+      <div id="${sectionIdPrefix}-actions-${entry.id}" class="resource-card__actions">
+        ${quickActions.map((action, actionIndex) => action.href
+          ? `<a id="${action.id}" class="button button--secondary secondary-action-button resource-card__action resource-card__action-link" href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>`
+          : `<button type="button" id="${action.id}" class="button button--secondary secondary-action-button resource-card__action" data-resource-action="${escapeHtml(action.action)}" data-resource-value="${escapeHtml(action.value)}" data-resource-label="${escapeHtml(action.valueLabel)}" data-resource-entry-id="${escapeHtml(entry.id)}">${escapeHtml(action.label)}</button>`
+        ).join("")}
       </div>
     `;
     fragment.appendChild(card);
@@ -1557,13 +2511,13 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
   container.appendChild(fragment);
 };
 
-const renderOverviewIncomingList = (entries) => {
-  if (!apiElements.overviewIncomingList || !apiElements.overviewIncomingEmpty) {
+const renderOutgoingRegistryList = (container, emptyState, entries, sectionIdPrefix) => {
+  if (!container || !emptyState) {
     return;
   }
 
-  apiElements.overviewIncomingList.textContent = "";
-  apiElements.overviewIncomingEmpty.hidden = entries.length > 0;
+  container.textContent = "";
+  emptyState.hidden = entries.length > 0;
 
   if (entries.length === 0) {
     return;
@@ -1572,36 +2526,68 @@ const renderOverviewIncomingList = (entries) => {
   const fragment = document.createDocumentFragment();
 
   entries.forEach((entry) => {
-    const card = document.createElement("article");
-    card.id = `apis-overview-incoming-card-${entry.id}`;
-    card.className = "resource-card";
-    card.innerHTML = `
-      <div id="apis-overview-incoming-header-${entry.id}" class="resource-card__header">
-        <div id="apis-overview-incoming-copy-${entry.id}">
-          <h4 id="apis-overview-incoming-title-${entry.id}" class="resource-card__title">${escapeHtml(entry.name)}</h4>
-          <p id="apis-overview-incoming-copy-text-${entry.id}" class="resource-card__description">${escapeHtml(entry.description || "No description provided.")}</p>
+    const row = document.createElement("article");
+    row.id = `${sectionIdPrefix}-row-${entry.id}`;
+    row.className = "apis-outgoing-list__row";
+    row.tabIndex = 0;
+    row.dataset.outgoingId = entry.id;
+    row.dataset.outgoingType = entry.type;
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-pressed", String(apiState.selectedOutgoingApiId === entry.id));
+    if (apiState.selectedOutgoingApiId === entry.id) {
+      row.classList.add("apis-outgoing-list__row--selected");
+    }
+    row.innerHTML = `
+      <div id="${sectionIdPrefix}-name-cell-${entry.id}" class="apis-outgoing-list__cell apis-outgoing-list__cell--name">
+        <div id="${sectionIdPrefix}-name-stack-${entry.id}" class="apis-outgoing-list__name-stack">
+          <span id="${sectionIdPrefix}-name-${entry.id}" class="apis-outgoing-list__name">${escapeHtml(entry.name)}</span>
+          <span id="${sectionIdPrefix}-type-${entry.id}" class="apis-outgoing-list__type">${escapeHtml(entry.type === "outgoing_scheduled" ? "Scheduled" : "Continuous")}</span>
         </div>
-        <span id="apis-overview-incoming-status-${entry.id}" class="status-badge ${getEntryStatusTone(entry)}">${escapeHtml(getEntryStatusLabel(entry))}</span>
+        <span id="${sectionIdPrefix}-status-${entry.id}" class="status-badge ${getOutgoingRegistryStatusTone(entry)}">${escapeHtml(getOutgoingRegistryStatusLabel(entry))}</span>
       </div>
-      <div id="apis-overview-incoming-meta-${entry.id}" class="resource-card__meta">
-        <div id="apis-overview-incoming-meta-endpoint-${entry.id}" class="resource-card__meta-item">
-          <span id="apis-overview-incoming-meta-endpoint-label-${entry.id}" class="resource-card__meta-label">Endpoint</span>
-          <span id="apis-overview-incoming-meta-endpoint-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(entry.endpoint_path || `/api/v1/inbound/${entry.id}`)}</span>
-        </div>
-        <div id="apis-overview-incoming-meta-last-received-${entry.id}" class="resource-card__meta-item">
-          <span id="apis-overview-incoming-meta-last-received-label-${entry.id}" class="resource-card__meta-label">Last received</span>
-          <span id="apis-overview-incoming-meta-last-received-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(formatDateTime(entry.last_received_at))}</span>
-        </div>
-        <div id="apis-overview-incoming-meta-result-${entry.id}" class="resource-card__meta-item">
-          <span id="apis-overview-incoming-meta-result-label-${entry.id}" class="resource-card__meta-label">Recent result</span>
-          <span id="apis-overview-incoming-meta-result-value-${entry.id}" class="resource-card__meta-value">${escapeHtml(entry.last_delivery_status || "No deliveries")}</span>
-        </div>
+      <div id="${sectionIdPrefix}-last-fired-cell-${entry.id}" class="apis-outgoing-list__cell">
+        <span id="${sectionIdPrefix}-last-fired-label-${entry.id}" class="apis-outgoing-list__label">Last fired</span>
+        <span id="${sectionIdPrefix}-last-fired-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(formatDateTime(getEntryLastActivity(entry)))}</span>
+      </div>
+      <div id="${sectionIdPrefix}-send-time-cell-${entry.id}" class="apis-outgoing-list__cell">
+        <span id="${sectionIdPrefix}-send-time-label-${entry.id}" class="apis-outgoing-list__label">Send time</span>
+        <span id="${sectionIdPrefix}-send-time-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(formatOutgoingSendTime(entry))}</span>
+      </div>
+      <div id="${sectionIdPrefix}-url-cell-${entry.id}" class="apis-outgoing-list__cell apis-outgoing-list__cell--url">
+        <span id="${sectionIdPrefix}-url-label-${entry.id}" class="apis-outgoing-list__label">URL</span>
+        <span id="${sectionIdPrefix}-url-value-${entry.id}" class="apis-outgoing-list__value apis-outgoing-list__value--url">${escapeHtml(entry.destination_url || "Not configured")}</span>
       </div>
     `;
-    fragment.appendChild(card);
+
+    row.addEventListener("click", () => {
+      loadOutgoingEditDetail(entry.id, entry.type, row).catch((error) => {
+        const { message: errorMessage, stack: errorStack } = normalizeError(error);
+        setAlert(errorMessage, "error");
+        emitApiLog({
+          level: "error",
+          action: "outgoing_api_detail_load_failed",
+          message: "Failed to load outgoing API detail.",
+          details: {
+            apiId: entry.id,
+            type: entry.type,
+            error: errorMessage,
+            stack: errorStack
+          }
+        });
+      });
+    });
+
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        row.click();
+      }
+    });
+
+    fragment.appendChild(row);
   });
 
-  apiElements.overviewIncomingList.appendChild(fragment);
+  container.appendChild(fragment);
 };
 
 const syncOverviewLandingSummary = ({
@@ -1628,8 +2614,8 @@ const syncOverviewLandingSummary = ({
 
   apiElements.overviewTotalCount.textContent = `${totalCount} configured APIs`;
   apiElements.overviewHelper.textContent = totalCount > 0
-    ? "Across inbound, outbound, and webhook monitoring surfaces."
-    : "Create an API to add it to the incoming, outgoing, or webhook registry.";
+    ? "Across all configured API registries."
+    : "Create an API to add it to the registry.";
   apiElements.overviewScheduledActiveCount.textContent = String(activeScheduledCalls);
   apiElements.overviewCallsPerHour.textContent = formatRate(callsPerHour);
   apiElements.overviewCallsPerDay.textContent = formatRate(callsPerDay);
@@ -1648,26 +2634,37 @@ const loadOverviewLanding = async () => {
     backendApi.listWebhooks()
   ]);
 
-  const sortedIncomingEntries = [...incomingEntries]
-    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
   const sortedScheduledEntries = [...scheduledEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
   const sortedContinuousEntries = [...continuousEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
-  const outgoingEntries = [...sortedScheduledEntries, ...sortedContinuousEntries]
-    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
   const sortedWebhookEntries = [...webhookEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
 
-  renderOverviewIncomingList(sortedIncomingEntries);
-  renderResourceList(apiElements.overviewOutgoingList, apiElements.overviewOutgoingEmpty, outgoingEntries, "apis-overview-outgoing-list");
-  renderResourceList(apiElements.overviewWebhooksList, apiElements.overviewWebhooksEmpty, sortedWebhookEntries, "apis-overview-webhooks-list");
   syncOverviewLandingSummary({
-    incomingEntries: sortedIncomingEntries,
+    incomingEntries,
     scheduledEntries: sortedScheduledEntries,
     continuousEntries: sortedContinuousEntries,
     webhookEntries: sortedWebhookEntries
   });
+  renderResourceList(
+    apiElements.overviewIncomingList,
+    apiElements.overviewIncomingEmpty,
+    incomingEntries,
+    "apis-overview-incoming-list"
+  );
+  renderResourceList(
+    apiElements.overviewOutgoingList,
+    apiElements.overviewOutgoingEmpty,
+    [...sortedScheduledEntries, ...sortedContinuousEntries],
+    "apis-overview-outgoing-list"
+  );
+  renderResourceList(
+    apiElements.overviewWebhooksList,
+    apiElements.overviewWebhooksEmpty,
+    sortedWebhookEntries,
+    "apis-overview-webhooks-list"
+  );
   setAlert("", "info");
 };
 
@@ -1682,7 +2679,10 @@ const loadOutgoingRegistries = async () => {
   ]);
   apiState.outgoingEntries = [...scheduledEntries, ...continuousEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
-  renderResourceList(apiElements.outgoingList, apiElements.outgoingListEmpty, apiState.outgoingEntries, "apis-outgoing-list");
+  if (apiState.selectedOutgoingApiId && !apiState.outgoingEntries.some((entry) => entry.id === apiState.selectedOutgoingApiId)) {
+    apiState.selectedOutgoingApiId = null;
+  }
+  renderOutgoingRegistryList(apiElements.outgoingList, apiElements.outgoingListEmpty, apiState.outgoingEntries, "apis-outgoing-list");
 };
 
 const loadWebhookRegistry = async () => {
@@ -1692,6 +2692,150 @@ const loadWebhookRegistry = async () => {
 
   apiState.webhookEntries = await backendApi.listWebhooks();
   renderResourceList(apiElements.webhooksList, apiElements.webhooksListEmpty, apiState.webhookEntries, "apis-webhooks-list");
+};
+
+const bindLogControls = () => {
+  if (!hasOverviewElements()) {
+    return;
+  }
+
+  const rerenderLogs = () => renderLogs(apiState.detailEvents);
+
+  apiElements.logsSearchInput.addEventListener("input", () => {
+    apiState.detailLogFilters.search = apiElements.logsSearchInput.value || "";
+    rerenderLogs();
+  });
+
+  apiElements.logsStatusFilter.addEventListener("change", () => {
+    apiState.detailLogFilters.status = apiElements.logsStatusFilter.value || "all";
+    rerenderLogs();
+  });
+
+  apiElements.logsSourceFilter.addEventListener("change", () => {
+    apiState.detailLogFilters.source = apiElements.logsSourceFilter.value || "all";
+    rerenderLogs();
+  });
+
+  apiElements.logsSortInput.addEventListener("change", () => {
+    apiState.detailLogFilters.sort = apiElements.logsSortInput.value || "newest";
+    rerenderLogs();
+  });
+
+  apiElements.logsResetButton.addEventListener("click", () => {
+    apiState.detailLogFilters = {
+      search: "",
+      status: "all",
+      source: "all",
+      sort: "newest"
+    };
+    apiElements.logsSearchInput.value = "";
+    apiElements.logsStatusFilter.value = "all";
+    apiElements.logsSourceFilter.value = "all";
+    apiElements.logsSortInput.value = "newest";
+    rerenderLogs();
+  });
+
+  apiElements.logList.addEventListener("click", async (event) => {
+    const trigger = event.target.closest("[data-copy-log]");
+
+    if (!(trigger instanceof HTMLElement)) {
+      return;
+    }
+
+    const copyTarget = trigger.dataset.copyLog;
+    const eventId = trigger.dataset.eventId;
+    const eventItem = apiState.detailEvents.find((entry) => entry.event_id === eventId);
+
+    if (!eventItem) {
+      return;
+    }
+
+    const textToCopy = copyTarget === "headers"
+      ? stringifyPreviewValue(eventItem.request_headers_subset)
+      : stringifyPreviewValue(eventItem.payload_json);
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setAlert(`${copyTarget === "headers" ? "Headers" : "Payload"} copied for ${eventId}.`, "success");
+      emitApiLog({
+        action: "inbound_log_payload_copied",
+        message: `Copied ${copyTarget} from inbound API log ${eventId}.`,
+        details: {
+          apiId: apiState.selectedApiId,
+          eventId,
+          target: copyTarget
+        }
+      });
+    } catch (error) {
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      setAlert(`Unable to copy ${copyTarget}.`, "error");
+      emitApiLog({
+        level: "error",
+        action: "inbound_log_copy_failed",
+        message: `Failed to copy ${copyTarget} from an inbound API log.`,
+        details: {
+          apiId: apiState.selectedApiId,
+          eventId,
+          target: copyTarget,
+          error: errorMessage,
+          stack: errorStack
+        }
+      });
+    }
+  });
+};
+
+const bindResourceCardActions = () => {
+  document.addEventListener("click", async (event) => {
+    const trigger = event.target.closest("[data-resource-action]");
+
+    if (!(trigger instanceof HTMLElement)) {
+      return;
+    }
+
+    const action = trigger.dataset.resourceAction || "";
+
+    if (action !== "copy-entry-value") {
+      return;
+    }
+
+    const value = trigger.dataset.resourceValue || "";
+    const label = trigger.dataset.resourceLabel || "Value";
+    const entryId = trigger.dataset.resourceEntryId || "";
+
+    if (!value) {
+      setAlert(`${label} is not available for this record.`, "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setAlert(`${label} copied for ${entryId}.`, "success");
+      emitApiLog({
+        action: "resource_value_copied",
+        message: `Copied ${label.toLowerCase()} for API resource ${entryId}.`,
+        details: {
+          entryId,
+          label,
+          page: window.location.pathname
+        }
+      });
+    } catch (error) {
+      const { message: errorMessage, stack: errorStack } = normalizeError(error);
+      setAlert(`Unable to copy ${label}.`, "error");
+      emitApiLog({
+        level: "error",
+        action: "resource_value_copy_failed",
+        message: `Failed to copy ${label.toLowerCase()} for API resource ${entryId}.`,
+        details: {
+          entryId,
+          label,
+          error: errorMessage,
+          stack: errorStack
+        }
+      });
+    }
+  });
 };
 
 const bindDetailActions = () => {
@@ -1778,13 +2922,11 @@ const initModalMarkup = async () => {
   }
 
   try {
-    const response = await fetch(new URL("../modals/create-api-modal.html", window.location.href));
-
-    if (!response.ok) {
-      throw new Error("Unable to load modal template.");
+    if (!createApiModalMarkup.trim()) {
+      throw new Error("Create API modal template is empty.");
     }
 
-    apiElements.createModalContent.innerHTML = await response.text();
+    apiElements.createModalContent.innerHTML = createApiModalMarkup;
   } catch (error) {
     const { message: errorMessage, stack: errorStack } = normalizeError(error);
     console.error("Failed to load create API modal template", error);
@@ -1803,6 +2945,35 @@ const initModalMarkup = async () => {
   bindCreateForm();
 };
 
+const initOutgoingEditModalMarkup = async () => {
+  if (!hasOutgoingEditModalElements()) {
+    return;
+  }
+
+  try {
+    if (!outgoingApiEditModalMarkup.trim()) {
+      throw new Error("Outgoing API edit modal template is empty.");
+    }
+
+    apiElements.outgoingEditModalContent.innerHTML = outgoingApiEditModalMarkup;
+  } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Failed to load outgoing API edit modal template", error);
+    emitApiLog({
+      level: "error",
+      action: "outgoing_edit_modal_template_load_failed",
+      message: "Unable to load outgoing API edit modal template.",
+      details: {
+        error: errorMessage,
+        stack: errorStack
+      }
+    });
+    apiElements.outgoingEditModalContent.innerHTML = outgoingEditModalFallbackMarkup;
+  }
+
+  bindOutgoingEditForm();
+};
+
 const initCreateModal = async () => {
   bindModalEvents();
 
@@ -1810,9 +2981,17 @@ const initCreateModal = async () => {
     return;
   }
 
-  ensureCreateTypePopover();
+  ensureCreateTypeModal();
   await initModalMarkup();
   setCreateModalType(apiState.createModalType);
+};
+
+const initOutgoingEditModal = async () => {
+  if (!hasOutgoingEditModalElements()) {
+    return;
+  }
+
+  await initOutgoingEditModalMarkup();
 };
 
 const initApiOverview = async () => {
@@ -1820,6 +2999,7 @@ const initApiOverview = async () => {
     return;
   }
 
+  bindLogControls();
   bindDetailActions();
 
   try {
@@ -1852,6 +3032,7 @@ const initOutgoingRegistry = async () => {
 
   try {
     await loadOutgoingRegistries();
+    setAlert("", "info");
   } catch (error) {
     const { message: errorMessage, stack: errorStack } = normalizeError(error);
     console.error("Unable to load outgoing APIs", error);
@@ -1864,6 +3045,7 @@ const initOutgoingRegistry = async () => {
         stack: errorStack
       }
     });
+    setAlert("Unable to load outgoing APIs. Start the FastAPI service and refresh the page.", "error");
   }
 };
 
@@ -1874,6 +3056,7 @@ const initWebhookRegistry = async () => {
 
   try {
     await loadWebhookRegistry();
+    setAlert("", "info");
   } catch (error) {
     const { message: errorMessage, stack: errorStack } = normalizeError(error);
     console.error("Unable to load webhooks", error);
@@ -1886,13 +3069,48 @@ const initWebhookRegistry = async () => {
         stack: errorStack
       }
     });
+    setAlert("Unable to load webhooks. Start the FastAPI service and refresh the page.", "error");
+  }
+};
+
+const initAutomationPage = async () => {
+  if (!isAutomationPage()) {
+    return;
+  }
+
+  try {
+    if (!hasCreateModalElements() || !hasAutomationPlaceholderElements()) {
+      throw new Error("Automation page modal hosts are missing.");
+    }
+
+    setAutomationAlert("", "info");
+
+    if (window.location.hash === "#create-automation-placeholder") {
+      apiState.createTypeReturnFocusElement = getCreateOpenButton();
+      openAutomationPlaceholderModal();
+    }
+  } catch (error) {
+    const { message: errorMessage, stack: errorStack } = normalizeError(error);
+    console.error("Unable to initialize automation page", error);
+    setAutomationAlert(errorMessage, "error");
+    emitApiLog({
+      level: "error",
+      action: "automation_page_init_failed",
+      message: "Unable to initialize automation page.",
+      details: {
+        error: errorMessage,
+        stack: errorStack
+      }
+    });
   }
 };
 
 const initApiPage = async () => {
+  bindResourceCardActions();
   await initCreateModal();
+  await initOutgoingEditModal();
+  bindApiTooltips();
   if (hasOverviewLandingElements()) {
-    bindOverviewTooltips();
     try {
       await loadOverviewLanding();
     } catch (error) {
@@ -1913,6 +3131,7 @@ const initApiPage = async () => {
   await initApiOverview();
   await initOutgoingRegistry();
   await initWebhookRegistry();
+  await initAutomationPage();
 };
 
 initApiPage();

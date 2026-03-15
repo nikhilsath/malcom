@@ -1,0 +1,57 @@
+<div
+  id="apis-create-type-modal"
+  class="modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="apis-create-type-modal-title"
+  aria-describedby="apis-create-type-modal-description"
+  aria-hidden="true"
+>
+  <div class="modal__backdrop" id="apis-create-type-modal-backdrop" data-modal-close="apis-create-type-modal"></div>
+  <div class="modal__dialog" id="apis-create-type-modal-dialog">
+    <div class="modal__content" id="apis-create-type-modal-content">
+      <div class="modal__panel api-create-type-modal-panel" id="apis-create-type-modal-panel">
+        <div class="modal__header" id="apis-create-type-modal-header">
+          <div class="modal__header-copy" id="apis-create-type-modal-header-copy">
+            <p class="modal__eyebrow" id="apis-create-type-modal-eyebrow">Create</p>
+            <h3 class="modal__title" id="apis-create-type-modal-title">Choose an API surface</h3>
+            <p class="modal__description" id="apis-create-type-modal-description">Select the workflow you want to create and the full form will open with the relevant fields.</p>
+          </div>
+          <button
+            type="button"
+            class="button button--secondary modal__close-button"
+            id="apis-create-type-modal-close"
+            aria-label="Close create API type modal"
+            data-modal-close="apis-create-type-modal"
+          >
+            Close
+          </button>
+        </div>
+        <div class="modal__body modal__body--form api-create-type-modal-body" id="apis-create-type-modal-body">
+          <div id="apis-create-type-modal-options" class="api-create-type-modal-options">
+            <button type="button" id="apis-create-type-option-incoming" class="api-create-type-modal-option" data-api-type="incoming">
+              <span id="apis-create-type-option-incoming-title" class="api-create-type-modal-option__title">Incoming</span>
+              <span id="apis-create-type-option-incoming-description" class="api-create-type-modal-option__description">Provision an authenticated inbound endpoint for JSON callbacks.</span>
+            </button>
+            <button type="button" id="apis-create-type-option-outgoing-scheduled" class="api-create-type-modal-option" data-api-type="outgoing_scheduled">
+              <span id="apis-create-type-option-outgoing-scheduled-title" class="api-create-type-modal-option__title">Outgoing scheduled</span>
+              <span id="apis-create-type-option-outgoing-scheduled-description" class="api-create-type-modal-option__description">Send a payload on a defined daily schedule.</span>
+            </button>
+            <button type="button" id="apis-create-type-option-outgoing-continuous" class="api-create-type-modal-option" data-api-type="outgoing_continuous">
+              <span id="apis-create-type-option-outgoing-continuous-title" class="api-create-type-modal-option__title">Outgoing continuous</span>
+              <span id="apis-create-type-option-outgoing-continuous-description" class="api-create-type-modal-option__description">Keep an outbound delivery ready on a repeating interval.</span>
+            </button>
+            <button type="button" id="apis-create-type-option-webhook" class="api-create-type-modal-option" data-api-type="webhook">
+              <span id="apis-create-type-option-webhook-title" class="api-create-type-modal-option__title">Webhook</span>
+              <span id="apis-create-type-option-webhook-description" class="api-create-type-modal-option__description">Store publisher verification and signing details.</span>
+            </button>
+            <button type="button" id="apis-create-type-option-automation" class="api-create-type-modal-option" data-api-type="automation">
+              <span id="apis-create-type-option-automation-title" class="api-create-type-modal-option__title">Automation</span>
+              <span id="apis-create-type-option-automation-description" class="api-create-type-modal-option__description">Open the automation workflow placeholder and start a new draft.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

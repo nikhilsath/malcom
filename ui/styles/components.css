@@ -46,6 +46,18 @@
   gap: var(--space-6);
 }
 
+.section-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+@media (max-width: 960px) {
+  .section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .section-header,
 .dashboard-toolbar,
 .tools-selection-header,
@@ -218,18 +230,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 1px solid #c4b5fd;
   border-radius: 999px;
   background: #f5f3ff;
   color: #6d28d9;
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.api-tooltip-toggle--compact {
+  width: 16px;
+  height: 16px;
+  font-size: 0.625rem;
 }
 
 .api-tooltip-toggle:hover {

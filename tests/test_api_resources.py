@@ -44,11 +44,22 @@ class ApiResourcesTestCase(unittest.TestCase):
                     "auth_config": {"token": "secret-token"},
                     "payload_template": "{\"hello\":\"world\"}",
                     "scheduled_time": "09:30",
-                } if resource_type != "incoming" else {
+                } if resource_type not in {"incoming", "webhook"} else {
                     "name": "incoming api",
                     "description": "Created during test.",
                     "path_slug": "incoming",
                     "enabled": True,
+                } if resource_type == "incoming" else {
+                    "type": "webhook",
+                    "name": "webhook api",
+                    "description": "Created during test.",
+                    "path_slug": "webhook",
+                    "enabled": True,
+                    "callback_path": "/hooks/webhook",
+                    "verification_token": "verify-token",
+                    "signing_secret": "signing-secret",
+                    "signature_header": "X-Signature",
+                    "event_filter": "order.created",
                 },
             )
             self.assertEqual(response.status_code, 201)
@@ -188,6 +199,87 @@ class ApiResourcesTestCase(unittest.TestCase):
         continuous_list = self.client.get("/api/v1/outgoing/continuous")
         self.assertEqual(continuous_list.status_code, 200)
         self.assertEqual(continuous_list.json()[0]["repeat_interval_minutes"], 15)
+
+    def test_outgoing_detail_includes_auth_config(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "outgoing_scheduled",
+                "name": "detail target",
+                "description": "Created during test.",
+                "path_slug": "detail-target",
+                "enabled": True,
+                "repeat_enabled": True,
+                "destination_url": "https://example.com/hooks/detail",
+                "http_method": "POST",
+                "auth_type": "header",
+                "auth_config": {
+                    "header_name": "X-API-Key",
+                    "header_value": "secret-value",
+                },
+                "payload_template": "{\"hello\":\"world\"}",
+                "scheduled_time": "08:15",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        created_id = create_response.json()["id"]
+
+        detail_response = self.client.get(f"/api/v1/outgoing/{created_id}", params={"api_type": "outgoing_scheduled"})
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["id"], created_id)
+        self.assertEqual(detail["auth_type"], "header")
+        self.assertEqual(detail["auth_config"]["header_name"], "X-API-Key")
+        self.assertEqual(detail["auth_config"]["header_value"], "secret-value")
+
+    def test_outgoing_patch_updates_record(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "outgoing_continuous",
+                "name": "patch target",
+                "description": "Created during test.",
+                "path_slug": "patch-target",
+                "enabled": True,
+                "repeat_enabled": True,
+                "repeat_interval_minutes": 15,
+                "destination_url": "https://example.com/hooks/continuous",
+                "http_method": "POST",
+                "auth_type": "none",
+                "payload_template": "{\"hello\":\"world\"}",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        created_id = create_response.json()["id"]
+
+        update_response = self.client.patch(
+            f"/api/v1/outgoing/{created_id}",
+            json={
+                "type": "outgoing_continuous",
+                "name": "patched target",
+                "description": "Updated during test.",
+                "enabled": False,
+                "repeat_enabled": False,
+                "destination_url": "https://example.com/hooks/updated",
+                "http_method": "PUT",
+                "auth_type": "bearer",
+                "auth_config": {
+                    "token": "updated-token",
+                },
+                "payload_template": "{\"updated\":true}",
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        updated = update_response.json()
+        self.assertEqual(updated["name"], "patched target")
+        self.assertEqual(updated["description"], "Updated during test.")
+        self.assertFalse(updated["enabled"])
+        self.assertFalse(updated["repeat_enabled"])
+        self.assertIsNone(updated["repeat_interval_minutes"])
+        self.assertEqual(updated["destination_url"], "https://example.com/hooks/updated")
+        self.assertEqual(updated["http_method"], "PUT")
+        self.assertEqual(updated["auth_type"], "bearer")
+        self.assertEqual(updated["auth_config"]["token"], "updated-token")
 
     def test_continuous_repeat_requires_interval(self) -> None:
         response = self.client.post(

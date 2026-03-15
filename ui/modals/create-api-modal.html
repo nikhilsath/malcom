@@ -2,8 +2,19 @@
   <div class="modal__header" id="create-api-modal-header">
     <div class="modal__header-copy" id="create-api-modal-header-copy">
       <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
-      <h3 class="modal__title" id="apis-create-modal-title">New Inbound API</h3>
-      <p class="modal__description" id="create-api-modal-description">Provision a webhook endpoint with a bearer token for authenticated JSON requests.</p>
+      <div class="api-panel-title-row" id="create-api-modal-title-row">
+        <h3 class="modal__title" id="apis-create-modal-title">New Inbound API</h3>
+        <button
+          type="button"
+          id="create-api-modal-description-tooltip-toggle"
+          class="api-tooltip-toggle api-tooltip-toggle--compact"
+          aria-label="Explain this API type"
+          aria-expanded="false"
+          aria-controls="create-api-modal-description"
+        >
+          i
+        </button>
+      </div>
     </div>
     <button
       type="button"
@@ -15,142 +26,198 @@
       Close
     </button>
   </div>
+  <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Provision a webhook endpoint with a bearer token for authenticated JSON requests.</div>
   <div class="modal__body modal__body--form" id="create-api-modal-body">
     <form id="create-api-form" class="api-form">
       <input id="create-api-type-input" name="resourceType" type="hidden" value="incoming">
-      <div id="create-api-form-grid" class="api-form-grid">
-        <label id="create-api-name-field" class="api-form-field">
-          <span id="create-api-name-label" class="api-form-label">Name</span>
-          <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
-        </label>
+      <section id="create-api-basics-step" class="api-form-step">
+        <div id="create-api-basics-step-copy" class="api-form-section-copy">
+          <p id="create-api-basics-step-eyebrow" class="api-form-step__eyebrow">Step 1</p>
+          <p id="create-api-basics-step-title" class="api-form-step__title">Define the API record</p>
+          <p id="create-api-basics-step-description" class="api-form-section-description">Name the resource, choose its path slug, and decide whether it should be active immediately.</p>
+        </div>
+        <div id="create-api-form-grid" class="api-form-grid">
+          <label id="create-api-name-field" class="api-form-field">
+            <span id="create-api-name-label" class="api-form-label">Name</span>
+            <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
+          </label>
 
-        <label id="create-api-slug-field" class="api-form-field">
-          <span id="create-api-slug-label" class="api-form-label">Path slug</span>
-          <input id="create-api-slug-input" class="api-form-input" name="pathSlug" type="text" maxlength="80" required>
-        </label>
+          <label id="create-api-slug-field" class="api-form-field">
+            <span id="create-api-slug-label" class="api-form-label">Path slug</span>
+            <input id="create-api-slug-input" class="api-form-input" name="pathSlug" type="text" maxlength="80" required>
+          </label>
 
-        <label id="create-api-description-field" class="api-form-field api-form-field--full">
-          <span id="create-api-description-label" class="api-form-label">Description</span>
-          <textarea id="create-api-description-input" class="api-form-textarea" name="description" rows="3"></textarea>
-        </label>
+          <label id="create-api-description-field" class="api-form-field api-form-field--full">
+            <span id="create-api-description-label" class="api-form-label">Description</span>
+            <textarea id="create-api-description-input" class="api-form-textarea" name="description" rows="3"></textarea>
+          </label>
 
-        <label id="create-api-auth-field" class="api-form-field">
-          <span id="create-api-auth-label" class="api-form-label">Authentication</span>
-          <input id="create-api-auth-input" class="api-form-input" name="authTypeSummary" type="text" value="Bearer secret" readonly>
-        </label>
+          <label id="create-api-auth-field" class="api-form-field">
+            <span id="create-api-auth-label" class="api-form-label">Authentication</span>
+            <input id="create-api-auth-input" class="api-form-input" name="authTypeSummary" type="text" value="Bearer secret" readonly>
+          </label>
 
-        <label id="create-api-enabled-field" class="api-form-field api-form-field--toggle">
-          <span id="create-api-enabled-label" class="api-form-label">Enabled on create</span>
-          <span id="create-api-enabled-control" class="api-inline-toggle">
-            <input id="create-api-enabled-input" name="enabled" type="checkbox" checked>
-            <span id="create-api-enabled-copy" class="api-inline-toggle__label">Accept requests immediately</span>
-          </span>
-        </label>
+          <label id="create-api-enabled-field" class="api-form-field api-form-field--toggle">
+            <span id="create-api-enabled-label" class="api-form-label">Enabled on create</span>
+            <span id="create-api-enabled-control" class="api-inline-toggle">
+              <input id="create-api-enabled-input" name="enabled" type="checkbox" checked>
+              <span id="create-api-enabled-copy" class="api-inline-toggle__label">Accept requests immediately</span>
+            </span>
+          </label>
+        </div>
+      </section>
 
-        <section id="create-api-outgoing-panel" class="api-form-field api-form-field--full" hidden>
-          <div id="create-api-outgoing-panel-copy" class="api-form-section-copy">
-          </div>
+      <section id="create-api-outgoing-panel" class="api-form-step" hidden>
+        <div id="create-api-outgoing-panel-copy" class="api-form-section-copy">
+          <p id="create-api-outgoing-panel-eyebrow" class="api-form-step__eyebrow">Step 2</p>
+          <p id="create-api-outgoing-panel-title" class="api-form-step__title">Configure delivery</p>
+          <p id="create-api-outgoing-panel-description" class="api-form-section-description">Set the destination, cadence, authentication, and payload Malcom should send.</p>
+        </div>
 
-          <div id="create-api-outgoing-grid" class="api-form-grid">
-            <label id="create-api-destination-field" class="api-form-field api-form-field--full">
-              <span id="create-api-destination-label" class="api-form-label">Destination URL</span>
-              <input id="create-api-destination-input" class="api-form-input" name="destinationUrl" type="url" inputmode="url" placeholder="https://example.com/webhooks/orders">
-            </label>
+        <div id="create-api-outgoing-grid" class="api-form-grid">
+          <label id="create-api-destination-field" class="api-form-field api-form-field--full">
+            <span id="create-api-destination-label" class="api-form-label">Destination URL</span>
+            <input id="create-api-destination-input" class="api-form-input" name="destinationUrl" type="url" inputmode="url" placeholder="https://example.com/webhooks/orders">
+          </label>
 
-            <label id="create-api-method-field" class="api-form-field">
-              <span id="create-api-method-label" class="api-form-label">HTTP method</span>
-              <select id="create-api-method-input" class="api-form-input" name="httpMethod">
-                <option value="POST" selected>POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-                <option value="DELETE">DELETE</option>
-                <option value="GET">GET</option>
-              </select>
-            </label>
+          <label id="create-api-method-field" class="api-form-field">
+            <span id="create-api-method-label" class="api-form-label">HTTP method</span>
+            <select id="create-api-method-input" class="api-form-input" name="httpMethod">
+              <option value="POST" selected>POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+              <option value="GET">GET</option>
+            </select>
+          </label>
 
-            <label id="create-api-scheduled-time-field" class="api-form-field" hidden>
-              <span id="create-api-scheduled-time-label" class="api-form-label">Send time</span>
-              <input id="create-api-scheduled-time-input" class="api-form-input" name="scheduledTime" type="time" value="09:00">
-            </label>
+          <label id="create-api-scheduled-time-field" class="api-form-field" hidden>
+            <span id="create-api-scheduled-time-label" class="api-form-label">Send time</span>
+            <input id="create-api-scheduled-time-input" class="api-form-input" name="scheduledTime" type="time" value="09:00">
+          </label>
 
-            <label id="create-api-scheduled-repeat-field" class="api-form-field api-form-field--toggle" hidden>
-              <span id="create-api-scheduled-repeat-label" class="api-form-label">Repeat daily</span>
-              <span id="create-api-scheduled-repeat-control" class="api-inline-toggle">
-                <input id="create-api-scheduled-repeat-input" name="repeatEnabledScheduled" type="checkbox">
-                <span id="create-api-scheduled-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
-              </span>
-            </label>
+          <label id="create-api-scheduled-repeat-field" class="api-form-field api-form-field--toggle" hidden>
+            <span id="create-api-scheduled-repeat-label" class="api-form-label">Repeat daily</span>
+            <span id="create-api-scheduled-repeat-control" class="api-inline-toggle">
+              <input id="create-api-scheduled-repeat-input" name="repeatEnabledScheduled" type="checkbox">
+              <span id="create-api-scheduled-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
+            </span>
+          </label>
 
-            <label id="create-api-continuous-repeat-field" class="api-form-field api-form-field--toggle" hidden>
-              <span id="create-api-continuous-repeat-label" class="api-form-label">Repeat continuously</span>
-              <span id="create-api-continuous-repeat-control" class="api-inline-toggle">
-                <input id="create-api-continuous-repeat-input" name="repeatEnabledContinuous" type="checkbox">
-                <span id="create-api-continuous-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
-              </span>
-            </label>
+          <label id="create-api-continuous-repeat-field" class="api-form-field api-form-field--toggle" hidden>
+            <span id="create-api-continuous-repeat-label" class="api-form-label">Repeat continuously</span>
+            <span id="create-api-continuous-repeat-control" class="api-inline-toggle">
+              <input id="create-api-continuous-repeat-input" name="repeatEnabledContinuous" type="checkbox">
+              <span id="create-api-continuous-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
+            </span>
+          </label>
 
-            <label id="create-api-continuous-interval-value-field" class="api-form-field" hidden>
-              <span id="create-api-continuous-interval-value-label" class="api-form-label">Repeat every</span>
-              <input id="create-api-continuous-interval-value-input" class="api-form-input" name="repeatIntervalValue" type="number" min="1" max="168" step="1" value="5">
-            </label>
+          <label id="create-api-continuous-interval-value-field" class="api-form-field" hidden>
+            <span id="create-api-continuous-interval-value-label" class="api-form-label">Repeat every</span>
+            <input id="create-api-continuous-interval-value-input" class="api-form-input" name="repeatIntervalValue" type="number" min="1" max="168" step="1" value="5">
+          </label>
 
-            <label id="create-api-continuous-interval-unit-field" class="api-form-field" hidden>
-              <span id="create-api-continuous-interval-unit-label" class="api-form-label">Interval unit</span>
-              <select id="create-api-continuous-interval-unit-input" class="api-form-input" name="repeatIntervalUnit">
-                <option value="minutes" selected>Minutes</option>
-                <option value="hours">Hours</option>
-              </select>
-            </label>
+          <label id="create-api-continuous-interval-unit-field" class="api-form-field" hidden>
+            <span id="create-api-continuous-interval-unit-label" class="api-form-label">Interval unit</span>
+            <select id="create-api-continuous-interval-unit-input" class="api-form-input" name="repeatIntervalUnit">
+              <option value="minutes" selected>Minutes</option>
+              <option value="hours">Hours</option>
+            </select>
+          </label>
 
-            <label id="create-api-outgoing-auth-type-field" class="api-form-field">
-              <span id="create-api-outgoing-auth-type-label" class="api-form-label">Destination auth</span>
-              <select id="create-api-outgoing-auth-type-input" class="api-form-input" name="outgoingAuthType">
-                <option value="none" selected>None</option>
-                <option value="bearer">Bearer token</option>
-                <option value="basic">Basic auth</option>
-                <option value="header">Custom header</option>
-              </select>
-            </label>
+          <label id="create-api-outgoing-auth-type-field" class="api-form-field">
+            <span id="create-api-outgoing-auth-type-label" class="api-form-label">Destination auth</span>
+            <select id="create-api-outgoing-auth-type-input" class="api-form-input" name="outgoingAuthType">
+              <option value="none" selected>None</option>
+              <option value="bearer">Bearer token</option>
+              <option value="basic">Basic auth</option>
+              <option value="header">Custom header</option>
+            </select>
+          </label>
 
-            <label id="create-api-auth-token-field" class="api-form-field api-form-field--full" hidden>
-              <span id="create-api-auth-token-label" class="api-form-label">Bearer token</span>
-              <input id="create-api-auth-token-input" class="api-form-input" name="authToken" type="password" autocomplete="off">
-            </label>
+          <label id="create-api-auth-token-field" class="api-form-field api-form-field--full" hidden>
+            <span id="create-api-auth-token-label" class="api-form-label">Bearer token</span>
+            <input id="create-api-auth-token-input" class="api-form-input" name="authToken" type="password" autocomplete="off">
+          </label>
 
-            <label id="create-api-auth-username-field" class="api-form-field" hidden>
-              <span id="create-api-auth-username-label" class="api-form-label">Username</span>
-              <input id="create-api-auth-username-input" class="api-form-input" name="authUsername" type="text" autocomplete="off">
-            </label>
+          <label id="create-api-auth-username-field" class="api-form-field" hidden>
+            <span id="create-api-auth-username-label" class="api-form-label">Username</span>
+            <input id="create-api-auth-username-input" class="api-form-input" name="authUsername" type="text" autocomplete="off">
+          </label>
 
-            <label id="create-api-auth-password-field" class="api-form-field" hidden>
-              <span id="create-api-auth-password-label" class="api-form-label">Password</span>
-              <input id="create-api-auth-password-input" class="api-form-input" name="authPassword" type="password" autocomplete="off">
-            </label>
+          <label id="create-api-auth-password-field" class="api-form-field" hidden>
+            <span id="create-api-auth-password-label" class="api-form-label">Password</span>
+            <input id="create-api-auth-password-input" class="api-form-input" name="authPassword" type="password" autocomplete="off">
+          </label>
 
-            <label id="create-api-auth-header-name-field" class="api-form-field" hidden>
-              <span id="create-api-auth-header-name-label" class="api-form-label">Header name</span>
-              <input id="create-api-auth-header-name-input" class="api-form-input" name="authHeaderName" type="text" autocomplete="off" placeholder="X-API-Key">
-            </label>
+          <label id="create-api-auth-header-name-field" class="api-form-field" hidden>
+            <span id="create-api-auth-header-name-label" class="api-form-label">Header name</span>
+            <input id="create-api-auth-header-name-input" class="api-form-input" name="authHeaderName" type="text" autocomplete="off" placeholder="X-API-Key">
+          </label>
 
-            <label id="create-api-auth-header-value-field" class="api-form-field" hidden>
-              <span id="create-api-auth-header-value-label" class="api-form-label">Header value</span>
-              <input id="create-api-auth-header-value-input" class="api-form-input" name="authHeaderValue" type="password" autocomplete="off">
-            </label>
+          <label id="create-api-auth-header-value-field" class="api-form-field" hidden>
+            <span id="create-api-auth-header-value-label" class="api-form-label">Header value</span>
+            <input id="create-api-auth-header-value-input" class="api-form-input" name="authHeaderValue" type="password" autocomplete="off">
+          </label>
 
-            <label id="create-api-payload-field" class="api-form-field api-form-field--full">
+          <div id="create-api-payload-layout" class="api-form-field api-form-field--full api-payload-layout">
+            <label id="create-api-payload-field" class="api-form-field api-payload-layout__editor">
               <span id="create-api-payload-label" class="api-form-label">Payload template</span>
               <textarea id="create-api-payload-input" class="api-form-textarea" name="payloadTemplate" rows="8" spellcheck="false">{ "event": "scheduled.delivery", "sent_at": "{{timestamp}}" }</textarea>
             </label>
 
-            <div id="create-api-test-actions-field" class="api-form-field api-form-field--full">
-              <div id="create-api-test-actions" class="api-form-actions">
-                <button type="button" id="create-api-test-button" class="button button--secondary secondary-action-button">Send test payload</button>
+            <aside id="create-api-payload-variables-panel" class="api-payload-variables-panel" hidden aria-live="polite">
+              <div id="create-api-payload-variables-header" class="api-payload-variables-panel__header">
+                <p id="create-api-payload-variables-eyebrow" class="api-payload-variables-panel__eyebrow">Detected variables</p>
+                <p id="create-api-payload-variables-description" class="api-payload-variables-panel__description">Any value wrapped in double curly braces will be treated as a payload variable.</p>
               </div>
-              <div id="create-api-test-feedback" class="api-form-feedback" aria-live="polite"></div>
-            </div>
+              <div id="create-api-payload-variables-list" class="api-payload-variables-panel__list"></div>
+            </aside>
           </div>
-        </section>
-      </div>
+
+          <div id="create-api-test-actions-field" class="api-form-field api-form-field--full">
+            <div id="create-api-test-actions" class="api-form-actions">
+              <button type="button" id="create-api-test-button" class="button button--secondary secondary-action-button">Send test payload</button>
+            </div>
+            <div id="create-api-test-feedback" class="api-form-feedback" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="create-api-webhook-panel" class="api-form-step" hidden>
+        <div id="create-api-webhook-panel-copy" class="api-form-section-copy">
+          <p id="create-api-webhook-panel-eyebrow" class="api-form-step__eyebrow">Step 2</p>
+          <p id="create-api-webhook-panel-title" class="api-form-step__title">Configure publisher verification</p>
+          <p id="create-api-webhook-panel-description" class="api-form-section-description">Capture the callback path, verification token, and signing expectations for the external publisher.</p>
+        </div>
+
+        <div id="create-api-webhook-grid" class="api-form-grid">
+          <label id="create-api-webhook-callback-field" class="api-form-field api-form-field--full">
+            <span id="create-api-webhook-callback-label" class="api-form-label">Callback path</span>
+            <input id="create-api-webhook-callback-input" class="api-form-input" name="webhookCallbackPath" type="text" maxlength="120" placeholder="/publisher/orders">
+          </label>
+
+          <label id="create-api-webhook-verification-field" class="api-form-field">
+            <span id="create-api-webhook-verification-label" class="api-form-label">Verification token</span>
+            <input id="create-api-webhook-verification-input" class="api-form-input" name="webhookVerificationToken" type="password" autocomplete="off" maxlength="500">
+          </label>
+
+          <label id="create-api-webhook-signing-field" class="api-form-field">
+            <span id="create-api-webhook-signing-label" class="api-form-label">Signing secret</span>
+            <input id="create-api-webhook-signing-input" class="api-form-input" name="webhookSigningSecret" type="password" autocomplete="off" maxlength="500">
+          </label>
+
+          <label id="create-api-webhook-header-field" class="api-form-field">
+            <span id="create-api-webhook-header-label" class="api-form-label">Signature header</span>
+            <input id="create-api-webhook-header-input" class="api-form-input" name="webhookSignatureHeader" type="text" autocomplete="off" maxlength="120" placeholder="X-Signature">
+          </label>
+
+          <label id="create-api-webhook-event-field" class="api-form-field">
+            <span id="create-api-webhook-event-label" class="api-form-label">Event filter</span>
+            <input id="create-api-webhook-event-input" class="api-form-input" name="webhookEventFilter" type="text" autocomplete="off" maxlength="200" placeholder="order.created, order.updated">
+          </label>
+        </div>
+      </section>
 
       <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
 

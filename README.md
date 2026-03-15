@@ -92,6 +92,13 @@ The runtime is responsible for:
 * triggering next steps
 * managing retries
 
+Current implementation includes:
+
+* persisted automation definitions in SQLite
+* manual, scheduled, and inbound API-triggered execution
+* structured run history with step-level request and response summaries
+* runtime and scheduler status APIs for the management UI
+
 ### 4. Scheduler
 
 APScheduler handles time-based triggers.
@@ -101,6 +108,11 @@ Examples:
 * hourly API polling
 * daily automation runs
 * periodic health checks
+
+Current implementation note:
+
+* the project currently uses an in-process scheduler loop tied to FastAPI lifespan
+* scheduled automations and scheduled outgoing APIs share the same scheduler status surface
 
 ### 5. Connectors
 
@@ -181,6 +193,19 @@ Example workflow:
 5. Logic rule evaluated
 6. Follow-up action executed
 7. Result logged
+
+Automation API surface:
+
+* `GET /api/v1/automations`
+* `POST /api/v1/automations`
+* `GET /api/v1/automations/{automation_id}`
+* `PATCH /api/v1/automations/{automation_id}`
+* `DELETE /api/v1/automations/{automation_id}`
+* `POST /api/v1/automations/{automation_id}/validate`
+* `GET /api/v1/automations/{automation_id}/runs`
+* `POST /api/v1/automations/{automation_id}/execute`
+* `GET /api/v1/runtime/status`
+* `GET /api/v1/scheduler/jobs`
 
 ---
 
@@ -307,6 +332,26 @@ Developer Mode resets when the session ends.
 ---
 
 # Contributions
+
+## Verification
+
+Backend tests:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -q
+```
+
+Frontend tests:
+
+```bash
+cd ui && npm test
+```
+
+Frontend build:
+
+```bash
+cd ui && npm run build
+```
 
 ## Adding A New Tool
 

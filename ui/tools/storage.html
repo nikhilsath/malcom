@@ -15,7 +15,7 @@
         <div class="content-shell" id="tools-storage-shell">
             <div class="page-header section-header--page" id="tools-storage-header">
                 <h2 class="page-title section-header__title--page" id="page-title">Storage Tools</h2>
-                <p class="page-description section-header__description--page" id="page-description">Configure storage inputs for local paths, mounted targets, and cloud-backed destinations from one workspace.</p>
+                <p class="page-description section-header__description--page" id="page-description">Configure storage inputs.</p>
             </div>
 
             <section id="tools-storage-workspace" class="card storage-workspace">
@@ -23,7 +23,7 @@
                     <div id="tools-storage-overview-copy" class="section-header__copy">
                         <p id="tools-storage-overview-eyebrow" class="section-header__eyebrow">Storage Input Builder</p>
                         <h3 id="tools-storage-overview-title" class="section-header__title">Connect cloud storage or accept local storage</h3>
-                        <p id="tools-storage-overview-description" class="section-header__description">Choose a storage source, capture the required connection details, and verify where files should land before wiring the tool into an automation.</p>
+                        <p id="tools-storage-overview-description" class="section-header__description">Choose a source and confirm the target.</p>
                     </div>
                     <div id="tools-storage-overview-status" class="stat-card storage-workspace__status" aria-live="polite">
                         <p id="tools-storage-overview-status-label" class="stat-card__label">Active mode</p>
@@ -53,7 +53,7 @@
                             <div id="tools-storage-form-copy" class="section-header__copy">
                                 <p id="tools-storage-form-eyebrow" class="section-header__eyebrow">Connection</p>
                                 <h3 id="tools-storage-form-title" class="section-header__title">Storage configuration</h3>
-                                <p id="tools-storage-form-description" class="section-header__description">Define how this tool should read from local directories or connect to a cloud bucket, container, or compatible endpoint.</p>
+                                <p id="tools-storage-form-description" class="section-header__description">Define the storage connection.</p>
                             </div>
                         </div>
 
@@ -215,7 +215,7 @@
                             <div id="tools-storage-preview-copy" class="section-header__copy">
                                 <p id="tools-storage-preview-eyebrow" class="section-header__eyebrow">Preview</p>
                                 <h3 id="tools-storage-preview-title" class="section-header__title">Connection summary</h3>
-                                <p id="tools-storage-preview-description" class="section-header__description">A live readout of the storage input that will be saved from the current form values.</p>
+                                <p id="tools-storage-preview-description" class="section-header__description">Live preview of saved values.</p>
                             </div>
                         </div>
 
@@ -262,9 +262,9 @@
         </div>
     </main>
 
-    <script src="../scripts/utils.js"></script>
-    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script src="../scripts/storage.js"></script>
+    <script type="module" src="../scripts/storage.js"></script>
 </body>
 </html>

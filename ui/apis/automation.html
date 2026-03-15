@@ -13,29 +13,81 @@
 
     <main class="main" id="main-layout">
         <div class="content-shell">
-            <div class="page-header section-header--page" id="apis-automation-header">
-                <h2 class="page-title section-header__title--page" id="page-title">API Automation</h2>
-                <p class="page-description section-header__description--page" id="page-description">Configure automated workflows and integrations</p>
+            <div id="api-automation-alert" class="api-system-alert" hidden></div>
+            <div id="apis-automation-header" class="page-header section-header--page">
+                <h2 id="apis-automation-page-title" class="page-title section-header__title--page">API Automation</h2>
+                <p id="apis-automation-page-description" class="page-description section-header__description--page">Build API-driven workflows.</p>
             </div>
-            <section id="apis-automation-content" class="card api-workspace">
-                <div id="apis-automation-copy" class="section-header api-automation-header">
-                    <div id="apis-automation-copy-block" class="section-header__copy api-automation-copy">
-                        <p id="apis-automation-eyebrow" class="section-header__eyebrow api-automation-eyebrow">Automation Workflows</p>
-                        <h3 id="apis-automation-content-title" class="section-header__title api-automation-title">Manage automated processes and integrations</h3>
-                        <p id="apis-automation-content-copy" class="section-header__description api-automation-description">Set up and monitor automated workflows that connect APIs, process data, and trigger actions based on events.</p>
+            <section id="apis-automation-workspace" class="card api-workspace api-workspace--automation">
+                <div id="apis-automation-shell-header" class="api-panel-header">
+                    <div id="apis-automation-shell-copy" class="api-panel-header-copy">
+                        <p id="apis-automation-shell-eyebrow" class="api-panel-eyebrow">Workflow Editor</p>
+                        <div id="apis-automation-shell-title-row" class="api-panel-title-row">
+                            <h3 id="apis-automation-shell-title" class="api-panel-title">Automation control room</h3>
+                            <button type="button" id="apis-automation-shell-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain the automation workspace" aria-expanded="false" aria-controls="apis-automation-shell-tooltip">i</button>
+                        </div>
                     </div>
                 </div>
-
-                <div id="api-automation-alert" class="api-system-alert" hidden></div>
-
-                <div id="apis-automation-workflows" class="api-automation-workflows">
-                    <p>Automation workflows will be listed here.</p>
-                </div>
+                <div id="apis-automation-shell-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Manage workflow state, edit steps, and inspect runs from the APIs workspace.</div>
+                <div id="automation-react-root"></div>
             </section>
         </div>
     </main>
 
-    <script type="module" src="../scripts/shell-config.js"></script>
+    <div
+        id="apis-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-create-modal-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
+        <div class="modal__dialog" id="apis-create-modal-dialog">
+            <div class="modal__content" id="apis-create-modal-content"></div>
+        </div>
+    </div>
+
+    <div
+        id="apis-automation-placeholder-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="apis-automation-placeholder-title"
+        aria-hidden="true"
+    >
+        <div class="modal__backdrop" id="apis-automation-placeholder-backdrop" data-modal-close="apis-automation-placeholder-modal"></div>
+        <div class="modal__dialog" id="apis-automation-placeholder-dialog">
+            <div class="modal__content" id="apis-automation-placeholder-content">
+                <div id="apis-automation-placeholder-panel" class="modal__panel">
+                    <div id="apis-automation-placeholder-header" class="modal__header">
+                        <div id="apis-automation-placeholder-copy" class="modal__header-copy">
+                            <p id="apis-automation-placeholder-eyebrow" class="modal__eyebrow">Automation</p>
+                            <div id="apis-automation-placeholder-title-row" class="api-panel-title-row">
+                                <h3 id="apis-automation-placeholder-title" class="modal__title">New automation draft ready</h3>
+                                <button type="button" id="apis-automation-placeholder-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain the automation draft" aria-expanded="false" aria-controls="apis-automation-placeholder-description">i</button>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            id="apis-automation-placeholder-close"
+                            class="button button--secondary modal__close-button"
+                            aria-label="Close automation create modal"
+                            data-modal-close="apis-automation-placeholder-modal"
+                        >
+                            Close
+                        </button>
+                    </div>
+                    <div id="apis-automation-placeholder-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The editor has been reset for a new workflow. Use the page form to define the trigger, steps, and execution settings.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/apis.js"></script>
+    <script type="module" src="../src/automation/main.tsx"></script>
 </body>
 </html>

@@ -92,6 +92,11 @@ def initialize(connection: sqlite3.Connection) -> None:
             is_mock INTEGER NOT NULL DEFAULT 0,
             enabled INTEGER NOT NULL DEFAULT 1,
             delivery_mode TEXT NOT NULL DEFAULT 'webhook',
+            callback_path TEXT NOT NULL DEFAULT '',
+            verification_token TEXT NOT NULL DEFAULT '',
+            signing_secret TEXT NOT NULL DEFAULT '',
+            signature_header TEXT NOT NULL DEFAULT '',
+            event_filter TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -118,10 +123,37 @@ def initialize(connection: sqlite3.Connection) -> None:
             automation_id TEXT NOT NULL,
             trigger_type TEXT NOT NULL,
             status TEXT NOT NULL,
+            worker_id TEXT,
+            worker_name TEXT,
             started_at TEXT NOT NULL,
             finished_at TEXT,
             duration_ms INTEGER,
             error_summary TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS automations (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            trigger_type TEXT NOT NULL,
+            trigger_config_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_run_at TEXT,
+            next_run_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS automation_steps (
+            step_id TEXT PRIMARY KEY,
+            automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            step_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            config_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(automation_id, position)
         );
 
         CREATE TABLE IF NOT EXISTS automation_run_steps (
@@ -135,6 +167,19 @@ def initialize(connection: sqlite3.Connection) -> None:
             finished_at TEXT,
             duration_ms INTEGER,
             detail_json TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS scripts (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            language TEXT NOT NULL,
+            code TEXT NOT NULL,
+            validation_status TEXT NOT NULL DEFAULT 'unknown',
+            validation_message TEXT,
+            last_validated_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
         """
     )
@@ -151,6 +196,8 @@ def initialize(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "outgoing_scheduled_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_scheduled_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_scheduled_apis", "scheduled_time", "TEXT NOT NULL DEFAULT '09:00'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "last_run_at", "TEXT")
+    _ensure_column(connection, "outgoing_scheduled_apis", "next_run_at", "TEXT")
     _ensure_column(connection, "outgoing_continuous_apis", "repeat_enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_continuous_apis", "repeat_interval_minutes", "INTEGER")
     _ensure_column(connection, "outgoing_continuous_apis", "destination_url", "TEXT NOT NULL DEFAULT ''")
@@ -158,6 +205,18 @@ def initialize(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "outgoing_continuous_apis", "auth_type", "TEXT NOT NULL DEFAULT 'none'")
     _ensure_column(connection, "outgoing_continuous_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_continuous_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "webhook_apis", "callback_path", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "webhook_apis", "verification_token", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "webhook_apis", "signing_secret", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "webhook_apis", "signature_header", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "webhook_apis", "event_filter", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "automation_runs", "worker_id", "TEXT")
+    _ensure_column(connection, "automation_runs", "worker_name", "TEXT")
+    _ensure_column(connection, "scripts", "validation_status", "TEXT NOT NULL DEFAULT 'unknown'")
+    _ensure_column(connection, "scripts", "validation_message", "TEXT")
+    _ensure_column(connection, "scripts", "last_validated_at", "TEXT")
+    _ensure_column(connection, "automations", "last_run_at", "TEXT")
+    _ensure_column(connection, "automations", "next_run_at", "TEXT")
     connection.execute(
         """
         UPDATE outgoing_scheduled_apis

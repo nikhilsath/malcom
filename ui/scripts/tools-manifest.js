@@ -24,6 +24,11 @@ window.TOOLS_MANIFEST = Object.freeze(
     "id": "ocr-transcribe",
     "name": "OCR/Transcribe",
     "description": "Extract text from images and transcribe spoken content into structured output."
+  },
+  {
+    "id": "smtp",
+    "name": "SMTP",
+    "description": "Run an SMTP listener on the selected machine so automations can accept email traffic."
   }
 ]
 );

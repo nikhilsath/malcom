@@ -34,11 +34,13 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         )
         app.state.root_dir = self.root_dir
         app.state.db_path = str(self.db_path)
+        app.state.skip_ui_build_check = True
         self.client = TestClient(app)
         self.client.__enter__()
 
     def tearDown(self) -> None:
         self.client.__exit__(None, None, None)
+        app.state.skip_ui_build_check = False
         self.tempdir.cleanup()
 
     def test_updates_tool_db_override_and_manifest(self) -> None:
@@ -90,6 +92,13 @@ class ToolMetadataApiTestCase(unittest.TestCase):
     def test_rejects_empty_updates(self) -> None:
         response = self.client.patch("/api/v1/tools/convert-audio", json={})
         self.assertEqual(response.status_code, 400)
+
+    def test_can_boot_without_built_ui_when_bypass_enabled(self) -> None:
+        response = self.client.patch(
+            "/api/v1/tools/convert-audio",
+            json={"name": "Convert - Audio Runtime"},
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,15 @@ from backend.runtime import runtime_event_bus
 
 
 class InboundApiTestCase(unittest.TestCase):
+    def wait_for_runtime_history(self, expected_count: int) -> list[dict]:
+        deadline = time.time() + 3
+        while time.time() < deadline:
+            history = self.client.get("/api/v1/runtime/triggers").json()
+            if len(history) >= expected_count:
+                return history
+            time.sleep(0.05)
+        self.fail("Timed out waiting for runtime trigger history.")
+
     def assert_secret_format(self, secret: str) -> None:
         self.assertTrue(secret.startswith(INBOUND_SECRET_PREFIX))
         payload = secret.removeprefix(INBOUND_SECRET_PREFIX)
@@ -70,7 +80,7 @@ class InboundApiTestCase(unittest.TestCase):
         self.assertEqual(len(listed), 1)
         self.assertNotIn("secret", listed[0])
 
-        runtime_history = self.client.get("/api/v1/runtime/triggers").json()
+        runtime_history = self.wait_for_runtime_history(1)
         self.assertEqual(len(runtime_history), 1)
         self.assertEqual(runtime_history[0]["api_id"], created["id"])
 
@@ -218,6 +228,7 @@ class InboundApiTestCase(unittest.TestCase):
 
         log_path = Path(app.state.log_file_path)
         self.assertTrue(log_path.exists())
+        self.wait_for_runtime_history(1)
         contents = log_path.read_text(encoding="utf-8")
         self.assertIn("http_request_completed", contents)
         self.assertIn("runtime_trigger_emitted", contents)

@@ -63,6 +63,25 @@ class DashboardDevicesApiTestCase(unittest.TestCase):
         self.assertEqual(host["memory_used_bytes"] + host["memory_available_bytes"], host["memory_total_bytes"])
         self.assertEqual(host["storage_used_bytes"] + host["storage_free_bytes"], host["storage_total_bytes"])
 
+    def test_dashboard_devices_includes_registered_workers(self) -> None:
+        register_response = self.client.post(
+            "/api/v1/workers/register",
+            json={
+                "worker_id": "worker_lan_02",
+                "name": "Office Mac mini",
+                "hostname": "office-mac-mini.local",
+                "address": "192.168.1.55",
+                "capabilities": ["runtime-trigger-execution"],
+            },
+        )
+        self.assertEqual(register_response.status_code, 200)
+
+        response = self.client.get("/api/v1/dashboard/devices")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        device_ids = {device["id"] for device in payload["devices"]}
+        self.assertIn("worker-worker_lan_02", device_ids)
+
 
 if __name__ == "__main__":
     unittest.main()

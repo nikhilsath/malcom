@@ -15,27 +15,126 @@
         <div class="content-shell">
             <div class="page-header section-header--page" id="scripts-library-header">
                 <h2 class="page-title section-header__title--page" id="page-title">Script Library</h2>
-                <p class="page-description section-header__description--page" id="page-description">Manage and organize your automation scripts</p>
+                <p class="page-description section-header__description--page" id="page-description">Manage reusable scripts.</p>
             </div>
             <section id="scripts-library-content" class="card script-workspace">
                 <div id="scripts-library-copy" class="section-header script-library-header">
                     <div id="scripts-library-copy-block" class="section-header__copy script-library-copy">
                         <p id="scripts-library-eyebrow" class="section-header__eyebrow script-library-eyebrow">Script Management</p>
-                        <h3 id="scripts-library-content-title" class="section-header__title script-library-title">Organize and maintain your collection of scripts</h3>
-                        <p id="scripts-library-content-copy" class="section-header__description script-library-description">Browse, edit, and manage scripts used in automations, integrations, and workflows.</p>
+                        <h3 id="scripts-library-content-title" class="section-header__title script-library-title">Author reusable Python and JavaScript automation scripts</h3>
+                        <p id="scripts-library-content-copy" class="section-header__description script-library-description">Save validated scripts for reuse.</p>
+                    </div>
+                    <div id="scripts-library-header-actions" class="script-library-header-actions">
+                        <button type="button" id="scripts-library-create-button" class="button button--success">New script</button>
                     </div>
                 </div>
 
                 <div id="script-library-alert" class="script-system-alert" hidden></div>
 
-                <div id="scripts-library-scripts" class="script-library-scripts">
-                    <p>Scripts will be listed here.</p>
+                <div id="scripts-library-summary-grid" class="script-summary-grid">
+                    <article id="scripts-library-summary-total" class="stat-card script-summary-card">
+                        <p id="scripts-library-summary-total-label" class="api-summary-label">Total scripts</p>
+                        <p id="scripts-library-summary-total-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="scripts-library-summary-python" class="stat-card script-summary-card">
+                        <p id="scripts-library-summary-python-label" class="api-summary-label">Python</p>
+                        <p id="scripts-library-summary-python-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="scripts-library-summary-javascript" class="stat-card script-summary-card">
+                        <p id="scripts-library-summary-javascript-label" class="api-summary-label">JavaScript</p>
+                        <p id="scripts-library-summary-javascript-value" class="api-summary-value">0</p>
+                    </article>
+                    <article id="scripts-library-summary-valid" class="stat-card script-summary-card">
+                        <p id="scripts-library-summary-valid-label" class="api-summary-label">Validated</p>
+                        <p id="scripts-library-summary-valid-value" class="api-summary-value">0</p>
+                    </article>
+                </div>
+
+                <div id="scripts-library-layout" class="script-library-layout">
+                    <section id="scripts-library-sidebar" class="script-library-panel script-library-panel--list" aria-labelledby="scripts-library-list-title">
+                        <div id="scripts-library-list-header" class="section-header script-panel-header">
+                            <div id="scripts-library-list-copy" class="section-header__copy">
+                                <p id="scripts-library-list-eyebrow" class="section-header__eyebrow">Library</p>
+                                <h3 id="scripts-library-list-title" class="section-header__title">Saved scripts</h3>
+                                <p id="scripts-library-list-description" class="section-header__description">Select or create a script.</p>
+                            </div>
+                        </div>
+
+                        <label id="scripts-library-search-field" class="api-form-field">
+                            <span id="scripts-library-search-label" class="api-form-label">Search scripts</span>
+                            <input id="scripts-library-search-input" class="api-form-input" type="search" placeholder="Search by name or description">
+                        </label>
+
+                        <div id="scripts-library-empty" class="empty-state api-empty-state" hidden>
+                            <h4 id="scripts-library-empty-title" class="api-empty-state__title">No scripts saved yet</h4>
+                            <p id="scripts-library-empty-description" class="api-empty-state__description">Create a Python or JavaScript script to make it available across the workspace.</p>
+                        </div>
+
+                        <div id="scripts-library-list" class="script-library-list" aria-live="polite"></div>
+                    </section>
+
+                    <section id="scripts-library-editor-panel" class="script-library-panel script-library-panel--editor" aria-labelledby="scripts-library-editor-title">
+                        <div id="scripts-library-editor-header" class="section-header script-panel-header">
+                            <div id="scripts-library-editor-copy" class="section-header__copy">
+                                <p id="scripts-library-editor-eyebrow" class="section-header__eyebrow">Editor</p>
+                                <h3 id="scripts-library-editor-title" class="section-header__title">Script definition</h3>
+                                <p id="scripts-library-editor-description" class="section-header__description">Validate before saving.</p>
+                            </div>
+                            <div id="scripts-library-validation-chip" class="script-validation-chip script-validation-chip--unknown">Not validated</div>
+                        </div>
+
+                        <form id="scripts-library-form" class="api-form script-library-form">
+                            <input id="scripts-library-script-id-input" type="hidden" value="">
+
+                            <div id="scripts-library-form-grid" class="api-form-grid">
+                                <label id="scripts-library-name-field" class="api-form-field">
+                                    <span id="scripts-library-name-label" class="api-form-label">Name</span>
+                                    <input id="scripts-library-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
+                                </label>
+
+                                <label id="scripts-library-language-field" class="api-form-field">
+                                    <span id="scripts-library-language-label" class="api-form-label">Language</span>
+                                    <select id="scripts-library-language-input" class="api-form-input" name="language">
+                                        <option value="python">Python</option>
+                                        <option value="javascript">JavaScript</option>
+                                    </select>
+                                </label>
+
+                                <label id="scripts-library-description-field" class="api-form-field api-form-field--full">
+                                    <span id="scripts-library-description-label" class="api-form-label">Description</span>
+                                    <textarea id="scripts-library-description-input" class="api-form-textarea" name="description" rows="3" maxlength="500"></textarea>
+                                </label>
+
+                                <div id="scripts-library-editor-field" class="api-form-field api-form-field--full script-editor-field">
+                                    <div id="scripts-library-editor-toolbar" class="script-editor-toolbar">
+                                        <div id="scripts-library-editor-toolbar-copy" class="script-editor-toolbar-copy">
+                                            <span id="scripts-library-editor-toolbar-label" class="api-form-label">Source code</span>
+                                            <span id="scripts-library-editor-toolbar-help" class="script-editor-toolbar-help">Switching language updates syntax highlighting and validation rules.</span>
+                                        </div>
+                                        <button type="button" id="scripts-library-validate-button" class="button button--secondary secondary-action-button">Validate</button>
+                                    </div>
+                                    <div id="scripts-library-editor-shell" class="script-editor-shell">
+                                        <div id="scripts-library-editor"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="scripts-library-validation-feedback" class="api-form-feedback" aria-live="polite"></div>
+                            <div id="scripts-library-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                            <div id="scripts-library-form-actions" class="api-form-actions">
+                                <button type="submit" id="scripts-library-save-button" class="primary-action-button">Save script</button>
+                            </div>
+                        </form>
+                    </section>
                 </div>
             </section>
         </div>
     </main>
 
-    <script type="module" src="../scripts/shell-config.js"></script>
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/scripts-library/main.ts"></script>
 </body>
 </html>

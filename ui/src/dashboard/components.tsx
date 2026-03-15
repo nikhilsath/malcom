@@ -383,65 +383,55 @@ export const DevicesTable = ({
               <dd id={`dashboard-device-host-sampled-${host.id}`}>{formatDateTime(host.sampledAt)}</dd>
             </div>
           </dl>
+          <div id="dashboard-devices-summary-grid" className="summary-grid">
+            <article id="dashboard-devices-ram-total-card" className="stat-card summary-card">
+              <p id="dashboard-devices-ram-total-card-label" className="summary-card__label">
+                Total RAM
+              </p>
+              <p id="dashboard-devices-ram-total-card-value" className="summary-card__value">
+                {formatBytes(host.memoryTotalBytes)}
+              </p>
+              <p id="dashboard-devices-ram-total-card-detail" className="api-directory-description">
+                Available {formatBytes(host.memoryAvailableBytes)}
+              </p>
+            </article>
+            <article id="dashboard-devices-ram-used-card" className="stat-card summary-card">
+              <p id="dashboard-devices-ram-used-card-label" className="summary-card__label">
+                RAM used
+              </p>
+              <p id="dashboard-devices-ram-used-card-value" className="summary-card__value">
+                {formatBytes(host.memoryUsedBytes)}
+              </p>
+              <p id="dashboard-devices-ram-used-card-detail" className="api-directory-description">
+                {host.memoryUsagePercent.toFixed(1)}% of total RAM
+              </p>
+            </article>
+            <article id="dashboard-devices-storage-total-card" className="stat-card summary-card">
+              <p id="dashboard-devices-storage-total-card-label" className="summary-card__label">
+                Total storage
+              </p>
+              <p id="dashboard-devices-storage-total-card-value" className="summary-card__value">
+                {formatBytes(host.storageTotalBytes)}
+              </p>
+              <p id="dashboard-devices-storage-total-card-detail" className="api-directory-description">
+                Used {formatBytes(host.storageUsedBytes)}
+              </p>
+            </article>
+            <article id="dashboard-devices-storage-free-card" className="stat-card summary-card">
+              <p id="dashboard-devices-storage-free-card-label" className="summary-card__label">
+                Storage free
+              </p>
+              <p id="dashboard-devices-storage-free-card-value" className="summary-card__value">
+                {formatBytes(host.storageFreeBytes)}
+              </p>
+              <p id="dashboard-devices-storage-free-card-detail" className="api-directory-description">
+                {host.storageUsagePercent.toFixed(1)}% of disk in use
+              </p>
+            </article>
+          </div>
         </div>
       )}
     </section>
-
-    {host ? (
-      <section id="dashboard-devices-summary-card" className="card">
-        <SectionToolbar
-          id="dashboard-devices-summary-toolbar"
-          title="Resource summary"
-          description="Current RAM and primary disk usage from the machine running Malcom."
-        />
-        <div id="dashboard-devices-summary-grid" className="summary-grid">
-          <article id="dashboard-devices-ram-total-card" className="stat-card summary-card">
-            <p id="dashboard-devices-ram-total-card-label" className="summary-card__label">
-              Total RAM
-            </p>
-            <p id="dashboard-devices-ram-total-card-value" className="summary-card__value">
-              {formatBytes(host.memoryTotalBytes)}
-            </p>
-            <p id="dashboard-devices-ram-total-card-detail" className="api-directory-description">
-              Available {formatBytes(host.memoryAvailableBytes)}
-            </p>
-          </article>
-          <article id="dashboard-devices-ram-used-card" className="stat-card summary-card">
-            <p id="dashboard-devices-ram-used-card-label" className="summary-card__label">
-              RAM used
-            </p>
-            <p id="dashboard-devices-ram-used-card-value" className="summary-card__value">
-              {formatBytes(host.memoryUsedBytes)}
-            </p>
-            <p id="dashboard-devices-ram-used-card-detail" className="api-directory-description">
-              {host.memoryUsagePercent.toFixed(1)}% of total RAM
-            </p>
-          </article>
-          <article id="dashboard-devices-storage-total-card" className="stat-card summary-card">
-            <p id="dashboard-devices-storage-total-card-label" className="summary-card__label">
-              Total storage
-            </p>
-            <p id="dashboard-devices-storage-total-card-value" className="summary-card__value">
-              {formatBytes(host.storageTotalBytes)}
-            </p>
-            <p id="dashboard-devices-storage-total-card-detail" className="api-directory-description">
-              Used {formatBytes(host.storageUsedBytes)}
-            </p>
-          </article>
-          <article id="dashboard-devices-storage-free-card" className="stat-card summary-card">
-            <p id="dashboard-devices-storage-free-card-label" className="summary-card__label">
-              Storage free
-            </p>
-            <p id="dashboard-devices-storage-free-card-value" className="summary-card__value">
-              {formatBytes(host.storageFreeBytes)}
-            </p>
-            <p id="dashboard-devices-storage-free-card-detail" className="api-directory-description">
-              {host.storageUsagePercent.toFixed(1)}% of disk in use
-            </p>
-          </article>
-        </div>
-      </section>
-    ) : null}
 
     <section id="dashboard-devices-inventory-card" className="card">
       <SectionToolbar

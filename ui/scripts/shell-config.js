@@ -110,7 +110,7 @@ export const shellSections = {
       label: "Create +",
       className: "button button--success sidenav__action-button",
       attributes: {
-        "aria-controls": "apis-create-type-popover",
+        "aria-controls": "apis-create-type-modal",
         "aria-expanded": "false",
         "aria-haspopup": "dialog",
         type: "button"
@@ -126,6 +126,13 @@ export const shellSections = {
         href: "tools/overview.html",
         pageTitle: "Tools Overview",
         description: "Manage local and external tools connected to the automation engine."
+      },
+      {
+        id: "sidenav-tools-smtp",
+        label: "SMTP",
+        href: "tools/smtp.html",
+        pageTitle: "SMTP Tools",
+        description: "Run and assign SMTP listeners across local and attached worker machines."
       },
       {
         id: "sidenav-tools-sftp",

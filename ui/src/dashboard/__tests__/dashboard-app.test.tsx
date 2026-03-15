@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardApp } from "../app";
 
@@ -35,7 +35,6 @@ describe("DashboardApp", () => {
     });
 
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Recent runs" })).toBeInTheDocument();
     expect(screen.getByText("Active attention items")).toBeInTheDocument();
   });
 
@@ -58,7 +57,7 @@ describe("DashboardApp", () => {
       expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Resource summary")).toBeInTheDocument();
+    expect(screen.getByText("Host machine")).toBeInTheDocument();
     expect(screen.getByText("Hostname")).toBeInTheDocument();
     expect(screen.getByText("OS")).toBeInTheDocument();
     expect(screen.getByText("Architecture")).toBeInTheDocument();
@@ -125,7 +124,7 @@ describe("DashboardApp", () => {
     const { container } = renderDashboardApp(["/devices"], false);
 
     await waitFor(() => {
-      expect(screen.getByText("Resource summary")).toBeInTheDocument();
+      expect(screen.getByText("Host machine")).toBeInTheDocument();
     });
 
     expect(container.querySelector("#dashboard-device-row-service-api-endpoint")).toBeInTheDocument();
@@ -136,8 +135,10 @@ describe("DashboardApp", () => {
     renderDashboardApp(["/overview"], true);
 
     // Simulate the shell toggle updating session storage and dispatching the shared event.
-    sessionStorage.setItem("developerMode", "false");
-    window.dispatchEvent(new CustomEvent("malcom:developerModeChanged", { detail: { enabled: false } }));
+    act(() => {
+      sessionStorage.setItem("developerMode", "false");
+      window.dispatchEvent(new CustomEvent("malcom:developerModeChanged", { detail: { enabled: false } }));
+    });
 
     await waitFor(() => {
       expect(sessionStorage.getItem("developerMode")).toBe("false");
@@ -159,7 +160,7 @@ describe("DashboardApp", () => {
     const { container } = renderDashboardApp(["/overview"], true);
 
     await waitFor(() => {
-      expect(container.querySelector("#dashboard-run-row-run-weather-poll")).toBeInTheDocument();
+      expect(container.querySelector("#dashboard-service-runtime")).toBeInTheDocument();
     });
 
     expect(container.querySelector("#dashboard-alert-alert-api-retry")).toBeInTheDocument();

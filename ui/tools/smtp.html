@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - SMTP Tools</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-smtp" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell smtp-workspace" id="tools-smtp-shell">
+            <div class="page-header section-header--page" id="tools-smtp-header">
+                <h2 class="page-title section-header__title--page" id="page-title">SMTP Tools</h2>
+                <p class="page-description section-header__description--page" id="page-description">Assign and run the SMTP listener.</p>
+            </div>
+
+            <section id="tools-smtp-workspace" class="card smtp-workspace__panel">
+                <div id="tools-smtp-overview-header" class="section-header smtp-workspace__header">
+                    <div id="tools-smtp-overview-copy" class="section-header__copy">
+                        <p id="tools-smtp-overview-eyebrow" class="section-header__eyebrow">Runtime Listener</p>
+                        <h3 id="tools-smtp-overview-title" class="section-header__title">SMTP service assignment</h3>
+                        <p id="tools-smtp-overview-description" class="section-header__description">The selected machine owns the listener.</p>
+                    </div>
+                    <div id="tools-smtp-runtime-status-card" class="stat-card smtp-workspace__status" aria-live="polite">
+                        <p id="tools-smtp-runtime-status-label" class="stat-card__label">Runtime status</p>
+                        <p id="tools-smtp-runtime-status-value" class="stat-card__value">Loading</p>
+                        <p id="tools-smtp-runtime-status-message" class="api-directory-description">Fetching SMTP service state.</p>
+                    </div>
+                </div>
+
+                <div id="tools-smtp-summary-grid" class="summary-grid smtp-summary-grid">
+                    <article id="tools-smtp-summary-machine-card" class="stat-card summary-card">
+                        <p id="tools-smtp-summary-machine-label" class="summary-card__label">Selected machine</p>
+                        <p id="tools-smtp-summary-machine-value" class="summary-card__value">Unknown</p>
+                    </article>
+                    <article id="tools-smtp-summary-endpoint-card" class="stat-card summary-card">
+                        <p id="tools-smtp-summary-endpoint-label" class="summary-card__label">Listening endpoint</p>
+                        <p id="tools-smtp-summary-endpoint-value" class="summary-card__value">Not listening</p>
+                    </article>
+                    <article id="tools-smtp-summary-messages-card" class="stat-card summary-card">
+                        <p id="tools-smtp-summary-messages-label" class="summary-card__label">Accepted messages</p>
+                        <p id="tools-smtp-summary-messages-value" class="summary-card__value">0</p>
+                    </article>
+                </div>
+
+                <div id="tools-smtp-panels" class="smtp-layout">
+                    <section id="tools-smtp-config-panel" class="card smtp-layout__primary">
+                        <div id="tools-smtp-config-header" class="section-header smtp-panel__header">
+                            <div id="tools-smtp-config-copy" class="section-header__copy">
+                                <p id="tools-smtp-config-eyebrow" class="section-header__eyebrow">Configuration</p>
+                                <h3 id="tools-smtp-config-title" class="section-header__title">Listener settings</h3>
+                                <p id="tools-smtp-config-description" class="section-header__description">Choose the machine and bind address.</p>
+                            </div>
+                        </div>
+
+                        <form id="tools-smtp-form" class="api-form">
+                            <div id="tools-smtp-form-grid" class="api-form-grid">
+                                <label id="tools-smtp-machine-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-smtp-machine-label" class="api-form-label">Run on machine</span>
+                                    <select id="tools-smtp-machine-input" class="api-form-input" name="targetWorkerId"></select>
+                                </label>
+
+                                <label id="tools-smtp-bind-host-field" class="api-form-field">
+                                    <span id="tools-smtp-bind-host-label" class="api-form-label">Bind host</span>
+                                    <input id="tools-smtp-bind-host-input" class="api-form-input" name="bindHost" type="text" value="127.0.0.1" required>
+                                </label>
+
+                                <label id="tools-smtp-port-field" class="api-form-field">
+                                    <span id="tools-smtp-port-label" class="api-form-label">Port</span>
+                                    <input id="tools-smtp-port-input" class="api-form-input" name="port" type="number" min="0" max="65535" value="2525" required>
+                                </label>
+
+                                <label id="tools-smtp-recipient-email-field" class="api-form-field api-form-field--full">
+                                    <span id="tools-smtp-recipient-email-label" class="api-form-label">Receive email to</span>
+                                    <input id="tools-smtp-recipient-email-input" class="api-form-input" name="recipientEmail" type="email" inputmode="email" placeholder="inbox@example.com">
+                                </label>
+                            </div>
+
+                            <div id="tools-smtp-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                            <div id="tools-smtp-form-actions" class="api-form-actions">
+                                <button type="submit" id="tools-smtp-save-button" class="button button--secondary secondary-action-button">Save assignment</button>
+                                <button type="button" id="tools-smtp-start-button" class="button button--primary primary-action-button">Start SMTP server</button>
+                                <button type="button" id="tools-smtp-stop-button" class="button button--secondary secondary-action-button">Stop SMTP server</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section id="tools-smtp-activity-panel" class="card smtp-layout__secondary">
+                        <div id="tools-smtp-activity-header" class="section-header smtp-panel__header">
+                            <div id="tools-smtp-activity-copy" class="section-header__copy">
+                                <p id="tools-smtp-activity-eyebrow" class="section-header__eyebrow">Activity</p>
+                                <h3 id="tools-smtp-activity-title" class="section-header__title">Listener runtime</h3>
+                                <p id="tools-smtp-activity-description" class="section-header__description">Recent SMTP activity.</p>
+                            </div>
+                        </div>
+
+                        <dl id="tools-smtp-activity-list" class="dashboard-host-card__metadata smtp-activity-list">
+                            <div id="tools-smtp-activity-started-group">
+                                <dt class="summary-card__label">Last started</dt>
+                                <dd id="tools-smtp-activity-started-value">Never</dd>
+                            </div>
+                            <div id="tools-smtp-activity-stopped-group">
+                                <dt class="summary-card__label">Last stopped</dt>
+                                <dd id="tools-smtp-activity-stopped-value">Never</dd>
+                            </div>
+                            <div id="tools-smtp-activity-sessions-group">
+                                <dt class="summary-card__label">Sessions</dt>
+                                <dd id="tools-smtp-activity-sessions-value">0</dd>
+                            </div>
+                            <div id="tools-smtp-activity-last-message-group">
+                                <dt class="summary-card__label">Last message</dt>
+                                <dd id="tools-smtp-activity-last-message-value">No mail received yet</dd>
+                            </div>
+                            <div id="tools-smtp-activity-sender-group">
+                                <dt class="summary-card__label">Last sender</dt>
+                                <dd id="tools-smtp-activity-sender-value">Unknown</dd>
+                            </div>
+                            <div id="tools-smtp-activity-recipient-group">
+                                <dt class="summary-card__label">Last recipient</dt>
+                                <dd id="tools-smtp-activity-recipient-value">Unknown</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section id="tools-smtp-machines-panel" class="card smtp-layout__full">
+                        <div id="tools-smtp-machines-header" class="section-header smtp-panel__header">
+                            <div id="tools-smtp-machines-copy" class="section-header__copy">
+                                <p id="tools-smtp-machines-eyebrow" class="section-header__eyebrow">Machine inventory</p>
+                                <h3 id="tools-smtp-machines-title" class="section-header__title">Available machines</h3>
+                                <p id="tools-smtp-machines-description" class="section-header__description">Available local and LAN workers.</p>
+                            </div>
+                        </div>
+
+                        <div id="tools-smtp-machines-table-shell" class="api-table-shell">
+                            <table id="tools-smtp-machines-table" class="api-directory-table">
+                                <thead id="tools-smtp-machines-head">
+                                    <tr id="tools-smtp-machines-header-row">
+                                        <th id="tools-smtp-machines-header-name">Machine</th>
+                                        <th id="tools-smtp-machines-header-address">Address</th>
+                                        <th id="tools-smtp-machines-header-status">Status</th>
+                                        <th id="tools-smtp-machines-header-capabilities">Capabilities</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tools-smtp-machines-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/smtp.js"></script>
+</body>
+</html>

@@ -25,7 +25,6 @@ import {
   QuickLinksPanel,
   RecentLogsPreview,
   ReportBuilderPanel,
-  RecentRunsTable,
   SectionToolbar,
   ServiceStatusStrip,
   StatusBadge,
@@ -237,7 +236,6 @@ const OverviewPage = () => {
       </section>
 
       <ServiceStatusStrip services={summary.services} />
-      <RecentRunsTable runs={summary.recentRuns} />
       <AlertsPanel alerts={summary.alerts} />
       <QuickLinksPanel quickLinks={summary.quickLinks} />
       <RecentLogsPreview entries={getPreviewLogs(logs.entries)} />
