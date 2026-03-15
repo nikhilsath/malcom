@@ -664,26 +664,39 @@ def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
     rows = fetch_all(
         connection,
         """
+        WITH filtered_events AS (
+            SELECT api_id, event_id, received_at, status
+            FROM inbound_api_events
+            WHERE (? = 1 OR is_mock = 0)
+        ),
+        event_aggregates AS (
+            SELECT
+                api_id,
+                COUNT(event_id) AS events_count,
+                MAX(received_at) AS last_received_at
+            FROM filtered_events
+            GROUP BY api_id
+        ),
+        ranked_events AS (
+            SELECT
+                api_id,
+                status,
+                ROW_NUMBER() OVER (PARTITION BY api_id ORDER BY received_at DESC) AS row_number
+            FROM filtered_events
+        )
         SELECT
             inbound_apis.*,
-            COUNT(CASE WHEN ? = 1 OR inbound_api_events.is_mock = 0 THEN inbound_api_events.event_id END) AS events_count,
-            MAX(CASE WHEN ? = 1 OR inbound_api_events.is_mock = 0 THEN inbound_api_events.received_at END) AS last_received_at,
-            (
-                SELECT status
-                FROM inbound_api_events AS latest_events
-                WHERE latest_events.api_id = inbound_apis.id
-                AND (? = 1 OR latest_events.is_mock = 0)
-                ORDER BY latest_events.received_at DESC
-                LIMIT 1
-            ) AS last_delivery_status
+            COALESCE(event_aggregates.events_count, 0) AS events_count,
+            event_aggregates.last_received_at,
+            ranked_events.status AS last_delivery_status
         FROM inbound_apis
-        LEFT JOIN inbound_api_events ON inbound_api_events.api_id = inbound_apis.id
+        LEFT JOIN event_aggregates ON event_aggregates.api_id = inbound_apis.id
+        LEFT JOIN ranked_events ON ranked_events.api_id = inbound_apis.id AND ranked_events.row_number = 1
         WHERE (? = 1 OR inbound_apis.is_mock = 0)
-        GROUP BY inbound_apis.id
         ORDER BY inbound_apis.created_at DESC
         """
         ,
-        (int(include_mock), int(include_mock), int(include_mock), int(include_mock)),
+        (int(include_mock), int(include_mock)),
     )
     return [InboundApiResponse(**row_to_api_summary(row)) for row in rows]
 
