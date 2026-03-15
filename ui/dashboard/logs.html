@@ -2,12 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=overview.html#/logs">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - Redirecting</title>
+    <title>Malcom - Dashboard Logs</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body id="redirect-dashboard-logs">
-    <p id="redirect-dashboard-logs-copy">Redirecting to <a id="redirect-dashboard-logs-link" href="overview.html#/logs">Dashboard Logs</a>.</p>
+<body id="dashboard-logs-body" class="app-shell" data-section="dashboard" data-sidenav-item="sidenav-dashboard-logs" data-shell-path-prefix="../" data-dashboard-route="/logs">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <div id="dashboard-react-root"></div>
+    <script src="../scripts/utils.js"></script>
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/dashboard/main.tsx"></script>
 </body>
 </html>

@@ -5,7 +5,6 @@ import {
 } from "./mock-state";
 import type {
   DashboardAlert,
-  DashboardDevice,
   DashboardLogEntry,
   DashboardLogSettings,
   DashboardLogsResponse,
@@ -296,10 +295,4 @@ export const getAlertSeveritySummary = (alerts: DashboardAlert[]) => ({
   warning: alerts.filter((alert) => alert.severity === "warning").length,
   error: alerts.filter((alert) => alert.severity === "error").length,
   info: alerts.filter((alert) => alert.severity === "info").length
-});
-
-export const getDeviceStatusSummary = (devices: DashboardDevice[]) => ({
-  healthy: devices.filter((device) => device.status === "healthy").length,
-  degraded: devices.filter((device) => device.status === "degraded").length,
-  offline: devices.filter((device) => device.status === "offline").length
 });

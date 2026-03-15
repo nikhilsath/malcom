@@ -1,25 +1,22 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
-  NavLink,
   Outlet,
   RouterProvider,
   createHashRouter,
   createMemoryRouter,
   useMatches
 } from "react-router-dom";
-import malcomIconUrl from "../../assets/malcom-icon.svg";
 import {
   dashboardApi,
   formatDateTime,
   getAlertSeveritySummary,
-  getDeviceStatusSummary,
   getPreviewLogs,
   getRunStatusSummary,
   isDeveloperModeEnabled,
   isSidebarCollapsed,
   writeSidebarCollapsed
 } from "./data";
-import { getSectionConfig, resolveShellHref, shellBrand, topNavItems } from "../../scripts/shell-config.js";
+import { getSectionConfig } from "../../scripts/shell-config.js";
 import {
   AlertsPanel,
   DevicesTable,
@@ -27,6 +24,7 @@ import {
   LogEntryList,
   QuickLinksPanel,
   RecentLogsPreview,
+  ReportBuilderPanel,
   RecentRunsTable,
   SectionToolbar,
   ServiceStatusStrip,
@@ -44,7 +42,6 @@ type RouteHandle = {
   description: string;
 };
 
-const dashboardShellPathPrefix = "../";
 const dashboardSectionConfig = getSectionConfig("dashboard");
 const dashboardSectionItems = dashboardSectionConfig?.items || [];
 const dashboardOverviewItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-overview");
@@ -176,7 +173,6 @@ const DashboardLayout = () => {
 
   return (
     <DashboardUiContext.Provider value={{ developerMode }}>
-
       <main className="main" id="main-layout">
         <div className="content-shell">
           <div className="page-header section-header--page" id="dashboard-page-header">
@@ -257,25 +253,8 @@ const DevicesPage = () => {
     return null;
   }
 
-  const deviceSummary = getDeviceStatusSummary([
-    ...(devicesResponse.host ? [devicesResponse.host] : []),
-    ...devicesResponse.devices
-  ]);
-
   return (
-    <div id="dashboard-devices-page-layout" className="stacked-card-layout">
-      <section id="dashboard-devices-summary-card" className="card">
-        <div id="dashboard-devices-summary-grid" className="summary-grid">
-          <SummaryCard
-            id="dashboard-devices-summary-total"
-            label="Tracked assets"
-            value={(devicesResponse.host ? 1 : 0) + devicesResponse.devices.length}
-          />
-          <SummaryCard id="dashboard-devices-summary-healthy" label="Healthy" value={deviceSummary.healthy} />
-          <SummaryCard id="dashboard-devices-summary-degraded" label="Degraded" value={deviceSummary.degraded} />
-          <SummaryCard id="dashboard-devices-summary-offline" label="Offline" value={deviceSummary.offline} />
-        </div>
-      </section>
+    <div id="dashboard-devices-page-layout">
       <DevicesTable host={devicesResponse.host} devices={devicesResponse.devices} />
     </div>
   );
@@ -462,6 +441,8 @@ const LogsPage = () => {
         </form>
       </section>
 
+      <ReportBuilderPanel />
+
       <section id="dashboard-logs-results-card" className="card">
         <SectionToolbar
           id="dashboard-logs-results-toolbar"
@@ -529,21 +510,19 @@ const routeDefinitions = [
 ];
 
 export const createDashboardRouter = (initialEntries?: string[]) => {
-  if (initialEntries) {
-    return createMemoryRouter(routeDefinitions, {
-      initialEntries,
-      future: {
-        v7_startTransition: true
-      }
-    });
-  }
-
-  return createHashRouter(routeDefinitions, {
+  return createMemoryRouter(routeDefinitions, {
+    initialEntries: initialEntries?.length ? initialEntries : ["/overview"],
     future: {
       v7_startTransition: true
     }
   });
 };
+
+export const createDashboardHashRouter = () => createHashRouter(routeDefinitions, {
+  future: {
+    v7_startTransition: true
+  }
+});
 
 export const DashboardApp = ({ initialEntries }: { initialEntries?: string[] }) => (
   <RouterProvider router={createDashboardRouter(initialEntries)} />

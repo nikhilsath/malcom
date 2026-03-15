@@ -26,24 +26,44 @@
                     </div>
                     <div id="apis-overview-status" class="section-status stat-card api-overview-status" aria-live="polite">
                         <span id="apis-overview-total-count" class="api-overview-count">0 configured APIs</span>
-                        <span id="apis-overview-helper" class="api-overview-helper">Create an API to add it to the incoming, outgoing, or webhook registry.</span>
+                        <span id="apis-overview-helper" class="api-overview-helper">Across inbound, outbound, and webhook monitoring surfaces.</span>
                     </div>
                 </div>
 
                 <div id="api-system-alert" class="api-system-alert" hidden></div>
 
                 <div id="apis-overview-summary-grid" class="api-summary-grid">
-                    <article id="apis-overview-summary-incoming" class="stat-card api-summary-card">
-                        <p id="apis-overview-summary-incoming-label" class="api-summary-label">Incoming APIs</p>
-                        <p id="apis-overview-summary-incoming-value" class="api-summary-value">0</p>
+                    <article id="apis-overview-summary-scheduled-active" class="stat-card api-summary-card">
+                        <div id="apis-overview-summary-scheduled-active-header" class="api-summary-card__header">
+                            <p id="apis-overview-summary-scheduled-active-label" class="api-summary-label">Active scheduled calls</p>
+                            <button type="button" id="apis-overview-summary-scheduled-active-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain active scheduled calls" aria-expanded="false" aria-controls="apis-overview-summary-scheduled-active-tooltip">i</button>
+                        </div>
+                        <p id="apis-overview-summary-scheduled-active-value" class="api-summary-value">0</p>
+                        <div id="apis-overview-summary-scheduled-active-tooltip" class="api-tooltip-content" role="tooltip" hidden>Counts scheduled outbound APIs whose stored status is <strong>active</strong>.</div>
                     </article>
-                    <article id="apis-overview-summary-outgoing" class="stat-card api-summary-card">
-                        <p id="apis-overview-summary-outgoing-label" class="api-summary-label">Outgoing APIs</p>
-                        <p id="apis-overview-summary-outgoing-value" class="api-summary-value">0</p>
+                    <article id="apis-overview-summary-calls-hour" class="stat-card api-summary-card">
+                        <div id="apis-overview-summary-calls-hour-header" class="api-summary-card__header">
+                            <p id="apis-overview-summary-calls-hour-label" class="api-summary-label">Average calls per hour</p>
+                            <button type="button" id="apis-overview-summary-calls-hour-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per hour" aria-expanded="false" aria-controls="apis-overview-summary-calls-hour-tooltip">i</button>
+                        </div>
+                        <p id="apis-overview-summary-calls-hour-value" class="api-summary-value">0.0</p>
+                        <div id="apis-overview-summary-calls-hour-tooltip" class="api-tooltip-content" role="tooltip" hidden>Calculated as scheduled calls divided by 24, plus one active continuous stream per hour.</div>
                     </article>
-                    <article id="apis-overview-summary-webhooks" class="stat-card api-summary-card">
-                        <p id="apis-overview-summary-webhooks-label" class="api-summary-label">Webhooks</p>
-                        <p id="apis-overview-summary-webhooks-value" class="api-summary-value">0</p>
+                    <article id="apis-overview-summary-calls-day" class="stat-card api-summary-card">
+                        <div id="apis-overview-summary-calls-day-header" class="api-summary-card__header">
+                            <p id="apis-overview-summary-calls-day-label" class="api-summary-label">Average calls per day</p>
+                            <button type="button" id="apis-overview-summary-calls-day-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per day" aria-expanded="false" aria-controls="apis-overview-summary-calls-day-tooltip">i</button>
+                        </div>
+                        <p id="apis-overview-summary-calls-day-value" class="api-summary-value">0.0</p>
+                        <div id="apis-overview-summary-calls-day-tooltip" class="api-tooltip-content" role="tooltip" hidden>Calculated as daily scheduled calls plus 24 hourly intervals for each active continuous stream.</div>
+                    </article>
+                    <article id="apis-overview-summary-monitored-webhooks" class="stat-card api-summary-card">
+                        <div id="apis-overview-summary-monitored-webhooks-header" class="api-summary-card__header">
+                            <p id="apis-overview-summary-monitored-webhooks-label" class="api-summary-label">Monitored webhooks</p>
+                            <button type="button" id="apis-overview-summary-monitored-webhooks-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain monitored webhooks" aria-expanded="false" aria-controls="apis-overview-summary-monitored-webhooks-tooltip">i</button>
+                        </div>
+                        <p id="apis-overview-summary-monitored-webhooks-value" class="api-summary-value">0</p>
+                        <div id="apis-overview-summary-monitored-webhooks-tooltip" class="api-tooltip-content" role="tooltip" hidden>Counts enabled webhook records currently being monitored on this instance.</div>
                     </article>
                 </div>
 
@@ -52,8 +72,12 @@
                         <div id="apis-overview-incoming-header" class="section-header api-panel-header">
                             <div id="apis-overview-incoming-copy" class="section-header__copy api-panel-header-copy">
                                 <p id="apis-overview-incoming-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Incoming</p>
-                                <h3 id="apis-overview-incoming-title" class="section-header__title api-panel-title">Configured incoming APIs</h3>
+                                <div id="apis-overview-incoming-title-row" class="api-panel-title-row">
+                                    <h3 id="apis-overview-incoming-title" class="section-header__title api-panel-title">Configured incoming APIs</h3>
+                                    <button type="button" id="apis-overview-incoming-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain incoming APIs section" aria-expanded="false" aria-controls="apis-overview-incoming-tooltip">i</button>
+                                </div>
                                 <p id="apis-overview-incoming-description" class="section-header__description api-panel-description">Inbound endpoints with authentication, last activity, and delivery status visibility.</p>
+                                <div id="apis-overview-incoming-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review configured inbound endpoints, confirm recent activity, and drill into delivery history.</div>
                             </div>
                             <a href="./incoming.html" id="apis-overview-incoming-link" class="button button--secondary secondary-action-button">Open incoming</a>
                         </div>
@@ -68,8 +92,12 @@
                         <div id="apis-overview-outgoing-header" class="section-header api-panel-header">
                             <div id="apis-overview-outgoing-copy" class="section-header__copy api-panel-header-copy">
                                 <p id="apis-overview-outgoing-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Outgoing</p>
-                                <h3 id="apis-overview-outgoing-title" class="section-header__title api-panel-title">Configured outgoing APIs</h3>
+                                <div id="apis-overview-outgoing-title-row" class="api-panel-title-row">
+                                    <h3 id="apis-overview-outgoing-title" class="section-header__title api-panel-title">Configured outgoing APIs</h3>
+                                    <button type="button" id="apis-overview-outgoing-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain outgoing APIs section" aria-expanded="false" aria-controls="apis-overview-outgoing-tooltip">i</button>
+                                </div>
                                 <p id="apis-overview-outgoing-description" class="section-header__description api-panel-description">Scheduled and continuous outbound destinations currently registered in the system.</p>
+                                <div id="apis-overview-outgoing-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled deliveries, continuous streams, destinations, and current delivery readiness.</div>
                             </div>
                             <a href="./outgoing.html" id="apis-overview-outgoing-link" class="button button--secondary secondary-action-button">Open outgoing</a>
                         </div>
@@ -84,8 +112,12 @@
                         <div id="apis-overview-webhooks-header" class="section-header api-panel-header">
                             <div id="apis-overview-webhooks-copy" class="section-header__copy api-panel-header-copy">
                                 <p id="apis-overview-webhooks-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Webhooks</p>
-                                <h3 id="apis-overview-webhooks-title" class="section-header__title api-panel-title">Configured webhooks</h3>
+                                <div id="apis-overview-webhooks-title-row" class="api-panel-title-row">
+                                    <h3 id="apis-overview-webhooks-title" class="section-header__title api-panel-title">Configured webhooks</h3>
+                                    <button type="button" id="apis-overview-webhooks-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain webhooks section" aria-expanded="false" aria-controls="apis-overview-webhooks-tooltip">i</button>
+                                </div>
                                 <p id="apis-overview-webhooks-description" class="section-header__description api-panel-description">Webhook definitions available for external publishers, callbacks, and verification flows.</p>
+                                <div id="apis-overview-webhooks-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review webhook registrations that Malcom tracks for callbacks, verification, and publisher monitoring.</div>
                             </div>
                             <a href="./webhooks.html" id="apis-overview-webhooks-link" class="button button--secondary secondary-action-button">Open webhooks</a>
                         </div>

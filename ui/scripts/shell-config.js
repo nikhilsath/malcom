@@ -1,5 +1,5 @@
 export const shellBrand = {
-  homeHref: "dashboard/overview.html#/overview",
+  homeHref: "dashboard/overview.html",
   iconHref: new URL("../assets/malcom-icon.svg", import.meta.url).href,
   iconAlt: "Malcom icon",
   title: "Malcom"
@@ -9,7 +9,7 @@ export const topNavItems = [
   {
     id: "nav-dashboard",
     label: "Dashboard",
-    href: "dashboard/overview.html#/overview",
+    href: "dashboard/overview.html",
     section: "dashboard"
   },
   {
@@ -45,24 +45,21 @@ export const shellSections = {
       {
         id: "sidenav-dashboard-overview",
         label: "Overview",
-        href: "dashboard/overview.html#/overview",
-        route: "/overview",
+        href: "dashboard/overview.html",
         pageTitle: "Dashboard Overview",
         description: "Monitor the middleware at a glance and review the current workspace state."
       },
       {
         id: "sidenav-dashboard-devices",
         label: "Devices",
-        href: "dashboard/overview.html#/devices",
-        route: "/devices",
+        href: "dashboard/devices.html",
         pageTitle: "Dashboard Devices",
         description: "Review connected devices, runtime endpoints, and related middleware assets."
       },
       {
         id: "sidenav-dashboard-logs",
         label: "Logs",
-        href: "dashboard/overview.html#/logs",
-        route: "/logs",
+        href: "dashboard/logs.html",
         pageTitle: "Dashboard Logs",
         description: "Inspect recent runtime activity, operator events, and system history."
       }
@@ -113,7 +110,8 @@ export const shellSections = {
       label: "Create +",
       className: "button button--success sidenav__action-button",
       attributes: {
-        "aria-controls": "apis-create-modal",
+        "aria-controls": "apis-create-type-popover",
+        "aria-expanded": "false",
         "aria-haspopup": "dialog",
         type: "button"
       }

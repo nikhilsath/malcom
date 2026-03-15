@@ -25,9 +25,10 @@ const apiElements = {
   overviewAlert: document.getElementById("api-system-alert"),
   overviewTotalCount: document.getElementById("apis-overview-total-count"),
   overviewHelper: document.getElementById("apis-overview-helper"),
-  overviewIncomingCount: document.getElementById("apis-overview-summary-incoming-value"),
-  overviewOutgoingCount: document.getElementById("apis-overview-summary-outgoing-value"),
-  overviewWebhooksCount: document.getElementById("apis-overview-summary-webhooks-value"),
+  overviewScheduledActiveCount: document.getElementById("apis-overview-summary-scheduled-active-value"),
+  overviewCallsPerHour: document.getElementById("apis-overview-summary-calls-hour-value"),
+  overviewCallsPerDay: document.getElementById("apis-overview-summary-calls-day-value"),
+  overviewMonitoredWebhooksCount: document.getElementById("apis-overview-summary-monitored-webhooks-value"),
   overviewIncomingList: document.getElementById("apis-overview-incoming-list"),
   overviewIncomingEmpty: document.getElementById("apis-overview-incoming-empty"),
   overviewOutgoingList: document.getElementById("apis-overview-outgoing-list"),
@@ -41,6 +42,8 @@ const hasCreateModalElements = () => Boolean(
 );
 
 const getCreateOpenButton = () => document.getElementById("apis-create-button");
+
+const getCreateTypePopover = () => document.getElementById("apis-create-type-popover");
 
 const hasOverviewElements = () => Boolean(
   apiElements.alert
@@ -72,9 +75,10 @@ const hasWebhookRegistryElements = () => Boolean(
 const hasOverviewLandingElements = () => Boolean(
   apiElements.overviewTotalCount
   && apiElements.overviewHelper
-  && apiElements.overviewIncomingCount
-  && apiElements.overviewOutgoingCount
-  && apiElements.overviewWebhooksCount
+  && apiElements.overviewScheduledActiveCount
+  && apiElements.overviewCallsPerHour
+  && apiElements.overviewCallsPerDay
+  && apiElements.overviewMonitoredWebhooksCount
   && apiElements.overviewIncomingList
   && apiElements.overviewIncomingEmpty
   && apiElements.overviewOutgoingList
@@ -92,39 +96,11 @@ const modalFallbackMarkup = `
         <p class="modal__description" id="create-api-modal-description">Choose the type of API resource you want to create and Malcom will store it in the corresponding backend table.</p>
       </div>
       <button type="button" class="button button--secondary modal__close-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">Close</button>
-    </div>
-    <div class="modal__body modal__body--form" id="create-api-modal-body">
-      <form id="create-api-form" class="api-form">
-        <div id="create-api-form-grid" class="api-form-grid">
-          <fieldset id="create-api-type-field" class="api-form-field api-form-field--full api-type-tabs">
-            <legend id="create-api-type-label" class="api-form-label">API type</legend>
-            <div id="create-api-type-options" class="api-type-tabs__list">
-              <label id="create-api-type-option-incoming" class="api-type-tab">
-                <input id="create-api-type-input-incoming" class="api-type-tab__input" name="resourceType" type="radio" value="incoming" checked>
-                <span id="create-api-type-copy-incoming" class="api-type-tab__label">
-                  <span id="create-api-type-title-incoming" class="api-type-tab__title">Incoming</span>
-                </span>
-              </label>
-              <label id="create-api-type-option-outgoing-scheduled" class="api-type-tab">
-                <input id="create-api-type-input-outgoing-scheduled" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_scheduled">
-                <span id="create-api-type-copy-outgoing-scheduled" class="api-type-tab__label">
-                  <span id="create-api-type-title-outgoing-scheduled" class="api-type-tab__title">Outgoing (scheduled)</span>
-                </span>
-              </label>
-              <label id="create-api-type-option-outgoing-continuous" class="api-type-tab">
-                <input id="create-api-type-input-outgoing-continuous" class="api-type-tab__input" name="resourceType" type="radio" value="outgoing_continuous">
-                <span id="create-api-type-copy-outgoing-continuous" class="api-type-tab__label">
-                  <span id="create-api-type-title-outgoing-continuous" class="api-type-tab__title">Outgoing (continuous)</span>
-                </span>
-              </label>
-              <label id="create-api-type-option-webhook" class="api-type-tab">
-                <input id="create-api-type-input-webhook" class="api-type-tab__input" name="resourceType" type="radio" value="webhook">
-                <span id="create-api-type-copy-webhook" class="api-type-tab__label">
-                  <span id="create-api-type-title-webhook" class="api-type-tab__title">Webhook</span>
-                </span>
-              </label>
-            </div>
-          </fieldset>
+  </div>
+  <div class="modal__body modal__body--form" id="create-api-modal-body">
+    <form id="create-api-form" class="api-form">
+      <input id="create-api-type-input" name="resourceType" type="hidden" value="incoming">
+      <div id="create-api-form-grid" class="api-form-grid">
           <label id="create-api-name-field" class="api-form-field">
             <span id="create-api-name-label" class="api-form-label">Name</span>
             <input id="create-api-name-input" class="api-form-input" name="name" type="text" maxlength="80" required>
@@ -139,7 +115,7 @@ const modalFallbackMarkup = `
           </label>
           <label id="create-api-auth-field" class="api-form-field">
             <span id="create-api-auth-label" class="api-form-label">Authentication</span>
-            <input id="create-api-auth-input" class="api-form-input" name="authType" type="text" value="Bearer secret" readonly>
+            <input id="create-api-auth-input" class="api-form-input" name="authTypeSummary" type="text" value="Bearer secret" readonly>
           </label>
           <label id="create-api-enabled-field" class="api-form-field api-form-field--toggle">
             <span id="create-api-enabled-label" class="api-form-label">Enabled on create</span>
@@ -148,6 +124,96 @@ const modalFallbackMarkup = `
               <span id="create-api-enabled-copy" class="api-inline-toggle__label">Accept requests immediately</span>
             </span>
           </label>
+          <section id="create-api-outgoing-panel" class="api-form-field api-form-field--full" hidden>
+            <div id="create-api-outgoing-panel-copy" class="api-form-section-copy">
+              <p id="create-api-outgoing-panel-eyebrow" class="api-form-label">Outgoing delivery</p>
+              <p id="create-api-outgoing-panel-description" class="api-form-section-description">Configure the request Malcom should send on schedule or as a continuous outbound stream.</p>
+            </div>
+            <div id="create-api-outgoing-grid" class="api-form-grid">
+              <label id="create-api-destination-field" class="api-form-field api-form-field--full">
+                <span id="create-api-destination-label" class="api-form-label">Destination URL</span>
+                <input id="create-api-destination-input" class="api-form-input" name="destinationUrl" type="url" inputmode="url" placeholder="https://example.com/webhooks/orders">
+              </label>
+              <label id="create-api-method-field" class="api-form-field">
+                <span id="create-api-method-label" class="api-form-label">HTTP method</span>
+                <select id="create-api-method-input" class="api-form-input" name="httpMethod">
+                  <option value="POST" selected>POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="GET">GET</option>
+                </select>
+              </label>
+              <label id="create-api-scheduled-time-field" class="api-form-field" hidden>
+                <span id="create-api-scheduled-time-label" class="api-form-label">Send time</span>
+                <input id="create-api-scheduled-time-input" class="api-form-input" name="scheduledTime" type="time" value="09:00">
+              </label>
+              <label id="create-api-scheduled-repeat-field" class="api-form-field api-form-field--toggle" hidden>
+                <span id="create-api-scheduled-repeat-label" class="api-form-label">Repeat daily</span>
+                <span id="create-api-scheduled-repeat-control" class="api-inline-toggle">
+                  <input id="create-api-scheduled-repeat-input" name="repeatEnabledScheduled" type="checkbox">
+                  <span id="create-api-scheduled-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
+                </span>
+              </label>
+              <label id="create-api-continuous-repeat-field" class="api-form-field api-form-field--toggle" hidden>
+                <span id="create-api-continuous-repeat-label" class="api-form-label">Repeat continuously</span>
+                <span id="create-api-continuous-repeat-control" class="api-inline-toggle">
+                  <input id="create-api-continuous-repeat-input" name="repeatEnabledContinuous" type="checkbox">
+                  <span id="create-api-continuous-repeat-copy" class="api-inline-toggle__label">Send once, then disable automatically after delivery</span>
+                </span>
+              </label>
+              <label id="create-api-continuous-interval-value-field" class="api-form-field" hidden>
+                <span id="create-api-continuous-interval-value-label" class="api-form-label">Repeat every</span>
+                <input id="create-api-continuous-interval-value-input" class="api-form-input" name="repeatIntervalValue" type="number" min="1" max="168" step="1" value="5">
+              </label>
+              <label id="create-api-continuous-interval-unit-field" class="api-form-field" hidden>
+                <span id="create-api-continuous-interval-unit-label" class="api-form-label">Interval unit</span>
+                <select id="create-api-continuous-interval-unit-input" class="api-form-input" name="repeatIntervalUnit">
+                  <option value="minutes" selected>Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </label>
+              <label id="create-api-outgoing-auth-type-field" class="api-form-field">
+                <span id="create-api-outgoing-auth-type-label" class="api-form-label">Destination auth</span>
+                <select id="create-api-outgoing-auth-type-input" class="api-form-input" name="outgoingAuthType">
+                  <option value="none" selected>None</option>
+                  <option value="bearer">Bearer token</option>
+                  <option value="basic">Basic auth</option>
+                  <option value="header">Custom header</option>
+                </select>
+              </label>
+              <label id="create-api-auth-token-field" class="api-form-field api-form-field--full" hidden>
+                <span id="create-api-auth-token-label" class="api-form-label">Bearer token</span>
+                <input id="create-api-auth-token-input" class="api-form-input" name="authToken" type="password" autocomplete="off">
+              </label>
+              <label id="create-api-auth-username-field" class="api-form-field" hidden>
+                <span id="create-api-auth-username-label" class="api-form-label">Username</span>
+                <input id="create-api-auth-username-input" class="api-form-input" name="authUsername" type="text" autocomplete="off">
+              </label>
+              <label id="create-api-auth-password-field" class="api-form-field" hidden>
+                <span id="create-api-auth-password-label" class="api-form-label">Password</span>
+                <input id="create-api-auth-password-input" class="api-form-input" name="authPassword" type="password" autocomplete="off">
+              </label>
+              <label id="create-api-auth-header-name-field" class="api-form-field" hidden>
+                <span id="create-api-auth-header-name-label" class="api-form-label">Header name</span>
+                <input id="create-api-auth-header-name-input" class="api-form-input" name="authHeaderName" type="text" autocomplete="off" placeholder="X-API-Key">
+              </label>
+              <label id="create-api-auth-header-value-field" class="api-form-field" hidden>
+                <span id="create-api-auth-header-value-label" class="api-form-label">Header value</span>
+                <input id="create-api-auth-header-value-input" class="api-form-input" name="authHeaderValue" type="password" autocomplete="off">
+              </label>
+              <label id="create-api-payload-field" class="api-form-field api-form-field--full">
+                <span id="create-api-payload-label" class="api-form-label">Payload template</span>
+                <textarea id="create-api-payload-input" class="api-form-textarea" name="payloadTemplate" rows="8" spellcheck="false">{ "event": "scheduled.delivery", "sent_at": "{{timestamp}}" }</textarea>
+              </label>
+              <div id="create-api-test-actions-field" class="api-form-field api-form-field--full">
+                <div id="create-api-test-actions" class="api-form-actions">
+                  <button type="button" id="create-api-test-button" class="button button--secondary secondary-action-button">Send test payload</button>
+                </div>
+                <div id="create-api-test-feedback" class="api-form-feedback" aria-live="polite"></div>
+              </div>
+            </div>
+          </section>
         </div>
         <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
         <div id="create-api-form-actions" class="api-form-actions">
@@ -164,7 +230,9 @@ const apiState = {
   detailReturnFocusElement: null,
   lastSecretByApiId: {},
   outgoingEntries: [],
-  webhookEntries: []
+  webhookEntries: [],
+  createModalType: "incoming",
+  createTypeReturnFocusElement: null
 };
 
 const developerModeEnabled = () => window.Malcom?.developerModeEnabled?.() ?? false;
@@ -203,9 +271,9 @@ const apiResourceTypes = {
   },
   outgoing_scheduled: {
     title: "New Outgoing Scheduled API",
-    description: "Register a scheduled outbound API and store it in the scheduled delivery registry.",
+    description: "Configure the destination URL, daily send time, credentials, and payload Malcom should deliver once by default or repeat daily when enabled.",
     authLabel: "Managed by destination configuration",
-    enabledCopy: "Activate the schedule immediately",
+    enabledCopy: "Enable this scheduled delivery on create",
     submitLabel: "Create scheduled API",
     successMessage: "Scheduled outgoing API created.",
     alertMessage: "Scheduled outgoing API created.",
@@ -213,9 +281,9 @@ const apiResourceTypes = {
   },
   outgoing_continuous: {
     title: "New Outgoing Continuous API",
-    description: "Register a continuous outbound API and store it in the continuous delivery registry.",
+    description: "Configure the destination URL, credentials, payload, and optional repeat interval for continuous outbound delivery.",
     authLabel: "Managed by destination configuration",
-    enabledCopy: "Start the stream immediately",
+    enabledCopy: "Enable this outbound delivery on create",
     submitLabel: "Create continuous API",
     successMessage: "Continuous outgoing API created.",
     alertMessage: "Continuous outgoing API created.",
@@ -233,12 +301,79 @@ const apiResourceTypes = {
   }
 };
 
+const createTypeOptions = [
+  {
+    id: "incoming",
+    buttonId: "apis-create-type-option-incoming",
+    title: "Incoming",
+    description: "Provision an authenticated inbound endpoint."
+  },
+  {
+    id: "outgoing_scheduled",
+    buttonId: "apis-create-type-option-outgoing-scheduled",
+    title: "Outgoing scheduled",
+    description: "Configure a timed outbound delivery."
+  },
+  {
+    id: "outgoing_continuous",
+    buttonId: "apis-create-type-option-outgoing-continuous",
+    title: "Outgoing continuous",
+    description: "Keep a continuous outbound stream ready."
+  },
+  {
+    id: "webhook",
+    buttonId: "apis-create-type-option-webhook",
+    title: "Webhook",
+    description: "Register a webhook callback definition."
+  }
+];
+
 const sanitizeSlug = (value) => value
   .trim()
   .toLowerCase()
   .replace(/[^a-z0-9-]+/g, "-")
   .replace(/-{2,}/g, "-")
   .replace(/^-|-$/g, "");
+
+const isOutgoingType = (type) => type === "outgoing_scheduled" || type === "outgoing_continuous";
+
+const titleCase = (value) => value
+  .split("_")
+  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+  .join(" ");
+
+const getScheduledStatus = (entry) => entry.status || (entry.enabled ? "active" : "paused");
+
+const getEntryStatusLabel = (entry) => {
+  if (entry.type === "outgoing_scheduled") {
+    return titleCase(getScheduledStatus(entry));
+  }
+
+  return entry.enabled ? "Enabled" : "Disabled";
+};
+
+const getEntryStatusTone = (entry) => {
+  if (entry.type === "outgoing_scheduled") {
+    return getScheduledStatus(entry) === "active" ? "status-badge--success" : "status-badge--muted";
+  }
+
+  return entry.enabled ? "status-badge--success" : "status-badge--muted";
+};
+
+const formatRate = (value) => value.toFixed(1);
+
+const formatIntervalMinutes = (value) => {
+  if (!value) {
+    return "Not set";
+  }
+
+  if (value % 60 === 0) {
+    const hours = value / 60;
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+
+  return `${value} ${value === 1 ? "minute" : "minutes"}`;
+};
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -315,6 +450,12 @@ const backendApi = {
       body: JSON.stringify(payload)
     });
   },
+  async testOutgoingDelivery(payload) {
+    return window.Malcom?.requestJson?.("/api/v1/apis/test-delivery", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
   async detail(apiId) {
     return window.Malcom?.requestJson?.(`/api/v1/inbound/${apiId}`);
   },
@@ -344,6 +485,81 @@ const syncSummary = () => {
   if (!hasOverviewElements()) {
     return;
   }
+};
+
+const closeOverviewTooltips = () => {
+  document.querySelectorAll(".api-tooltip-toggle[aria-controls]").forEach((toggle) => {
+    const tooltipId = toggle.getAttribute("aria-controls");
+    if (!tooltipId) {
+      return;
+    }
+
+    const tooltip = document.getElementById(tooltipId);
+    toggle.setAttribute("aria-expanded", "false");
+    if (tooltip) {
+      tooltip.hidden = true;
+    }
+  });
+};
+
+const bindOverviewTooltips = () => {
+  const toggles = document.querySelectorAll(".api-tooltip-toggle[aria-controls]");
+
+  if (toggles.length === 0) {
+    return;
+  }
+
+  toggles.forEach((toggle) => {
+    if (toggle.dataset.tooltipBound === "true") {
+      return;
+    }
+
+    toggle.dataset.tooltipBound = "true";
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const tooltipId = toggle.getAttribute("aria-controls");
+
+      if (!tooltipId) {
+        return;
+      }
+
+      const tooltip = document.getElementById(tooltipId);
+
+      if (!tooltip) {
+        return;
+      }
+
+      const shouldOpen = toggle.getAttribute("aria-expanded") !== "true";
+      closeOverviewTooltips();
+      toggle.setAttribute("aria-expanded", String(shouldOpen));
+      tooltip.hidden = !shouldOpen;
+    });
+  });
+
+  if (document.body.dataset.apiTooltipListenerBound === "true") {
+    return;
+  }
+
+  document.body.dataset.apiTooltipListenerBound = "true";
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      closeOverviewTooltips();
+      return;
+    }
+
+    if (!target.closest(".api-tooltip-toggle") && !target.closest(".api-tooltip-content")) {
+      closeOverviewTooltips();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeOverviewTooltips();
+    }
+  });
 };
 
 const renderTable = () => {
@@ -579,11 +795,122 @@ const syncModalBodyState = () => {
   );
 };
 
-const openCreateModal = () => {
+const syncCreateTypeTriggerState = (isExpanded) => {
+  const createOpenButton = getCreateOpenButton();
+
+  if (createOpenButton) {
+    createOpenButton.setAttribute("aria-expanded", String(isExpanded));
+  }
+};
+
+const ensureCreateTypePopover = () => {
+  const createOpenButton = getCreateOpenButton();
+
+  if (!createOpenButton || getCreateTypePopover()) {
+    return getCreateTypePopover();
+  }
+
+  const footer = createOpenButton.closest(".sidenav__footer");
+
+  if (!footer) {
+    return null;
+  }
+
+  const popover = document.createElement("div");
+  popover.id = "apis-create-type-popover";
+  popover.className = "api-create-popover";
+  popover.hidden = true;
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-modal", "false");
+  popover.setAttribute("aria-labelledby", "apis-create-type-popover-title");
+  popover.setAttribute("aria-describedby", "apis-create-type-popover-description");
+
+  const title = document.createElement("p");
+  title.id = "apis-create-type-popover-title";
+  title.className = "api-create-popover__title";
+  title.textContent = "Create API";
+
+  const description = document.createElement("p");
+  description.id = "apis-create-type-popover-description";
+  description.className = "api-create-popover__description";
+  description.textContent = "Choose a type to open the full create form.";
+
+  const optionList = document.createElement("div");
+  optionList.id = "apis-create-type-popover-options";
+  optionList.className = "api-create-popover__options";
+
+  createTypeOptions.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = option.buttonId;
+    button.className = "api-create-popover__option";
+    button.dataset.apiType = option.id;
+    button.innerHTML = `
+      <span id="${option.buttonId}-title" class="api-create-popover__option-title">${escapeHtml(option.title)}</span>
+      <span id="${option.buttonId}-description" class="api-create-popover__option-description">${escapeHtml(option.description)}</span>
+    `;
+    optionList.appendChild(button);
+  });
+
+  popover.append(title, description, optionList);
+  footer.appendChild(popover);
+  return popover;
+};
+
+const openCreateTypePopover = () => {
+  const popover = ensureCreateTypePopover();
+
+  if (!popover) {
+    openCreateModal("incoming");
+    return;
+  }
+
+  apiState.createTypeReturnFocusElement = getCreateOpenButton();
+  popover.hidden = false;
+  popover.classList.add("api-create-popover--open");
+  syncCreateTypeTriggerState(true);
+  const firstOption = popover.querySelector(".api-create-popover__option");
+
+  if (firstOption instanceof HTMLElement) {
+    firstOption.focus();
+  }
+};
+
+const closeCreateTypePopover = ({ restoreFocus = true } = {}) => {
+  const popover = getCreateTypePopover();
+
+  if (!popover) {
+    return;
+  }
+
+  popover.hidden = true;
+  popover.classList.remove("api-create-popover--open");
+  syncCreateTypeTriggerState(false);
+
+  if (restoreFocus && apiState.createTypeReturnFocusElement instanceof HTMLElement) {
+    apiState.createTypeReturnFocusElement.focus();
+  }
+};
+
+const setCreateModalType = (selectedType) => {
+  const nextType = apiResourceTypes[selectedType] ? selectedType : "incoming";
+  const typeInput = document.getElementById("create-api-type-input");
+
+  apiState.createModalType = nextType;
+
+  if (typeInput) {
+    typeInput.value = nextType;
+  }
+
+  syncCreateModalType(nextType);
+};
+
+const openCreateModal = (selectedType = apiState.createModalType) => {
   if (!apiElements.createModal) {
     return;
   }
 
+  setCreateModalType(selectedType);
   apiElements.createModal.classList.add("modal--open");
   apiElements.createModal.setAttribute("aria-hidden", "false");
   syncModalBodyState();
@@ -598,7 +925,7 @@ const closeCreateModal = () => {
   apiElements.createModal.setAttribute("aria-hidden", "true");
   syncModalBodyState();
 
-  const createOpenButton = getCreateOpenButton();
+  const createOpenButton = apiState.createTypeReturnFocusElement || getCreateOpenButton();
 
   if (createOpenButton) {
     createOpenButton.focus();
@@ -635,7 +962,32 @@ const bindModalEvents = () => {
       const openTarget = event.target.closest("#apis-create-button");
 
       if (openTarget) {
-        openCreateModal();
+        event.preventDefault();
+
+        if (getCreateTypePopover()?.hidden === false) {
+          closeCreateTypePopover();
+          return;
+        }
+
+        openCreateTypePopover();
+        return;
+      }
+
+      const typeTarget = event.target.closest(".api-create-popover__option");
+
+      if (typeTarget instanceof HTMLElement) {
+        const selectedType = typeTarget.dataset.apiType || "incoming";
+        apiState.createTypeReturnFocusElement = getCreateOpenButton();
+        closeCreateTypePopover({ restoreFocus: false });
+        openCreateModal(selectedType);
+        return;
+      }
+
+      if (
+        getCreateTypePopover()?.hidden === false
+        && !event.target.closest("#apis-create-type-popover")
+      ) {
+        closeCreateTypePopover({ restoreFocus: false });
       }
     });
 
@@ -674,6 +1026,11 @@ const bindModalEvents = () => {
 
     if (apiElements.createModal?.classList.contains("modal--open")) {
       closeCreateModal();
+      return;
+    }
+
+    if (getCreateTypePopover()?.hidden === false) {
+      closeCreateTypePopover();
     }
   });
 };
@@ -685,6 +1042,14 @@ const syncCreateModalType = (selectedType) => {
   const authInput = document.getElementById("create-api-auth-input");
   const enabledCopy = document.getElementById("create-api-enabled-copy");
   const submitButton = document.getElementById("create-api-submit-button");
+  const outgoingPanel = document.getElementById("create-api-outgoing-panel");
+  const scheduledTimeField = document.getElementById("create-api-scheduled-time-field");
+  const scheduledRepeatField = document.getElementById("create-api-scheduled-repeat-field");
+  const continuousRepeatField = document.getElementById("create-api-continuous-repeat-field");
+  const continuousIntervalValueField = document.getElementById("create-api-continuous-interval-value-field");
+  const continuousIntervalUnitField = document.getElementById("create-api-continuous-interval-unit-field");
+  const continuousRepeatInput = document.getElementById("create-api-continuous-repeat-input");
+  const showContinuousIntervalFields = selectedType === "outgoing_continuous" && Boolean(continuousRepeatInput?.checked);
 
   if (title) {
     title.textContent = config.title;
@@ -705,6 +1070,30 @@ const syncCreateModalType = (selectedType) => {
   if (submitButton) {
     submitButton.textContent = config.submitLabel;
   }
+
+  if (outgoingPanel) {
+    outgoingPanel.hidden = !isOutgoingType(selectedType);
+  }
+
+  if (scheduledTimeField) {
+    scheduledTimeField.hidden = selectedType !== "outgoing_scheduled";
+  }
+
+  if (scheduledRepeatField) {
+    scheduledRepeatField.hidden = selectedType !== "outgoing_scheduled";
+  }
+
+  if (continuousRepeatField) {
+    continuousRepeatField.hidden = selectedType !== "outgoing_continuous";
+  }
+
+  if (continuousIntervalValueField) {
+    continuousIntervalValueField.hidden = !showContinuousIntervalFields;
+  }
+
+  if (continuousIntervalUnitField) {
+    continuousIntervalUnitField.hidden = !showContinuousIntervalFields;
+  }
 };
 
 const navigateToResourcePage = (type) => {
@@ -717,18 +1106,248 @@ const navigateToResourcePage = (type) => {
 
 const bindCreateForm = () => {
   const form = document.getElementById("create-api-form");
+  const typeInput = document.getElementById("create-api-type-input");
   const nameInput = document.getElementById("create-api-name-input");
   const slugInput = document.getElementById("create-api-slug-input");
   const descriptionInput = document.getElementById("create-api-description-input");
   const enabledInput = document.getElementById("create-api-enabled-input");
   const feedback = document.getElementById("create-api-form-feedback");
-  const typeInputs = Array.from(document.querySelectorAll('input[name="resourceType"]'));
+  const destinationInput = document.getElementById("create-api-destination-input");
+  const methodInput = document.getElementById("create-api-method-input");
+  const scheduledTimeInput = document.getElementById("create-api-scheduled-time-input");
+  const scheduledRepeatInput = document.getElementById("create-api-scheduled-repeat-input");
+  const continuousRepeatInput = document.getElementById("create-api-continuous-repeat-input");
+  const continuousIntervalValueInput = document.getElementById("create-api-continuous-interval-value-input");
+  const continuousIntervalUnitInput = document.getElementById("create-api-continuous-interval-unit-input");
+  const outgoingAuthTypeInput = document.getElementById("create-api-outgoing-auth-type-input");
+  const authTokenInput = document.getElementById("create-api-auth-token-input");
+  const authUsernameInput = document.getElementById("create-api-auth-username-input");
+  const authPasswordInput = document.getElementById("create-api-auth-password-input");
+  const authHeaderNameInput = document.getElementById("create-api-auth-header-name-input");
+  const authHeaderValueInput = document.getElementById("create-api-auth-header-value-input");
+  const payloadTemplateInput = document.getElementById("create-api-payload-input");
+  const testButton = document.getElementById("create-api-test-button");
+  const testFeedback = document.getElementById("create-api-test-feedback");
 
-  if (!form || !nameInput || !slugInput || !descriptionInput || !enabledInput || !feedback || typeInputs.length === 0) {
+  if (!form || !typeInput || !nameInput || !slugInput || !descriptionInput || !enabledInput || !feedback) {
     return;
   }
 
-  const getSelectedType = () => typeInputs.find((input) => input.checked)?.value || "incoming";
+  const getSelectedType = () => typeInput.value || apiState.createModalType || "incoming";
+  const outgoingAuthFields = {
+    bearer: [document.getElementById("create-api-auth-token-field")],
+    basic: [
+      document.getElementById("create-api-auth-username-field"),
+      document.getElementById("create-api-auth-password-field")
+    ],
+    header: [
+      document.getElementById("create-api-auth-header-name-field"),
+      document.getElementById("create-api-auth-header-value-field")
+    ]
+  };
+
+  const setFormMessage = (element, message, tone) => {
+    if (!element) {
+      return;
+    }
+
+    element.textContent = message;
+    element.className = message
+      ? `api-form-feedback api-form-feedback--${tone}`
+      : "api-form-feedback";
+  };
+
+  const convertIntervalToMinutes = () => {
+    const intervalValue = Number.parseInt(continuousIntervalValueInput?.value || "", 10);
+    const intervalUnit = continuousIntervalUnitInput?.value || "minutes";
+
+    if (!Number.isFinite(intervalValue) || intervalValue <= 0) {
+      return null;
+    }
+
+    return intervalUnit === "hours" ? intervalValue * 60 : intervalValue;
+  };
+
+  const syncContinuousIntervalConstraints = () => {
+    if (!continuousIntervalValueInput) {
+      return;
+    }
+
+    const intervalUnit = continuousIntervalUnitInput?.value || "minutes";
+    continuousIntervalValueInput.min = "1";
+    continuousIntervalValueInput.max = intervalUnit === "hours" ? "168" : "10080";
+  };
+
+  const syncOutgoingAuthFields = () => {
+    const authType = outgoingAuthTypeInput?.value || "none";
+
+    Object.values(outgoingAuthFields).flat().forEach((field) => {
+      if (field) {
+        field.hidden = true;
+      }
+    });
+
+    (outgoingAuthFields[authType] || []).forEach((field) => {
+      if (field) {
+        field.hidden = false;
+      }
+    });
+  };
+
+  const syncOutgoingRepeatFields = () => {
+    const selectedType = getSelectedType();
+    const continuousIntervalValueField = document.getElementById("create-api-continuous-interval-value-field");
+    const continuousIntervalUnitField = document.getElementById("create-api-continuous-interval-unit-field");
+    const continuousRepeating = Boolean(continuousRepeatInput?.checked);
+
+    if (continuousIntervalValueField) {
+      continuousIntervalValueField.hidden = selectedType !== "outgoing_continuous" || !continuousRepeating;
+    }
+
+    if (continuousIntervalUnitField) {
+      continuousIntervalUnitField.hidden = selectedType !== "outgoing_continuous" || !continuousRepeating;
+    }
+  };
+
+  const buildOutgoingDraft = () => {
+    const selectedType = getSelectedType();
+
+    if (!isOutgoingType(selectedType)) {
+      return null;
+    }
+
+    const authType = outgoingAuthTypeInput?.value || "none";
+    const repeatEnabled = selectedType === "outgoing_scheduled"
+      ? Boolean(scheduledRepeatInput?.checked)
+      : Boolean(continuousRepeatInput?.checked);
+
+    return {
+      type: selectedType,
+      repeat_enabled: repeatEnabled,
+      repeat_interval_minutes: selectedType === "outgoing_continuous" && repeatEnabled ? convertIntervalToMinutes() : null,
+      destination_url: destinationInput?.value.trim() || "",
+      http_method: methodInput?.value || "POST",
+      auth_type: authType,
+      auth_config: {
+        token: authTokenInput?.value || "",
+        username: authUsernameInput?.value || "",
+        password: authPasswordInput?.value || "",
+        header_name: authHeaderNameInput?.value || "",
+        header_value: authHeaderValueInput?.value || ""
+      },
+      payload_template: payloadTemplateInput?.value.trim() || "",
+      scheduled_time: scheduledTimeInput?.value || ""
+    };
+  };
+
+  const validateDraft = (draft, { requireName = true } = {}) => {
+    if (requireName && (!draft.name || !draft.path_slug)) {
+      return "Name and path slug are required.";
+    }
+
+    if (!isOutgoingType(draft.type)) {
+      return "";
+    }
+
+    if (!draft.destination_url) {
+      return "Destination URL is required for outgoing APIs.";
+    }
+
+    if (!/^https?:\/\//i.test(draft.destination_url)) {
+      return "Destination URL must start with http:// or https://.";
+    }
+
+    if (!draft.payload_template) {
+      return "A JSON payload template is required for outgoing APIs.";
+    }
+
+    try {
+      JSON.parse(draft.payload_template);
+    } catch {
+      return "Payload template must be valid JSON.";
+    }
+
+    if (draft.type === "outgoing_scheduled" && !draft.scheduled_time) {
+      return "Choose a send time for the scheduled outgoing API.";
+    }
+
+    if (draft.type === "outgoing_continuous" && draft.repeat_enabled) {
+      if (!draft.repeat_interval_minutes) {
+        return "Choose a repeat interval for the continuous outgoing API.";
+      }
+
+      if (draft.repeat_interval_minutes < 1) {
+        return "Continuous repeat intervals must be at least 1 minute.";
+      }
+
+      if (draft.repeat_interval_minutes > 10080) {
+        return "Continuous repeat intervals cannot exceed 168 hours.";
+      }
+    }
+
+    if (draft.auth_type === "bearer" && !draft.auth_config.token) {
+      return "Enter a bearer token or switch destination auth to None.";
+    }
+
+    if (draft.auth_type === "basic" && (!draft.auth_config.username || !draft.auth_config.password)) {
+      return "Basic auth requires both a username and password.";
+    }
+
+    if (draft.auth_type === "header" && (!draft.auth_config.header_name || !draft.auth_config.header_value)) {
+      return "Custom header auth requires both a header name and value.";
+    }
+
+    return "";
+  };
+
+  const resetOutgoingFields = () => {
+    if (destinationInput) {
+      destinationInput.value = "";
+    }
+    if (methodInput) {
+      methodInput.value = "POST";
+    }
+    if (scheduledTimeInput) {
+      scheduledTimeInput.value = "09:00";
+    }
+    if (scheduledRepeatInput) {
+      scheduledRepeatInput.checked = false;
+    }
+    if (continuousRepeatInput) {
+      continuousRepeatInput.checked = false;
+    }
+    if (continuousIntervalValueInput) {
+      continuousIntervalValueInput.value = "5";
+    }
+    if (continuousIntervalUnitInput) {
+      continuousIntervalUnitInput.value = "minutes";
+    }
+    syncContinuousIntervalConstraints();
+    if (outgoingAuthTypeInput) {
+      outgoingAuthTypeInput.value = "none";
+    }
+    if (authTokenInput) {
+      authTokenInput.value = "";
+    }
+    if (authUsernameInput) {
+      authUsernameInput.value = "";
+    }
+    if (authPasswordInput) {
+      authPasswordInput.value = "";
+    }
+    if (authHeaderNameInput) {
+      authHeaderNameInput.value = "";
+    }
+    if (authHeaderValueInput) {
+      authHeaderValueInput.value = "";
+    }
+    if (payloadTemplateInput) {
+      payloadTemplateInput.value = '{ "event": "scheduled.delivery", "sent_at": "{{timestamp}}" }';
+    }
+    syncOutgoingAuthFields();
+    syncOutgoingRepeatFields();
+    setFormMessage(testFeedback, "", "info");
+  };
 
   nameInput.addEventListener("input", () => {
     if (!slugInput.dataset.userEdited) {
@@ -741,17 +1360,47 @@ const bindCreateForm = () => {
     slugInput.value = sanitizeSlug(slugInput.value);
   });
 
-  typeInputs.forEach((input) => {
-    input.addEventListener("change", () => {
-      syncCreateModalType(getSelectedType());
-    });
+  outgoingAuthTypeInput?.addEventListener("change", syncOutgoingAuthFields);
+  scheduledRepeatInput?.addEventListener("change", syncOutgoingRepeatFields);
+  continuousRepeatInput?.addEventListener("change", syncOutgoingRepeatFields);
+  continuousIntervalUnitInput?.addEventListener("change", syncContinuousIntervalConstraints);
+
+  testButton?.addEventListener("click", async () => {
+    const selectedType = getSelectedType();
+    if (!isOutgoingType(selectedType)) {
+      return;
+    }
+
+    const validationMessage = validateDraft(buildOutgoingDraft(), { requireName: false });
+
+    if (validationMessage) {
+      setFormMessage(testFeedback, validationMessage, "error");
+      return;
+    }
+
+    testButton.disabled = true;
+    setFormMessage(testFeedback, "Sending test payload...", "info");
+
+    try {
+      const result = await backendApi.testOutgoingDelivery(buildOutgoingDraft());
+      const responsePreview = result.response_body ? ` Response: ${result.response_body}` : "";
+      setFormMessage(testFeedback, `Test delivery returned ${result.status_code}.${responsePreview}`.trim(), result.ok ? "success" : "error");
+    } catch (error) {
+      const { message: errorMessage } = normalizeError(error);
+      setFormMessage(testFeedback, errorMessage, "error");
+    } finally {
+      testButton.disabled = false;
+    }
   });
 
+  syncOutgoingAuthFields();
   syncCreateModalType(getSelectedType());
+  syncContinuousIntervalConstraints();
+  syncOutgoingRepeatFields();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    feedback.textContent = "";
+    setFormMessage(feedback, "", "info");
     const selectedType = getSelectedType();
 
     const payload = {
@@ -762,9 +1411,14 @@ const bindCreateForm = () => {
       enabled: enabledInput.checked
     };
 
-    if (!payload.name || !payload.path_slug) {
-      feedback.textContent = "Name and path slug are required.";
-      feedback.className = "api-form-feedback api-form-feedback--error";
+    if (isOutgoingType(selectedType)) {
+      Object.assign(payload, buildOutgoingDraft());
+    }
+
+    const validationMessage = validateDraft(payload);
+
+    if (validationMessage) {
+      setFormMessage(feedback, validationMessage, "error");
       return;
     }
 
@@ -793,10 +1447,9 @@ const bindCreateForm = () => {
       form.reset();
       enabledInput.checked = true;
       delete slugInput.dataset.userEdited;
-      typeInputs[0].checked = true;
-      syncCreateModalType("incoming");
-      feedback.textContent = apiResourceTypes[selectedType].successMessage;
-      feedback.className = "api-form-feedback api-form-feedback--success";
+      resetOutgoingFields();
+      setCreateModalType("incoming");
+      setFormMessage(feedback, apiResourceTypes[selectedType].successMessage, "success");
       closeCreateModal();
       setAlert(apiResourceTypes[selectedType].alertMessage, "success");
       emitApiLog({
@@ -816,8 +1469,7 @@ const bindCreateForm = () => {
     } catch (error) {
       const { message: errorMessage, stack: errorStack } = normalizeError(error);
       console.error(`Failed to create ${selectedType}`, error);
-      feedback.textContent = errorMessage;
-      feedback.className = "api-form-feedback api-form-feedback--error";
+      setFormMessage(feedback, errorMessage, "error");
       emitApiLog({
         level: "error",
         action: `${selectedType}_create_failed`,
@@ -849,6 +1501,36 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
   const fragment = document.createDocumentFragment();
 
   entries.forEach((entry, index) => {
+    const metadataItems = [];
+
+    if (entry.type.startsWith("outgoing")) {
+      metadataItems.push(
+        { label: "Destination", value: entry.destination_url || "Not configured" },
+        { label: "Method", value: entry.http_method || "POST" },
+        { label: "Auth", value: titleCase(entry.auth_type || "none") }
+      );
+
+      if (entry.type === "outgoing_scheduled") {
+        metadataItems.push({ label: "Send time", value: entry.scheduled_time || "Not set" });
+        metadataItems.push({ label: "Delivery policy", value: entry.repeat_enabled ? "Repeats daily" : "One-time send, auto-disable after delivery" });
+      }
+
+      if (entry.type === "outgoing_continuous") {
+        metadataItems.push({
+          label: "Delivery policy",
+          value: entry.repeat_enabled
+            ? `Repeats every ${formatIntervalMinutes(entry.repeat_interval_minutes)}`
+            : "One-time send, auto-disable after delivery"
+        });
+      }
+    } else {
+      metadataItems.push(
+        { label: "Type", value: entry.type },
+        { label: "Row slug", value: entry.path_slug },
+        { label: "Created", value: formatDateTime(entry.created_at) }
+      );
+    }
+
     const card = document.createElement("article");
     card.id = `${sectionIdPrefix}-card-${entry.id}`;
     card.className = "resource-card";
@@ -858,21 +1540,15 @@ const renderResourceList = (container, emptyState, entries, sectionIdPrefix) => 
           <h4 id="${sectionIdPrefix}-title-${entry.id}" class="resource-card__title">${escapeHtml(entry.name)}</h4>
           <p id="${sectionIdPrefix}-description-${entry.id}" class="resource-card__description">${escapeHtml(entry.description || "No description provided.")}</p>
         </div>
-        <span id="${sectionIdPrefix}-status-${entry.id}" class="status-badge ${entry.enabled ? "status-badge--success" : "status-badge--muted"}">${entry.enabled ? "Enabled" : "Disabled"}</span>
+        <span id="${sectionIdPrefix}-status-${entry.id}" class="status-badge ${getEntryStatusTone(entry)}">${escapeHtml(getEntryStatusLabel(entry))}</span>
       </div>
       <div id="${sectionIdPrefix}-meta-${entry.id}" class="resource-card__meta">
-        <div id="${sectionIdPrefix}-meta-type-${index}" class="resource-card__meta-item">
-          <span id="${sectionIdPrefix}-meta-type-label-${index}" class="resource-card__meta-label">Type</span>
-          <span id="${sectionIdPrefix}-meta-type-value-${index}" class="resource-card__meta-value">${escapeHtml(entry.type)}</span>
-        </div>
-        <div id="${sectionIdPrefix}-meta-path-${index}" class="resource-card__meta-item">
-          <span id="${sectionIdPrefix}-meta-path-label-${index}" class="resource-card__meta-label">Row slug</span>
-          <span id="${sectionIdPrefix}-meta-path-value-${index}" class="resource-card__meta-value">${escapeHtml(entry.path_slug)}</span>
-        </div>
-        <div id="${sectionIdPrefix}-meta-created-${index}" class="resource-card__meta-item">
-          <span id="${sectionIdPrefix}-meta-created-label-${index}" class="resource-card__meta-label">Created</span>
-          <span id="${sectionIdPrefix}-meta-created-value-${index}" class="resource-card__meta-value">${escapeHtml(formatDateTime(entry.created_at))}</span>
-        </div>
+        ${metadataItems.map((item, metaIndex) => `
+          <div id="${sectionIdPrefix}-meta-${metaIndex}-${index}" class="resource-card__meta-item">
+            <span id="${sectionIdPrefix}-meta-label-${metaIndex}-${index}" class="resource-card__meta-label">${escapeHtml(item.label)}</span>
+            <span id="${sectionIdPrefix}-meta-value-${metaIndex}-${index}" class="resource-card__meta-value">${escapeHtml(item.value)}</span>
+          </div>
+        `).join("")}
       </div>
     `;
     fragment.appendChild(card);
@@ -905,7 +1581,7 @@ const renderOverviewIncomingList = (entries) => {
           <h4 id="apis-overview-incoming-title-${entry.id}" class="resource-card__title">${escapeHtml(entry.name)}</h4>
           <p id="apis-overview-incoming-copy-text-${entry.id}" class="resource-card__description">${escapeHtml(entry.description || "No description provided.")}</p>
         </div>
-        <span id="apis-overview-incoming-status-${entry.id}" class="status-badge ${entry.enabled ? "status-badge--success" : "status-badge--muted"}">${entry.enabled ? "Enabled" : "Disabled"}</span>
+        <span id="apis-overview-incoming-status-${entry.id}" class="status-badge ${getEntryStatusTone(entry)}">${escapeHtml(getEntryStatusLabel(entry))}</span>
       </div>
       <div id="apis-overview-incoming-meta-${entry.id}" class="resource-card__meta">
         <div id="apis-overview-incoming-meta-endpoint-${entry.id}" class="resource-card__meta-item">
@@ -928,19 +1604,36 @@ const renderOverviewIncomingList = (entries) => {
   apiElements.overviewIncomingList.appendChild(fragment);
 };
 
-const syncOverviewLandingSummary = ({ incomingEntries, outgoingEntries, webhookEntries }) => {
+const syncOverviewLandingSummary = ({
+  incomingEntries,
+  scheduledEntries,
+  continuousEntries,
+  webhookEntries
+}) => {
   if (!hasOverviewLandingElements()) {
     return;
   }
 
-  const totalCount = incomingEntries.length + outgoingEntries.length + webhookEntries.length;
+  const totalCount = incomingEntries.length + scheduledEntries.length + continuousEntries.length + webhookEntries.length;
+  const activeScheduledCalls = scheduledEntries.filter((entry) => getScheduledStatus(entry) === "active").length;
+  const scheduledRepeatsPerHour = scheduledEntries
+    .filter((entry) => getScheduledStatus(entry) === "active" && entry.repeat_enabled)
+    .length / 24;
+  const continuousRepeatsPerHour = continuousEntries
+    .filter((entry) => entry.enabled && entry.repeat_enabled && entry.repeat_interval_minutes)
+    .reduce((sum, entry) => sum + (60 / entry.repeat_interval_minutes), 0);
+  const monitoredWebhooks = webhookEntries.filter((entry) => entry.enabled).length;
+  const callsPerHour = scheduledRepeatsPerHour + continuousRepeatsPerHour;
+  const callsPerDay = callsPerHour * 24;
+
   apiElements.overviewTotalCount.textContent = `${totalCount} configured APIs`;
   apiElements.overviewHelper.textContent = totalCount > 0
-    ? "Open any registry below to review the full configured API inventory."
+    ? "Across inbound, outbound, and webhook monitoring surfaces."
     : "Create an API to add it to the incoming, outgoing, or webhook registry.";
-  apiElements.overviewIncomingCount.textContent = String(incomingEntries.length);
-  apiElements.overviewOutgoingCount.textContent = String(outgoingEntries.length);
-  apiElements.overviewWebhooksCount.textContent = String(webhookEntries.length);
+  apiElements.overviewScheduledActiveCount.textContent = String(activeScheduledCalls);
+  apiElements.overviewCallsPerHour.textContent = formatRate(callsPerHour);
+  apiElements.overviewCallsPerDay.textContent = formatRate(callsPerDay);
+  apiElements.overviewMonitoredWebhooksCount.textContent = String(monitoredWebhooks);
 };
 
 const loadOverviewLanding = async () => {
@@ -957,7 +1650,11 @@ const loadOverviewLanding = async () => {
 
   const sortedIncomingEntries = [...incomingEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
-  const outgoingEntries = [...scheduledEntries, ...continuousEntries]
+  const sortedScheduledEntries = [...scheduledEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  const sortedContinuousEntries = [...continuousEntries]
+    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  const outgoingEntries = [...sortedScheduledEntries, ...sortedContinuousEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
   const sortedWebhookEntries = [...webhookEntries]
     .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
@@ -967,7 +1664,8 @@ const loadOverviewLanding = async () => {
   renderResourceList(apiElements.overviewWebhooksList, apiElements.overviewWebhooksEmpty, sortedWebhookEntries, "apis-overview-webhooks-list");
   syncOverviewLandingSummary({
     incomingEntries: sortedIncomingEntries,
-    outgoingEntries,
+    scheduledEntries: sortedScheduledEntries,
+    continuousEntries: sortedContinuousEntries,
     webhookEntries: sortedWebhookEntries
   });
   setAlert("", "info");
@@ -1112,7 +1810,9 @@ const initCreateModal = async () => {
     return;
   }
 
+  ensureCreateTypePopover();
   await initModalMarkup();
+  setCreateModalType(apiState.createModalType);
 };
 
 const initApiOverview = async () => {
@@ -1192,6 +1892,7 @@ const initWebhookRegistry = async () => {
 const initApiPage = async () => {
   await initCreateModal();
   if (hasOverviewLandingElements()) {
+    bindOverviewTooltips();
     try {
       await loadOverviewLanding();
     } catch (error) {

@@ -121,7 +121,7 @@ const quickLinks: DashboardQuickLink[] = [
   {
     id: "runs",
     label: "Runs",
-    href: "#/logs",
+    href: "../dashboard/logs.html",
     count: 4
   },
   {

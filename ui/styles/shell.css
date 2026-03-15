@@ -219,6 +219,7 @@
 }
 
 .sidenav__footer {
+  position: relative;
   margin-top: auto;
   padding: var(--space-4);
   border-top: 1px solid var(--border);
@@ -226,6 +227,88 @@
 
 .sidenav__action-button {
   width: 100%;
+}
+
+.api-create-popover {
+  position: absolute;
+  left: calc(100% + 12px);
+  bottom: 16px;
+  width: 300px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  z-index: 20;
+}
+
+.api-create-popover::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  bottom: 28px;
+  width: 16px;
+  height: 16px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  transform: rotate(45deg);
+}
+
+.api-create-popover__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.api-create-popover__description {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.api-create-popover__options {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.api-create-popover__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.api-create-popover__option:hover {
+  border-color: var(--primary-soft);
+  background: var(--surface);
+}
+
+.api-create-popover__option:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+.api-create-popover__option-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.api-create-popover__option-description {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 body.sidebar-collapsed .sidenav__header {
@@ -272,6 +355,23 @@ body.sidebar-collapsed .sidenav__collapse-icon::before {
   .sidenav__footer {
     border-top: none;
     padding-top: 0;
+  }
+
+  .api-create-popover {
+    left: auto;
+    right: 0;
+    bottom: calc(100% + 12px);
+    width: min(320px, calc(100vw - 32px));
+  }
+
+  .api-create-popover::before {
+    left: auto;
+    right: 24px;
+    bottom: -8px;
+    border-left: 0;
+    border-bottom: 0;
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
   }
 
   .topnav__inner {

@@ -187,6 +187,21 @@
   margin: 20px 0 0;
 }
 
+.dashboard-report-builder-card {
+  padding: 20px;
+}
+
+.dashboard-report-builder-card__metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 20px 0 0;
+}
+
+.dashboard-report-builder-card__metadata dd {
+  margin: 4px 0 0;
+}
+
 .dashboard-host-card__metadata dd {
   margin: 4px 0 0;
 }
@@ -200,7 +215,8 @@
   .dashboard-log-filters,
   .dashboard-service-grid,
   .dashboard-quick-links-grid,
-  .dashboard-host-card__metadata {
+  .dashboard-host-card__metadata,
+  .dashboard-report-builder-card__metadata {
     grid-template-columns: 1fr;
   }
 

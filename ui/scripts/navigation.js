@@ -25,6 +25,34 @@ const createElement = (tagName, attributes = {}, textContent = "") => {
 
 const getShellPathPrefix = () => document.body?.dataset.shellPathPrefix || "";
 
+const getDashboardHashRoute = () => {
+  const currentHash = window.location.hash || "";
+  return currentHash.startsWith("#/") ? currentHash.slice(1) : "";
+};
+
+const getDashboardItemRoute = (item) => {
+  if (!item?.href?.startsWith("dashboard/")) {
+    return null;
+  }
+
+  const [, pageName] = item.href.split("dashboard/");
+  return `/${pageName.replace(/\.html$/, "")}`;
+};
+
+const getNavItemHref = (sectionId, pathPrefix, item) => {
+  if (sectionId !== "dashboard") {
+    return resolveShellHref(pathPrefix, item.href);
+  }
+
+  const route = getDashboardItemRoute(item);
+
+  if (!route) {
+    return resolveShellHref(pathPrefix, item.href);
+  }
+
+  return `#${route}`;
+};
+
 const getTopNavActiveId = () => {
   const section = document.body?.dataset.section;
   const activeItem = topNavItems.find((item) => item.section === section);
@@ -32,8 +60,18 @@ const getTopNavActiveId = () => {
 };
 
 const getActiveSideNavItem = (items, fallbackItemId) => {
+  const section = document.body?.dataset.section;
   const currentHash = window.location.hash;
   const currentPath = `${window.location.pathname}${currentHash}`;
+
+  if (section === "dashboard") {
+    const currentRoute = getDashboardHashRoute() || document.body?.dataset.dashboardRoute || "/overview";
+    const matchedDashboardItem = items.find((item) => getDashboardItemRoute(item) === currentRoute);
+
+    if (matchedDashboardItem) {
+      return matchedDashboardItem.id;
+    }
+  }
 
   const matchedItem = items.find((item) => currentPath.endsWith(item.href) || currentHash && item.href.endsWith(currentHash));
 
@@ -197,7 +235,7 @@ const renderSideNav = () => {
       {
         className: "sidenav__link",
         id: item.id,
-        href: resolveShellHref(pathPrefix, item.href)
+        href: getNavItemHref(sectionConfig.id, pathPrefix, item)
       },
       item.label
     );

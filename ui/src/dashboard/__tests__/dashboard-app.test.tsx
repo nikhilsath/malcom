@@ -34,6 +34,7 @@ describe("DashboardApp", () => {
 
     expect(screen.getByText("No host inventory loaded")).toBeInTheDocument();
     expect(screen.getByText("No endpoints loaded")).toBeInTheDocument();
+    expect(document.querySelector("#dashboard-devices-summary-card")).not.toBeInTheDocument();
   });
 
   it("defaults to developer mode off when unset", async () => {
@@ -88,5 +89,7 @@ describe("DashboardApp", () => {
     });
 
     expect(screen.getByText("Detailed log filters")).toBeInTheDocument();
+    expect(screen.getByText("Log report builder")).toBeInTheDocument();
+    expect(screen.getByText("Grafana")).toBeInTheDocument();
   });
 });

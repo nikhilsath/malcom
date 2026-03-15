@@ -11,6 +11,11 @@ window.TOOLS_MANIFEST = Object.freeze(
     "description": "Convert video files into delivery-ready formats for automation pipelines."
   },
   {
+    "id": "grafana",
+    "name": "Grafana",
+    "description": "Open-source dashboards and reporting for operational logs, with room to wire retained events into richer incident and trend reports."
+  },
+  {
     "id": "llm-deepl",
     "name": "LLM - DeepL",
     "description": "Translate and rewrite content through DeepL-backed language model workflows."

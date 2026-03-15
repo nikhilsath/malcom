@@ -2,12 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=overview.html#/devices">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - Redirecting</title>
+    <title>Malcom - Dashboard Devices</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body id="redirect-dashboard-devices">
-    <p id="redirect-dashboard-devices-copy">Redirecting to <a id="redirect-dashboard-devices-link" href="overview.html#/devices">Dashboard Devices</a>.</p>
+<body id="dashboard-devices-body" class="app-shell" data-section="dashboard" data-sidenav-item="sidenav-dashboard-devices" data-shell-path-prefix="../" data-dashboard-route="/devices">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <div id="dashboard-react-root"></div>
+    <script src="../scripts/utils.js"></script>
+    <script src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/dashboard/main.tsx"></script>
 </body>
 </html>

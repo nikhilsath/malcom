@@ -6,6 +6,9 @@ import hmac
 import json
 import secrets
 import sqlite3
+import urllib.error
+import urllib.parse
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -185,10 +188,11 @@ def seed_developer_mock_data(connection: sqlite3.Connection) -> None:
             path_slug,
             is_mock,
             enabled,
+            status,
             schedule_expression,
             created_at,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             "scheduled_demo_push",
@@ -197,6 +201,7 @@ def seed_developer_mock_data(connection: sqlite3.Connection) -> None:
             "scheduled-demo-push",
             1,
             1,
+            "active",
             "0 * * * *",
             now,
             now,
@@ -315,7 +320,17 @@ def row_to_simple_api_resource(
         "enabled": bool(row["enabled"]),
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+        "status": row["status"] if "status" in row.keys() else None,
         "endpoint_path": endpoint_path,
+        "destination_url": row["destination_url"] if "destination_url" in row.keys() else None,
+        "http_method": row["http_method"] if "http_method" in row.keys() else None,
+        "auth_type": row["auth_type"] if "auth_type" in row.keys() else None,
+        "repeat_enabled": bool(row["repeat_enabled"]) if "repeat_enabled" in row.keys() else None,
+        "repeat_interval_minutes": row["repeat_interval_minutes"] if "repeat_interval_minutes" in row.keys() else None,
+        "payload_template": row["payload_template"] if "payload_template" in row.keys() else None,
+        "scheduled_time": row["scheduled_time"] if "scheduled_time" in row.keys() else None,
+        "schedule_expression": row["schedule_expression"] if "schedule_expression" in row.keys() else None,
+        "stream_mode": row["stream_mode"] if "stream_mode" in row.keys() else None,
     }
 
 
@@ -400,12 +415,45 @@ class InboundApiUpdate(BaseModel):
     enabled: bool | None = None
 
 
+class OutgoingAuthConfig(BaseModel):
+    token: str | None = Field(default=None, max_length=500)
+    username: str | None = Field(default=None, max_length=120)
+    password: str | None = Field(default=None, max_length=500)
+    header_name: str | None = Field(default=None, max_length=120)
+    header_value: str | None = Field(default=None, max_length=500)
+
+
 class ApiResourceCreate(BaseModel):
     type: str = Field(pattern=r"^(incoming|outgoing_scheduled|outgoing_continuous|webhook)$")
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(default="", max_length=500)
     path_slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     enabled: bool = True
+    repeat_enabled: bool = False
+    repeat_interval_minutes: int | None = Field(default=None, ge=1, le=10080)
+    destination_url: str | None = Field(default=None, max_length=2000)
+    http_method: str | None = Field(default=None, pattern=r"^(GET|POST|PUT|PATCH|DELETE)$")
+    auth_type: str | None = Field(default=None, pattern=r"^(none|bearer|basic|header)$")
+    auth_config: OutgoingAuthConfig | None = None
+    payload_template: str | None = Field(default=None, max_length=10000)
+    scheduled_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+class OutgoingApiTestRequest(BaseModel):
+    type: str = Field(pattern=r"^outgoing_(scheduled|continuous)$")
+    destination_url: str = Field(min_length=1, max_length=2000)
+    http_method: str = Field(pattern=r"^(GET|POST|PUT|PATCH|DELETE)$")
+    auth_type: str = Field(default="none", pattern=r"^(none|bearer|basic|header)$")
+    auth_config: OutgoingAuthConfig | None = None
+    payload_template: str = Field(default="{}", max_length=10000)
+
+
+class OutgoingApiTestResponse(BaseModel):
+    ok: bool
+    status_code: int
+    response_body: str
+    sent_headers: dict[str, str]
+    destination_url: str
 
 
 class ApiResourceResponse(BaseModel):
@@ -417,9 +465,19 @@ class ApiResourceResponse(BaseModel):
     enabled: bool
     created_at: str
     updated_at: str
+    status: str | None = None
     endpoint_path: str | None = None
     endpoint_url: str | None = None
     secret: str | None = None
+    destination_url: str | None = None
+    http_method: str | None = None
+    auth_type: str | None = None
+    repeat_enabled: bool | None = None
+    repeat_interval_minutes: int | None = None
+    payload_template: str | None = None
+    scheduled_time: str | None = None
+    schedule_expression: str | None = None
+    stream_mode: str | None = None
 
 
 class InboundReceiveAccepted(BaseModel):
@@ -571,11 +629,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/assets", StaticFiles(directory=str(get_ui_dist_dir(get_project_root()) / "assets"), check_dir=False), name="ui-assets")
-app.mount("/scripts", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "scripts"), check_dir=False), name="ui-scripts")
-app.mount("/modals", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "modals"), check_dir=False), name="ui-modals")
-
-
 UI_HTML_ROUTES = {
     "/": "index.html",
     "/index.html": "index.html",
@@ -591,10 +644,15 @@ UI_HTML_ROUTES = {
     "/apis/incoming.html": "apis/incoming.html",
     "/apis/outgoing.html": "apis/outgoing.html",
     "/apis/webhooks.html": "apis/webhooks.html",
+    "/apis/automation.html": "apis/automation.html",
     "/tools/overview.html": "tools/overview.html",
     "/tools/sftp.html": "tools/sftp.html",
     "/tools/storage.html": "tools/storage.html",
+    "/scripts.html": "scripts.html",
+    "/scripts/library.html": "scripts/library.html",
     "/dashboard/overview.html": "dashboard/overview.html",
+    "/dashboard/devices.html": "dashboard/devices.html",
+    "/dashboard/logs.html": "dashboard/logs.html",
 }
 
 
@@ -650,6 +708,12 @@ def redirect_tools_root() -> RedirectResponse:
     return RedirectResponse(url="/tools/overview.html")
 
 
+@app.get("/scripts")
+@app.get("/scripts/")
+def redirect_scripts_root() -> RedirectResponse:
+    return RedirectResponse(url="/scripts.html")
+
+
 for route_path, relative_path in UI_HTML_ROUTES.items():
     app.add_api_route(
         route_path,
@@ -657,6 +721,11 @@ for route_path, relative_path in UI_HTML_ROUTES.items():
         methods=["GET"],
         include_in_schema=False,
     )
+
+
+app.mount("/assets", StaticFiles(directory=str(get_ui_dist_dir(get_project_root()) / "assets"), check_dir=False), name="ui-assets")
+app.mount("/scripts", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "scripts"), check_dir=False), name="ui-scripts")
+app.mount("/modals", StaticFiles(directory=str(get_ui_dir(get_project_root()) / "modals"), check_dir=False), name="ui-modals")
 
 
 def get_connection(request: Request) -> sqlite3.Connection:
@@ -749,6 +818,133 @@ def get_resource_config(resource_type: str) -> dict[str, str]:
         },
     }
     return configs[resource_type]
+
+
+def build_schedule_expression(scheduled_time: str) -> str:
+    hour, minute = scheduled_time.split(":")
+    return f"{int(minute)} {int(hour)} * * *"
+
+
+def validate_outgoing_resource_payload(payload: ApiResourceCreate) -> None:
+    if payload.type not in {"outgoing_scheduled", "outgoing_continuous"}:
+        return
+
+    if not payload.destination_url:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Destination URL is required.")
+
+    parsed_url = urllib.parse.urlparse(payload.destination_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Destination URL must be a valid http or https URL.")
+
+    if not payload.http_method:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="HTTP method is required.")
+
+    if payload.payload_template is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload template is required.")
+
+    try:
+        json.loads(payload.payload_template)
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Payload template must be valid JSON: {error.msg}.") from error
+
+    auth_type = payload.auth_type or "none"
+    auth_config = payload.auth_config or OutgoingAuthConfig()
+
+    if auth_type == "bearer" and not auth_config.token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Bearer authentication requires a token.")
+    if auth_type == "basic" and (not auth_config.username or not auth_config.password):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Basic authentication requires a username and password.")
+    if auth_type == "header" and (not auth_config.header_name or not auth_config.header_value):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Header authentication requires a header name and value.")
+
+    if payload.type == "outgoing_scheduled" and not payload.scheduled_time:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Scheduled outgoing APIs require a send time.")
+
+    if payload.type == "outgoing_scheduled" and payload.repeat_interval_minutes is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Scheduled outgoing APIs do not use repeat intervals.")
+
+    if payload.type == "outgoing_continuous":
+        if payload.repeat_enabled and payload.repeat_interval_minutes is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Continuous outgoing APIs require an interval when repeating is enabled.")
+        if not payload.repeat_enabled and payload.repeat_interval_minutes is not None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Set repeating on continuous outgoing APIs before providing an interval.")
+
+
+def build_outgoing_request_headers(
+    auth_type: str,
+    auth_config: OutgoingAuthConfig | None,
+) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    config = auth_config or OutgoingAuthConfig()
+
+    if auth_type == "bearer" and config.token:
+        headers["Authorization"] = f"Bearer {config.token}"
+    elif auth_type == "basic" and config.username and config.password:
+        encoded = base64.b64encode(f"{config.username}:{config.password}".encode("utf-8")).decode("ascii")
+        headers["Authorization"] = f"Basic {encoded}"
+    elif auth_type == "header" and config.header_name and config.header_value:
+        headers[config.header_name] = config.header_value
+
+    return headers
+
+
+def redact_outgoing_request_headers(headers: dict[str, str]) -> dict[str, str]:
+    redacted_headers: dict[str, str] = {}
+
+    for key, value in headers.items():
+        if key.lower() == "authorization":
+            if value.startswith("Bearer "):
+                redacted_headers[key] = "Bearer [redacted]"
+            elif value.startswith("Basic "):
+                redacted_headers[key] = "Basic [redacted]"
+            else:
+                redacted_headers[key] = "[redacted]"
+            continue
+
+        redacted_headers[key] = "[redacted]" if key.lower() != "content-type" else value
+
+    return redacted_headers
+
+
+def execute_outgoing_test_delivery(payload: OutgoingApiTestRequest) -> OutgoingApiTestResponse:
+    try:
+        parsed_payload = json.loads(payload.payload_template)
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Payload template must be valid JSON: {error.msg}.") from error
+
+    parsed_url = urllib.parse.urlparse(payload.destination_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Destination URL must be a valid http or https URL.")
+
+    headers = build_outgoing_request_headers(payload.auth_type, payload.auth_config)
+    request = urllib.request.Request(
+        payload.destination_url,
+        data=json.dumps(parsed_payload).encode("utf-8"),
+        headers=headers,
+        method=payload.http_method,
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+            return OutgoingApiTestResponse(
+                ok=200 <= response.status < 300,
+                status_code=response.status,
+                response_body=response_body[:2000],
+                sent_headers=redact_outgoing_request_headers(headers),
+                destination_url=payload.destination_url,
+            )
+    except urllib.error.HTTPError as error:
+        response_body = error.read().decode("utf-8", errors="replace")
+        return OutgoingApiTestResponse(
+            ok=False,
+            status_code=error.code,
+            response_body=response_body[:2000],
+            sent_headers=redact_outgoing_request_headers(headers),
+            destination_url=payload.destination_url,
+        )
+    except urllib.error.URLError as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Unable to reach destination URL: {error.reason}.") from error
 
 
 def log_event(
@@ -1043,7 +1239,8 @@ def list_outgoing_scheduled_apis(request: Request) -> list[ApiResourceResponse]:
     rows = fetch_all(
         connection,
         """
-        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        SELECT id, name, description, path_slug, enabled, repeat_enabled, destination_url, http_method, auth_type,
+               payload_template, scheduled_time, schedule_expression, status, created_at, updated_at
         FROM outgoing_scheduled_apis
         WHERE (? = 1 OR is_mock = 0)
         ORDER BY created_at DESC
@@ -1063,7 +1260,8 @@ def list_outgoing_continuous_apis(request: Request) -> list[ApiResourceResponse]
     rows = fetch_all(
         connection,
         """
-        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        SELECT id, name, description, path_slug, enabled, repeat_enabled, repeat_interval_minutes, destination_url, http_method, auth_type,
+               payload_template, stream_mode, created_at, updated_at
         FROM outgoing_continuous_apis
         WHERE (? = 1 OR is_mock = 0)
         ORDER BY created_at DESC
@@ -1102,6 +1300,7 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
     now = utc_now_iso()
     config = get_resource_config(payload.type)
     api_id = payload.path_slug.replace("-", "_") + "_" + uuid4().hex[:6]
+    validate_outgoing_resource_payload(payload)
 
     try:
         if payload.type == "incoming":
@@ -1144,10 +1343,18 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
                     path_slug,
                     is_mock,
                     enabled,
+                    status,
+                    repeat_enabled,
+                    destination_url,
+                    http_method,
+                    auth_type,
+                    auth_config_json,
+                    payload_template,
+                    scheduled_time,
                     schedule_expression,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     api_id,
@@ -1156,7 +1363,15 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
                     payload.path_slug,
                     0,
                     int(payload.enabled),
-                    "0 * * * *",
+                    "active" if payload.enabled else "paused",
+                    int(payload.repeat_enabled),
+                    payload.destination_url,
+                    payload.http_method,
+                    payload.auth_type or "none",
+                    json.dumps((payload.auth_config or OutgoingAuthConfig()).model_dump()),
+                    payload.payload_template,
+                    payload.scheduled_time,
+                    build_schedule_expression(payload.scheduled_time or "09:00"),
                     now,
                     now,
                 ),
@@ -1171,10 +1386,17 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
                     path_slug,
                     is_mock,
                     enabled,
+                    repeat_enabled,
+                    repeat_interval_minutes,
+                    destination_url,
+                    http_method,
+                    auth_type,
+                    auth_config_json,
+                    payload_template,
                     stream_mode,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     api_id,
@@ -1183,6 +1405,13 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
                     payload.path_slug,
                     0,
                     int(payload.enabled),
+                    int(payload.repeat_enabled),
+                    payload.repeat_interval_minutes,
+                    payload.destination_url,
+                    payload.http_method,
+                    payload.auth_type or "none",
+                    json.dumps((payload.auth_config or OutgoingAuthConfig()).model_dump()),
+                    payload.payload_template,
                     "continuous",
                     now,
                     now,
@@ -1222,7 +1451,7 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
     row = fetch_one(
         connection,
         f"""
-        SELECT id, name, description, path_slug, enabled, created_at, updated_at
+        SELECT *
         FROM {config['table']}
         WHERE id = ?
         """,
@@ -1237,6 +1466,11 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
         resource["secret"] = secret
 
     return ApiResourceResponse(**resource)
+
+
+@app.post("/api/v1/apis/test-delivery", response_model=OutgoingApiTestResponse)
+def test_outgoing_api_delivery(payload: OutgoingApiTestRequest) -> OutgoingApiTestResponse:
+    return execute_outgoing_test_delivery(payload)
 
 
 @app.get("/api/v1/inbound/{api_id}", response_model=InboundApiDetail)

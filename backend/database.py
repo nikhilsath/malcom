@@ -52,6 +52,14 @@ def initialize(connection: sqlite3.Connection) -> None:
             path_slug TEXT NOT NULL UNIQUE,
             is_mock INTEGER NOT NULL DEFAULT 0,
             enabled INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'active',
+            repeat_enabled INTEGER NOT NULL DEFAULT 0,
+            destination_url TEXT NOT NULL DEFAULT '',
+            http_method TEXT NOT NULL DEFAULT 'POST',
+            auth_type TEXT NOT NULL DEFAULT 'none',
+            auth_config_json TEXT NOT NULL DEFAULT '{}',
+            payload_template TEXT NOT NULL DEFAULT '{}',
+            scheduled_time TEXT NOT NULL DEFAULT '09:00',
             schedule_expression TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -64,6 +72,13 @@ def initialize(connection: sqlite3.Connection) -> None:
             path_slug TEXT NOT NULL UNIQUE,
             is_mock INTEGER NOT NULL DEFAULT 0,
             enabled INTEGER NOT NULL DEFAULT 1,
+            repeat_enabled INTEGER NOT NULL DEFAULT 0,
+            repeat_interval_minutes INTEGER,
+            destination_url TEXT NOT NULL DEFAULT '',
+            http_method TEXT NOT NULL DEFAULT 'POST',
+            auth_type TEXT NOT NULL DEFAULT 'none',
+            auth_config_json TEXT NOT NULL DEFAULT '{}',
+            payload_template TEXT NOT NULL DEFAULT '{}',
             stream_mode TEXT NOT NULL DEFAULT 'continuous',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -128,6 +143,31 @@ def initialize(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, "outgoing_scheduled_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_continuous_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "webhook_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_scheduled_apis", "status", "TEXT NOT NULL DEFAULT 'active'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "repeat_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_scheduled_apis", "destination_url", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "outgoing_scheduled_apis", "http_method", "TEXT NOT NULL DEFAULT 'POST'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "auth_type", "TEXT NOT NULL DEFAULT 'none'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "scheduled_time", "TEXT NOT NULL DEFAULT '09:00'")
+    _ensure_column(connection, "outgoing_continuous_apis", "repeat_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_continuous_apis", "repeat_interval_minutes", "INTEGER")
+    _ensure_column(connection, "outgoing_continuous_apis", "destination_url", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "outgoing_continuous_apis", "http_method", "TEXT NOT NULL DEFAULT 'POST'")
+    _ensure_column(connection, "outgoing_continuous_apis", "auth_type", "TEXT NOT NULL DEFAULT 'none'")
+    _ensure_column(connection, "outgoing_continuous_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_continuous_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
+    connection.execute(
+        """
+        UPDATE outgoing_scheduled_apis
+        SET status = CASE
+            WHEN enabled = 1 THEN 'active'
+            ELSE 'paused'
+        END
+        WHERE status IS NULL OR TRIM(status) = ''
+        """
+    )
     connection.commit()
 
 

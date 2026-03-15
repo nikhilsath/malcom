@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
 import type {
   AlertSeverity,
   DashboardAlert,
@@ -255,9 +254,9 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
       title="Recent log preview"
       description="A compact preview of the newest retained runtime entries."
       action={
-        <NavLink id="dashboard-overview-log-preview-link" className="button button--secondary secondary-action-button" to="/logs">
+        <a id="dashboard-overview-log-preview-link" className="button button--secondary secondary-action-button" href="logs.html">
           Open full logs
-        </NavLink>
+        </a>
       }
     />
     {entries.length === 0 ? (
@@ -283,6 +282,48 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
         ))}
       </div>
     )}
+  </section>
+);
+
+export const ReportBuilderPanel = () => (
+  <section id="dashboard-logs-report-builder-card" className="card">
+    <SectionToolbar
+      id="dashboard-logs-report-builder-toolbar"
+      title="Log report builder"
+      description="Use an open-source reporting surface to turn retained runtime events into incident summaries, delivery trends, and operator-ready exports."
+      action={
+        <a
+          id="dashboard-logs-report-builder-link"
+          className="button button--secondary secondary-action-button"
+          href="../tools/overview.html"
+        >
+          Open tools catalog
+        </a>
+      }
+    />
+    <article id="dashboard-logs-report-builder-tool" className="dashboard-report-builder-card">
+      <div id="dashboard-logs-report-builder-copy" className="dashboard-report-builder-card__copy">
+        <p id="dashboard-logs-report-builder-label" className="summary-card__label">
+          Recommended tool
+        </p>
+        <h3 id="dashboard-logs-report-builder-title" className="dashboard-host-card__title">
+          Grafana
+        </h3>
+        <p id="dashboard-logs-report-builder-description" className="dashboard-host-card__detail">
+          Open-source dashboards and reports for log-backed trend analysis, incident review, and exported operator summaries.
+        </p>
+      </div>
+      <dl id="dashboard-logs-report-builder-metadata" className="dashboard-report-builder-card__metadata">
+        <div id="dashboard-logs-report-builder-source-group">
+          <dt className="summary-card__label">Catalog entry</dt>
+          <dd id="dashboard-logs-report-builder-source-value">tools/grafana/tool.json</dd>
+        </div>
+        <div id="dashboard-logs-report-builder-focus-group">
+          <dt className="summary-card__label">Best fit</dt>
+          <dd id="dashboard-logs-report-builder-focus-value">Reports from retained logs and operational events</dd>
+        </div>
+      </dl>
+    </article>
   </section>
 );
 
