@@ -15,6 +15,12 @@ export const topNavItems = [
     section: "dashboard"
   },
   {
+    id: "nav-automations",
+    label: "Automations",
+    href: "automations/overview.html",
+    section: "automations"
+  },
+  {
     id: "nav-apis",
     label: "APIs",
     href: "apis/registry.html",
@@ -71,6 +77,28 @@ export const shellSections = {
       }
     ]
   },
+  automations: {
+    id: "automations",
+    items: [
+      {
+        id: "sidenav-automations-overview",
+        label: "Overview",
+        href: "automations/overview.html",
+        aliases: ["apis/automation.html"],
+        pageTitle: "Automation Overview",
+        description: "Design and operate automation workflows from a dedicated control surface."
+      }
+    ],
+    footer: {
+      kind: "button",
+      id: "automations-create-button",
+      label: "Create +",
+      className: "button button--success sidenav__action-button",
+      attributes: {
+        type: "button"
+      }
+    }
+  },
   apis: {
     id: "apis",
     items: [
@@ -102,13 +130,6 @@ export const shellSections = {
         href: "apis/webhooks.html",
         pageTitle: "API Webhooks",
         description: "Manage webhook endpoints, subscriptions, and verification expectations."
-      },
-      {
-        id: "sidenav-apis-automation",
-        label: "Automation",
-        href: "apis/automation.html",
-        pageTitle: "API Automation",
-        description: "Configure automated workflows and integrations."
       }
     ],
     footer: {

@@ -2,6 +2,7 @@
 @import "./shell.css";
 @import "./components.css";
 @import "./pages/dashboard.css";
+@import "./pages/automation.css";
 @import "./pages/settings.css";
 @import "./pages/tools.css";
 @import "./pages/apis.css";

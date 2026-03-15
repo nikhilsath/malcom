@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Automations</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="automations" data-sidenav-item="sidenav-automations-overview" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div id="automations-page-header" class="page-header section-header--page">
+                <h2 id="automations-page-title" class="page-title section-header__title--page">Automations</h2>
+                <p id="automations-page-description" class="page-description section-header__description--page">Design, configure, and operate middleware workflows from a canvas-first control room.</p>
+            </div>
+            <section id="automations-workspace-shell" class="card automation-page-shell">
+                <div id="automations-react-root"></div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/automation/main.tsx"></script>
+</body>
+</html>

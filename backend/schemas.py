@@ -404,6 +404,29 @@ class LocalLlmToolUpdate(BaseModel):
     endpoints: LocalLlmEndpointsUpdate | None = None
 
 
+class CoquiTtsToolConfigResponse(BaseModel):
+    enabled: bool
+    command: str
+    model_name: str
+    speaker: str
+    language: str
+    output_directory: str
+
+
+class CoquiTtsToolResponse(BaseModel):
+    tool_id: Literal["coqui-tts"]
+    config: CoquiTtsToolConfigResponse
+
+
+class CoquiTtsToolUpdate(BaseModel):
+    enabled: bool | None = None
+    command: str | None = Field(default=None, min_length=1, max_length=500)
+    model_name: str | None = Field(default=None, min_length=1, max_length=255)
+    speaker: str | None = Field(default=None, max_length=120)
+    language: str | None = Field(default=None, max_length=120)
+    output_directory: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
 class LocalLlmChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str = Field(min_length=1, max_length=20000)
@@ -504,6 +527,10 @@ class AutomationStepConfig(BaseModel):
     payload_template: str | None = Field(default=None, max_length=10000)
     script_id: str | None = Field(default=None, max_length=120)
     tool_id: str | None = Field(default=None, max_length=120)
+    tool_text: str | None = Field(default=None, max_length=20000)
+    tool_output_filename: str | None = Field(default=None, max_length=255)
+    tool_speaker: str | None = Field(default=None, max_length=120)
+    tool_language: str | None = Field(default=None, max_length=120)
     expression: str | None = Field(default=None, max_length=500)
     stop_on_false: bool = False
     system_prompt: str | None = Field(default=None, max_length=5000)
@@ -809,5 +836,4 @@ class ConnectorOAuthCallbackResponse(BaseModel):
     ok: bool
     message: str
     connector: ConnectorRecordResponse
-
 

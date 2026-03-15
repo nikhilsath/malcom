@@ -14,12 +14,14 @@ UI_HTML_ROUTES = {
     "/settings/access.html": "settings/access.html",
     "/settings/connectors.html": "settings/connectors.html",
     "/settings/data.html": "settings/data.html",
+    "/automations/overview.html": "automations/overview.html",
     "/apis/registry.html": "apis/registry.html",
     "/apis/incoming.html": "apis/incoming.html",
     "/apis/outgoing.html": "apis/outgoing.html",
     "/apis/webhooks.html": "apis/webhooks.html",
     "/apis/automation.html": "apis/automation.html",
     "/tools/catalog.html": "tools/catalog.html",
+    "/tools/coqui-tts.html": "tools/coqui-tts.html",
     "/tools/convert-audio.html": "tools/convert-audio.html",
     "/tools/convert-video.html": "tools/convert-video.html",
     "/tools/grafana.html": "tools/grafana.html",
@@ -102,6 +104,12 @@ def redirect_dashboard_devices() -> RedirectResponse:
 @router.get("/dashboard/logs.html")
 def redirect_dashboard_logs() -> RedirectResponse:
     return RedirectResponse(url="/dashboard/home.html#/logs")
+
+
+@router.get("/automations")
+@router.get("/automations/")
+def redirect_automations_root() -> RedirectResponse:
+    return RedirectResponse(url="/automations/overview.html")
 
 
 @router.get("/apis")

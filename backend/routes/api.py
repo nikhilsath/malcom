@@ -1208,6 +1208,10 @@ def get_smtp_tool(request: Request) -> SmtpToolResponse:
 def get_local_llm_tool(request: Request) -> LocalLlmToolResponse:
     return build_local_llm_tool_response(get_connection(request))
 
+@router.get("/api/v1/tools/coqui-tts", response_model=CoquiTtsToolResponse)
+def get_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
+    return build_coqui_tts_tool_response(get_connection(request), root_dir=get_root_dir(request))
+
 @router.post("/api/v1/tools/llm-deepl/chat", response_model=LocalLlmChatResponse)
 def create_local_llm_chat(payload: LocalLlmChatRequest, request: Request) -> LocalLlmChatResponse:
     messages = [message.model_dump() for message in payload.messages]
@@ -1291,6 +1295,36 @@ def patch_local_llm_tool(payload: LocalLlmToolUpdate, request: Request) -> Local
     save_local_llm_tool_config(connection, normalized_config)
     sync_managed_tool_enabled_state(request, "llm-deepl", normalized_config["enabled"])
     return build_local_llm_tool_response(connection)
+
+@router.patch("/api/v1/tools/coqui-tts", response_model=CoquiTtsToolResponse)
+def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> CoquiTtsToolResponse:
+    connection = get_connection(request)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No Coqui TTS tool changes provided.")
+
+    next_config = normalize_coqui_tts_tool_config(
+        get_coqui_tts_tool_config(connection),
+        root_dir=get_root_dir(request),
+    )
+    if "enabled" in changes:
+        next_config["enabled"] = bool(changes["enabled"])
+    if "command" in changes:
+        next_config["command"] = str(changes["command"] or "").strip()
+    if "model_name" in changes:
+        next_config["model_name"] = str(changes["model_name"] or "").strip()
+    if "speaker" in changes:
+        next_config["speaker"] = str(changes["speaker"] or "").strip()
+    if "language" in changes:
+        next_config["language"] = str(changes["language"] or "").strip()
+    if "output_directory" in changes:
+        next_config["output_directory"] = str(changes["output_directory"] or "").strip()
+
+    normalized_config = normalize_coqui_tts_tool_config(next_config, root_dir=get_root_dir(request))
+    save_coqui_tts_tool_config(connection, normalized_config)
+    sync_managed_tool_enabled_state(request, "coqui-tts", normalized_config["enabled"])
+    return build_coqui_tts_tool_response(connection, root_dir=get_root_dir(request))
 
 @router.post("/api/v1/tools/smtp/start", response_model=SmtpToolResponse)
 def start_smtp_tool(request: Request) -> SmtpToolResponse:
@@ -1394,6 +1428,13 @@ def patch_tool_directory(tool_id: str, payload: ToolDirectoryUpdate, request: Re
                 config = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))
                 config["enabled"] = bool(changes["enabled"])
                 save_local_llm_tool_config(connection, config)
+            if tool_id == "coqui-tts":
+                config = normalize_coqui_tts_tool_config(
+                    get_coqui_tts_tool_config(connection),
+                    root_dir=get_root_dir(request),
+                )
+                config["enabled"] = bool(changes["enabled"])
+                save_coqui_tts_tool_config(connection, config)
             set_tool_enabled(
                 get_root_dir(request),
                 connection,

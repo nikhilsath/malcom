@@ -1,0 +1,653 @@
+.automation-page-shell {
+  padding: 28px;
+  overflow: hidden;
+}
+
+.automations-app {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.automation-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.8fr);
+  gap: var(--space-5);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(180deg, #fbfdff 0%, #eff6ff 100%);
+}
+
+.automation-hero__copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.automation-hero__eyebrow,
+.automation-panel__eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.automation-hero__title {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.automation-hero__description,
+.automation-panel__description,
+.automation-switch-field__description,
+.automation-library-card__description,
+.automation-library-card__meta,
+.automation-empty-state,
+.automation-node__summary,
+.automation-run-card__meta,
+.automation-run-step-card__text,
+.automation-dialog__description {
+  color: var(--muted);
+}
+
+.automation-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-self: start;
+}
+
+.automation-hero-stat,
+.automation-runtime-stat,
+.automation-activity-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.automation-hero-stat__label,
+.automation-runtime-stat__label,
+.automation-activity-card__label,
+.automation-run-step-card__meta,
+.automation-job-card__meta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.automation-hero-stat__value,
+.automation-runtime-stat__value,
+.automation-activity-card__value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.automation-hero__actions,
+.automation-inline-actions,
+.automation-add-step-actions,
+.automation-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.automation-feedback {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 0.9375rem;
+}
+
+.automation-feedback--success {
+  color: var(--success-dark);
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.18);
+}
+
+.automation-feedback--error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.automation-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(320px, 380px);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.automation-panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.automation-panel--rail,
+.automation-panel--inspector {
+  position: sticky;
+  top: calc(var(--topnav-height) + 24px);
+}
+
+.automation-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.automation-panel__header--compact {
+  gap: var(--space-3);
+}
+
+.automation-panel__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.automation-panel__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.automation-panel__title--compact {
+  font-size: 1rem;
+}
+
+.automation-field,
+.automation-form {
+  display: grid;
+  gap: 12px;
+}
+
+.automation-field--full {
+  width: 100%;
+}
+
+.automation-field__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.automation-input,
+.automation-textarea,
+.automation-native-select,
+.automation-select-trigger {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+}
+
+.automation-textarea {
+  resize: vertical;
+}
+
+.automation-textarea--code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.automation-input:focus,
+.automation-textarea:focus,
+.automation-native-select:focus,
+.automation-select-trigger:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.automation-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.automation-select-trigger__icon {
+  color: var(--muted);
+}
+
+.automation-select-positioner {
+  z-index: 40;
+}
+
+.automation-select-popup {
+  min-width: 220px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.automation-select-list {
+  display: grid;
+  padding: 8px;
+}
+
+.automation-select-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.automation-select-item:hover,
+.automation-select-item[data-highlighted],
+.automation-select-item[data-selected] {
+  background: var(--surface-accent);
+}
+
+.automation-switch-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.automation-switch-field__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.automation-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.automation-switch[data-checked] {
+  background: var(--primary);
+}
+
+.automation-switch__thumb {
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.automation-switch[data-checked] .automation-switch__thumb {
+  transform: translateX(20px);
+}
+
+.automation-library-list,
+.automation-job-list,
+.automation-run-list,
+.automation-run-step-list {
+  display: grid;
+  gap: 12px;
+}
+
+.automation-library-card,
+.automation-job-card,
+.automation-run-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.automation-library-card:hover,
+.automation-run-card:hover {
+  border-color: var(--primary-soft);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.automation-library-card--selected,
+.automation-run-card--selected {
+  border-color: var(--primary);
+  box-shadow: var(--primary-shadow-sm);
+}
+
+.automation-library-card__title,
+.automation-run-card__title,
+.automation-job-card__title,
+.automation-run-step-card__title {
+  font-weight: 700;
+}
+
+.automation-runtime-panel,
+.automation-run-detail-panel,
+.automation-add-step-panel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.automation-runtime-stats,
+.automation-activity-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.automation-job-card {
+  background: var(--surface);
+}
+
+.automation-canvas-surface {
+  height: 920px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(14, 116, 144, 0.1), transparent 26%),
+    linear-gradient(180deg, #fbfdff 0%, #eff6ff 100%);
+}
+
+.automation-node {
+  width: 280px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.automation-node--selected {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 18px 36px rgba(15, 23, 42, 0.14);
+}
+
+.automation-node__eyebrow {
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.automation-node__title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.automation-node__summary {
+  margin-top: 6px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.automation-node__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  background: var(--primary);
+}
+
+.automation-node--accent-trigger {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(255, 255, 255, 0.98));
+}
+
+.automation-node--accent-log .automation-node__handle,
+.automation-node--accent-log {
+  background-color: rgba(30, 64, 175, 0.03);
+}
+
+.automation-node--accent-http .automation-node__handle,
+.automation-node--accent-http {
+  background-color: rgba(14, 116, 144, 0.04);
+}
+
+.automation-node--accent-script .automation-node__handle,
+.automation-node--accent-script {
+  background-color: rgba(91, 33, 182, 0.04);
+}
+
+.automation-node--accent-tool .automation-node__handle,
+.automation-node--accent-tool {
+  background-color: rgba(22, 163, 74, 0.04);
+}
+
+.automation-node--accent-condition .automation-node__handle,
+.automation-node--accent-condition {
+  background-color: rgba(202, 138, 4, 0.06);
+}
+
+.automation-node--accent-llm .automation-node__handle,
+.automation-node--accent-llm {
+  background-color: rgba(190, 24, 93, 0.04);
+}
+
+.automation-tabs-list {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.automation-tabs-tab {
+  position: relative;
+  z-index: 1;
+  min-height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.automation-tabs-tab[data-selected] {
+  color: var(--text);
+}
+
+.automation-tabs-indicator {
+  position: absolute;
+  inset: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease;
+}
+
+.automation-tabs-tab[data-index="1"][data-selected] ~ .automation-tabs-indicator,
+.automation-tabs-list[data-value="activity"] .automation-tabs-indicator {
+  transform: translateX(calc(100% + 4px));
+}
+
+.automation-tabs-panel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.automation-run-history-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.automation-run-card__status,
+.automation-run-step-card__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-width: 86px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.automation-run-card__status--success,
+.automation-run-step-card__status--success {
+  color: var(--success-dark);
+  background: rgba(22, 163, 74, 0.12);
+}
+
+.automation-run-card__status--error,
+.automation-run-step-card__status--error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.automation-run-card__status--neutral,
+.automation-run-step-card__status--neutral {
+  color: #475569;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.automation-run-step-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.automation-run-step-card__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.automation-run-step-card__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.automation-run-step-card__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.automation-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  z-index: 50;
+}
+
+.automation-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 51;
+  width: min(92vw, 420px);
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.automation-dialog__title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.automation-dialog__description {
+  margin: 0 0 18px;
+}
+
+@media (max-width: 1360px) {
+  .automation-workspace-grid {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  }
+
+  .automation-panel--inspector {
+    position: static;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .automation-hero,
+  .automation-run-history-layout,
+  .automation-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-panel--rail {
+    position: static;
+  }
+
+  .automation-canvas-surface {
+    height: 760px;
+  }
+}
+
+@media (max-width: 768px) {
+  .automation-page-shell,
+  .automation-panel,
+  .automation-hero {
+    padding: 20px;
+  }
+
+  .automation-hero__stats,
+  .automation-runtime-stats,
+  .automation-activity-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-run-step-card__header {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-switch-field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .automation-canvas-surface {
+    height: 640px;
+  }
+}

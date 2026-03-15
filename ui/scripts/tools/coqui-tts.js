@@ -1,0 +1,1 @@
+import "../coqui-tts.js";

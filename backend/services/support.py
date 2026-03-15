@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import secrets
+import shlex
 import sqlite3
 import smtplib
 import socket
@@ -63,6 +64,7 @@ LOCAL_WORKER_POLL_INTERVAL_SECONDS = 0.25
 REMOTE_WORKER_POLL_INTERVAL_SECONDS = 1.0
 SMTP_TOOL_SETTINGS_KEY = "smtp_tool"
 LOCAL_LLM_TOOL_SETTINGS_KEY = "local_llm_tool"
+COQUI_TTS_TOOL_SETTINGS_KEY = "coqui_tts_tool"
 CONNECTOR_PROTECTION_VERSION = "enc_v1"
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
 SUPPORTED_CONNECTOR_PROVIDERS = {
@@ -103,6 +105,14 @@ DEFAULT_LOCAL_LLM_TOOL_CONFIG = {
         "model_download": "",
         "model_download_status": "",
     },
+}
+DEFAULT_COQUI_TTS_TOOL_CONFIG = {
+    "enabled": False,
+    "command": "tts",
+    "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+    "speaker": "",
+    "language": "",
+    "output_directory": "backend/data/generated/coqui-tts",
 }
 
 LOCAL_LLM_ENDPOINT_PRESETS: dict[str, dict[str, Any]] = {
@@ -648,8 +658,11 @@ def validate_automation_definition(
                     issues.append(f"Step {index} has invalid JSON payload_template: {error.msg}.")
         if step.type == "script" and not step.config.script_id:
             issues.append(f"Step {index} requires config.script_id for script steps.")
-        if step.type == "tool" and not step.config.tool_id:
-            issues.append(f"Step {index} requires config.tool_id for tool steps.")
+        if step.type == "tool":
+            if not step.config.tool_id:
+                issues.append(f"Step {index} requires config.tool_id for tool steps.")
+            if step.config.tool_id == "coqui-tts" and not step.config.tool_text:
+                issues.append(f"Step {index} requires config.tool_text for coqui-tts steps.")
         if step.type == "condition" and not step.config.expression:
             issues.append(f"Step {index} requires config.expression for condition steps.")
         if step.type == "llm_chat" and not step.config.user_prompt:
@@ -1261,6 +1274,132 @@ def normalize_local_llm_tool_config(config: dict[str, Any]) -> dict[str, Any]:
         "model_download_status": str(normalized["endpoints"].get("model_download_status") or "").strip(),
     }
     return normalized
+def get_default_coqui_tts_tool_config() -> dict[str, Any]:
+    return json.loads(json.dumps(DEFAULT_COQUI_TTS_TOOL_CONFIG))
+def get_coqui_tts_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
+    config = get_default_coqui_tts_tool_config()
+    row = fetch_one(
+        connection,
+        """
+        SELECT value_json
+        FROM settings
+        WHERE key = ?
+        """,
+        (COQUI_TTS_TOOL_SETTINGS_KEY,),
+    )
+    if row is None:
+        return config
+
+    stored_value = json.loads(row["value_json"])
+    if isinstance(stored_value, dict):
+        config.update(stored_value)
+    return config
+def save_coqui_tts_tool_config(connection: sqlite3.Connection, config: dict[str, Any]) -> dict[str, Any]:
+    now = utc_now_iso()
+    connection.execute(
+        """
+        INSERT INTO settings (key, value_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+        """,
+        (COQUI_TTS_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+    )
+    connection.commit()
+    return config
+def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | None = None) -> dict[str, Any]:
+    normalized = get_default_coqui_tts_tool_config()
+    normalized.update(config or {})
+    normalized["enabled"] = bool(normalized.get("enabled"))
+    normalized["command"] = str(normalized.get("command") or DEFAULT_COQUI_TTS_TOOL_CONFIG["command"]).strip()
+    normalized["model_name"] = str(normalized.get("model_name") or DEFAULT_COQUI_TTS_TOOL_CONFIG["model_name"]).strip()
+    normalized["speaker"] = str(normalized.get("speaker") or "").strip()
+    normalized["language"] = str(normalized.get("language") or "").strip()
+    output_directory = str(normalized.get("output_directory") or DEFAULT_COQUI_TTS_TOOL_CONFIG["output_directory"]).strip()
+    if root_dir is not None and not Path(output_directory).is_absolute():
+        output_directory = str((root_dir / output_directory).resolve())
+    normalized["output_directory"] = output_directory
+    return normalized
+def sanitize_generated_audio_filename(value: str) -> str:
+    filename = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-.")
+    return filename or f"coqui-output-{uuid4().hex[:8]}"
+def execute_coqui_tts_tool_step(
+    connection: sqlite3.Connection,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    *,
+    root_dir: Path,
+) -> RuntimeExecutionResult:
+    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
+    if not config["enabled"]:
+        raise RuntimeError("Tool 'coqui-tts' is disabled.")
+    if not config["command"]:
+        raise RuntimeError("Coqui TTS command is not configured.")
+    if not config["model_name"]:
+        raise RuntimeError("Coqui TTS model name is not configured.")
+
+    rendered_text = render_template_string(step.config.tool_text, context).strip()
+    if not rendered_text:
+        raise RuntimeError("Coqui TTS steps require config.tool_text.")
+
+    output_directory = Path(config["output_directory"])
+    output_directory.mkdir(parents=True, exist_ok=True)
+    requested_filename = render_template_string(step.config.tool_output_filename, context).strip()
+    safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"coqui-output-{uuid4().hex[:8]}"
+    if "." not in safe_filename:
+        safe_filename = f"{safe_filename}.wav"
+    output_path = output_directory / safe_filename
+
+    command_parts = shlex.split(config["command"])
+    if not command_parts:
+        raise RuntimeError("Coqui TTS command is invalid.")
+    command = [
+        *command_parts,
+        "--text",
+        rendered_text,
+        "--model_name",
+        config["model_name"],
+        "--out_path",
+        str(output_path),
+    ]
+    speaker = render_template_string(step.config.tool_speaker, context).strip() or config["speaker"]
+    language = render_template_string(step.config.tool_language, context).strip() or config["language"]
+    if speaker:
+        command.extend(["--speaker_idx", speaker])
+    if language:
+        command.extend(["--language_idx", language])
+
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=str(root_dir),
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError(f"Coqui TTS command was not found: {config['command']}") from error
+    except subprocess.CalledProcessError as error:
+        stderr = (error.stderr or "").strip()
+        stdout = (error.stdout or "").strip()
+        detail = stderr or stdout or "Unknown Coqui TTS failure."
+        raise RuntimeError(f"Coqui TTS generation failed: {detail}") from error
+
+    detail = {
+        "tool_id": "coqui-tts",
+        "output_path": str(output_path),
+        "model_name": config["model_name"],
+        "speaker": speaker or None,
+        "language": language or None,
+        "stdout": (completed.stdout or "").strip() or None,
+    }
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary=f"Generated speech audio at {output_path.name}.",
+        detail=detail,
+        output=detail,
+    )
 def build_local_llm_endpoint_url(config: dict[str, Any], endpoint_key: str) -> str:
     base_url = str(config.get("server_base_url") or "").strip().rstrip("/")
     endpoint_path = str((config.get("endpoints") or {}).get(endpoint_key) or "").strip()
@@ -1974,6 +2113,19 @@ def build_local_llm_tool_response(connection: sqlite3.Connection) -> LocalLlmToo
         ),
         presets=presets,
     )
+def build_coqui_tts_tool_response(connection: sqlite3.Connection, *, root_dir: Path) -> CoquiTtsToolResponse:
+    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
+    return CoquiTtsToolResponse(
+        tool_id="coqui-tts",
+        config=CoquiTtsToolConfigResponse(
+            enabled=config["enabled"],
+            command=config["command"],
+            model_name=config["model_name"],
+            speaker=config["speaker"],
+            language=config["language"],
+            output_directory=config["output_directory"],
+        ),
+    )
 def handle_smtp_message_automation_triggers(app: FastAPI, message: dict[str, Any]) -> None:
     connection = connect(Path(app.state.db_path))
     try:
@@ -2031,12 +2183,18 @@ def build_tool_directory_response(request: Request) -> list[ToolDirectoryEntryRe
     entries = load_tool_directory(get_root_dir(request), connection)
     smtp_enabled = normalize_smtp_tool_config(get_smtp_tool_config(connection))["enabled"]
     local_llm_enabled = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))["enabled"]
+    coqui_tts_enabled = normalize_coqui_tts_tool_config(
+        get_coqui_tts_tool_config(connection),
+        root_dir=get_root_dir(request),
+    )["enabled"]
 
     for entry in entries:
         if entry["id"] == "smtp":
             entry["enabled"] = smtp_enabled
         if entry["id"] == "llm-deepl":
             entry["enabled"] = local_llm_enabled
+        if entry["id"] == "coqui-tts":
+            entry["enabled"] = coqui_tts_enabled
 
     return [ToolDirectoryEntryResponse(**entry) for entry in entries]
 def get_runtime_devices_response() -> DashboardDevicesApiResponse:
@@ -2984,6 +3142,8 @@ def execute_automation_step(
         )
         if tool_row is None:
             raise RuntimeError(f"Tool '{step.config.tool_id}' was not found.")
+        if tool_row["id"] == "coqui-tts":
+            return execute_coqui_tts_tool_step(connection, step, context, root_dir=root_dir)
         detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
         return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)
 

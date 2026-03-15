@@ -12,6 +12,12 @@ export const toolsManifest = Object.freeze([
     "pageHref": "tools/convert-video.html"
   },
   {
+    "id": "coqui-tts",
+    "name": "Coqui TTS",
+    "description": "Generate speech audio from workflow text using a locally installed Coqui TTS runtime.",
+    "pageHref": "tools/coqui-tts.html"
+  },
+  {
     "id": "grafana",
     "name": "Grafana",
     "description": "Open-source dashboards and reporting for operational logs, with room to wire retained events into richer incident and trend reports.",

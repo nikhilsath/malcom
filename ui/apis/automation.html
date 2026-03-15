@@ -2,92 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=../automations/overview.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - API Automation</title>
-    <link rel="stylesheet" href="../styles/styles.css">
+    <title>Malcom - Automation Redirect</title>
 </head>
-<body class="app-shell" data-section="apis" data-sidenav-item="sidenav-apis-automation" data-shell-path-prefix="../">
-    <div id="topnav"></div>
-
-    <aside id="sidenav"></aside>
-
-    <main class="main" id="main-layout">
-        <div class="content-shell">
-            <div id="api-automation-alert" class="api-system-alert" hidden></div>
-            <div id="apis-automation-header" class="page-header section-header--page">
-                <h2 id="apis-automation-page-title" class="page-title section-header__title--page">API Automation</h2>
-                <p id="apis-automation-page-description" class="page-description section-header__description--page">Build API-driven workflows.</p>
-            </div>
-            <section id="apis-automation-workspace" class="card api-workspace api-workspace--automation">
-                <div id="apis-automation-shell-header" class="api-panel-header">
-                    <div id="apis-automation-shell-copy" class="api-panel-header-copy">
-                        <p id="apis-automation-shell-eyebrow" class="api-panel-eyebrow">Workflow Editor</p>
-                        <div id="apis-automation-shell-title-row" class="api-panel-title-row">
-                            <h3 id="apis-automation-shell-title" class="api-panel-title">Automation control room</h3>
-                            <button type="button" id="apis-automation-shell-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain the automation workspace" aria-expanded="false" aria-controls="apis-automation-shell-tooltip">i</button>
-                        </div>
-                    </div>
-                </div>
-                <div id="apis-automation-shell-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Manage workflow state, edit steps, and inspect runs from the APIs workspace.</div>
-                <div id="automation-react-root"></div>
-            </section>
-        </div>
-    </main>
-
-    <div
-        id="apis-create-modal"
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="apis-create-modal-title"
-        aria-hidden="true"
-    >
-        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog" id="apis-create-modal-dialog">
-            <div class="modal__content" id="apis-create-modal-content"></div>
-        </div>
-    </div>
-
-    <div
-        id="apis-automation-placeholder-modal"
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="apis-automation-placeholder-title"
-        aria-hidden="true"
-    >
-        <div class="modal__backdrop" id="apis-automation-placeholder-backdrop" data-modal-close="apis-automation-placeholder-modal"></div>
-        <div class="modal__dialog" id="apis-automation-placeholder-dialog">
-            <div class="modal__content" id="apis-automation-placeholder-content">
-                <div id="apis-automation-placeholder-panel" class="modal__panel">
-                    <div id="apis-automation-placeholder-header" class="modal__header">
-                        <div id="apis-automation-placeholder-copy" class="modal__header-copy">
-                            <p id="apis-automation-placeholder-eyebrow" class="modal__eyebrow">Automation</p>
-                            <div id="apis-automation-placeholder-title-row" class="api-panel-title-row">
-                                <h3 id="apis-automation-placeholder-title" class="modal__title">New automation ready</h3>
-                                <button type="button" id="apis-automation-placeholder-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain the automation setup" aria-expanded="false" aria-controls="apis-automation-placeholder-description">i</button>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            id="apis-automation-placeholder-close"
-                            class="button button--secondary modal__close-button"
-                            aria-label="Close automation create modal"
-                            data-modal-close="apis-automation-placeholder-modal"
-                        >
-                            Close
-                        </button>
-                    </div>
-                    <div id="apis-automation-placeholder-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The editor has been reset for a new workflow. Use the page form to define the trigger, steps, and live execution settings.</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="../scripts/utils.js"></script>
-    <script type="module" src="../scripts/log-store.js"></script>
-    <script type="module" src="../scripts/navigation.js"></script>
-    <script type="module" src="../scripts/apis.js"></script>
-    <script type="module" src="../src/automation/main.tsx"></script>
+<body id="apis-automation-redirect-page">
+    <script>
+        window.location.replace("../automations/overview.html");
+    </script>
+    <a id="apis-automation-redirect-link" href="../automations/overview.html">Continue to the automation control room.</a>
 </body>
 </html>

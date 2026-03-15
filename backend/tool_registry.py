@@ -10,6 +10,11 @@ from backend.database import connect, fetch_all, fetch_one, initialize
 REQUIRED_FIELDS = ("id", "name", "description")
 DEFAULT_TOOL_CATALOG: tuple[dict[str, str], ...] = (
     {
+        "id": "coqui-tts",
+        "name": "Coqui TTS",
+        "description": "Generate speech audio from workflow text using a locally installed Coqui TTS runtime.",
+    },
+    {
         "id": "convert-audio",
         "name": "Convert - Audio",
         "description": "Convert audio files between supported formats for downstream processing.",
