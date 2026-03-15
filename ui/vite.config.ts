@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -24,14 +24,8 @@ export default defineConfig({
         apisAutomation: resolve(__dirname, "apis/automation.html"),
         toolsCatalog: resolve(__dirname, "tools/catalog.html"),
         toolsCoquiTts: resolve(__dirname, "tools/coqui-tts.html"),
-        toolsConvertAudio: resolve(__dirname, "tools/convert-audio.html"),
-        toolsConvertVideo: resolve(__dirname, "tools/convert-video.html"),
-        toolsGrafana: resolve(__dirname, "tools/grafana.html"),
         toolsLlmDeepl: resolve(__dirname, "tools/llm-deepl.html"),
-        toolsOcrTranscribe: resolve(__dirname, "tools/ocr-transcribe.html"),
         toolsSmtp: resolve(__dirname, "tools/smtp.html"),
-        toolsSftp: resolve(__dirname, "tools/sftp.html"),
-        toolsStorage: resolve(__dirname, "tools/storage.html"),
         scripts: resolve(__dirname, "scripts.html"),
         scriptsLibrary: resolve(__dirname, "scripts/library.html")
       }

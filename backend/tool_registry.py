@@ -8,41 +8,54 @@ from pathlib import Path
 from backend.database import connect, fetch_all, fetch_one, initialize
 
 REQUIRED_FIELDS = ("id", "name", "description")
-DEFAULT_TOOL_CATALOG: tuple[dict[str, str], ...] = (
+DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
     {
         "id": "coqui-tts",
         "name": "Coqui TTS",
         "description": "Generate speech audio from workflow text using a locally installed Coqui TTS runtime.",
-    },
-    {
-        "id": "convert-audio",
-        "name": "Convert - Audio",
-        "description": "Convert audio files between supported formats for downstream processing.",
-    },
-    {
-        "id": "convert-video",
-        "name": "Convert - Video",
-        "description": "Convert video files into delivery-ready formats for automation pipelines.",
-    },
-    {
-        "id": "grafana",
-        "name": "Grafana",
-        "description": "Open-source dashboards and reporting for operational logs, with room to wire retained events into richer incident and trend reports.",
+        "inputs": [
+            {"key": "text", "label": "Text to Speak", "type": "text", "required": True},
+            {"key": "output_filename", "label": "Output Filename", "type": "string", "required": False},
+            {"key": "speaker", "label": "Speaker Override", "type": "string", "required": False},
+            {"key": "language", "label": "Language Override", "type": "string", "required": False},
+        ],
+        "outputs": [
+            {"key": "audio_file_path", "label": "Audio File Path", "type": "string"},
+        ],
     },
     {
         "id": "llm-deepl",
         "name": "Local LLM",
         "description": "Run a locally hosted language model through configurable OpenAI-compatible or LM Studio endpoints.",
-    },
-    {
-        "id": "ocr-transcribe",
-        "name": "OCR/Transcribe",
-        "description": "Extract text from images and transcribe spoken content into structured output.",
+        "inputs": [
+            {"key": "system_prompt", "label": "System Prompt", "type": "text", "required": False},
+            {"key": "user_prompt", "label": "User Prompt", "type": "text", "required": True},
+            {"key": "model_identifier", "label": "Model Identifier Override", "type": "string", "required": False},
+        ],
+        "outputs": [
+            {"key": "response_text", "label": "Response Text", "type": "string"},
+            {"key": "model_used", "label": "Model Used", "type": "string"},
+        ],
     },
     {
         "id": "smtp",
         "name": "SMTP",
-        "description": "Run an SMTP listener on the selected machine so automations can accept email traffic.",
+        "description": "Send an email through an external SMTP relay from within a workflow step.",
+        "inputs": [
+            {"key": "relay_host", "label": "Relay Host", "type": "string", "required": True},
+            {"key": "relay_port", "label": "Relay Port", "type": "number", "required": True},
+            {"key": "relay_security", "label": "Security", "type": "select", "required": False, "options": ["none", "starttls", "tls"]},
+            {"key": "relay_username", "label": "Username", "type": "string", "required": False},
+            {"key": "relay_password", "label": "Password", "type": "string", "required": False},
+            {"key": "from_address", "label": "From Address", "type": "string", "required": True},
+            {"key": "to", "label": "To", "type": "string", "required": True},
+            {"key": "subject", "label": "Subject", "type": "string", "required": True},
+            {"key": "body", "label": "Body", "type": "text", "required": True},
+        ],
+        "outputs": [
+            {"key": "status", "label": "Status", "type": "string"},
+            {"key": "message", "label": "Message", "type": "string"},
+        ],
     },
 )
 
@@ -59,8 +72,8 @@ def get_manifest_path(root_dir: Path) -> Path:
     return root_dir / "ui" / "scripts" / "tools-manifest.js"
 
 
-def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> dict[str, str]:
-    validated: dict[str, str] = {}
+def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> dict:
+    validated: dict = {}
 
     for field in REQUIRED_FIELDS:
         value = metadata.get(field)
@@ -70,6 +83,9 @@ def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> 
 
     if validated["id"] != directory_name:
         raise ValueError(f'Tool id "{validated["id"]}" must match folder name "{directory_name}"')
+
+    validated["inputs"] = metadata.get("inputs") or []
+    validated["outputs"] = metadata.get("outputs") or []
 
     return validated
 
@@ -89,12 +105,14 @@ def discover_tools(root_dir: Path | None = None) -> list[dict[str, str]]:
     return tools
 
 
-def row_to_tool_metadata(row: sqlite3.Row) -> dict[str, str]:
+def row_to_tool_metadata(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
         "name": row["name_override"] or row["source_name"],
         "description": row["description_override"] or row["source_description"],
         "pageHref": f"tools/{row['id']}.html",
+        "inputs": json.loads(row["inputs_schema_json"] or "[]"),
+        "outputs": json.loads(row["outputs_schema_json"] or "[]"),
     }
 
 
@@ -118,12 +136,16 @@ def sync_tools_to_database(root_dir: Path, connection: sqlite3.Connection) -> li
         existing = fetch_one(
             connection,
             """
-            SELECT id, source_name, source_description
+            SELECT id, source_name, source_description,
+                   inputs_schema_json, outputs_schema_json
             FROM tools
             WHERE id = ?
             """,
             (tool["id"],),
         )
+
+        inputs_json = json.dumps(tool.get("inputs") or [])
+        outputs_json = json.dumps(tool.get("outputs") or [])
 
         if existing is None:
             connection.execute(
@@ -135,25 +157,30 @@ def sync_tools_to_database(root_dir: Path, connection: sqlite3.Connection) -> li
                     enabled,
                     name_override,
                     description_override,
+                    inputs_schema_json,
+                    outputs_schema_json,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, 0, NULL, NULL, ?, ?)
+                ) VALUES (?, ?, ?, 0, NULL, NULL, ?, ?, ?, ?)
                 """,
-                (tool["id"], tool["name"], tool["description"], now, now),
+                (tool["id"], tool["name"], tool["description"], inputs_json, outputs_json, now, now),
             )
             continue
 
         if (
             existing["source_name"] != tool["name"]
             or existing["source_description"] != tool["description"]
+            or existing["inputs_schema_json"] != inputs_json
+            or existing["outputs_schema_json"] != outputs_json
         ):
             connection.execute(
                 """
                 UPDATE tools
-                SET source_name = ?, source_description = ?, updated_at = ?
+                SET source_name = ?, source_description = ?,
+                    inputs_schema_json = ?, outputs_schema_json = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (tool["name"], tool["description"], now, tool["id"]),
+                (tool["name"], tool["description"], inputs_json, outputs_json, now, tool["id"]),
             )
 
     if known_tool_ids:
@@ -179,8 +206,8 @@ def load_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = 
         rows = fetch_all(
             db,
             """
-            SELECT id, source_name, source_description, name_override, description_override
-                 , enabled
+            SELECT id, source_name, source_description, name_override, description_override,
+                   enabled, inputs_schema_json, outputs_schema_json
             FROM tools
             ORDER BY id
             """,
@@ -217,8 +244,8 @@ def update_tool_metadata(
     row = fetch_one(
         connection,
         """
-        SELECT id, source_name, source_description, name_override, description_override
-             , enabled
+        SELECT id, source_name, source_description, name_override, description_override,
+               enabled, inputs_schema_json, outputs_schema_json
         FROM tools
         WHERE id = ?
         """,
@@ -251,8 +278,8 @@ def update_tool_metadata(
     updated_row = fetch_one(
         connection,
         """
-        SELECT id, source_name, source_description, name_override, description_override
-             , enabled
+        SELECT id, source_name, source_description, name_override, description_override,
+               enabled, inputs_schema_json, outputs_schema_json
         FROM tools
         WHERE id = ?
         """,

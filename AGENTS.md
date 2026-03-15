@@ -332,6 +332,71 @@ Agents must not assume a built HTML file is automatically served just because it
 
 ---
 
+## Tool Input/Output Contract
+
+Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:
+- DB sync (stored in `inputs_schema_json` and `outputs_schema_json` on the `tools` table)
+- Frontend tool manifest (`ui/scripts/tools-manifest.js`) for dynamic form rendering in the automation canvas
+- Backend validation in `validate_automation_definition()`
+- Execution engine dispatch and `inputs_json` tracking in `automation_run_steps`
+
+### Field Descriptor Format
+
+Each entry in `inputs` and `outputs` is a dict with:
+
+```python
+{
+    "key": "text",          # machine-readable key, used in tool_inputs dict and template vars
+    "label": "Text to Speak",  # human-readable label shown in the workflow canvas
+    "type": "text",         # string | text | number | select
+    "required": True,       # inputs only; omit or False for optional
+    "options": ["a", "b"],  # select type only
+}
+```
+
+### Supported Types
+
+- `string` — single-line text input
+- `text` — multiline textarea
+- `number` — numeric input
+- `select` — dropdown; requires `options` list
+
+### Adding a New Tool with I/O Contract
+
+1. Add the tool to `DEFAULT_TOOL_CATALOG` in `backend/tool_registry.py` with `inputs` and `outputs` lists
+2. Add the execution handler in `backend/services/support.py`:
+   - Read inputs via `_get_tool_input(step, "key", context)`
+   - Return `RuntimeExecutionResult` with `output` as a dict keyed by output field keys
+   - Add dispatch in `execute_automation_step()` tool handler
+3. Add required-input validation in `validate_automation_definition()`
+4. Run `node scripts/generate-tools-manifest.mjs` and `npm run build` in `ui/`
+
+### Tool Step in a Workflow (User Perspective)
+
+- Step type `"tool"` with `tool_id` set to the tool's catalog id
+- Inputs stored in `config.tool_inputs: { key: value }` (template variables supported)
+- Outputs available as `{{steps.<step_name>.<output_key>}}` in downstream steps
+- Example: a coqui-tts step named `tts` exposes `{{steps.tts.audio_file_path}}`
+
+### Policy
+
+Only add tools to the catalog when:
+- A backend execution handler is designed and implemented
+- Input/output schemas are defined
+- The tool page (`ui/tools/<id>.html`) and script (`ui/scripts/tools/<id>.js`) exist
+
+Do not add placeholder tools. Remove tools from the catalog if their execution backend is removed.
+
+### Currently Implemented Tools
+
+| Tool ID | Inputs | Key Outputs |
+|---------|--------|-------------|
+| `coqui-tts` | text (req), output_filename, speaker, language | `audio_file_path` |
+| `llm-deepl` | user_prompt (req), system_prompt, model_identifier | `response_text`, `model_used` |
+| `smtp` | relay_host (req), relay_port (req), from_address (req), to (req), subject (req), body (req), relay_security, relay_username, relay_password | `status`, `message` |
+
+---
+
 ## Tool Registration Requirements
 
 Tools are registered by backend catalog plus database sync, not by static frontend markup and not by per-tool JSON files.

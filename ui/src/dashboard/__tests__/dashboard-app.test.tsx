@@ -28,12 +28,15 @@ beforeEach(() => {
 
 describe("DashboardApp", () => {
   it("renders the home route with developer mode data", async () => {
-    renderDashboardApp(["/home"], true);
+    const { container } = renderDashboardApp(["/home"], true);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Home")).toBeInTheDocument();
     });
 
+    expect(screen.getByText("Healthy")).toBeInTheDocument();
+    expect(screen.getByText("Runtime, scheduler, API, and storage are responding within expected local thresholds.")).toBeInTheDocument();
+    expect(container.querySelector("#dashboard-overview-health-badge")).not.toBeInTheDocument();
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
     expect(screen.getByText("Active attention items")).toBeInTheDocument();
   });
@@ -132,7 +135,7 @@ describe("DashboardApp", () => {
   });
 
   it("responds to developer mode changes from the shell toggle", async () => {
-    renderDashboardApp(["/home"], true);
+    const { container } = renderDashboardApp(["/home"], true);
 
     // Simulate the shell toggle updating session storage and dispatching the shared event.
     act(() => {
@@ -142,7 +145,9 @@ describe("DashboardApp", () => {
 
     await waitFor(() => {
       expect(sessionStorage.getItem("developerMode")).toBe("false");
+      expect(screen.getByText("Waiting for data")).toBeInTheDocument();
       expect(screen.getByText("Enable Developer Mode or connect the backend dashboard endpoints to load operational data.")).toBeInTheDocument();
+      expect(container.querySelector("#dashboard-overview-health-badge")).not.toBeInTheDocument();
     });
   });
 

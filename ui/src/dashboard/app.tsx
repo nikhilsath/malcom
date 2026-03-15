@@ -27,7 +27,6 @@ import {
   ReportBuilderPanel,
   SectionToolbar,
   ServiceStatusStrip,
-  StatusBadge,
   SummaryCard
 } from "./components";
 import type {
@@ -225,7 +224,6 @@ const HomePage = () => {
             </p>
           </div>
           <div id="dashboard-overview-health-meta" className="dashboard-health-strip__meta">
-            <StatusBadge id="dashboard-overview-health-badge" value={summary.health.status} />
             <p id="dashboard-overview-health-updated" className="dashboard-health-strip__updated">
               Updated {formatDateTime(summary.health.updatedAt)}
             </p>

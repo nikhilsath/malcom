@@ -19,6 +19,38 @@ import {
 type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
 type StepType = "log" | "outbound_request" | "script" | "tool" | "condition" | "llm_chat";
 
+type ToolInputField = {
+  key: string;
+  label: string;
+  type: "string" | "text" | "number" | "select";
+  required: boolean;
+  options?: string[];
+};
+
+type ToolOutputField = {
+  key: string;
+  label: string;
+  type: string;
+};
+
+type ToolManifestEntry = {
+  id: string;
+  name: string;
+  description: string;
+  pageHref: string;
+  inputs: ToolInputField[];
+  outputs: ToolOutputField[];
+};
+
+declare global {
+  interface Window {
+    TOOLS_MANIFEST?: ToolManifestEntry[];
+    INBOUND_APIS?: { id: string; name: string }[];
+    SCRIPTS?: { id: string; name: string }[];
+    CONNECTORS?: { id: string; name: string }[];
+  }
+}
+
 type AutomationStep = {
   id?: string;
   type: StepType;
@@ -32,6 +64,7 @@ type AutomationStep = {
     payload_template?: string;
     script_id?: string;
     tool_id?: string;
+    tool_inputs?: Record<string, string>;
     tool_text?: string;
     tool_output_filename?: string;
     tool_speaker?: string;
@@ -275,12 +308,16 @@ const getStepSummary = (step: AutomationStep) => {
     return step.config.script_id ? `Execute script ${step.config.script_id}` : "Select a script to run.";
   }
   if (step.type === "tool") {
-    if (step.config.tool_id === "coqui-tts") {
-      return step.config.tool_text
-        ? `Generate speech with Coqui from ${step.config.tool_text.slice(0, 48)}`
-        : "Provide text to synthesize with Coqui TTS.";
+    if (step.config.tool_id) {
+      const manifest = (window.TOOLS_MANIFEST || []).find(t => t.id === step.config.tool_id);
+      const toolName = manifest?.name || step.config.tool_id;
+      const firstInputKey = manifest?.inputs?.[0]?.key;
+      const firstInputVal = firstInputKey ? step.config.tool_inputs?.[firstInputKey] : undefined;
+      return firstInputVal
+        ? `${toolName}: ${firstInputVal.slice(0, 48)}`
+        : `Invoke ${toolName}`;
     }
-    return step.config.tool_id ? `Invoke tool ${step.config.tool_id}` : "Choose a tool to dispatch.";
+    return "Choose a tool to dispatch.";
   }
   if (step.type === "condition") {
     return step.config.expression || "Evaluate a runtime condition.";
@@ -306,8 +343,16 @@ const validateAutomationDefinition = (automation: AutomationDetail) => {
     issues.push("At least one step is required.");
   }
   automation.steps.forEach((step, index) => {
-    if (step.type === "tool" && step.config.tool_id === "coqui-tts" && !(step.config.tool_text || "").trim()) {
-      issues.push(`Step ${index + 1} requires speech text for Coqui TTS.`);
+    if (step.type === "tool" && step.config.tool_id) {
+      const manifest = (window.TOOLS_MANIFEST || []).find(t => t.id === step.config.tool_id);
+      if (manifest) {
+        const toolInputs = step.config.tool_inputs || {};
+        for (const field of manifest.inputs) {
+          if (field.required && !toolInputs[field.key]?.trim()) {
+            issues.push(`Step ${index + 1} requires '${field.label}' for ${manifest.name}.`);
+          }
+        }
+      }
     }
   });
   return issues;
@@ -1079,56 +1124,93 @@ export const AutomationApp = () => {
                   {selectedStep.type === "tool" ? (
                     <>
                       <label id="automations-step-tool-id-field" className="automation-field automation-field--full">
-                        <span id="automations-step-tool-id-label" className="automation-field__label">Tool id</span>
-                        <input
-                          id="automations-step-tool-id-input"
+                        <span id="automations-step-tool-id-label" className="automation-field__label">Tool</span>
+                        <select
+                          id="automations-step-tool-id-select"
                           className="automation-input"
                           value={selectedStep.config.tool_id || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, tool_id: event.target.value } }))}
-                        />
+                          onChange={(event) => updateSelectedStep((step) => ({
+                            ...step,
+                            config: { ...step.config, tool_id: event.target.value, tool_inputs: {} }
+                          }))}
+                        >
+                          <option value="">Select a tool…</option>
+                          {(window.TOOLS_MANIFEST || []).map(tool => (
+                            <option key={tool.id} value={tool.id}>{tool.name}</option>
+                          ))}
+                        </select>
                       </label>
 
-                      {selectedStep.config.tool_id === "coqui-tts" ? (
-                        <>
-                          <label id="automations-step-tool-text-field" className="automation-field automation-field--full">
-                            <span id="automations-step-tool-text-label" className="automation-field__label">Speech text template</span>
-                            <textarea
-                              id="automations-step-tool-text-input"
-                              className="automation-textarea"
-                              rows={5}
-                              value={selectedStep.config.tool_text || ""}
-                              onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, tool_text: event.target.value } }))}
-                            />
-                          </label>
-                          <label id="automations-step-tool-output-field" className="automation-field automation-field--full">
-                            <span id="automations-step-tool-output-label" className="automation-field__label">Output filename</span>
-                            <input
-                              id="automations-step-tool-output-input"
-                              className="automation-input"
-                              value={selectedStep.config.tool_output_filename || ""}
-                              onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, tool_output_filename: event.target.value } }))}
-                            />
-                          </label>
-                          <label id="automations-step-tool-speaker-field" className="automation-field">
-                            <span id="automations-step-tool-speaker-label" className="automation-field__label">Speaker override</span>
-                            <input
-                              id="automations-step-tool-speaker-input"
-                              className="automation-input"
-                              value={selectedStep.config.tool_speaker || ""}
-                              onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, tool_speaker: event.target.value } }))}
-                            />
-                          </label>
-                          <label id="automations-step-tool-language-field" className="automation-field">
-                            <span id="automations-step-tool-language-label" className="automation-field__label">Language override</span>
-                            <input
-                              id="automations-step-tool-language-input"
-                              className="automation-input"
-                              value={selectedStep.config.tool_language || ""}
-                              onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, tool_language: event.target.value } }))}
-                            />
-                          </label>
-                        </>
-                      ) : null}
+                      {(() => {
+                        const toolManifest = (window.TOOLS_MANIFEST || []).find(t => t.id === selectedStep.config.tool_id);
+                        if (!toolManifest || toolManifest.inputs.length === 0) return null;
+                        const toolInputs = selectedStep.config.tool_inputs || {};
+                        const updateInput = (key: string, value: string) =>
+                          updateSelectedStep((step) => ({
+                            ...step,
+                            config: {
+                              ...step.config,
+                              tool_inputs: { ...(step.config.tool_inputs || {}), [key]: value }
+                            }
+                          }));
+                        return (
+                          <>
+                            {toolManifest.inputs.map((field) => {
+                              const fieldId = `automations-step-tool-input-${field.key}`;
+                              const isFullWidth = field.type === "text";
+                              return (
+                                <label key={field.key} id={`${fieldId}-field`} className={`automation-field${isFullWidth ? " automation-field--full" : ""}`}>
+                                  <span id={`${fieldId}-label`} className="automation-field__label">
+                                    {field.label}{field.required ? " *" : ""}
+                                  </span>
+                                  {field.type === "text" ? (
+                                    <textarea
+                                      id={`${fieldId}-input`}
+                                      className="automation-textarea"
+                                      rows={4}
+                                      value={toolInputs[field.key] || ""}
+                                      onChange={(e) => updateInput(field.key, e.target.value)}
+                                    />
+                                  ) : field.type === "select" ? (
+                                    <select
+                                      id={`${fieldId}-input`}
+                                      className="automation-input"
+                                      value={toolInputs[field.key] || ""}
+                                      onChange={(e) => updateInput(field.key, e.target.value)}
+                                    >
+                                      <option value="">Select…</option>
+                                      {(field.options || []).map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      id={`${fieldId}-input`}
+                                      className="automation-input"
+                                      type={field.type === "number" ? "number" : "text"}
+                                      value={toolInputs[field.key] || ""}
+                                      onChange={(e) => updateInput(field.key, e.target.value)}
+                                    />
+                                  )}
+                                </label>
+                              );
+                            })}
+                            {toolManifest.outputs.length > 0 ? (
+                              <div id="automations-step-tool-outputs-panel" className="automation-tool-outputs">
+                                <span id="automations-step-tool-outputs-label" className="automation-field__label">Available outputs</span>
+                                <ul id="automations-step-tool-outputs-list" className="automation-tool-outputs__list">
+                                  {toolManifest.outputs.map((out) => (
+                                    <li key={out.key} id={`automations-step-tool-output-${out.key}`} className="automation-tool-outputs__item">
+                                      <code className="automation-tool-outputs__key">{"{{steps." + (selectedStep.name || "this_step") + "." + out.key + "}}"}</code>
+                                      <span className="automation-tool-outputs__desc">{out.label}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </>
                   ) : null}
 

@@ -661,8 +661,18 @@ def validate_automation_definition(
         if step.type == "tool":
             if not step.config.tool_id:
                 issues.append(f"Step {index} requires config.tool_id for tool steps.")
-            if step.config.tool_id == "coqui-tts" and not step.config.tool_text:
-                issues.append(f"Step {index} requires config.tool_text for coqui-tts steps.")
+            if step.config.tool_id == "coqui-tts":
+                text_val = (step.config.tool_inputs or {}).get("text") or step.config.tool_text
+                if not text_val:
+                    issues.append(f"Step {index} requires a 'text' input for coqui-tts steps.")
+            if step.config.tool_id == "llm-deepl":
+                if not (step.config.tool_inputs or {}).get("user_prompt"):
+                    issues.append(f"Step {index} requires a 'user_prompt' input for llm-deepl steps.")
+            if step.config.tool_id == "smtp":
+                inputs = step.config.tool_inputs or {}
+                for required_key in ("relay_host", "relay_port", "from_address", "to", "subject", "body"):
+                    if not inputs.get(required_key):
+                        issues.append(f"Step {index} requires input '{required_key}' for smtp steps.")
         if step.type == "condition" and not step.config.expression:
             issues.append(f"Step {index} requires config.expression for condition steps.")
         if step.type == "llm_chat" and not step.config.user_prompt:
@@ -1324,6 +1334,14 @@ def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | 
 def sanitize_generated_audio_filename(value: str) -> str:
     filename = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-.")
     return filename or f"coqui-output-{uuid4().hex[:8]}"
+def _get_tool_input(step: AutomationStepDefinition, key: str, context: dict[str, Any], *, legacy_attr: str | None = None) -> str:
+    inputs = step.config.tool_inputs or {}
+    raw = inputs.get(key)
+    if raw is None and legacy_attr:
+        raw = getattr(step.config, legacy_attr, None)
+    return render_template_string(raw, context).strip() if raw else ""
+
+
 def execute_coqui_tts_tool_step(
     connection: sqlite3.Connection,
     step: AutomationStepDefinition,
@@ -1339,13 +1357,13 @@ def execute_coqui_tts_tool_step(
     if not config["model_name"]:
         raise RuntimeError("Coqui TTS model name is not configured.")
 
-    rendered_text = render_template_string(step.config.tool_text, context).strip()
+    rendered_text = _get_tool_input(step, "text", context, legacy_attr="tool_text")
     if not rendered_text:
-        raise RuntimeError("Coqui TTS steps require config.tool_text.")
+        raise RuntimeError("Coqui TTS steps require a 'text' input.")
 
     output_directory = Path(config["output_directory"])
     output_directory.mkdir(parents=True, exist_ok=True)
-    requested_filename = render_template_string(step.config.tool_output_filename, context).strip()
+    requested_filename = _get_tool_input(step, "output_filename", context, legacy_attr="tool_output_filename")
     safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"coqui-output-{uuid4().hex[:8]}"
     if "." not in safe_filename:
         safe_filename = f"{safe_filename}.wav"
@@ -1363,8 +1381,8 @@ def execute_coqui_tts_tool_step(
         "--out_path",
         str(output_path),
     ]
-    speaker = render_template_string(step.config.tool_speaker, context).strip() or config["speaker"]
-    language = render_template_string(step.config.tool_language, context).strip() or config["language"]
+    speaker = _get_tool_input(step, "speaker", context, legacy_attr="tool_speaker") or config["speaker"]
+    language = _get_tool_input(step, "language", context, legacy_attr="tool_language") or config["language"]
     if speaker:
         command.extend(["--speaker_idx", speaker])
     if language:
@@ -1386,19 +1404,120 @@ def execute_coqui_tts_tool_step(
         detail = stderr or stdout or "Unknown Coqui TTS failure."
         raise RuntimeError(f"Coqui TTS generation failed: {detail}") from error
 
+    outputs = {
+        "audio_file_path": str(output_path),
+    }
     detail = {
         "tool_id": "coqui-tts",
-        "output_path": str(output_path),
         "model_name": config["model_name"],
         "speaker": speaker or None,
         "language": language or None,
         "stdout": (completed.stdout or "").strip() or None,
+        **outputs,
     }
     return RuntimeExecutionResult(
         status="completed",
         response_summary=f"Generated speech audio at {output_path.name}.",
         detail=detail,
-        output=detail,
+        output=outputs,
+    )
+
+
+def execute_llm_deepl_tool_step(
+    connection: sqlite3.Connection,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+) -> RuntimeExecutionResult:
+    messages: list[dict[str, str]] = []
+    system_prompt = _get_tool_input(step, "system_prompt", context)
+    user_prompt = _get_tool_input(step, "user_prompt", context)
+    model_identifier = _get_tool_input(step, "model_identifier", context) or None
+
+    if not user_prompt:
+        raise RuntimeError("llm-deepl tool steps require a 'user_prompt' input.")
+
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_prompt})
+
+    llm_response = execute_local_llm_chat_request(
+        connection,
+        messages=messages,
+        model_identifier_override=model_identifier,
+    )
+    outputs = {
+        "response_text": llm_response.response_text,
+        "model_used": llm_response.model_identifier or "",
+    }
+    detail = llm_response.model_dump()
+    detail["tool_id"] = "llm-deepl"
+    detail.update(outputs)
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary=llm_response.response_text[:500],
+        detail=detail,
+        output=outputs,
+    )
+
+
+def execute_smtp_tool_step(
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+) -> RuntimeExecutionResult:
+    relay_host = _get_tool_input(step, "relay_host", context)
+    relay_port_raw = _get_tool_input(step, "relay_port", context)
+    relay_security = _get_tool_input(step, "relay_security", context) or "none"
+    relay_username = _get_tool_input(step, "relay_username", context) or None
+    relay_password = _get_tool_input(step, "relay_password", context) or None
+    from_address = _get_tool_input(step, "from_address", context)
+    to_address = _get_tool_input(step, "to", context)
+    subject = _get_tool_input(step, "subject", context)
+    body = _get_tool_input(step, "body", context)
+
+    if not relay_host:
+        raise RuntimeError("SMTP tool steps require a 'relay_host' input.")
+    if not relay_port_raw:
+        raise RuntimeError("SMTP tool steps require a 'relay_port' input.")
+    if not from_address:
+        raise RuntimeError("SMTP tool steps require a 'from_address' input.")
+    if not to_address:
+        raise RuntimeError("SMTP tool steps require a 'to' input.")
+    if not subject:
+        raise RuntimeError("SMTP tool steps require a 'subject' input.")
+    if not body:
+        raise RuntimeError("SMTP tool steps require a 'body' input.")
+
+    try:
+        relay_port = int(relay_port_raw)
+    except (ValueError, TypeError) as error:
+        raise RuntimeError(f"SMTP relay_port must be a valid integer, got: {relay_port_raw!r}") from error
+
+    if relay_security not in ("none", "starttls", "tls"):
+        relay_security = "none"
+
+    send_smtp_relay_message(
+        SmtpRelaySendRequest(
+            host=relay_host,
+            port=relay_port,
+            security=relay_security,
+            auth_mode="password" if relay_username else "none",
+            username=relay_username,
+            password=relay_password,
+            mail_from=from_address,
+            recipients=[r.strip() for r in to_address.split(",") if r.strip()],
+            subject=subject,
+            body=body,
+        )
+    )
+    outputs = {
+        "status": "sent",
+        "message": f"Email sent to {to_address} via {relay_host}:{relay_port}.",
+    }
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary=outputs["message"],
+        detail={"tool_id": "smtp", **outputs},
+        output=outputs,
     )
 def build_local_llm_endpoint_url(config: dict[str, Any], endpoint_key: str) -> str:
     base_url = str(config.get("server_base_url") or "").strip().rstrip("/")
@@ -2647,6 +2766,7 @@ def create_automation_run_step(
     status_value: str,
     request_summary: str | None,
     started_at: str,
+    inputs_json: dict[str, Any] | None = None,
 ) -> None:
     connection.execute(
         """
@@ -2660,10 +2780,12 @@ def create_automation_run_step(
             started_at,
             finished_at,
             duration_ms,
-            detail_json
-        ) VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL)
+            detail_json,
+            inputs_json
+        ) VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, ?)
         """,
-        (step_id, run_id, step_name, status_value, request_summary, started_at),
+        (step_id, run_id, step_name, status_value, request_summary, started_at,
+         json.dumps(inputs_json) if inputs_json is not None else "{}"),
     )
     connection.commit()
 def finalize_automation_run_step(
@@ -3134,7 +3256,9 @@ def execute_automation_step(
         tool_row = fetch_one(
             connection,
             """
-            SELECT id, COALESCE(name_override, source_name) AS name, COALESCE(description_override, source_description) AS description
+            SELECT id, COALESCE(name_override, source_name) AS name,
+                   COALESCE(description_override, source_description) AS description,
+                   inputs_schema_json
             FROM tools
             WHERE id = ?
             """,
@@ -3142,8 +3266,14 @@ def execute_automation_step(
         )
         if tool_row is None:
             raise RuntimeError(f"Tool '{step.config.tool_id}' was not found.")
+
         if tool_row["id"] == "coqui-tts":
             return execute_coqui_tts_tool_step(connection, step, context, root_dir=root_dir)
+        if tool_row["id"] == "llm-deepl":
+            return execute_llm_deepl_tool_step(connection, step, context)
+        if tool_row["id"] == "smtp":
+            return execute_smtp_tool_step(step, context)
+
         detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
         return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)
 
@@ -3201,6 +3331,7 @@ def execute_automation_definition(
 
     for index, step in enumerate(automation.steps):
         runtime_step_id = f"step_{uuid4().hex}"
+        step_inputs = step.config.tool_inputs if step.type == "tool" else None
         create_automation_run_step(
             connection,
             step_id=runtime_step_id,
@@ -3209,6 +3340,7 @@ def execute_automation_definition(
             status_value="running",
             request_summary=f"{step.type} step #{index + 1}",
             started_at=utc_now_iso(),
+            inputs_json=step_inputs,
         )
         try:
             result = execute_automation_step(
