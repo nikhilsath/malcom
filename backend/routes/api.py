@@ -45,7 +45,6 @@ def create_automation(payload: AutomationCreate, request: Request) -> Automation
     connection = get_connection(request)
     now = utc_now_iso()
     automation_id = f"automation_{uuid4().hex[:10]}"
-    trigger_config = payload.trigger_config.model_dump()
     next_run_at = None
     if payload.enabled and payload.trigger_type == "schedule" and payload.trigger_config.schedule_time:
         next_run_at = next_daily_run_at(payload.trigger_config.schedule_time)
@@ -71,7 +70,7 @@ def create_automation(payload: AutomationCreate, request: Request) -> Automation
             payload.description,
             int(payload.enabled),
             payload.trigger_type,
-            json.dumps(trigger_config),
+            payload.trigger_config.model_dump_json(),
             now,
             now,
             next_run_at,
@@ -117,7 +116,7 @@ def update_automation(automation_id: str, payload: AutomationUpdate, request: Re
             next_payload.description,
             int(next_payload.enabled),
             next_payload.trigger_type,
-            json.dumps(next_payload.trigger_config.model_dump()),
+            next_payload.trigger_config.model_dump_json(),
             now,
             next_run_at,
             automation_id,
