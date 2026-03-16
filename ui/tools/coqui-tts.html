@@ -14,16 +14,22 @@
     <main class="main" id="main-layout">
         <div class="content-shell tool-config-shell" id="tools-coqui-shell">
             <div class="page-header section-header--page" id="tools-coqui-page-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Coqui TTS</h2>
-                <p class="page-description section-header__description--page" id="page-description">Configure the local Coqui text-to-speech runtime used by workflow tool steps.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Coqui TTS</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Configure the local Coqui text-to-speech runtime used by workflow tool steps.</p>
             </div>
 
             <section id="tools-coqui-workspace" class="card tool-config-workspace">
                 <div id="tools-coqui-overview-header" class="section-header tool-config-workspace__header">
                     <div id="tools-coqui-overview-copy" class="section-header__copy">
                         <p id="tools-coqui-overview-eyebrow" class="section-header__eyebrow">Tool Setup</p>
-                        <h3 id="tools-coqui-title" class="section-header__title">Coqui TTS configuration</h3>
-                        <p id="tools-coqui-description" class="section-header__description">Load the saved command, model, and output path used for speech generation.</p>
+                        <div class="title-row">
+                            <h3 id="tools-coqui-title" class="section-header__title">Coqui TTS configuration</h3>
+                            <button type="button" id="tools-coqui-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-description">i</button>
+                        </div>
+                        <p id="tools-coqui-description" class="section-header__description" hidden>Load the saved command, model, and output path used for speech generation.</p>
                     </div>
                     <div id="tools-coqui-status-card" class="stat-card tool-config-workspace__status" aria-live="polite">
                         <p id="tools-coqui-status-label" class="stat-card__label">Directory state</p>
@@ -52,8 +58,11 @@
                         <div id="tools-coqui-form-header" class="section-header tool-config-panel__header">
                             <div id="tools-coqui-form-copy" class="section-header__copy">
                                 <p id="tools-coqui-form-eyebrow" class="section-header__eyebrow">Runtime</p>
-                                <h3 id="tools-coqui-form-title" class="section-header__title">Command and defaults</h3>
-                                <p id="tools-coqui-form-description" class="section-header__description">These settings drive workflow tool steps that target `coqui-tts`.</p>
+                                <div class="title-row">
+                                    <h3 id="tools-coqui-form-title" class="section-header__title">Command and defaults</h3>
+                                    <button type="button" id="tools-coqui-form-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-form-description">i</button>
+                                </div>
+                                <p id="tools-coqui-form-description" class="section-header__description" hidden>These settings drive workflow tool steps that target `coqui-tts`.</p>
                             </div>
                         </div>
 
@@ -105,8 +114,11 @@
                         <div id="tools-coqui-summary-header" class="section-header tool-config-panel__header">
                             <div id="tools-coqui-summary-copy" class="section-header__copy">
                                 <p id="tools-coqui-summary-eyebrow" class="section-header__eyebrow">Workflow Use</p>
-                                <h3 id="tools-coqui-summary-title" class="section-header__title">Execution notes</h3>
-                                <p id="tools-coqui-summary-description" class="section-header__description">Workflow tool steps can override the saved speaker, language, and output filename per run.</p>
+                                <div class="title-row">
+                                    <h3 id="tools-coqui-summary-title" class="section-header__title">Execution notes</h3>
+                                    <button type="button" id="tools-coqui-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-summary-description">i</button>
+                                </div>
+                                <p id="tools-coqui-summary-description" class="section-header__description" hidden>Workflow tool steps can override the saved speaker, language, and output filename per run.</p>
                             </div>
                         </div>
 
@@ -129,8 +141,11 @@
                             <div id="tools-coqui-guidance-header" class="section-header tool-config-panel__header">
                                 <div id="tools-coqui-guidance-copy" class="section-header__copy">
                                     <p id="tools-coqui-guidance-eyebrow" class="section-header__eyebrow">Checklist</p>
-                                    <h3 id="tools-coqui-guidance-title" class="section-header__title">Before enabling</h3>
-                                    <p id="tools-coqui-guidance-description" class="section-header__description">Keep the runtime assumptions explicit because workflow steps call the local CLI directly.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-coqui-guidance-title" class="section-header__title">Before enabling</h3>
+                                        <button type="button" id="tools-coqui-guidance-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-guidance-description">i</button>
+                                    </div>
+                                    <p id="tools-coqui-guidance-description" class="section-header__description" hidden>Keep the runtime assumptions explicit because workflow steps call the local CLI directly.</p>
                                 </div>
                             </div>
                             <ol id="tools-coqui-guidance-list" class="tool-config-checklist">

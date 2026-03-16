@@ -14,15 +14,21 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="scripts-library-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Script Library</h2>
-                <p class="page-description section-header__description--page" id="page-description">Manage reusable scripts.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Script Library</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage reusable scripts.</p>
             </div>
             <section id="scripts-library-content" class="card script-workspace">
                 <div id="scripts-library-copy" class="section-header script-library-header">
                     <div id="scripts-library-copy-block" class="section-header__copy script-library-copy">
                         <p id="scripts-library-eyebrow" class="section-header__eyebrow script-library-eyebrow">Script Management</p>
-                        <h3 id="scripts-library-content-title" class="section-header__title script-library-title">Author reusable Python and JavaScript automation scripts</h3>
-                        <p id="scripts-library-content-copy" class="section-header__description script-library-description">Save validated scripts for reuse.</p>
+                        <div class="title-row">
+                            <h3 id="scripts-library-content-title" class="section-header__title script-library-title">Author reusable Python and JavaScript automation scripts</h3>
+                            <button type="button" id="scripts-library-content-copy-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="scripts-library-content-copy">i</button>
+                        </div>
+                        <p id="scripts-library-content-copy" class="section-header__description script-library-description" hidden>Save validated scripts for reuse.</p>
                     </div>
                     <div id="scripts-library-header-actions" class="script-library-header-actions">
                         <button type="button" id="scripts-library-create-button" class="button button--success">New script</button>
@@ -55,8 +61,11 @@
                         <div id="scripts-library-list-header" class="section-header script-panel-header">
                             <div id="scripts-library-list-copy" class="section-header__copy">
                                 <p id="scripts-library-list-eyebrow" class="section-header__eyebrow">Library</p>
-                                <h3 id="scripts-library-list-title" class="section-header__title">Saved scripts</h3>
-                                <p id="scripts-library-list-description" class="section-header__description">Select or create a script.</p>
+                                <div class="title-row">
+                                    <h3 id="scripts-library-list-title" class="section-header__title">Saved scripts</h3>
+                                    <button type="button" id="scripts-library-list-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="scripts-library-list-description">i</button>
+                                </div>
+                                <p id="scripts-library-list-description" class="section-header__description" hidden>Select or create a script.</p>
                             </div>
                         </div>
 
@@ -77,8 +86,11 @@
                         <div id="scripts-library-editor-header" class="section-header script-panel-header">
                             <div id="scripts-library-editor-copy" class="section-header__copy">
                                 <p id="scripts-library-editor-eyebrow" class="section-header__eyebrow">Editor</p>
-                                <h3 id="scripts-library-editor-title" class="section-header__title">Script definition</h3>
-                                <p id="scripts-library-editor-description" class="section-header__description">Validate before saving.</p>
+                                <div class="title-row">
+                                    <h3 id="scripts-library-editor-title" class="section-header__title">Script definition</h3>
+                                    <button type="button" id="scripts-library-editor-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="scripts-library-editor-description">i</button>
+                                </div>
+                                <p id="scripts-library-editor-description" class="section-header__description" hidden>Validate before saving.</p>
                             </div>
                             <div id="scripts-library-validation-chip" class="script-validation-chip script-validation-chip--unknown">Not validated</div>
                         </div>
