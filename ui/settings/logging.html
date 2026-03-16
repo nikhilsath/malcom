@@ -14,16 +14,22 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Settings Logging</h2>
-                <p class="page-description section-header__description--page" id="page-description">Manage log retention and cleanup.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Settings Logging</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage log retention and cleanup.</p>
             </div>
 
             <section id="settings-logging-section" class="settings-stack">
                 <section id="settings-log-card" class="card settings-section">
                     <div id="settings-log-header" class="settings-section__header">
                         <p id="settings-log-eyebrow" class="section-header__eyebrow">Logging</p>
-                        <h3 id="settings-log-title" class="settings-card__title">Logging thresholds</h3>
-                        <p id="settings-log-description" class="settings-card__description">These settings are stored in the database and immediately affect the dashboard log view and future retention trimming.</p>
+                        <div class="title-row">
+                            <h3 id="settings-log-title" class="settings-card__title">Logging thresholds</h3>
+                            <button type="button" id="settings-log-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-log-description">i</button>
+                        </div>
+                        <p id="settings-log-description" class="settings-card__description" hidden>These settings are stored in the database and immediately affect the dashboard log view and future retention trimming.</p>
                     </div>
                     <form id="settings-form" class="api-form">
                         <div id="settings-log-grid" class="api-form-grid">
@@ -54,8 +60,11 @@
                 </section>
 
                 <aside id="settings-summary-card" class="card settings-section settings-section--aside">
-                    <h3 id="settings-summary-title" class="settings-card__title">Current store</h3>
-                    <p id="settings-summary-description" class="settings-card__description">Use this summary to verify that retention changes and maintenance actions applied as expected.</p>
+                    <div class="title-row">
+                        <h3 id="settings-summary-title" class="settings-card__title">Current store</h3>
+                        <button type="button" id="settings-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-summary-description">i</button>
+                    </div>
+                    <p id="settings-summary-description" class="settings-card__description" hidden>Use this summary to verify that retention changes and maintenance actions applied as expected.</p>
                     <div id="settings-summary" class="settings-summary">
                         <div id="settings-total-item" class="stat-card settings-summary__item">
                             <span id="settings-total-label" class="settings-summary__label">Stored logs</span>

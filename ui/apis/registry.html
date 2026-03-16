@@ -14,8 +14,11 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-overview-header">
-                <h2 class="page-title section-header__title--page" id="page-title"></h2>
-                <p class="page-description section-header__description--page" id="page-description"></p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
             </div>
             <section id="apis-overview-content" class="card api-workspace">
                 <div id="apis-overview-copy" class="section-header api-overview-header">
@@ -25,7 +28,7 @@
                     </div>
                     <div id="apis-overview-status" class="section-status stat-card api-overview-status" aria-live="polite">
                         <span id="apis-overview-total-count" class="api-overview-count">0 configured APIs</span>
-                        <span id="apis-overview-helper" class="api-overview-helper">Across inbound, outbound, and webhook monitoring surfaces.</span>
+                        <span id="apis-overview-helper" class="api-overview-helper" hidden>Across inbound, outbound, and webhook monitoring surfaces.</span>
                     </div>
                 </div>
 

@@ -14,19 +14,25 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page">
-                <h2 class="page-title section-header__title--page" id="page-title"></h2>
-                <p class="page-description section-header__description--page" id="page-description"></p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
             </div>
             <section id="main-content" class="card tools-directory-workspace">
                 <div id="tools-selection-header" class="section-header tools-selection-header">
                     <div id="tools-selection-copy" class="section-header__copy tools-selection-copy">
                         <p id="tools-selection-eyebrow" class="section-header__eyebrow tools-selection-eyebrow">Tool Directory</p>
-                        <h3 id="tools-selection-title" class="section-header__title tools-selection-title">Select a tool to edit metadata and availability</h3>
-                        <p id="tools-selection-description" class="section-header__description tools-selection-description">Each registered tool gets its own configuration page in the shared sidenav.</p>
+                        <div class="title-row">
+                            <h3 id="tools-selection-title" class="section-header__title tools-selection-title">Select a tool to edit metadata and availability</h3>
+                            <button type="button" id="tools-selection-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-selection-description">i</button>
+                        </div>
+                        <p id="tools-selection-description" class="section-header__description tools-selection-description" hidden>Each registered tool gets its own configuration page in the shared sidenav.</p>
                     </div>
                     <div id="tools-selection-status" class="section-status stat-card tools-selection-status" aria-live="polite">
                         <span id="selected-tools-count" class="selected-tools-count">0 loaded</span>
-                        <span id="selected-tools-helper" class="selected-tools-helper">Select a tool to update metadata or open its configuration page.</span>
+                        <span id="selected-tools-helper" class="selected-tools-helper" hidden>Select a tool to update metadata or open its configuration page.</span>
                     </div>
                 </div>
 
@@ -37,8 +43,11 @@
                         <div id="tool-detail-header" class="section-header tool-detail-panel__header">
                             <div id="tool-detail-copy" class="section-header__copy">
                                 <p id="tool-detail-eyebrow" class="section-header__eyebrow">Selected tool</p>
-                                <h3 id="tool-detail-title" class="section-header__title">Choose a tool</h3>
-                                <p id="tool-detail-description" class="section-header__description">Tool metadata and enablement are managed here.</p>
+                                <div class="title-row">
+                                    <h3 id="tool-detail-title" class="section-header__title">Choose a tool</h3>
+                                    <button type="button" id="tool-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tool-detail-description">i</button>
+                                </div>
+                                <p id="tool-detail-description" class="section-header__description" hidden>Tool metadata and enablement are managed here.</p>
                             </div>
                         </div>
 

@@ -14,8 +14,11 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-outgoing-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Outgoing APIs</h2>
-                <p class="page-description section-header__description--page" id="page-description">Review outbound deliveries.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Outgoing APIs</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Review outbound deliveries.</p>
             </div>
             <section id="apis-outgoing-content" class="card api-workspace">
                 <div id="apis-outgoing-copy" class="section-header api-panel-header">
@@ -34,7 +37,7 @@
                 </div>
                 <div id="apis-outgoing-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled and continuous deliveries, destination readiness, and quick actions from one registry.</div>
                 <div id="apis-outgoing-status-bar" class="api-directory-status-bar">
-                    <p id="apis-outgoing-status-copy" class="api-directory-status-copy">Active deliveries show in green and inactive deliveries show in yellow.</p>
+                    <p id="apis-outgoing-status-copy" class="api-directory-status-copy" hidden>Active deliveries show in green and inactive deliveries show in yellow.</p>
                 </div>
                 <div id="apis-outgoing-list-empty" class="empty-state api-empty-state" hidden>
                     <h4 id="apis-outgoing-list-empty-title" class="api-empty-state__title">No outgoing APIs configured</h4>

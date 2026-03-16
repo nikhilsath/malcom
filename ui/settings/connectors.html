@@ -14,35 +14,50 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title"></h2>
-                <p class="page-description section-header__description--page" id="page-description"></p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
             </div>
 
             <section id="settings-connectors-summary-section" class="card settings-section">
                 <div id="settings-connectors-summary-header" class="settings-section__header">
                     <p id="settings-connectors-summary-eyebrow" class="section-header__eyebrow">Connectors</p>
-                    <h3 id="settings-connectors-summary-title" class="settings-card__title">Workspace connector registry</h3>
-                    <p id="settings-connectors-summary-description" class="settings-card__description">Store reusable provider definitions, track authentication state, and feed outbound APIs or automation steps from one registry.</p>
+                    <div class="title-row">
+                        <h3 id="settings-connectors-summary-title" class="settings-card__title">Workspace connector registry</h3>
+                        <button type="button" id="settings-connectors-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-description">i</button>
+                    </div>
+                    <p id="settings-connectors-summary-description" class="settings-card__description" hidden>Store reusable provider definitions, track authentication state, and feed outbound APIs or automation steps from one registry.</p>
                 </div>
                 <div id="settings-connectors-summary-grid" class="settings-option-grid">
                     <article id="settings-connectors-summary-connected-card" class="stat-card settings-option-card">
                         <div id="settings-connectors-summary-connected-copy" class="settings-option-card__copy">
-                            <h4 id="settings-connectors-summary-connected-title" class="settings-option-card__title">Connected</h4>
-                            <p id="settings-connectors-summary-connected-description" class="settings-option-card__description">Providers with working credentials.</p>
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-connected-title" class="settings-option-card__title">Connected</h4>
+                                <button type="button" id="settings-connectors-summary-connected-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-connected-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-connected-description" class="settings-option-card__description" hidden>Providers with working credentials.</p>
                         </div>
                         <p id="settings-connectors-summary-connected-value" class="settings-connectors-summary-value">0</p>
                     </article>
                     <article id="settings-connectors-summary-oauth-card" class="stat-card settings-option-card">
                         <div id="settings-connectors-summary-oauth-copy" class="settings-option-card__copy">
-                            <h4 id="settings-connectors-summary-oauth-title" class="settings-option-card__title">OAuth connectors</h4>
-                            <p id="settings-connectors-summary-oauth-description" class="settings-option-card__description">Providers that use authorization code setup.</p>
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-oauth-title" class="settings-option-card__title">OAuth connectors</h4>
+                                <button type="button" id="settings-connectors-summary-oauth-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-oauth-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-oauth-description" class="settings-option-card__description" hidden>Providers that use authorization code setup.</p>
                         </div>
                         <p id="settings-connectors-summary-oauth-value" class="settings-connectors-summary-value">0</p>
                     </article>
                     <article id="settings-connectors-summary-attention-card" class="stat-card settings-option-card">
                         <div id="settings-connectors-summary-attention-copy" class="settings-option-card__copy">
-                            <h4 id="settings-connectors-summary-attention-title" class="settings-option-card__title">Needs attention</h4>
-                            <p id="settings-connectors-summary-attention-description" class="settings-option-card__description">Expired, revoked, or incomplete entries.</p>
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-attention-title" class="settings-option-card__title">Needs attention</h4>
+                                <button type="button" id="settings-connectors-summary-attention-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-attention-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-attention-description" class="settings-option-card__description" hidden>Expired, revoked, or incomplete entries.</p>
                         </div>
                         <p id="settings-connectors-summary-attention-value" class="settings-connectors-summary-value">0</p>
                     </article>
@@ -53,8 +68,11 @@
                 <div id="settings-connectors-workspace-header" class="section-header api-panel-header">
                     <div id="settings-connectors-workspace-copy" class="section-header__copy api-panel-header-copy">
                         <p id="settings-connectors-workspace-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Registry</p>
-                        <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Saved connectors</h3>
-                        <p id="settings-connectors-workspace-description" class="section-header__description">Select a connector to edit metadata, rotate auth, or test the saved configuration.</p>
+                        <div class="title-row">
+                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Saved connectors</h3>
+                            <button type="button" id="settings-connectors-workspace-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-workspace-description">i</button>
+                        </div>
+                        <p id="settings-connectors-workspace-description" class="section-header__description" hidden>Select a connector to edit metadata, rotate auth, or test the saved configuration.</p>
                     </div>
                     <div id="settings-connectors-workspace-actions" class="api-form-actions">
                         <button type="button" id="settings-connectors-create-button" class="button button--primary primary-action-button">Connect provider</button>
@@ -64,7 +82,7 @@
                 <div id="settings-connectors-layout" class="settings-connectors-layout">
                     <section id="settings-connectors-directory-panel" class="card api-directory-panel">
                         <div id="settings-connectors-directory-status" class="api-directory-status-bar">
-                            <p id="settings-connectors-directory-status-copy" class="api-directory-status-copy">Saved connectors are shared across this workspace.</p>
+                            <p id="settings-connectors-directory-status-copy" class="api-directory-status-copy" hidden>Saved connectors are shared across this workspace.</p>
                         </div>
                         <div id="settings-connectors-empty" class="api-empty-state" hidden>
                             <h4 id="settings-connectors-empty-title" class="api-empty-state__title">No connectors configured</h4>
@@ -90,8 +108,11 @@
                         <div id="settings-connectors-detail-header" class="section-header api-panel-header">
                             <div id="settings-connectors-detail-copy" class="section-header__copy api-panel-header-copy">
                                 <p id="settings-connectors-detail-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Selected connector</p>
-                                <h3 id="settings-connectors-detail-title" class="section-header__title api-panel-title">Choose a connector</h3>
-                                <p id="settings-connectors-detail-description" class="section-header__description">Provider metadata, scope selection, and saved auth settings appear here.</p>
+                                <div class="title-row">
+                                    <h3 id="settings-connectors-detail-title" class="section-header__title api-panel-title">Choose a connector</h3>
+                                    <button type="button" id="settings-connectors-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-detail-description">i</button>
+                                </div>
+                                <p id="settings-connectors-detail-description" class="section-header__description" hidden>Provider metadata, scope selection, and saved auth settings appear here.</p>
                             </div>
                         </div>
                         <form id="settings-connectors-form" class="api-form">
@@ -192,15 +213,21 @@
             <section id="settings-connectors-policy-section" class="card settings-section">
                 <div id="settings-connectors-policy-header" class="settings-section__header">
                     <p id="settings-connectors-policy-eyebrow" class="section-header__eyebrow">Access policy</p>
-                    <h3 id="settings-connectors-policy-title" class="settings-card__title">Connector auth defaults</h3>
-                    <p id="settings-connectors-policy-description" class="settings-card__description">Apply shared policy defaults for new or reconnected connectors.</p>
+                    <div class="title-row">
+                        <h3 id="settings-connectors-policy-title" class="settings-card__title">Connector auth defaults</h3>
+                        <button type="button" id="settings-connectors-policy-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-description">i</button>
+                    </div>
+                    <p id="settings-connectors-policy-description" class="settings-card__description" hidden>Apply shared policy defaults for new or reconnected connectors.</p>
                 </div>
                 <form id="settings-connectors-policy-form" class="api-form">
                     <div id="settings-connectors-policy-grid" class="settings-option-grid">
                         <article id="settings-connectors-policy-rotation-card" class="stat-card settings-option-card">
                             <div id="settings-connectors-policy-rotation-copy" class="settings-option-card__copy">
-                                <h4 id="settings-connectors-policy-rotation-title" class="settings-option-card__title">Rotation interval</h4>
-                                <p id="settings-connectors-policy-rotation-description" class="settings-option-card__description">Default token rotation target for connector credentials.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-rotation-title" class="settings-option-card__title">Rotation interval</h4>
+                                    <button type="button" id="settings-connectors-policy-rotation-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-rotation-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-rotation-description" class="settings-option-card__description" hidden>Default token rotation target for connector credentials.</p>
                             </div>
                             <select id="settings-connectors-policy-rotation-input" class="api-form-input">
                                 <option value="30">30 days</option>
@@ -210,8 +237,11 @@
                         </article>
                         <article id="settings-connectors-policy-approval-card" class="stat-card settings-option-card">
                             <div id="settings-connectors-policy-approval-copy" class="settings-option-card__copy">
-                                <h4 id="settings-connectors-policy-approval-title" class="settings-option-card__title">Reconnect approval</h4>
-                                <p id="settings-connectors-policy-approval-description" class="settings-option-card__description">Require approval before reconnecting saved providers.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-approval-title" class="settings-option-card__title">Reconnect approval</h4>
+                                    <button type="button" id="settings-connectors-policy-approval-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-approval-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-approval-description" class="settings-option-card__description" hidden>Require approval before reconnecting saved providers.</p>
                             </div>
                             <label id="settings-connectors-policy-approval-toggle" class="toggle settings-option-card__toggle toggle--on">
                                 <input id="settings-connectors-policy-approval-input" class="sr-only" type="checkbox" checked>
@@ -223,8 +253,11 @@
                         </article>
                         <article id="settings-connectors-policy-visibility-card" class="stat-card settings-option-card">
                             <div id="settings-connectors-policy-visibility-copy" class="settings-option-card__copy">
-                                <h4 id="settings-connectors-policy-visibility-title" class="settings-option-card__title">Credential visibility</h4>
-                                <p id="settings-connectors-policy-visibility-description" class="settings-option-card__description">How secret summaries are displayed in the workspace.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-visibility-title" class="settings-option-card__title">Credential visibility</h4>
+                                    <button type="button" id="settings-connectors-policy-visibility-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-visibility-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-visibility-description" class="settings-option-card__description" hidden>How secret summaries are displayed in the workspace.</p>
                             </div>
                             <select id="settings-connectors-policy-visibility-input" class="api-form-input">
                                 <option value="masked">Masked</option>

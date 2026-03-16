@@ -460,6 +460,86 @@ const initSidebarCollapse = () => {
   });
 };
 
+const closeInfoBadges = () => {
+  document.querySelectorAll(".info-badge[aria-controls]").forEach((badge) => {
+    const contentId = badge.getAttribute("aria-controls");
+    badge.setAttribute("aria-expanded", "false");
+    if (contentId) {
+      const content = document.getElementById(contentId);
+      if (content) {
+        content.hidden = true;
+      }
+    }
+  });
+};
+
+const initInfoBadges = () => {
+  document.querySelectorAll(".info-badge[aria-controls]").forEach((badge) => {
+    if (badge.dataset.infoBadgeBound === "true") {
+      return;
+    }
+
+    badge.dataset.infoBadgeBound = "true";
+    badge.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const contentId = badge.getAttribute("aria-controls");
+
+      if (!contentId) {
+        return;
+      }
+
+      const content = document.getElementById(contentId);
+
+      if (!content) {
+        return;
+      }
+
+      const shouldOpen = badge.getAttribute("aria-expanded") !== "true";
+      closeInfoBadges();
+      badge.setAttribute("aria-expanded", String(shouldOpen));
+      content.hidden = !shouldOpen;
+    });
+  });
+
+  if (document.body.dataset.infoBadgeListenerBound === "true") {
+    return;
+  }
+
+  document.body.dataset.infoBadgeListenerBound = "true";
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      closeInfoBadges();
+      return;
+    }
+
+    if (target.closest(".info-badge")) {
+      return;
+    }
+
+    const openBadges = document.querySelectorAll(".info-badge[aria-expanded='true']");
+    for (const badge of openBadges) {
+      const contentId = badge.getAttribute("aria-controls");
+      if (contentId) {
+        const content = document.getElementById(contentId);
+        if (content && content.contains(target)) {
+          return;
+        }
+      }
+    }
+
+    closeInfoBadges();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeInfoBadges();
+    }
+  });
+};
+
 renderTopNav();
 renderSideNav();
 window.addEventListener("hashchange", () => {
@@ -469,4 +549,5 @@ window.addEventListener("malcom:tools-directory-updated", () => {
   renderSideNav();
 });
 initDeveloperModeToggle();
+initInfoBadges();
 logPageView();

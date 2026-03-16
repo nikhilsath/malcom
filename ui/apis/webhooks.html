@@ -14,8 +14,11 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-webhooks-header">
-                <h2 class="page-title section-header__title--page" id="page-title">API Webhooks</h2>
-                <p class="page-description section-header__description--page" id="page-description">Manage webhook definitions.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">API Webhooks</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage webhook definitions.</p>
             </div>
             <section id="apis-webhooks-content" class="card api-workspace">
                 <div id="apis-webhooks-copy" class="section-header api-panel-header">
@@ -32,7 +35,7 @@
                 </div>
                 <div id="apis-webhooks-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Track verification, signing, and callback configuration for each webhook definition.</div>
                 <div id="apis-webhooks-status-bar" class="api-directory-status-bar">
-                    <p id="apis-webhooks-status-copy" class="api-directory-status-copy">Use card actions for copy and follow-up.</p>
+                    <p id="apis-webhooks-status-copy" class="api-directory-status-copy" hidden>Use card actions for copy and follow-up.</p>
                 </div>
                 <div id="apis-webhooks-list-empty" class="empty-state api-empty-state" hidden>
                     <h4 id="apis-webhooks-list-empty-title" class="api-empty-state__title">No webhooks configured</h4>

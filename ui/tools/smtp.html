@@ -13,16 +13,22 @@
     <main class="main" id="main-layout">
         <div class="content-shell smtp-workspace" id="tools-smtp-shell">
             <div class="page-header section-header--page" id="tools-smtp-header">
-                <h2 class="page-title section-header__title--page" id="page-title">SMTP Tools</h2>
-                <p class="page-description section-header__description--page" id="page-description">Operate the listener, inspect inbound mail, and send test or relay messages.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">SMTP Tools</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Operate the listener, inspect inbound mail, and send test or relay messages.</p>
             </div>
 
             <section id="tools-smtp-workspace" class="card smtp-workspace__panel">
                 <div id="tools-smtp-overview-header" class="section-header smtp-workspace__header">
                     <div id="tools-smtp-overview-copy" class="section-header__copy">
                         <p id="tools-smtp-overview-eyebrow" class="section-header__eyebrow">Operational Console</p>
-                        <h3 id="tools-smtp-overview-title" class="section-header__title">SMTP runtime and mailbox</h3>
-                        <p id="tools-smtp-overview-description" class="section-header__description">Control the listener, surface the receive address, and inspect recent inbound traffic.</p>
+                        <div class="title-row">
+                            <h3 id="tools-smtp-overview-title" class="section-header__title">SMTP runtime and mailbox</h3>
+                            <button type="button" id="tools-smtp-overview-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-overview-description">i</button>
+                        </div>
+                        <p id="tools-smtp-overview-description" class="section-header__description" hidden>Control the listener, surface the receive address, and inspect recent inbound traffic.</p>
                     </div>
                     <div id="tools-smtp-runtime-status-card" class="stat-card smtp-workspace__status" aria-live="polite">
                         <p id="tools-smtp-runtime-status-label" class="stat-card__label">Runtime status</p>
@@ -62,8 +68,11 @@
                             <div id="tools-smtp-config-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-config-copy" class="section-header__copy">
                                     <p id="tools-smtp-config-eyebrow" class="section-header__eyebrow">Configuration</p>
-                                    <h3 id="tools-smtp-config-title" class="section-header__title">Listener settings</h3>
-                                    <p id="tools-smtp-config-description" class="section-header__description">Choose the machine, bind address, and mailbox filter.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-config-title" class="section-header__title">Listener settings</h3>
+                                        <button type="button" id="tools-smtp-config-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-config-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-config-description" class="section-header__description" hidden>Choose the machine, bind address, and mailbox filter.</p>
                                 </div>
                             </div>
 
@@ -104,8 +113,11 @@
                             <div id="tools-smtp-receive-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-receive-copy" class="section-header__copy">
                                     <p id="tools-smtp-receive-eyebrow" class="section-header__eyebrow">Inbound Identity</p>
-                                    <h3 id="tools-smtp-receive-title" class="section-header__title">Receive mail at</h3>
-                                    <p id="tools-smtp-receive-description" class="section-header__description">Expose the mailbox or catch-all listener details operators need.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-receive-title" class="section-header__title">Receive mail at</h3>
+                                        <button type="button" id="tools-smtp-receive-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-receive-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-receive-description" class="section-header__description" hidden>Expose the mailbox or catch-all listener details operators need.</p>
                                 </div>
                             </div>
 
@@ -123,8 +135,11 @@
                             <div id="tools-smtp-outbound-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-outbound-copy" class="section-header__copy">
                                     <p id="tools-smtp-outbound-eyebrow" class="section-header__eyebrow">Outbound</p>
-                                    <h3 id="tools-smtp-outbound-title" class="section-header__title">Compose and send</h3>
-                                    <p id="tools-smtp-outbound-description" class="section-header__description">Run a local loopback test or send through an external SMTP relay.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-outbound-title" class="section-header__title">Compose and send</h3>
+                                        <button type="button" id="tools-smtp-outbound-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-outbound-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-outbound-description" class="section-header__description" hidden>Run a local loopback test or send through an external SMTP relay.</p>
                                 </div>
                             </div>
 
@@ -139,8 +154,11 @@
                             <div id="tools-smtp-activity-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-activity-copy" class="section-header__copy">
                                     <p id="tools-smtp-activity-eyebrow" class="section-header__eyebrow">Activity</p>
-                                    <h3 id="tools-smtp-activity-title" class="section-header__title">Listener runtime</h3>
-                                    <p id="tools-smtp-activity-description" class="section-header__description">Track starts, stops, sessions, and the latest inbound mail.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-activity-title" class="section-header__title">Listener runtime</h3>
+                                        <button type="button" id="tools-smtp-activity-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-activity-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-activity-description" class="section-header__description" hidden>Track starts, stops, sessions, and the latest inbound mail.</p>
                                 </div>
                             </div>
 
@@ -178,8 +196,11 @@
                             <div id="tools-smtp-mailbox-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-mailbox-copy" class="section-header__copy">
                                     <p id="tools-smtp-mailbox-eyebrow" class="section-header__eyebrow">Mailbox</p>
-                                    <h3 id="tools-smtp-mailbox-title" class="section-header__title">Recent inbound messages</h3>
-                                    <p id="tools-smtp-mailbox-description" class="section-header__description">The latest accepted messages are kept in runtime memory for inspection.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-mailbox-title" class="section-header__title">Recent inbound messages</h3>
+                                        <button type="button" id="tools-smtp-mailbox-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-mailbox-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-mailbox-description" class="section-header__description" hidden>The latest accepted messages are kept in runtime memory for inspection.</p>
                                 </div>
                             </div>
 
@@ -191,8 +212,11 @@
                             <div id="tools-smtp-message-header" class="section-header smtp-panel__header">
                                 <div id="tools-smtp-message-copy" class="section-header__copy">
                                     <p id="tools-smtp-message-eyebrow" class="section-header__eyebrow">Message detail</p>
-                                    <h3 id="tools-smtp-message-title" class="section-header__title">Selected email</h3>
-                                    <p id="tools-smtp-message-description" class="section-header__description">Select a message to inspect the body and raw SMTP content.</p>
+                                    <div class="title-row">
+                                        <h3 id="tools-smtp-message-title" class="section-header__title">Selected email</h3>
+                                        <button type="button" id="tools-smtp-message-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-message-description">i</button>
+                                    </div>
+                                    <p id="tools-smtp-message-description" class="section-header__description" hidden>Select a message to inspect the body and raw SMTP content.</p>
                                 </div>
                             </div>
 
@@ -244,8 +268,11 @@
                     <div id="tools-smtp-machines-header" class="section-header smtp-panel__header">
                         <div id="tools-smtp-machines-copy" class="section-header__copy">
                             <p id="tools-smtp-machines-eyebrow" class="section-header__eyebrow">Machine inventory</p>
-                            <h3 id="tools-smtp-machines-title" class="section-header__title">Available machines</h3>
-                            <p id="tools-smtp-machines-description" class="section-header__description">Local execution is supported today. Remote assignment is visible as an operational limitation.</p>
+                            <div class="title-row">
+                                <h3 id="tools-smtp-machines-title" class="section-header__title">Available machines</h3>
+                                <button type="button" id="tools-smtp-machines-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-machines-description">i</button>
+                            </div>
+                            <p id="tools-smtp-machines-description" class="section-header__description" hidden>Local execution is supported today. Remote assignment is visible as an operational limitation.</p>
                         </div>
                     </div>
 

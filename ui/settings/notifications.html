@@ -14,22 +14,31 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Settings Notifications</h2>
-                <p class="page-description section-header__description--page" id="page-description">Control alert routing and cadence.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Settings Notifications</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Control alert routing and cadence.</p>
             </div>
 
             <section id="settings-notifications-section" class="card settings-section">
                 <div id="settings-notifications-header" class="settings-section__header">
                     <p id="settings-notifications-eyebrow" class="section-header__eyebrow">Notifications</p>
-                    <h3 id="settings-notifications-title" class="settings-card__title">Operator alerts</h3>
-                    <p id="settings-notifications-description" class="settings-card__description">Representative settings for alert routing commonly found in internal automation consoles.</p>
+                    <div class="title-row">
+                        <h3 id="settings-notifications-title" class="settings-card__title">Operator alerts</h3>
+                        <button type="button" id="settings-notifications-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-notifications-description">i</button>
+                    </div>
+                    <p id="settings-notifications-description" class="settings-card__description" hidden>Representative settings for alert routing commonly found in internal automation consoles.</p>
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-notifications-grid" class="settings-option-grid">
                         <article id="settings-notifications-channel-card" class="stat-card settings-option-card">
                             <div id="settings-notifications-channel-copy" class="settings-option-card__copy">
-                                <h4 id="settings-notifications-channel-title" class="settings-option-card__title">Primary alert channel</h4>
-                                <p id="settings-notifications-channel-description" class="settings-option-card__description">Select where incident-grade delivery failures should surface first.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-notifications-channel-title" class="settings-option-card__title">Primary alert channel</h4>
+                                    <button type="button" id="settings-notifications-channel-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-notifications-channel-description">i</button>
+                                </div>
+                                <p id="settings-notifications-channel-description" class="settings-option-card__description" hidden>Select where incident-grade delivery failures should surface first.</p>
                             </div>
                             <select id="settings-notifications-channel-select" class="api-form-input">
                                 <option id="settings-notifications-channel-option-email" value="email">Email digest</option>
@@ -39,8 +48,11 @@
                         </article>
                         <article id="settings-notifications-digest-card" class="stat-card settings-option-card">
                             <div id="settings-notifications-digest-copy" class="settings-option-card__copy">
-                                <h4 id="settings-notifications-digest-title" class="settings-option-card__title">Digest cadence</h4>
-                                <p id="settings-notifications-digest-description" class="settings-option-card__description">Control the default summary frequency for low-priority events.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-notifications-digest-title" class="settings-option-card__title">Digest cadence</h4>
+                                    <button type="button" id="settings-notifications-digest-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-notifications-digest-description">i</button>
+                                </div>
+                                <p id="settings-notifications-digest-description" class="settings-option-card__description" hidden>Control the default summary frequency for low-priority events.</p>
                             </div>
                             <select id="settings-notifications-digest-select" class="api-form-input">
                                 <option id="settings-notifications-digest-option-realtime" value="realtime">Real time</option>
@@ -50,8 +62,11 @@
                         </article>
                         <article id="settings-notifications-oncall-card" class="stat-card settings-option-card">
                             <div id="settings-notifications-oncall-copy" class="settings-option-card__copy">
-                                <h4 id="settings-notifications-oncall-title" class="settings-option-card__title">Escalate to on-call</h4>
-                                <p id="settings-notifications-oncall-description" class="settings-option-card__description">Automatically escalate failed deliveries that exceed the retry policy.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-notifications-oncall-title" class="settings-option-card__title">Escalate to on-call</h4>
+                                    <button type="button" id="settings-notifications-oncall-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-notifications-oncall-description">i</button>
+                                </div>
+                                <p id="settings-notifications-oncall-description" class="settings-option-card__description" hidden>Automatically escalate failed deliveries that exceed the retry policy.</p>
                             </div>
                             <label id="settings-notifications-oncall-toggle" class="toggle settings-option-card__toggle toggle--on">
                                 <input type="checkbox" class="sr-only" id="settings-notifications-oncall-checkbox" checked>
