@@ -1,24 +1,14 @@
-import {
-  mockDashboardState,
-  mockDevicesResponse,
-  mockSummaryResponse
-} from "./mock-state";
 import type {
-  DashboardAlert,
   DashboardDevice,
   DashboardDevicesResponse,
   DashboardHost,
   DashboardLogEntry,
   DashboardLogSettings,
   DashboardLogsResponse,
-  DashboardRunSummary,
   DashboardSummaryResponse,
-  DeveloperModeDashboardState,
   MalcomLogStore
 } from "./types";
 
-const dashboardMockStorageKey = "malcom.dashboardMockState";
-const developerModeStorageKey = "developerMode";
 const sidebarStorageKey = "sidebarCollapsed";
 
 const defaultLogSettings: DashboardLogSettings = {
@@ -75,8 +65,6 @@ const defaultLogEntries: DashboardLogEntry[] = [
   }
 ];
 
-const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-
 type DashboardDevicesApiHost = {
   id: string;
   name: string;
@@ -111,24 +99,6 @@ type DashboardDevicesApiDevice = {
 type DashboardDevicesApiResponse = {
   host: DashboardDevicesApiHost | null;
   devices: DashboardDevicesApiDevice[];
-};
-
-const readStoredJson = <T,>(storageKey: string, fallbackValue: T): T => {
-  try {
-    const rawValue = sessionStorage.getItem(storageKey);
-
-    if (!rawValue) {
-      return fallbackValue;
-    }
-
-    return JSON.parse(rawValue) as T;
-  } catch {
-    return fallbackValue;
-  }
-};
-
-const writeStoredJson = (storageKey: string, value: unknown) => {
-  sessionStorage.setItem(storageKey, JSON.stringify(value));
 };
 
 const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
@@ -212,114 +182,55 @@ const getLogStore = (): MalcomLogStore => {
   return window.MalcomLogStore;
 };
 
-export const isDeveloperModeEnabled = () => {
-  const storedValue = sessionStorage.getItem(developerModeStorageKey);
-
-  if (storedValue === null) {
-    // Default developer mode to off for new sessions.
-    sessionStorage.setItem(developerModeStorageKey, "false");
-    return false;
-  }
-
-  return storedValue === "true";
-};
-
-export const writeDeveloperMode = (enabled: boolean) => {
-  sessionStorage.setItem(developerModeStorageKey, String(enabled));
-};
-
 export const isSidebarCollapsed = () => sessionStorage.getItem(sidebarStorageKey) === "true";
 
 export const writeSidebarCollapsed = (collapsed: boolean) => {
   sessionStorage.setItem(sidebarStorageKey, String(collapsed));
 };
 
-export const ensureMockDashboardState = (): DeveloperModeDashboardState => {
-  const existingState = readStoredJson<DeveloperModeDashboardState | null>(dashboardMockStorageKey, null);
-
-  if (existingState) {
-    return existingState;
-  }
-
-  const seededState = clone(mockDashboardState);
-  writeStoredJson(dashboardMockStorageKey, seededState);
-  return seededState;
-};
-
 export const dashboardApi = {
-  async getSummary(developerMode: boolean): Promise<DashboardSummaryResponse> {
-    if (!developerMode) {
-      return {
-        health: {
-          id: "system-health",
-          status: "offline",
-          label: "Waiting for data",
-          summary: "Enable Developer Mode or connect the backend dashboard endpoints to load operational data.",
-          updatedAt: new Date().toISOString()
-        },
-        services: [],
-        runCounts: {
-          success: 0,
-          warning: 0,
-          error: 0,
-          idle: 0
-        },
-        recentRuns: [],
-        alerts: [],
-        quickLinks: clone(mockSummaryResponse.quickLinks).map((item) => ({
-          ...item,
-          count: 0
-        }))
-      };
-    }
-
-    return clone(ensureMockDashboardState().summary);
+  async getSummary(): Promise<DashboardSummaryResponse> {
+    return {
+      health: {
+        id: "system-health",
+        status: "offline",
+        label: "Waiting for data",
+        summary: "Backend dashboard endpoints are not yet connected.",
+        updatedAt: new Date().toISOString()
+      },
+      services: [],
+      runCounts: {
+        success: 0,
+        warning: 0,
+        error: 0,
+        idle: 0
+      },
+      recentRuns: [],
+      alerts: [],
+      quickLinks: []
+    };
   },
 
-  async getDevices(developerMode: boolean): Promise<DashboardDevicesResponse> {
-    if (!developerMode) {
-      try {
-        const response = await fetch("/api/v1/dashboard/devices");
+  async getDevices(): Promise<DashboardDevicesResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/devices");
 
-        if (!response.ok) {
-          return { host: null, devices: [] };
-        }
-
-        const payload = (await response.json()) as DashboardDevicesApiResponse;
-        return {
-          host: payload.host ? mapApiHost(payload.host) : null,
-          devices: payload.devices.map(mapApiDevice)
-        };
-      } catch {
+      if (!response.ok) {
         return { host: null, devices: [] };
       }
-    }
 
-    return clone(ensureMockDashboardState().devices || mockDevicesResponse);
+      const payload = (await response.json()) as DashboardDevicesApiResponse;
+      return {
+        host: payload.host ? mapApiHost(payload.host) : null,
+        devices: payload.devices.map(mapApiDevice)
+      };
+    } catch {
+      return { host: null, devices: [] };
+    }
   },
 
-  async getLogs(developerMode: boolean): Promise<DashboardLogsResponse> {
+  async getLogs(): Promise<DashboardLogsResponse> {
     const store = getLogStore();
-    const settings = store.getSettings();
-
-    if (!developerMode) {
-      return {
-        settings,
-        entries: []
-      };
-    }
-
-    const entries = store.getLogs();
-
-    if (entries.length === 0) {
-      defaultLogEntries
-        .slice()
-        .reverse()
-        .forEach((entry) => {
-          store.log(entry);
-        });
-    }
-
     return {
       settings: store.getSettings(),
       entries: store.getLogs()

@@ -11,8 +11,6 @@
     return window.location.origin;
   };
 
-  const developerModeEnabled = () => sessionStorage.getItem("developerMode") === "true";
-
   const parseErrorMessage = async (response) => {
     try {
       const data = await response.json();
@@ -26,7 +24,6 @@
     const response = await fetch(`${getBaseUrl()}${path}`, {
       headers: {
         "Content-Type": "application/json",
-        "X-Developer-Mode": String(developerModeEnabled()),
         ...(options.headers || {})
       },
       ...options
@@ -48,10 +45,6 @@
 
   if (!window.Malcom.getBaseUrl) {
     window.Malcom.getBaseUrl = getBaseUrl;
-  }
-
-  if (!window.Malcom.developerModeEnabled) {
-    window.Malcom.developerModeEnabled = developerModeEnabled;
   }
 
   if (!window.Malcom.parseErrorMessage) {

@@ -659,14 +659,13 @@ def refresh_connector(connector_id: str, request: Request) -> ConnectorActionRes
 @router.get("/api/v1/inbound", response_model=list[InboundApiResponse])
 def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
     connection = get_connection(request)
-    include_mock = developer_mode_enabled(request)
     rows = fetch_all(
         connection,
         """
         WITH filtered_events AS (
             SELECT api_id, event_id, received_at, status
             FROM inbound_api_events
-            WHERE (? = 1 OR is_mock = 0)
+            WHERE is_mock = 0
         ),
         event_aggregates AS (
             SELECT
@@ -691,11 +690,9 @@ def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
         FROM inbound_apis
         LEFT JOIN event_aggregates ON event_aggregates.api_id = inbound_apis.id
         LEFT JOIN ranked_events ON ranked_events.api_id = inbound_apis.id AND ranked_events.row_number = 1
-        WHERE (? = 1 OR inbound_apis.is_mock = 0)
+        WHERE inbound_apis.is_mock = 0
         ORDER BY inbound_apis.created_at DESC
-        """
-        ,
-        (int(include_mock), int(include_mock)),
+        """,
     )
     return [InboundApiResponse(**row_to_api_summary(row)) for row in rows]
 
@@ -756,17 +753,15 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
 @router.get("/api/v1/outgoing/scheduled", response_model=list[ApiResourceResponse])
 def list_outgoing_scheduled_apis(request: Request) -> list[ApiResourceResponse]:
     connection = get_connection(request)
-    include_mock = developer_mode_enabled(request)
     rows = fetch_all(
         connection,
         """
         SELECT id, name, description, path_slug, enabled, repeat_enabled, destination_url, http_method, auth_type,
                payload_template, scheduled_time, schedule_expression, status, created_at, updated_at
         FROM outgoing_scheduled_apis
-        WHERE (? = 1 OR is_mock = 0)
+        WHERE is_mock = 0
         ORDER BY created_at DESC
         """,
-        (int(include_mock),),
     )
     return [
         ApiResourceResponse(**row_to_simple_api_resource(row, api_type="outgoing_scheduled", endpoint_path="/api/v1/outgoing/scheduled"))
@@ -776,17 +771,15 @@ def list_outgoing_scheduled_apis(request: Request) -> list[ApiResourceResponse]:
 @router.get("/api/v1/outgoing/continuous", response_model=list[ApiResourceResponse])
 def list_outgoing_continuous_apis(request: Request) -> list[ApiResourceResponse]:
     connection = get_connection(request)
-    include_mock = developer_mode_enabled(request)
     rows = fetch_all(
         connection,
         """
         SELECT id, name, description, path_slug, enabled, repeat_enabled, repeat_interval_minutes, destination_url, http_method, auth_type,
                payload_template, stream_mode, created_at, updated_at
         FROM outgoing_continuous_apis
-        WHERE (? = 1 OR is_mock = 0)
+        WHERE is_mock = 0
         ORDER BY created_at DESC
         """,
-        (int(include_mock),),
     )
     return [
         ApiResourceResponse(**row_to_simple_api_resource(row, api_type="outgoing_continuous", endpoint_path="/api/v1/outgoing/continuous"))
@@ -800,23 +793,21 @@ def get_outgoing_api_detail(
     request: Request,
 ) -> OutgoingApiDetailResponse:
     connection = get_connection(request)
-    row = get_outgoing_api_or_404(connection, api_id, api_type, include_mock=developer_mode_enabled(request))
+    row = get_outgoing_api_or_404(connection, api_id, api_type)
     endpoint_path = "/api/v1/outgoing/scheduled" if api_type == "outgoing_scheduled" else "/api/v1/outgoing/continuous"
     return row_to_outgoing_detail_response(row, api_type=api_type, endpoint_path=endpoint_path)
 
 @router.get("/api/v1/webhooks", response_model=list[ApiResourceResponse])
 def list_webhook_apis(request: Request) -> list[ApiResourceResponse]:
     connection = get_connection(request)
-    include_mock = developer_mode_enabled(request)
     rows = fetch_all(
         connection,
         """
         SELECT id, name, description, path_slug, enabled, callback_path, signature_header, event_filter, verification_token, signing_secret, created_at, updated_at
         FROM webhook_apis
-        WHERE (? = 1 OR is_mock = 0)
+        WHERE is_mock = 0
         ORDER BY created_at DESC
         """,
-        (int(include_mock),),
     )
     return [
         ApiResourceResponse(**row_to_simple_api_resource(row, api_type="webhook", endpoint_path="/api/v1/webhooks"))
@@ -1055,7 +1046,7 @@ def get_inbound_api(api_id: str, request: Request) -> InboundApiDetail:
 def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
     logger = get_application_logger(request)
-    current = get_api_or_404(connection, api_id, include_mock=True)
+    current = get_api_or_404(connection, api_id)
     changes = payload.model_dump(exclude_unset=True)
 
     if not changes:
@@ -1095,7 +1086,7 @@ def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request)
 def update_outgoing_api(api_id: str, payload: OutgoingApiUpdate, request: Request) -> OutgoingApiDetailResponse:
     connection = get_connection(request)
     logger = get_application_logger(request)
-    current = get_outgoing_api_or_404(connection, api_id, payload.type, include_mock=True)
+    current = get_outgoing_api_or_404(connection, api_id, payload.type)
     validate_outgoing_update_payload(payload)
     changes = payload.model_dump(exclude_unset=True)
 
@@ -1159,7 +1150,7 @@ def update_outgoing_api(api_id: str, payload: OutgoingApiUpdate, request: Reques
     except sqlite3.IntegrityError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
 
-    updated = get_outgoing_api_or_404(connection, api_id, payload.type, include_mock=True)
+    updated = get_outgoing_api_or_404(connection, api_id, payload.type)
     endpoint_path = "/api/v1/outgoing/scheduled" if payload.type == "outgoing_scheduled" else "/api/v1/outgoing/continuous"
     write_application_log(
         logger,
@@ -1175,7 +1166,7 @@ def update_outgoing_api(api_id: str, payload: OutgoingApiUpdate, request: Reques
 def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretResponse:
     connection = get_connection(request)
     logger = get_application_logger(request)
-    api_row = get_api_or_404(connection, api_id, include_mock=True)
+    api_row = get_api_or_404(connection, api_id)
     secret = generate_secret()
     connection.execute(
         "UPDATE inbound_apis SET secret_hash = ?, updated_at = ? WHERE id = ?",
@@ -1198,7 +1189,7 @@ def rotate_inbound_api_secret(api_id: str, request: Request) -> InboundSecretRes
 def disable_inbound_api(api_id: str, request: Request) -> InboundApiResponse:
     connection = get_connection(request)
     logger = get_application_logger(request)
-    get_api_or_404(connection, api_id, include_mock=True)
+    get_api_or_404(connection, api_id)
     connection.execute(
         "UPDATE inbound_apis SET enabled = 0, updated_at = ? WHERE id = ?",
         (utc_now_iso(), api_id),
@@ -1494,7 +1485,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
     received_at = utc_now_iso()
     headers = header_subset(request.headers)
     source_ip = request.client.host if request.client else None
-    api_row = get_api_or_404(connection, api_id, include_mock=True)
+    api_row = get_api_or_404(connection, api_id)
 
     if not api_row["enabled"]:
         log_event(
@@ -1508,7 +1499,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Inbound API is disabled.",
-            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inbound API is disabled.")
 
@@ -1527,7 +1517,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Missing bearer token.",
-            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token.")
 
@@ -1544,7 +1533,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Invalid bearer token.",
-            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid bearer token.")
 
@@ -1560,7 +1548,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message="Only application/json is supported.",
-            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Only application/json is supported.")
 
@@ -1578,7 +1565,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             payload=None,
             source_ip=source_ip,
             error_message=str(error),
-            is_mock=bool(api_row["is_mock"]),
         )
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid JSON payload.") from error
 
@@ -1593,7 +1579,6 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
         payload=payload,
         source_ip=source_ip,
         error_message=None,
-        is_mock=bool(api_row["is_mock"]),
     )
 
     trigger = RuntimeTrigger(

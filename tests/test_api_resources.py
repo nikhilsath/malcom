@@ -301,31 +301,6 @@ class ApiResourcesTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("require an interval", response.json()["detail"])
 
-    def test_mock_resources_are_visible_only_in_developer_mode(self) -> None:
-        scheduled_response = self.client.get("/api/v1/outgoing/scheduled")
-        continuous_response = self.client.get("/api/v1/outgoing/continuous")
-        webhook_response = self.client.get("/api/v1/webhooks")
-
-        self.assertEqual(scheduled_response.status_code, 200)
-        self.assertEqual(continuous_response.status_code, 200)
-        self.assertEqual(webhook_response.status_code, 200)
-        self.assertEqual(scheduled_response.json(), [])
-        self.assertEqual(continuous_response.json(), [])
-        self.assertEqual(webhook_response.json(), [])
-
-        developer_headers = {"X-Developer-Mode": "true"}
-        scheduled_response = self.client.get("/api/v1/outgoing/scheduled", headers=developer_headers)
-        continuous_response = self.client.get("/api/v1/outgoing/continuous", headers=developer_headers)
-        webhook_response = self.client.get("/api/v1/webhooks", headers=developer_headers)
-
-        self.assertEqual(scheduled_response.status_code, 200)
-        self.assertEqual(continuous_response.status_code, 200)
-        self.assertEqual(webhook_response.status_code, 200)
-        self.assertEqual(scheduled_response.json()[0]["id"], "scheduled_demo_push")
-        self.assertEqual(scheduled_response.json()[0]["status"], "active")
-        self.assertEqual(continuous_response.json()[0]["id"], "continuous_demo_stream")
-        self.assertEqual(webhook_response.json()[0]["id"], "webhook_demo_registry")
-
 
 if __name__ == "__main__":
     unittest.main()

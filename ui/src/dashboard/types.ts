@@ -117,13 +117,6 @@ export interface DashboardLogsResponse {
   entries: DashboardLogEntry[];
 }
 
-export interface DeveloperModeDashboardState {
-  summary: DashboardSummaryResponse;
-  runs: DashboardRunsResponse;
-  alerts: DashboardAlertsResponse;
-  devices: DashboardDevicesResponse;
-}
-
 export interface MalcomLogStore {
   defaults: DashboardLogSettings;
   getSettings: () => DashboardLogSettings;

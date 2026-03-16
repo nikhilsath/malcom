@@ -166,32 +166,6 @@ class InboundApiTestCase(unittest.TestCase):
         )
         self.assertEqual(invalid_json_response.status_code, 422)
 
-    def test_mock_inbound_api_is_hidden_without_developer_mode(self) -> None:
-        list_response = self.client.get("/api/v1/inbound")
-        self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(list_response.json(), [])
-
-        detail_response = self.client.get("/api/v1/inbound/demo_webhook")
-        self.assertEqual(detail_response.status_code, 404)
-
-    def test_mock_inbound_api_is_visible_with_developer_mode(self) -> None:
-        response = self.client.get(
-            "/api/v1/inbound",
-            headers={"X-Developer-Mode": "true"},
-        )
-        self.assertEqual(response.status_code, 200)
-        items = response.json()
-        self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["id"], "demo_webhook")
-
-        detail_response = self.client.get(
-            "/api/v1/inbound/demo_webhook",
-            headers={"X-Developer-Mode": "true"},
-        )
-        self.assertEqual(detail_response.status_code, 200)
-        detail = detail_response.json()
-        self.assertEqual(detail["events"][0]["event_id"], "evt_demo001")
-
     def test_generate_secret_uses_expected_format(self) -> None:
         first = generate_secret()
         second = generate_secret()
