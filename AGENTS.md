@@ -280,6 +280,49 @@ For UI-facing work:
 - CSS classes must be semantic and purpose-based
 - utility-first or presentation-only class naming should be avoided
 
+### Info Badge Pattern For Explanatory Text
+
+Explanatory descriptions are hidden by default behind info badges. Titles remain visible; explanations are revealed on demand.
+
+**Rule:** Do not render explanatory text as visible paragraphs in the default page state. Instead, place descriptions behind an `.info-badge` toggle button that exposes an `.info-badge-content` panel when clicked.
+
+**Page-level description pattern:**
+
+```html
+<div class="page-header section-header--page" id="...">
+    <div class="title-row">
+        <h2 class="page-title section-header__title--page" id="page-title">Page Title</h2>
+        <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+    </div>
+    <p class="page-description section-header__description--page" id="page-description" hidden>Description text.</p>
+</div>
+```
+
+**Section-level description pattern:**
+
+```html
+<div class="title-row">
+    <h3 id="section-title">Section title</h3>
+    <button type="button" id="section-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="section-description">i</button>
+</div>
+<p id="section-description" class="section-header__description" hidden>Description text.</p>
+```
+
+**CSS classes:**
+
+- `.info-badge` — circular `i` button (20 × 20 px, purple tones); defined in `ui/styles/components.css`
+- `.title-row` — flex row for title + badge alignment; defined in `ui/styles/base.css`
+
+**JavaScript:** Toggle behavior is handled globally by `initInfoBadges()` in `ui/scripts/navigation.js`, which runs on every shell page. No per-page wiring is needed. Clicking outside an open badge (and not inside its controlled element) automatically closes it.
+
+**Badge IDs:** Use `{description-element-id}-badge` for badge button IDs.
+
+Agents must not:
+
+- render explanatory text as always-visible paragraphs under headings
+- add visible `<p>` descriptions to new pages without the info-badge toggle
+- duplicate the toggle binding in page-specific scripts (navigation.js handles it)
+
 ### Styles
 
 Style placement rules:

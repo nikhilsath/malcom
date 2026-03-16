@@ -515,9 +515,22 @@ const initInfoBadges = () => {
       return;
     }
 
-    if (!target.closest(".info-badge") && !target.closest(".info-badge-content")) {
-      closeInfoBadges();
+    if (target.closest(".info-badge")) {
+      return;
     }
+
+    const openBadges = document.querySelectorAll(".info-badge[aria-expanded='true']");
+    for (const badge of openBadges) {
+      const contentId = badge.getAttribute("aria-controls");
+      if (contentId) {
+        const content = document.getElementById(contentId);
+        if (content && content.contains(target)) {
+          return;
+        }
+      }
+    }
+
+    closeInfoBadges();
   });
 
   document.addEventListener("keydown", (event) => {
