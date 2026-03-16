@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from threading import Event, Lock, Thread
@@ -42,10 +43,10 @@ class RegisteredWorker:
 
 
 class RuntimeEventBus:
-    def __init__(self) -> None:
+    def __init__(self, max_history: int = 10000, max_jobs: int = 5000) -> None:
         self._lock = Lock()
-        self._history: list[RuntimeTrigger] = []
-        self._jobs: list[RuntimeTriggerJob] = []
+        self._history: deque[RuntimeTrigger] = deque(maxlen=max_history)
+        self._jobs: deque[RuntimeTriggerJob] = deque(maxlen=max_jobs)
         self._workers: dict[str, RegisteredWorker] = {}
 
     def emit(self, trigger: RuntimeTrigger, *, job_id: str, run_id: str, step_id: str) -> RuntimeTriggerJob:
