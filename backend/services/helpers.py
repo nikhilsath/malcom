@@ -35,7 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.schemas import *
 from backend.database import DEFAULT_DB_PATH, connect, fetch_all, fetch_one, initialize
 import httpx
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 from backend.runtime import (
     RegisteredWorker,
     RuntimeExecutionResult,
