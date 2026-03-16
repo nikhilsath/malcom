@@ -14,8 +14,11 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div id="automations-builder-page-header" class="page-header section-header--page">
-                <h2 id="automations-builder-page-title" class="page-title section-header__title--page">Automation Builder</h2>
-                <p id="automations-builder-page-description" class="page-description section-header__description--page">Design and configure automation workflows on the visual canvas.</p>
+                <div class="title-row">
+                    <h2 id="automations-builder-page-title" class="page-title section-header__title--page">Automation Builder</h2>
+                    <button type="button" id="automations-builder-page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="automations-builder-page-description">i</button>
+                </div>
+                <p id="automations-builder-page-description" class="page-description section-header__description--page" hidden>Design and configure automation workflows on the visual canvas.</p>
             </div>
             <section id="automations-workspace-shell" class="card automation-page-shell">
                 <div id="automations-react-root"></div>

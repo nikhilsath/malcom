@@ -226,6 +226,7 @@
   margin-top: 0;
 }
 
+.info-badge,
 .api-tooltip-toggle {
   display: inline-flex;
   align-items: center;
@@ -250,15 +251,18 @@
   font-size: 0.625rem;
 }
 
+.info-badge:hover,
 .api-tooltip-toggle:hover {
   background: #ede9fe;
 }
 
+.info-badge:focus-visible,
 .api-tooltip-toggle:focus-visible {
   outline: 3px solid rgba(109, 40, 217, 0.2);
   outline-offset: 2px;
 }
 
+.info-badge-content,
 .api-tooltip-content {
   margin-top: 10px;
   padding: 10px 12px;

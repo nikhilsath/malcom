@@ -14,29 +14,41 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title"></h2>
-                <p class="page-description section-header__description--page" id="page-description"></p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
             </div>
 
             <section id="settings-workspace-section" class="card settings-section">
                 <div id="settings-workspace-header" class="settings-section__header">
                     <p id="settings-workspace-eyebrow" class="section-header__eyebrow">Workspace</p>
-                    <h3 id="settings-workspace-title" class="settings-card__title">Workspace defaults</h3>
-                    <p id="settings-workspace-description" class="settings-card__description">Baseline preferences that operators typically configure first in internal tooling.</p>
+                    <div class="title-row">
+                        <h3 id="settings-workspace-title" class="settings-card__title">Workspace defaults</h3>
+                        <button type="button" id="settings-workspace-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-workspace-description">i</button>
+                    </div>
+                    <p id="settings-workspace-description" class="settings-card__description" hidden>Baseline preferences that operators typically configure first in internal tooling.</p>
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-workspace-grid" class="settings-option-grid">
                         <article id="settings-workspace-environment-card" class="stat-card settings-option-card">
                             <div id="settings-workspace-environment-copy" class="settings-option-card__copy">
-                                <h4 id="settings-workspace-environment-title" class="settings-option-card__title">Runtime environment</h4>
-                                <p id="settings-workspace-environment-description" class="settings-option-card__description">All automations run against the live environment in this workspace.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-workspace-environment-title" class="settings-option-card__title">Runtime environment</h4>
+                                    <button type="button" id="settings-workspace-environment-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-workspace-environment-description">i</button>
+                                </div>
+                                <p id="settings-workspace-environment-description" class="settings-option-card__description" hidden>All automations run against the live environment in this workspace.</p>
                             </div>
                             <input id="settings-workspace-environment-select" class="api-form-input" type="text" value="Live" readonly>
                         </article>
                         <article id="settings-workspace-timezone-card" class="stat-card settings-option-card">
                             <div id="settings-workspace-timezone-copy" class="settings-option-card__copy">
-                                <h4 id="settings-workspace-timezone-title" class="settings-option-card__title">Display timezone</h4>
-                                <p id="settings-workspace-timezone-description" class="settings-option-card__description">Keep timestamps aligned across logs, previews, and generated schedules.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-workspace-timezone-title" class="settings-option-card__title">Display timezone</h4>
+                                    <button type="button" id="settings-workspace-timezone-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-workspace-timezone-description">i</button>
+                                </div>
+                                <p id="settings-workspace-timezone-description" class="settings-option-card__description" hidden>Keep timestamps aligned across logs, previews, and generated schedules.</p>
                             </div>
                             <select id="settings-workspace-timezone-select" class="api-form-input">
                                 <option id="settings-workspace-timezone-option-utc" value="utc">UTC</option>

@@ -14,8 +14,11 @@
     <main class="main" id="main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="apis-incoming-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Incoming APIs</h2>
-                <p class="page-description section-header__description--page" id="page-description">Browse inbound endpoints.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Incoming APIs</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Browse inbound endpoints.</p>
             </div>
             <section id="apis-incoming-content" class="card api-workspace">
                 <div id="api-system-alert" class="api-system-alert" hidden></div>
@@ -36,7 +39,7 @@
                     <div id="api-directory-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Select a row to inspect endpoint details, secrets, and recent request activity.</div>
 
                     <div id="api-directory-status-bar" class="api-directory-status-bar">
-                        <p id="api-directory-status-copy" class="api-directory-status-copy">Select a row to open details.</p>
+                        <p id="api-directory-status-copy" class="api-directory-status-copy" hidden>Select a row to open details.</p>
                     </div>
 
                     <div id="api-directory-empty" class="api-empty-state" hidden>

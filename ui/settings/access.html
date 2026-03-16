@@ -14,22 +14,31 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title"></h2>
-                <p class="page-description section-header__description--page" id="page-description"></p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
             </div>
 
             <section id="settings-access-section" class="card settings-section">
                 <div id="settings-access-header" class="settings-section__header">
                     <p id="settings-access-eyebrow" class="section-header__eyebrow">Access</p>
-                    <h3 id="settings-access-title" class="settings-card__title">Access and approval controls</h3>
-                    <p id="settings-access-description" class="settings-card__description">Placeholder controls modeled after common middleware security settings.</p>
+                    <div class="title-row">
+                        <h3 id="settings-access-title" class="settings-card__title">Access and approval controls</h3>
+                        <button type="button" id="settings-access-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-description">i</button>
+                    </div>
+                    <p id="settings-access-description" class="settings-card__description" hidden>Placeholder controls modeled after common middleware security settings.</p>
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-access-grid" class="settings-option-grid">
                         <article id="settings-access-session-card" class="stat-card settings-option-card">
                             <div id="settings-access-session-copy" class="settings-option-card__copy">
-                                <h4 id="settings-access-session-title" class="settings-option-card__title">Session timeout</h4>
-                                <p id="settings-access-session-description" class="settings-option-card__description">Idle sessions can auto-lock after a fixed period to reduce console exposure.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-access-session-title" class="settings-option-card__title">Session timeout</h4>
+                                    <button type="button" id="settings-access-session-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-session-description">i</button>
+                                </div>
+                                <p id="settings-access-session-description" class="settings-option-card__description" hidden>Idle sessions can auto-lock after a fixed period to reduce console exposure.</p>
                             </div>
                             <select id="settings-access-session-select" class="api-form-input">
                                 <option id="settings-access-session-option-15" value="15">15 minutes</option>
@@ -39,8 +48,11 @@
                         </article>
                         <article id="settings-access-approval-card" class="stat-card settings-option-card">
                             <div id="settings-access-approval-copy" class="settings-option-card__copy">
-                                <h4 id="settings-access-approval-title" class="settings-option-card__title">Change approval</h4>
-                                <p id="settings-access-approval-description" class="settings-option-card__description">Require a second operator before high-impact automation changes are applied.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-access-approval-title" class="settings-option-card__title">Change approval</h4>
+                                    <button type="button" id="settings-access-approval-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-approval-description">i</button>
+                                </div>
+                                <p id="settings-access-approval-description" class="settings-option-card__description" hidden>Require a second operator before high-impact automation changes are applied.</p>
                             </div>
                             <label id="settings-access-approval-toggle" class="toggle settings-option-card__toggle toggle--on">
                                 <input type="checkbox" class="sr-only" id="settings-access-approval-checkbox" checked>
@@ -52,8 +64,11 @@
                         </article>
                         <article id="settings-access-token-card" class="stat-card settings-option-card">
                             <div id="settings-access-token-copy" class="settings-option-card__copy">
-                                <h4 id="settings-access-token-title" class="settings-option-card__title">API token rotation</h4>
-                                <p id="settings-access-token-description" class="settings-option-card__description">Set the standard token rotation policy for new outbound integrations.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-access-token-title" class="settings-option-card__title">API token rotation</h4>
+                                    <button type="button" id="settings-access-token-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-token-description">i</button>
+                                </div>
+                                <p id="settings-access-token-description" class="settings-option-card__description" hidden>Set the standard token rotation policy for new outbound integrations.</p>
                             </div>
                             <select id="settings-access-token-select" class="api-form-input">
                                 <option id="settings-access-token-option-30" value="30">30 days</option>

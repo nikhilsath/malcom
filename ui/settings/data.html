@@ -14,22 +14,31 @@
     <main class="main" id="settings-main-layout">
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
-                <h2 class="page-title section-header__title--page" id="page-title">Settings Data</h2>
-                <p class="page-description section-header__description--page" id="page-description">Set data handling defaults.</p>
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Settings Data</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Set data handling defaults.</p>
             </div>
 
             <section id="settings-data-section" class="card settings-section">
                 <div id="settings-data-header" class="settings-section__header">
                     <p id="settings-data-eyebrow" class="section-header__eyebrow">Data</p>
-                    <h3 id="settings-data-title" class="settings-card__title">Data handling</h3>
-                    <p id="settings-data-description" class="settings-card__description">Retention and export preferences typically paired with middleware audit surfaces.</p>
+                    <div class="title-row">
+                        <h3 id="settings-data-title" class="settings-card__title">Data handling</h3>
+                        <button type="button" id="settings-data-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-data-description">i</button>
+                    </div>
+                    <p id="settings-data-description" class="settings-card__description" hidden>Retention and export preferences typically paired with middleware audit surfaces.</p>
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-data-grid" class="settings-option-grid">
                         <article id="settings-data-redaction-card" class="stat-card settings-option-card">
                             <div id="settings-data-redaction-copy" class="settings-option-card__copy">
-                                <h4 id="settings-data-redaction-title" class="settings-option-card__title">Payload redaction</h4>
-                                <p id="settings-data-redaction-description" class="settings-option-card__description">Mask tokens and personally identifying values in stored event samples.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-data-redaction-title" class="settings-option-card__title">Payload redaction</h4>
+                                    <button type="button" id="settings-data-redaction-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-data-redaction-description">i</button>
+                                </div>
+                                <p id="settings-data-redaction-description" class="settings-option-card__description" hidden>Mask tokens and personally identifying values in stored event samples.</p>
                             </div>
                             <label id="settings-data-redaction-toggle" class="toggle settings-option-card__toggle toggle--on">
                                 <input type="checkbox" class="sr-only" id="settings-data-redaction-checkbox" checked>
@@ -41,8 +50,11 @@
                         </article>
                         <article id="settings-data-export-card" class="stat-card settings-option-card">
                             <div id="settings-data-export-copy" class="settings-option-card__copy">
-                                <h4 id="settings-data-export-title" class="settings-option-card__title">Scheduled export window</h4>
-                                <p id="settings-data-export-description" class="settings-option-card__description">Choose when audit bundles should be prepared for downstream archival jobs.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-data-export-title" class="settings-option-card__title">Scheduled export window</h4>
+                                    <button type="button" id="settings-data-export-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-data-export-description">i</button>
+                                </div>
+                                <p id="settings-data-export-description" class="settings-option-card__description" hidden>Choose when audit bundles should be prepared for downstream archival jobs.</p>
                             </div>
                             <select id="settings-data-export-select" class="api-form-input">
                                 <option id="settings-data-export-option-0000" value="00:00">00:00 UTC</option>
@@ -52,8 +64,11 @@
                         </article>
                         <article id="settings-data-audit-card" class="stat-card settings-option-card">
                             <div id="settings-data-audit-copy" class="settings-option-card__copy">
-                                <h4 id="settings-data-audit-title" class="settings-option-card__title">Audit evidence retention</h4>
-                                <p id="settings-data-audit-description" class="settings-option-card__description">Define how long signed execution evidence should remain available for review.</p>
+                                <div class="title-row">
+                                    <h4 id="settings-data-audit-title" class="settings-option-card__title">Audit evidence retention</h4>
+                                    <button type="button" id="settings-data-audit-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-data-audit-description">i</button>
+                                </div>
+                                <p id="settings-data-audit-description" class="settings-option-card__description" hidden>Define how long signed execution evidence should remain available for review.</p>
                             </div>
                             <select id="settings-data-audit-select" class="api-form-input">
                                 <option id="settings-data-audit-option-30" value="30">30 days</option>
