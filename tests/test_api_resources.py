@@ -111,7 +111,7 @@ class ApiResourcesTestCase(unittest.TestCase):
             captured_request["url"] = request.full_url
             return FakeResponse()
 
-        with patch("backend.routes.api.urllib.request.urlopen", side_effect=fake_urlopen):
+        with patch("backend.routes.apis.urllib.request.urlopen", side_effect=fake_urlopen):
             response = self.client.post(
                 "/api/v1/apis/test-delivery",
                 json={

@@ -170,7 +170,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         )
 
         with mock.patch(
-            "backend.routes.api.execute_local_llm_chat_request",
+            "backend.routes.tools.execute_local_llm_chat_request",
             return_value=LocalLlmChatResponse(
                 ok=True,
                 model_identifier="qwen/qwen3.5-9b",

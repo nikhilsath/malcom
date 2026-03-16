@@ -205,7 +205,7 @@ class SmtpToolApiTestCase(unittest.TestCase):
         self.assertEqual(state_payload["runtime"]["recent_messages"][0]["body"], "hello loopback")
 
     def test_external_relay_endpoint_maps_success_and_failure_states(self) -> None:
-        with mock.patch("backend.routes.api.send_smtp_relay_message") as send_mock:
+        with mock.patch("backend.routes.tools.send_smtp_relay_message") as send_mock:
             success_response = self.client.post(
                 "/api/v1/tools/smtp/send-relay",
                 json={
@@ -226,7 +226,7 @@ class SmtpToolApiTestCase(unittest.TestCase):
             self.assertEqual(success_response.json()["status"], "sent")
             send_mock.assert_called_once()
 
-        with mock.patch("backend.routes.api.send_smtp_relay_message", side_effect=Exception("should not be used")):
+        with mock.patch("backend.routes.tools.send_smtp_relay_message", side_effect=Exception("should not be used")):
             invalid_response = self.client.post(
                 "/api/v1/tools/smtp/send-relay",
                 json={
@@ -242,7 +242,7 @@ class SmtpToolApiTestCase(unittest.TestCase):
             )
             self.assertEqual(invalid_response.status_code, 422)
 
-        with mock.patch("backend.routes.api.send_smtp_relay_message", side_effect=HTTPException(status_code=502, detail="SMTP authentication failed: bad credentials")):
+        with mock.patch("backend.routes.tools.send_smtp_relay_message", side_effect=HTTPException(status_code=502, detail="SMTP authentication failed: bad credentials")):
             auth_failed_response = self.client.post(
                 "/api/v1/tools/smtp/send-relay",
                 json={
