@@ -13,6 +13,7 @@ from .helpers import *
 from .scripts import *
 from .settings import *
 from .tool_integration import *
+from .utils import *
 from . import helpers as _helpers
 
 

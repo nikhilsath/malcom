@@ -2,14 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime
 from typing import Any
 
 from backend.database import fetch_all, fetch_one
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat()
+from backend.services.utils import utc_now_iso
 
 
 def merge_settings_section(default_value: Any, stored_value: Any) -> Any:
@@ -41,7 +37,7 @@ def read_stored_settings_section(connection: sqlite3.Connection, key: str) -> An
 
 def write_settings_section(connection: sqlite3.Connection, key: str, value: Any) -> None:
     """Upsert *value* for *key* in the settings table and commit."""
-    now = _utc_now_iso()
+    now = utc_now_iso()
     connection.execute(
         """
         INSERT INTO settings (key, value_json, created_at, updated_at)

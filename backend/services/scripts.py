@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import ast
-import shlex
 import sqlite3
 import subprocess
 import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -15,15 +13,7 @@ from backend.schemas import (
     ScriptValidationIssue,
     ScriptValidationResult,
 )
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat()
-
-
-def _get_ui_dir(root_dir: Path) -> Path:
-    return root_dir / "ui"
-
+from backend.services.utils import utc_now_iso
 
 def build_script_validation_issue(message: str, *, line: int | None = None, column: int | None = None) -> ScriptValidationIssue:
     return ScriptValidationIssue(message=message, line=line, column=column)
@@ -48,7 +38,7 @@ def validate_python_script(code: str) -> ScriptValidationResult:
 
 
 def validate_javascript_script(code: str, *, root_dir: Path) -> ScriptValidationResult:
-    ui_dir = _get_ui_dir(root_dir)
+    ui_dir = root_dir / "ui"
     ui_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.NamedTemporaryFile(
@@ -101,7 +91,7 @@ def validate_script_payload(language: Literal["python", "javascript"], code: str
 
 def build_script_validation_fields(result: ScriptValidationResult) -> tuple[str, str | None, str | None]:
     if result.valid:
-        return "valid", None, _utc_now_iso()
+        return "valid", None, utc_now_iso()
 
     first_issue = result.issues[0] if result.issues else build_script_validation_issue("Validation failed.")
     location = ""
@@ -110,7 +100,7 @@ def build_script_validation_fields(result: ScriptValidationResult) -> tuple[str,
         if first_issue.column is not None:
             location = f"{location}, column {first_issue.column}"
         location = f"{location}: "
-    return "invalid", f"{location}{first_issue.message}", _utc_now_iso()
+    return "invalid", f"{location}{first_issue.message}", utc_now_iso()
 
 
 def row_to_script_summary(row: sqlite3.Row) -> ScriptSummaryResponse:
