@@ -2,12 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardApp } from "../app";
 
-const renderDashboardApp = (initialEntries: string[], developerMode?: boolean) => {
+const renderDashboardApp = (initialEntries: string[]) => {
   sessionStorage.clear();
-
-  if (developerMode !== undefined) {
-    sessionStorage.setItem("developerMode", String(developerMode));
-  }
 
   return render(<DashboardApp initialEntries={initialEntries} />);
 };
@@ -27,22 +23,20 @@ beforeEach(() => {
 });
 
 describe("DashboardApp", () => {
-  it("renders the home route with developer mode data", async () => {
-    const { container } = renderDashboardApp(["/home"], true);
+  it("renders the home route with offline state", async () => {
+    renderDashboardApp(["/home"]);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Home")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Healthy")).toBeInTheDocument();
-    expect(screen.getByText("Runtime, scheduler, API, and storage are responding within expected local thresholds.")).toBeInTheDocument();
-    expect(container.querySelector("#dashboard-overview-health-badge")).not.toBeInTheDocument();
+    expect(screen.getByText("Waiting for data")).toBeInTheDocument();
+    expect(screen.getByText("Backend dashboard endpoints are not yet connected.")).toBeInTheDocument();
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
-    expect(screen.getByText("Active attention items")).toBeInTheDocument();
   });
 
-  it("renders loading-ready empty states when developer mode is disabled", async () => {
-    renderDashboardApp(["/devices"], false);
+  it("renders loading-ready empty states for devices", async () => {
+    renderDashboardApp(["/devices"]);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
@@ -53,37 +47,7 @@ describe("DashboardApp", () => {
     expect(document.querySelector("#dashboard-devices-summary-card")).not.toBeInTheDocument();
   });
 
-  it("renders host telemetry summary in developer mode", async () => {
-    renderDashboardApp(["/devices"], true);
-
-    await waitFor(() => {
-      expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("Host machine")).toBeInTheDocument();
-    expect(screen.getByText("Hostname")).toBeInTheDocument();
-    expect(screen.getByText("OS")).toBeInTheDocument();
-    expect(screen.getByText("Architecture")).toBeInTheDocument();
-    expect(screen.getByText("Total RAM")).toBeInTheDocument();
-    expect(screen.getByText("RAM used")).toBeInTheDocument();
-    expect(screen.getByText("Total storage")).toBeInTheDocument();
-    expect(screen.getByText("Storage free")).toBeInTheDocument();
-    expect(document.querySelector("#dashboard-device-host-hostname-host-malcom-macbook")).toBeInTheDocument();
-    expect(document.querySelector("#dashboard-devices-ram-total-card")).toBeInTheDocument();
-  });
-
-  it("defaults to developer mode off when unset", async () => {
-    renderDashboardApp(["/devices"]);
-
-    await waitFor(() => {
-      expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
-    });
-
-    expect(sessionStorage.getItem("developerMode")).toBe("false");
-    expect(screen.getByText("No host inventory loaded")).toBeInTheDocument();
-  });
-
-  it("renders live backend devices when developer mode is off and data is available", async () => {
+  it("renders live backend devices when data is available", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -124,7 +88,7 @@ describe("DashboardApp", () => {
       })
     );
 
-    const { container } = renderDashboardApp(["/devices"], false);
+    const { container } = renderDashboardApp(["/devices"]);
 
     await waitFor(() => {
       expect(screen.getByText("Host machine")).toBeInTheDocument();
@@ -134,41 +98,14 @@ describe("DashboardApp", () => {
     expect(container.querySelector("#dashboard-devices-storage-free-card")).toBeInTheDocument();
   });
 
-  it("responds to developer mode changes from the shell toggle", async () => {
-    const { container } = renderDashboardApp(["/home"], true);
-
-    // Simulate the shell toggle updating session storage and dispatching the shared event.
-    act(() => {
-      sessionStorage.setItem("developerMode", "false");
-      window.dispatchEvent(new CustomEvent("malcom:developerModeChanged", { detail: { enabled: false } }));
-    });
-
-    await waitFor(() => {
-      expect(sessionStorage.getItem("developerMode")).toBe("false");
-      expect(screen.getByText("Waiting for data")).toBeInTheDocument();
-      expect(screen.getByText("Enable Developer Mode or connect the backend dashboard endpoints to load operational data.")).toBeInTheDocument();
-      expect(container.querySelector("#dashboard-overview-health-badge")).not.toBeInTheDocument();
-    });
-  });
-
   it("preserves logs filter behavior", async () => {
-    renderDashboardApp(["/logs"], true);
+    renderDashboardApp(["/logs"]);
 
     const sourceSelect = await screen.findByLabelText("Source");
     fireEvent.change(sourceSelect, { target: { value: "api.webhooks" } });
 
     expect(screen.getByText("1 matching logs")).toBeInTheDocument();
     expect(screen.getByText("Webhook signature verification retried against the local secret store.")).toBeInTheDocument();
-  });
-
-  it("keeps repeated row ids stable from record identifiers", async () => {
-    const { container } = renderDashboardApp(["/home"], true);
-
-    await waitFor(() => {
-      expect(container.querySelector("#dashboard-service-runtime")).toBeInTheDocument();
-    });
-
-    expect(container.querySelector("#dashboard-alert-alert-api-retry")).toBeInTheDocument();
   });
 
   it("renders the logs route when requested", async () => {

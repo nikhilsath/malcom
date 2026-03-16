@@ -55,12 +55,6 @@
   font-weight: 600;
 }
 
-.topnav__dev {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-}
-
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -284,9 +278,5 @@ body.sidebar-collapsed .sidenav__collapse-icon::before {
   .topnav__nav {
     flex-wrap: wrap;
     margin-right: 0;
-  }
-
-  .topnav__dev {
-    margin-left: 0;
   }
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import {
   Outlet,
   RouterProvider,
@@ -12,7 +12,6 @@ import {
   getAlertSeveritySummary,
   getPreviewLogs,
   getRunStatusSummary,
-  isDeveloperModeEnabled,
   isSidebarCollapsed,
   writeSidebarCollapsed
 } from "./data";
@@ -46,9 +45,7 @@ const dashboardHomeItem = dashboardSectionItems.find((item) => item.id === "side
 const dashboardDevicesItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-devices");
 const dashboardLogsItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-logs");
 
-const DashboardUiContext = createContext({
-  developerMode: false
-});
+const DashboardUiContext = createContext({});
 
 const useDashboardUi = () => useContext(DashboardUiContext);
 
@@ -58,14 +55,14 @@ const useRouteHandle = () => {
   return currentMatch?.handle;
 };
 
-const useSummaryData = (developerMode: boolean) => {
+const useSummaryData = () => {
   const [state, setState] = useState<DashboardSummaryResponse | null>(null);
 
   useEffect(() => {
     let isActive = true;
     setState(null);
 
-    dashboardApi.getSummary(developerMode).then((response) => {
+    dashboardApi.getSummary().then((response) => {
       if (isActive) {
         setState(response);
       }
@@ -74,19 +71,19 @@ const useSummaryData = (developerMode: boolean) => {
     return () => {
       isActive = false;
     };
-  }, [developerMode]);
+  }, []);
 
   return state;
 };
 
-const useDevicesData = (developerMode: boolean) => {
+const useDevicesData = () => {
   const [state, setState] = useState<DashboardDevicesResponse | null>(null);
 
   useEffect(() => {
     let isActive = true;
     setState(null);
 
-    dashboardApi.getDevices(developerMode).then((response) => {
+    dashboardApi.getDevices().then((response) => {
       if (isActive) {
         setState(response);
       }
@@ -95,12 +92,12 @@ const useDevicesData = (developerMode: boolean) => {
     return () => {
       isActive = false;
     };
-  }, [developerMode]);
+  }, []);
 
   return state;
 };
 
-const useLogsData = (developerMode: boolean) => {
+const useLogsData = () => {
   const [state, setState] = useState<DashboardLogsResponse | null>(null);
 
   useEffect(() => {
@@ -109,7 +106,7 @@ const useLogsData = (developerMode: boolean) => {
     const loadLogs = () => {
       setState(null);
 
-      dashboardApi.getLogs(developerMode).then((response) => {
+      dashboardApi.getLogs().then((response) => {
         if (isActive) {
           setState(response);
         }
@@ -125,14 +122,13 @@ const useLogsData = (developerMode: boolean) => {
       window.removeEventListener("malcom:logs-updated", loadLogs);
       window.removeEventListener("malcom:log-settings-updated", loadLogs);
     };
-  }, [developerMode]);
+  }, []);
 
   return state;
 };
 
 const DashboardLayout = () => {
   const routeHandle = useRouteHandle();
-  const [developerMode, setDeveloperMode] = useState(isDeveloperModeEnabled);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isSidebarCollapsed);
 
   useEffect(() => {
@@ -143,11 +139,11 @@ const DashboardLayout = () => {
     };
   }, [sidebarCollapsed]);
 
-  const handleSidebarToggle = () => {
+  const handleSidebarToggle = useCallback(() => {
     const nextValue = !sidebarCollapsed;
     writeSidebarCollapsed(nextValue);
     setSidebarCollapsed(nextValue);
-  };
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     const toggleButton = document.getElementById("sidebar-collapse-toggle");
@@ -160,21 +156,11 @@ const DashboardLayout = () => {
   }, [handleSidebarToggle]);
 
   useEffect(() => {
-    const handleDeveloperModeEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ enabled: boolean }>;
-      setDeveloperMode(customEvent?.detail?.enabled ?? isDeveloperModeEnabled());
-    };
-
-    window.addEventListener("malcom:developerModeChanged", handleDeveloperModeEvent);
-    return () => window.removeEventListener("malcom:developerModeChanged", handleDeveloperModeEvent);
-  }, []);
-
-  useEffect(() => {
     document.title = `Malcom - ${routeHandle?.title || "Dashboard"}`;
   }, [routeHandle]);
 
   return (
-    <DashboardUiContext.Provider value={{ developerMode }}>
+    <DashboardUiContext.Provider value={{}}>
       <main className="main" id="main-layout">
         <div className="content-shell">
           <div className="page-header section-header--page" id="dashboard-page-header">
@@ -197,9 +183,9 @@ const DashboardLayout = () => {
 };
 
 const HomePage = () => {
-  const { developerMode } = useDashboardUi();
-  const summary = useSummaryData(developerMode);
-  const logs = useLogsData(developerMode);
+  useDashboardUi();
+  const summary = useSummaryData();
+  const logs = useLogsData();
 
   if (!summary || !logs) {
     return null;
@@ -246,8 +232,8 @@ const HomePage = () => {
 };
 
 const DevicesPage = () => {
-  const { developerMode } = useDashboardUi();
-  const devicesResponse = useDevicesData(developerMode);
+  useDashboardUi();
+  const devicesResponse = useDevicesData();
 
   if (!devicesResponse) {
     return null;
@@ -305,8 +291,8 @@ const filterLogs = (
 });
 
 const LogsPage = () => {
-  const { developerMode } = useDashboardUi();
-  const logsResponse = useLogsData(developerMode);
+  useDashboardUi();
+  const logsResponse = useLogsData();
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("all");
   const [source, setSource] = useState("all");

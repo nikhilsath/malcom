@@ -184,29 +184,7 @@ const renderTopNav = () => {
     nav.appendChild(link);
   });
 
-  const developerModeArea = createElement("div", { className: "topnav__dev", id: "dev-mode-area" });
-  const toggle = createElement("label", { className: "toggle", id: "developer-mode-toggle" });
-  const checkbox = createElement("input", {
-    type: "checkbox",
-    class: "sr-only",
-    id: "developer-mode-checkbox"
-  });
-  const slider = createElement("div", {
-    className: "toggle__slider",
-    id: "developer-mode-slider",
-    "aria-hidden": "true"
-  });
-  const knob = createElement("div", {
-    className: "toggle__knob",
-    id: "developer-mode-knob",
-    "aria-hidden": "true"
-  });
-  const label = createElement("span", { className: "toggle__label" }, "Developer Mode");
-
-  slider.appendChild(knob);
-  toggle.append(checkbox, slider, label);
-  developerModeArea.appendChild(toggle);
-  inner.append(nav, developerModeArea);
+  inner.append(nav);
   container.appendChild(inner);
 
   topNavRoot.className = "topnav";
@@ -379,48 +357,6 @@ const logPageView = () => {
   });
 };
 
-const initDeveloperModeToggle = () => {
-  const toggle = document.getElementById("developer-mode-toggle");
-  const checkbox = document.getElementById("developer-mode-checkbox");
-
-  if (!toggle || !checkbox) {
-    return;
-  }
-
-  const initialState = sessionStorage.getItem("developerMode") === "true";
-  checkbox.checked = initialState;
-
-  const updateToggleState = (isEnabled) => {
-    toggle.classList.toggle("toggle--on", isEnabled);
-  };
-
-  updateToggleState(initialState);
-
-  checkbox.addEventListener("change", () => {
-    const isEnabled = checkbox.checked;
-    sessionStorage.setItem("developerMode", String(isEnabled));
-    updateToggleState(isEnabled);
-    window.dispatchEvent(
-      new CustomEvent("malcom:developerModeChanged", {
-        detail: { enabled: isEnabled }
-      })
-    );
-    emitRuntimeLog({
-      source: "ui.navigation",
-      category: "settings",
-      action: "developer_mode_toggled",
-      level: isEnabled ? "warning" : "info",
-      message: `Developer mode ${isEnabled ? "enabled" : "disabled"}.`,
-      details: {
-        developerMode: isEnabled
-      },
-      context: {
-        path: window.location.pathname
-      }
-    });
-  });
-};
-
 const initSidebarCollapse = () => {
   const body = document.body;
   const sideNav = document.getElementById("sidenav");
@@ -548,6 +484,5 @@ window.addEventListener("hashchange", () => {
 window.addEventListener("malcom:tools-directory-updated", () => {
   renderSideNav();
 });
-initDeveloperModeToggle();
 initInfoBadges();
 logPageView();

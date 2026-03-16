@@ -6,7 +6,6 @@ import type {
   DashboardQuickLink,
   DashboardRunsResponse,
   DashboardSummaryResponse,
-  DeveloperModeDashboardState,
   RuntimeServiceStatus,
   SystemHealthSummary
 } from "./types";
@@ -224,11 +223,4 @@ export const mockAlertsResponse: DashboardAlertsResponse = {
 export const mockDevicesResponse: DashboardDevicesResponse = {
   host,
   devices
-};
-
-export const mockDashboardState: DeveloperModeDashboardState = {
-  summary: mockSummaryResponse,
-  runs: mockRunsResponse,
-  alerts: mockAlertsResponse,
-  devices: mockDevicesResponse
 };

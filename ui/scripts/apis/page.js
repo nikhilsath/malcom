@@ -19,7 +19,6 @@ export const createApiPageController = ({
   modals,
   forms,
   emitApiLog,
-  developerModeEnabled,
   loadConnectorEntries,
   createApiModalMarkup,
   outgoingApiEditModalMarkup
@@ -662,10 +661,7 @@ export const createApiPageController = ({
 
     try {
       await actions.loadApiDirectory();
-      render.setAlert(
-        developerModeEnabled() ? "Developer mode is enabled. Database-backed sample endpoints are included." : "",
-        "info"
-      );
+      render.setAlert("", "info");
     } catch (error) {
       const { message: errorMessage, stack: errorStack } = normalizeError(error);
       console.error("Unable to load inbound APIs", error);

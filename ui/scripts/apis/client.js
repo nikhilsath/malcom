@@ -65,8 +65,6 @@ export const createApiClient = () => ({
   }
 });
 
-export const developerModeEnabled = () => window.Malcom?.developerModeEnabled?.() ?? false;
-
 export const getAppSettings = () => window.MalcomLogStore?.getAppSettings?.() || { connectors: { records: [] } };
 
 export const loadConnectorEntries = async () => {

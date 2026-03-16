@@ -2,7 +2,7 @@ import createApiModalMarkup from "../../modals/create-api-modal.html?raw";
 import createApiTypeModalMarkup from "../../modals/create-api-type-modal.html?raw";
 import outgoingApiEditModalMarkup from "../../modals/outgoing-api-edit-modal.html?raw";
 
-import { createApiClient, developerModeEnabled, emitApiLog, loadConnectorEntries } from "./client.js";
+import { createApiClient, emitApiLog, loadConnectorEntries } from "./client.js";
 import { apiResourceTypes } from "./config.js";
 import { createApiElements } from "./dom.js";
 import { createApiFormBindings } from "./forms.js";
@@ -55,7 +55,6 @@ export const initApisPage = async () => {
     modals,
     forms,
     emitApiLog,
-    developerModeEnabled,
     loadConnectorEntries,
     createApiModalMarkup,
     outgoingApiEditModalMarkup

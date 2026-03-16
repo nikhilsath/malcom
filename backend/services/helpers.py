@@ -372,8 +372,6 @@ def get_default_connector_settings() -> dict[str, Any]:
             "credential_visibility": "masked",
         },
     }
-def developer_mode_enabled(request: Request) -> bool:
-    return request.headers.get("x-developer-mode", "").lower() == "true"
 def header_subset(headers: Any) -> dict[str, str]:
     allowed_headers = {"content-type", "user-agent", "x-request-id"}
     return {
@@ -396,174 +394,6 @@ def row_to_api_summary(row: sqlite3.Row) -> dict[str, Any]:
         "last_delivery_status": row["last_delivery_status"],
         "events_count": row["events_count"],
     }
-def seed_developer_mock_data(connection: sqlite3.Connection) -> None:
-    existing_row = fetch_one(
-        connection,
-        "SELECT id FROM inbound_apis WHERE is_mock = 1 LIMIT 1",
-    )
-
-    if existing_row is not None:
-        return
-
-    now = utc_now_iso()
-    # Developer mode keeps a fixed token so local UI verification remains deterministic.
-    # Production inbound APIs always use generate_secret().
-    secret = "malcom_dev_demo_token"
-    connection.execute(
-        """
-        INSERT INTO inbound_apis (
-            id,
-            name,
-            description,
-            path_slug,
-            auth_type,
-            secret_hash,
-            is_mock,
-            enabled,
-            created_at,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            "demo_webhook",
-            "Demo Webhook",
-            "Seeded developer-mode endpoint for local UI verification.",
-            "demo-webhook",
-            "bearer",
-            hash_secret(secret),
-            1,
-            1,
-            now,
-            now,
-        ),
-    )
-    connection.execute(
-        """
-        INSERT INTO inbound_api_events (
-            event_id,
-            api_id,
-            received_at,
-            status,
-            request_headers_subset,
-            payload_json,
-            source_ip,
-            error_message,
-            is_mock
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            "evt_demo001",
-            "demo_webhook",
-            now,
-            "accepted",
-            json.dumps(
-                {
-                    "content-type": "application/json",
-                    "user-agent": "developer-mode",
-                }
-            ),
-            json.dumps(
-                {
-                    "source": "developer-mode",
-                    "ok": True,
-                }
-            ),
-            "127.0.0.1",
-            None,
-            1,
-        ),
-    )
-    connection.execute(
-        """
-        INSERT INTO outgoing_scheduled_apis (
-            id,
-            name,
-            description,
-            path_slug,
-            is_mock,
-            enabled,
-            status,
-            schedule_expression,
-            created_at,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            "scheduled_demo_push",
-            "Scheduled Demo Push",
-            "Runs every hour in developer mode.",
-            "scheduled-demo-push",
-            1,
-            1,
-            "active",
-            "0 * * * *",
-            now,
-            now,
-        ),
-    )
-    connection.execute(
-        """
-        INSERT INTO outgoing_continuous_apis (
-            id,
-            name,
-            description,
-            path_slug,
-            is_mock,
-            enabled,
-            stream_mode,
-            created_at,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            "continuous_demo_stream",
-            "Continuous Demo Stream",
-            "Always-on outbound developer-mode stream.",
-            "continuous-demo-stream",
-            1,
-            1,
-            "continuous",
-            now,
-            now,
-        ),
-    )
-    connection.execute(
-        """
-        INSERT INTO webhook_apis (
-            id,
-            name,
-            description,
-            path_slug,
-            is_mock,
-            enabled,
-            delivery_mode,
-            callback_path,
-            verification_token,
-            signing_secret,
-            signature_header,
-            event_filter,
-            created_at,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            "webhook_demo_registry",
-            "Demo Webhook Registry",
-            "Developer-mode webhook definition.",
-            "webhook-demo-registry",
-            1,
-            1,
-            "webhook",
-            "/demo/webhooks/orders",
-            "demo_verify_token",
-            "demo_signing_secret",
-            "X-Demo-Signature",
-            "order.created,order.updated",
-            now,
-            now,
-        ),
-    )
-    connection.commit()
 def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     payload_json = row["payload_json"]
     return {
@@ -1976,7 +1806,6 @@ class ScriptResponse(ScriptSummaryResponse):
 async def lifespan(app: FastAPI):
     connection = connect(Path(app.state.db_path))
     initialize(connection)
-    seed_developer_mock_data(connection)
     seed_default_settings(connection)
     write_tools_manifest(Path(app.state.root_dir), connection)
     if not getattr(app.state, "skip_ui_build_check", False):
@@ -2408,7 +2237,7 @@ def get_runtime_devices_response() -> DashboardDevicesApiResponse:
         )
 
     return DashboardDevicesApiResponse(host=host, devices=devices)
-def get_api_or_404(connection: sqlite3.Connection, api_id: str, *, include_mock: bool = True) -> sqlite3.Row:
+def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
     row = fetch_one(
         connection,
         """
@@ -2430,9 +2259,9 @@ def get_api_or_404(connection: sqlite3.Connection, api_id: str, *, include_mock:
             ON ranked_events.api_id = inbound_apis.id
             AND ranked_events.row_number = 1
         WHERE inbound_apis.id = ?
-        AND (? = 1 OR inbound_apis.is_mock = 0)
+        AND inbound_apis.is_mock = 0
         """,
-        (api_id, int(include_mock)),
+        (api_id,),
     )
 
     if row is None:
@@ -2440,18 +2269,18 @@ def get_api_or_404(connection: sqlite3.Connection, api_id: str, *, include_mock:
 
     return row
 def serialize_api_detail(connection: sqlite3.Connection, api_id: str, request: Request) -> InboundApiDetail:
-    api_row = get_api_or_404(connection, api_id, include_mock=developer_mode_enabled(request))
+    api_row = get_api_or_404(connection, api_id)
     event_rows = fetch_all(
         connection,
         """
         SELECT event_id, api_id, received_at, status, request_headers_subset, payload_json, source_ip, error_message
         FROM inbound_api_events
         WHERE api_id = ?
-        AND (? = 1 OR is_mock = 0)
+        AND is_mock = 0
         ORDER BY received_at DESC
         LIMIT 20
         """,
-        (api_id, int(developer_mode_enabled(request))),
+        (api_id,),
     )
     detail = row_to_api_summary(api_row)
     detail["endpoint_url"] = str(request.base_url).rstrip("/") + detail["endpoint_path"]
@@ -2461,14 +2290,12 @@ def get_outgoing_api_or_404(
     connection: sqlite3.Connection,
     api_id: str,
     api_type: Literal["outgoing_scheduled", "outgoing_continuous"],
-    *,
-    include_mock: bool = True,
 ) -> sqlite3.Row:
     table_name = "outgoing_scheduled_apis" if api_type == "outgoing_scheduled" else "outgoing_continuous_apis"
     row = fetch_one(
         connection,
-        f"SELECT * FROM {table_name} WHERE id = ? AND (? = 1 OR is_mock = 0)",
-        (api_id, int(include_mock)),
+        f"SELECT * FROM {table_name} WHERE id = ? AND is_mock = 0",
+        (api_id,),
     )
 
     if row is None:
@@ -2677,7 +2504,6 @@ def log_event(
     payload: Any,
     source_ip: str | None,
     error_message: str | None,
-    is_mock: bool = False,
 ) -> None:
     connection.execute(
         """
@@ -2702,7 +2528,7 @@ def log_event(
             json.dumps(payload) if payload is not None else None,
             source_ip,
             error_message,
-            int(is_mock),
+            0,
         ),
     )
     connection.commit()
@@ -2717,7 +2543,6 @@ def log_event(
         headers=headers,
         payload=payload,
         error_message=error_message,
-        is_mock=is_mock,
     )
 def calculate_duration_ms(started_at: str, finished_at: str) -> int:
     started = datetime.fromisoformat(started_at)
