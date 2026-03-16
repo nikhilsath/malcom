@@ -39,6 +39,12 @@ export const topNavItems = [
     section: "scripts"
   },
   {
+    id: "nav-docs",
+    label: "Docs",
+    href: "docs/search.html",
+    section: "docs"
+  },
+  {
     id: "nav-settings",
     label: "Settings",
     href: "settings/workspace.html",
@@ -181,6 +187,32 @@ export const shellSections = {
         href: "scripts/library.html",
         pageTitle: "Script Library",
         description: "Manage and organize your automation scripts."
+      }
+    ]
+  },
+  docs: {
+    id: "docs",
+    items: [
+      {
+        id: "sidenav-docs-search",
+        label: "Search",
+        href: "docs/search.html",
+        pageTitle: "Documentation Search",
+        description: "Search across all documentation entries by keyword, tag, or category."
+      },
+      {
+        id: "sidenav-docs-browse",
+        label: "Browse",
+        href: "docs/browse.html",
+        pageTitle: "Documentation Browse",
+        description: "Browse documentation entries organized by category and topic."
+      },
+      {
+        id: "sidenav-docs-create",
+        label: "Create",
+        href: "docs/create.html",
+        pageTitle: "Create Documentation",
+        description: "Add a new documentation entry with title, content, and category metadata."
       }
     ]
   },

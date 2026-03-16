@@ -26,7 +26,14 @@ from backend.services.support import (
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Malcom API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Malcom API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
+        openapi_url="/api/openapi.json",
+    )
     app.state.db_path = str(DEFAULT_DB_PATH)
     app.state.root_dir = get_project_root()
 

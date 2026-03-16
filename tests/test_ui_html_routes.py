@@ -28,6 +28,9 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "scripts.html": "<html><body>Scripts Redirect</body></html>",
             "scripts/library.html": "<html><body>Script Library</body></html>",
             "apis/automation.html": "<html><body>API Automation</body></html>",
+            "docs/search.html": "<html><body>Docs Search</body></html>",
+            "docs/browse.html": "<html><body>Docs Browse</body></html>",
+            "docs/create.html": "<html><body>Docs Create</body></html>",
         }
 
         for relative_path, content in html_pages.items():
@@ -55,6 +58,9 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "/scripts.html",
             "/scripts/library.html",
             "/apis/automation.html",
+            "/docs/search.html",
+            "/docs/browse.html",
+            "/docs/create.html",
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200, path)
@@ -79,6 +85,8 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "/tools.html": "/tools/catalog.html",
             "/tools/overview.html": "/tools/catalog.html",
             "/scripts": "/scripts.html",
+            "/docs": "/docs/search.html",
+            "/docs/": "/docs/search.html",
         }
 
         for path, expected_location in redirect_expectations.items():
