@@ -1,4 +1,6 @@
-# README.md
+# Malcom: Local Automation Middleware
+
+⚠️ **For development work, see [AGENTS.md](AGENTS.md) first** — it contains all operational rules for modifying this repo.
 
 ## Project Overview
 
