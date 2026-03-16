@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="docs" data-sidenav-item="sidenav-docs-browse" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="docs-browse-main">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="docs-browse-header">
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
+            </div>
+
+            <section id="docs-browse-section" class="card">
+                <div id="docs-browse-section-header" class="section-header">
+                    <div id="docs-browse-section-copy" class="section-header__copy">
+                        <p id="docs-browse-eyebrow" class="section-header__eyebrow">Documentation</p>
+                        <div class="title-row">
+                            <h3 id="docs-browse-title" class="section-header__title">Browse documentation</h3>
+                            <button type="button" id="docs-browse-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="docs-browse-description">i</button>
+                        </div>
+                        <p id="docs-browse-description" class="section-header__description" hidden>Browse all documentation entries organized by category and topic.</p>
+                    </div>
+                </div>
+
+                <div id="docs-browse-list" class="docs-results" role="list" aria-live="polite">
+                    <p id="docs-browse-empty" class="docs-results__empty">No documentation entries found.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/docs/browse.js"></script>
+</body>
+</html>

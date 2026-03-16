@@ -28,6 +28,9 @@ UI_HTML_ROUTES = {
     "/scripts.html": "scripts.html",
     "/scripts/library.html": "scripts/library.html",
     "/dashboard/home.html": "dashboard/home.html",
+    "/docs/search.html": "docs/search.html",
+    "/docs/browse.html": "docs/browse.html",
+    "/docs/create.html": "docs/create.html",
 }
 
 
@@ -135,3 +138,9 @@ def redirect_tools_legacy_root() -> RedirectResponse:
 @router.get("/scripts/")
 def redirect_scripts_root() -> RedirectResponse:
     return RedirectResponse(url="/scripts.html")
+
+
+@router.get("/docs")
+@router.get("/docs/")
+def redirect_docs_root() -> RedirectResponse:
+    return RedirectResponse(url="/docs/search.html")
