@@ -87,7 +87,6 @@
 .modal__eyebrow,
 .selected-tools-label,
 .summary-card__label,
-.settings-summary__label,
 .api-detail-metadata-label,
 .resource-card__meta-label,
 .api-directory-table th {
@@ -152,7 +151,6 @@
 .api-overview-status,
 .api-summary-card,
 .summary-card,
-.settings-summary__item,
 .resource-card__meta-item {
   padding: var(--space-4);
   border: 1px solid var(--border);
@@ -164,7 +162,6 @@
 .api-overview-status,
 .api-summary-card,
 .summary-card,
-.settings-summary__item,
 .resource-card__meta-item {
   background: var(--surface);
 }
@@ -173,8 +170,7 @@
 .selected-tools-count,
 .api-overview-count,
 .api-summary-value,
-.summary-card__value,
-.settings-summary__value {
+.summary-card__value {
   display: block;
   font-weight: 700;
 }
@@ -185,8 +181,7 @@
 }
 
 .api-overview-count,
-.api-summary-value,
-.settings-summary__value {
+.api-summary-value {
   font-size: 1.25rem;
 }
 
