@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   build: {
+    minify: "esbuild",
+    cssMinify: true,
     rollupOptions: {
       input: {
         settingsWorkspace: resolve(__dirname, "settings/workspace.html"),
