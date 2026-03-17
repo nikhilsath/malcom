@@ -48,12 +48,6 @@ React application used for:
 
 The UI runs in a browser and is designed to later run inside a **mobile WebView wrapper**.
 
-### Developer Mode Toggle
-
-The UI includes a **Developer Mode toggle** intended for local development and QA workflows.
-
-When enabled, it uses browser storage options to seed/populate interface state so developers can quickly load realistic UI scenarios for testing without requiring live backend data.
-
 ### Shared Navigation Shell
 
 The UI shell now uses a **shared navigation contract** so the logo, top navigation, side navigation, and section metadata stay aligned across static HTML pages and the React dashboard.
@@ -368,15 +362,6 @@ Contains:
 * project title
 * quick actions
 * system status indicator
-* **Developer Mode toggle**
-
-Developer Mode enables a **session-only development environment** that:
-
-* uses fake/mock data
-* allows safe experimentation
-* does not modify real automations or stored data
-
-Developer Mode resets when the session ends.
 
 ---
 
@@ -670,26 +655,6 @@ Based on the latest design advice, the frontend should use:
 - shadcn-style component patterns
 
 Avoid introducing Material UI, Bootstrap, or bulky UI frameworks.
-
-### Step 1: Developer Mode Toggle
-
-Scope:
-- Add a top bar with a session-scoped **Developer Mode** toggle.
-- Persist toggle state to `sessionStorage` (resets when browser session ends).
-- Include stable IDs for automation/testing hooks.
-
-Expected behavior:
-1. Toggle defaults to off in a fresh session.
-2. Toggling on stores `developerMode=true` in `sessionStorage`.
-3. Toggling off stores `developerMode=false`.
-4. Toggle and related top bar elements are addressable by explicit IDs.
-
-Verification steps:
-1. Start the UI (`npm run dev` from `ui/`).
-2. Confirm the top bar renders with the Developer Mode toggle.
-3. Toggle it on and inspect `sessionStorage.developerMode` in DevTools.
-4. Refresh tab: value remains within the current session.
-5. Close session and open a new one: value resets to default off.
 
 ## Single Command Dev Launcher
 

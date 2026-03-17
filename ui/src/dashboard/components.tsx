@@ -110,7 +110,7 @@ export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatu
       <EmptyState
         id="dashboard-overview-services-empty"
         title="No service data loaded"
-        description="Enable Developer Mode or connect the summary endpoint to populate runtime checks."
+        description="Connect the summary endpoint to populate runtime checks."
       />
     ) : (
       <div id="dashboard-overview-services-grid" className="dashboard-service-grid">
@@ -264,7 +264,7 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
       <EmptyState
         id="dashboard-overview-log-preview-empty"
         title="No recent logs loaded"
-        description="Developer Mode uses browser-seeded data; backend wiring can replace this preview later."
+        description="Connect the backend to populate this log preview."
       />
     ) : (
       <div id="dashboard-overview-log-preview-list" className="dashboard-log-preview-list">
@@ -346,7 +346,7 @@ export const DevicesTable = ({
         <EmptyState
           id="dashboard-devices-host-empty"
           title="No host inventory loaded"
-          description="This panel will populate once the devices endpoint is connected or Developer Mode is enabled."
+          description="This panel will populate once the devices endpoint is connected."
         />
       ) : (
         <div id={`dashboard-device-host-${host.id}`} className="dashboard-host-card">
