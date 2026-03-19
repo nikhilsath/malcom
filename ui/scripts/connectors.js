@@ -1,3 +1,5 @@
+import { formatDateTime } from "./format-utils.js";
+
 const connectorElements = {
   feedback: document.getElementById("settings-connectors-feedback"),
   createButton: document.getElementById("settings-connectors-create-button"),
@@ -67,19 +69,6 @@ const setFeedback = (message, tone = "") => {
   connectorElements.feedback.className = tone
     ? `api-form-feedback api-form-feedback--${tone}`
     : "api-form-feedback";
-};
-
-const formatDateTime = (value) => {
-  if (!value) {
-    return "Not tested";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown";
-  }
-
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 };
 
 const titleCase = (value) => value.replaceAll("_", " ").replace(/\b\w/g, (match) => match.toUpperCase());
@@ -221,7 +210,7 @@ const renderCredentialSummary = (record) => {
 
   if (connectorElements.credentialSummary) {
     connectorElements.credentialSummary.textContent = maskedValues.length > 0
-      ? `${maskedValues.join(", ")}. Last tested ${formatDateTime(record.last_tested_at)}.`
+      ? `${maskedValues.join(", ")}. Last tested ${formatDateTime(record.last_tested_at, "Not tested")}.`
       : "No masked credential values stored yet.";
   }
 };

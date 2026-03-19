@@ -63,35 +63,7 @@ export const getOutgoingRegistryStatusTone = (entry) => (getOutgoingRegistryStat
 
 export const formatRate = (value) => value.toFixed(1);
 
-export const formatIntervalMinutes = (value) => {
-  if (!value) {
-    return "Not set";
-  }
-
-  if (value % 60 === 0) {
-    const hours = value / 60;
-    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-  }
-
-  return `${value} ${value === 1 ? "minute" : "minutes"}`;
-};
-
-export const formatDateTime = (value) => {
-  if (!value) {
-    return "Never";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(date);
-};
+export { formatDateTime, formatIntervalMinutes } from "../format-utils.js";
 
 export const formatOutgoingSendTime = (entry) => {
   if (entry.type === "outgoing_scheduled") {
