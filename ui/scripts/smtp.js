@@ -1,3 +1,5 @@
+import { formatDateTime, formatSize } from "./format-utils.js";
+
 const smtpElements = {
   form: document.getElementById("tools-smtp-form"),
   machineInput: document.getElementById("tools-smtp-machine-input"),
@@ -125,34 +127,6 @@ const emitSmtpLog = ({
 const hasExistingLogEntry = (logId) => {
   const existingLogs = window.MalcomLogStore?.getLogs?.() || [];
   return existingLogs.some((entry) => entry.id === logId);
-};
-
-const formatDateTime = (value, fallback) => {
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return fallback;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(parsed);
-};
-
-const formatSize = (value) => {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "Unknown";
-  }
-
-  if (value < 1024) {
-    return `${value} B`;
-  }
-
-  return `${(value / 1024).toFixed(1)} KB`;
 };
 
 const getSelectedMachine = (machines, machineId) => (
