@@ -1,5 +1,46 @@
 export const toolsManifest = Object.freeze([
   {
+    "id": "convert-audio",
+    "name": "Convert - Audio",
+    "description": "Convert audio files between formats using a locally installed ffmpeg runtime.",
+    "pageHref": "tools/convert-audio.html",
+    "inputs": [
+      {
+        "key": "input_file",
+        "label": "Input File Path",
+        "type": "string",
+        "required": true
+      },
+      {
+        "key": "output_format",
+        "label": "Output Format",
+        "type": "select",
+        "required": true,
+        "options": [
+          "mp3",
+          "wav",
+          "ogg",
+          "flac",
+          "aac",
+          "m4a"
+        ]
+      },
+      {
+        "key": "output_filename",
+        "label": "Output Filename",
+        "type": "string",
+        "required": false
+      }
+    ],
+    "outputs": [
+      {
+        "key": "output_file_path",
+        "label": "Output File Path",
+        "type": "string"
+      }
+    ]
+  },
+  {
     "id": "coqui-tts",
     "name": "Coqui TTS",
     "description": "Generate speech audio from workflow text using a locally installed Coqui TTS runtime.",

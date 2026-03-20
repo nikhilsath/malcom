@@ -25,6 +25,7 @@ UI_HTML_ROUTES = {
     "/tools/coqui-tts.html": "tools/coqui-tts.html",
     "/tools/llm-deepl.html": "tools/llm-deepl.html",
     "/tools/smtp.html": "tools/smtp.html",
+    "/tools/convert-audio.html": "tools/convert-audio.html",
     "/scripts.html": "scripts.html",
     "/scripts/library.html": "scripts/library.html",
     "/dashboard/home.html": "dashboard/home.html",

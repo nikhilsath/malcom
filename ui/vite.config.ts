@@ -29,6 +29,7 @@ export default defineConfig({
         toolsCoquiTts: resolve(__dirname, "tools/coqui-tts.html"),
         toolsLlmDeepl: resolve(__dirname, "tools/llm-deepl.html"),
         toolsSmtp: resolve(__dirname, "tools/smtp.html"),
+        toolsConvertAudio: resolve(__dirname, "tools/convert-audio.html"),
         scripts: resolve(__dirname, "scripts.html"),
         scriptsLibrary: resolve(__dirname, "scripts/library.html"),
         docsSearch: resolve(__dirname, "docs/search.html"),

@@ -517,6 +517,12 @@ def validate_automation_definition(
                 for required_key in ("relay_host", "relay_port", "from_address", "to", "subject", "body"):
                     if not inputs.get(required_key):
                         issues.append(f"Step {index} requires input '{required_key}' for smtp steps.")
+            if step.config.tool_id == "convert-audio":
+                inputs = step.config.tool_inputs or {}
+                if not inputs.get("input_file"):
+                    issues.append(f"Step {index} requires input 'input_file' for convert-audio steps.")
+                if not inputs.get("output_format"):
+                    issues.append(f"Step {index} requires input 'output_format' for convert-audio steps.")
         if step.type == "condition" and not step.config.expression:
             issues.append(f"Step {index} requires config.expression for condition steps.")
         if step.type == "llm_chat" and not step.config.user_prompt:
@@ -1332,6 +1338,66 @@ def execute_smtp_tool_step(
         status="completed",
         response_summary=outputs["message"],
         detail={"tool_id": "smtp", **outputs},
+        output=outputs,
+    )
+def execute_convert_audio_tool_step(
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    *,
+    root_dir: Path,
+) -> RuntimeExecutionResult:
+    input_file = _get_tool_input(step, "input_file", context)
+    if not input_file:
+        raise RuntimeError("Convert Audio steps require an 'input_file' input.")
+
+    output_format = _get_tool_input(step, "output_format", context) or "mp3"
+    valid_formats = {"mp3", "wav", "ogg", "flac", "aac", "m4a"}
+    if output_format not in valid_formats:
+        raise RuntimeError(f"Convert Audio output_format must be one of: {', '.join(sorted(valid_formats))}.")
+
+    input_path = Path(input_file)
+    if not input_path.is_absolute():
+        input_path = root_dir / input_file
+
+    output_directory = input_path.parent
+    requested_filename = _get_tool_input(step, "output_filename", context)
+    safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"{input_path.stem}-converted"
+    if "." not in safe_filename:
+        safe_filename = f"{safe_filename}.{output_format}"
+    output_path = output_directory / safe_filename
+
+    command = ["ffmpeg", "-i", str(input_path), "-y", str(output_path)]
+
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=str(root_dir),
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError("ffmpeg was not found. Install ffmpeg to use Convert Audio.") from error
+    except subprocess.CalledProcessError as error:
+        stderr = (error.stderr or "").strip()
+        stdout = (error.stdout or "").strip()
+        detail = stderr or stdout or "Unknown ffmpeg failure."
+        raise RuntimeError(f"Audio conversion failed: {detail}") from error
+
+    outputs = {
+        "output_file_path": str(output_path),
+    }
+    detail = {
+        "tool_id": "convert-audio",
+        "input_file": str(input_path),
+        "output_format": output_format,
+        "stdout": (completed.stdout or "").strip() or None,
+        **outputs,
+    }
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary=f"Converted audio to {output_path.name}.",
+        detail=detail,
         output=outputs,
     )
 def build_local_llm_endpoint_url(config: dict[str, Any], endpoint_key: str) -> str:
@@ -2983,6 +3049,8 @@ def execute_automation_step(
             return execute_llm_deepl_tool_step(connection, step, context)
         if tool_row["id"] == "smtp":
             return execute_smtp_tool_step(step, context)
+        if tool_row["id"] == "convert-audio":
+            return execute_convert_audio_tool_step(step, context, root_dir=root_dir)
 
         detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
         return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)
