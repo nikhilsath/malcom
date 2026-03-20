@@ -57,6 +57,19 @@ DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
             {"key": "message", "label": "Message", "type": "string"},
         ],
     },
+    {
+        "id": "convert-audio",
+        "name": "Convert - Audio",
+        "description": "Convert audio files between formats using a locally installed ffmpeg runtime.",
+        "inputs": [
+            {"key": "input_file", "label": "Input File Path", "type": "string", "required": True},
+            {"key": "output_format", "label": "Output Format", "type": "select", "required": True, "options": ["mp3", "wav", "ogg", "flac", "aac", "m4a"]},
+            {"key": "output_filename", "label": "Output Filename", "type": "string", "required": False},
+        ],
+        "outputs": [
+            {"key": "output_file_path", "label": "Output File Path", "type": "string"},
+        ],
+    },
 )
 
 

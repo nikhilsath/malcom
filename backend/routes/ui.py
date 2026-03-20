@@ -25,10 +25,12 @@ UI_HTML_ROUTES = {
     "/tools/coqui-tts.html": "tools/coqui-tts.html",
     "/tools/llm-deepl.html": "tools/llm-deepl.html",
     "/tools/smtp.html": "tools/smtp.html",
+    "/tools/convert-audio.html": "tools/convert-audio.html",
     "/scripts.html": "scripts.html",
     "/scripts/library.html": "scripts/library.html",
     "/dashboard/home.html": "dashboard/home.html",
     "/docs/search.html": "docs/search.html",
+    # Placeholder pages pending documentation feature implementation
     "/docs/browse.html": "docs/browse.html",
     "/docs/create.html": "docs/create.html",
 }
