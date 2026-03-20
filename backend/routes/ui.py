@@ -30,6 +30,7 @@ UI_HTML_ROUTES = {
     "/scripts/library.html": "scripts/library.html",
     "/dashboard/home.html": "dashboard/home.html",
     "/docs/search.html": "docs/search.html",
+    # Placeholder pages pending documentation feature implementation
     "/docs/browse.html": "docs/browse.html",
     "/docs/create.html": "docs/create.html",
 }

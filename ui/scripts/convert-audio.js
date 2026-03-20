@@ -1,13 +1,13 @@
-import { formatDateTime } from "./format-utils.js";
+import { createElementMap } from "./format-utils.js";
 
-const convertAudioElements = {
-  statusValue: document.getElementById("tools-convert-audio-status-value"),
-  statusMessage: document.getElementById("tools-convert-audio-status-message"),
-  form: document.getElementById("tools-convert-audio-form"),
-  enabledInput: document.getElementById("tools-convert-audio-enabled-input"),
-  feedback: document.getElementById("tools-convert-audio-form-feedback"),
-  saveButton: document.getElementById("tools-convert-audio-save-button")
-};
+const convertAudioElements = createElementMap({
+  statusValue: "tools-convert-audio-status-value",
+  statusMessage: "tools-convert-audio-status-message",
+  form: "tools-convert-audio-form",
+  enabledInput: "tools-convert-audio-enabled-input",
+  feedback: "tools-convert-audio-form-feedback",
+  saveButton: "tools-convert-audio-save-button"
+});
 
 let currentTool = null;
 let pendingSave = false;

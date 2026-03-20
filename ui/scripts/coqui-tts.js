@@ -1,21 +1,23 @@
-const coquiElements = {
-  title: document.getElementById("tools-coqui-title"),
-  description: document.getElementById("tools-coqui-description"),
-  statusValue: document.getElementById("tools-coqui-status-value"),
-  statusMessage: document.getElementById("tools-coqui-status-message"),
-  summaryModelValue: document.getElementById("tools-coqui-summary-model-value"),
-  summaryCommandValue: document.getElementById("tools-coqui-summary-command-value"),
-  summaryOutputValue: document.getElementById("tools-coqui-summary-output-value"),
-  form: document.getElementById("tools-coqui-form"),
-  enabledInput: document.getElementById("tools-coqui-enabled-input"),
-  commandInput: document.getElementById("tools-coqui-command-input"),
-  modelInput: document.getElementById("tools-coqui-model-input"),
-  speakerInput: document.getElementById("tools-coqui-speaker-input"),
-  languageInput: document.getElementById("tools-coqui-language-input"),
-  outputInput: document.getElementById("tools-coqui-output-input"),
-  feedback: document.getElementById("tools-coqui-form-feedback"),
-  saveButton: document.getElementById("tools-coqui-save-button")
-};
+import { createElementMap } from "./format-utils.js";
+
+const coquiElements = createElementMap({
+  title: "tools-coqui-title",
+  description: "tools-coqui-description",
+  statusValue: "tools-coqui-status-value",
+  statusMessage: "tools-coqui-status-message",
+  summaryModelValue: "tools-coqui-summary-model-value",
+  summaryCommandValue: "tools-coqui-summary-command-value",
+  summaryOutputValue: "tools-coqui-summary-output-value",
+  form: "tools-coqui-form",
+  enabledInput: "tools-coqui-enabled-input",
+  commandInput: "tools-coqui-command-input",
+  modelInput: "tools-coqui-model-input",
+  speakerInput: "tools-coqui-speaker-input",
+  languageInput: "tools-coqui-language-input",
+  outputInput: "tools-coqui-output-input",
+  feedback: "tools-coqui-form-feedback",
+  saveButton: "tools-coqui-save-button"
+});
 
 let currentTool = null;
 let pendingSave = false;

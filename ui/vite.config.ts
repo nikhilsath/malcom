@@ -33,6 +33,7 @@ export default defineConfig({
         scripts: resolve(__dirname, "scripts.html"),
         scriptsLibrary: resolve(__dirname, "scripts/library.html"),
         docsSearch: resolve(__dirname, "docs/search.html"),
+        // Placeholder pages pending documentation feature implementation
         docsBrowse: resolve(__dirname, "docs/browse.html"),
         docsCreate: resolve(__dirname, "docs/create.html")
       }
