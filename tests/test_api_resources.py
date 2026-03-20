@@ -8,12 +8,15 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class ApiResourcesTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
-        app.state.db_path = str(Path(self.tempdir.name) / "malcom-test.db")
+        root_dir = Path(self.tempdir.name)
+        (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        setup_postgres_test_app(app=app, root_dir=root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 

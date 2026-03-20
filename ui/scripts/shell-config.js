@@ -80,6 +80,14 @@ export const shellSections = {
         dashboardRoutes: ["/logs"],
         pageTitle: "Dashboard Logs",
         description: "Inspect recent runtime activity, operator events, and system history."
+      },
+      {
+        id: "sidenav-dashboard-queue",
+        label: "Queue",
+        href: "dashboard/queue.html",
+        dashboardRoutes: ["/queue"],
+        pageTitle: "Dashboard Queue",
+        description: "Review pending and claimed runtime trigger jobs waiting for worker execution."
       }
     ]
   },

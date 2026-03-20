@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class UiHtmlRoutesTestCase(unittest.TestCase):
@@ -38,8 +39,7 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(content, encoding="utf-8")
 
-        app.state.root_dir = self.root_dir
-        app.state.db_path = str(self.root_dir / "backend" / "data" / "malcom.db")
+        setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -74,6 +74,7 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "/dashboard/overview.html": "/dashboard/home.html",
             "/dashboard/devices.html": "/dashboard/home.html#/devices",
             "/dashboard/logs.html": "/dashboard/home.html#/logs",
+            "/dashboard/queue.html": "/dashboard/home.html#/queue",
             "/settings": "/settings/workspace.html",
             "/settings.html": "/settings/workspace.html",
             "/settings/general.html": "/settings/workspace.html",

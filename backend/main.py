@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import DEFAULT_DB_PATH
+from backend.database import get_database_url
 from backend.http_middleware import log_http_requests
 from backend.routes.api import router as api_router
 from backend.routes.ui import register_ui_routes, router as ui_router
@@ -26,6 +26,8 @@ from backend.services.support import (
 
 
 def create_app() -> FastAPI:
+    database_url = get_database_url()
+
     app = FastAPI(
         title="Malcom API",
         version="0.1.0",
@@ -34,7 +36,8 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
     )
-    app.state.db_path = str(DEFAULT_DB_PATH)
+    app.state.db_path = "postgresql"
+    app.state.database_url = database_url
     app.state.root_dir = get_project_root()
 
     app.add_middleware(

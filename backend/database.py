@@ -1,189 +1,243 @@
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
+import os
+import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent / "data" / "malcom.db"
+DEFAULT_POSTGRES_URL = "postgresql://postgres:postgres@127.0.0.1:5432/malcom"
 
 
-def connect(db_path: Path | None = None) -> sqlite3.Connection:
-    path = db_path or DEFAULT_DB_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, check_same_thread=False)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+CREATE_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS inbound_apis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    path_slug TEXT NOT NULL UNIQUE,
+    auth_type TEXT NOT NULL,
+    secret_hash TEXT NOT NULL,
+    is_mock INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS inbound_api_events (
+    event_id TEXT PRIMARY KEY,
+    api_id TEXT NOT NULL REFERENCES inbound_apis(id) ON DELETE CASCADE,
+    received_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    request_headers_subset TEXT NOT NULL,
+    payload_json TEXT,
+    source_ip TEXT,
+    error_message TEXT,
+    is_mock INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS outgoing_scheduled_apis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    path_slug TEXT NOT NULL UNIQUE,
+    is_mock INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'active',
+    repeat_enabled INTEGER NOT NULL DEFAULT 0,
+    destination_url TEXT NOT NULL DEFAULT '',
+    http_method TEXT NOT NULL DEFAULT 'POST',
+    auth_type TEXT NOT NULL DEFAULT 'none',
+    auth_config_json TEXT NOT NULL DEFAULT '{}',
+    payload_template TEXT NOT NULL DEFAULT '{}',
+    scheduled_time TEXT NOT NULL DEFAULT '09:00',
+    schedule_expression TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS outgoing_continuous_apis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    path_slug TEXT NOT NULL UNIQUE,
+    is_mock INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    repeat_enabled INTEGER NOT NULL DEFAULT 0,
+    repeat_interval_minutes INTEGER,
+    destination_url TEXT NOT NULL DEFAULT '',
+    http_method TEXT NOT NULL DEFAULT 'POST',
+    auth_type TEXT NOT NULL DEFAULT 'none',
+    auth_config_json TEXT NOT NULL DEFAULT '{}',
+    payload_template TEXT NOT NULL DEFAULT '{}',
+    stream_mode TEXT NOT NULL DEFAULT 'continuous',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS webhook_apis (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    path_slug TEXT NOT NULL UNIQUE,
+    is_mock INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    delivery_mode TEXT NOT NULL DEFAULT 'webhook',
+    callback_path TEXT NOT NULL DEFAULT '',
+    verification_token TEXT NOT NULL DEFAULT '',
+    signing_secret TEXT NOT NULL DEFAULT '',
+    signature_header TEXT NOT NULL DEFAULT '',
+    event_filter TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tools (
+    id TEXT PRIMARY KEY,
+    source_name TEXT NOT NULL,
+    source_description TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    name_override TEXT,
+    description_override TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS automation_runs (
+    run_id TEXT PRIMARY KEY,
+    automation_id TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    worker_id TEXT,
+    worker_name TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    duration_ms INTEGER,
+    error_summary TEXT
+);
+
+CREATE TABLE IF NOT EXISTS automations (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    trigger_type TEXT NOT NULL,
+    trigger_config_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_run_at TEXT,
+    next_run_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS automation_steps (
+    step_id TEXT PRIMARY KEY,
+    automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    step_type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(automation_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS automation_run_steps (
+    step_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES automation_runs(run_id) ON DELETE CASCADE,
+    step_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    request_summary TEXT,
+    response_summary TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    duration_ms INTEGER,
+    detail_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS scripts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    language TEXT NOT NULL,
+    code TEXT NOT NULL,
+    validation_status TEXT NOT NULL DEFAULT 'unknown',
+    validation_message TEXT,
+    last_validated_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
 
 
-def initialize(connection: sqlite3.Connection) -> None:
-    connection.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS inbound_apis (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            path_slug TEXT NOT NULL UNIQUE,
-            auth_type TEXT NOT NULL,
-            secret_hash TEXT NOT NULL,
-            is_mock INTEGER NOT NULL DEFAULT 0,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
+class PostgresCursorAdapter:
+    def __init__(self, cursor: Any):
+        self._cursor = cursor
 
-        CREATE TABLE IF NOT EXISTS inbound_api_events (
-            event_id TEXT PRIMARY KEY,
-            api_id TEXT NOT NULL REFERENCES inbound_apis(id) ON DELETE CASCADE,
-            received_at TEXT NOT NULL,
-            status TEXT NOT NULL,
-            request_headers_subset TEXT NOT NULL,
-            payload_json TEXT,
-            source_ip TEXT,
-            error_message TEXT,
-            is_mock INTEGER NOT NULL DEFAULT 0
-        );
+    def fetchone(self) -> dict[str, Any] | None:
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
 
-        CREATE TABLE IF NOT EXISTS outgoing_scheduled_apis (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            path_slug TEXT NOT NULL UNIQUE,
-            is_mock INTEGER NOT NULL DEFAULT 0,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            status TEXT NOT NULL DEFAULT 'active',
-            repeat_enabled INTEGER NOT NULL DEFAULT 0,
-            destination_url TEXT NOT NULL DEFAULT '',
-            http_method TEXT NOT NULL DEFAULT 'POST',
-            auth_type TEXT NOT NULL DEFAULT 'none',
-            auth_config_json TEXT NOT NULL DEFAULT '{}',
-            payload_template TEXT NOT NULL DEFAULT '{}',
-            scheduled_time TEXT NOT NULL DEFAULT '09:00',
-            schedule_expression TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
+    def fetchall(self) -> list[dict[str, Any]]:
+        return [dict(row) for row in self._cursor.fetchall()]
 
-        CREATE TABLE IF NOT EXISTS outgoing_continuous_apis (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            path_slug TEXT NOT NULL UNIQUE,
-            is_mock INTEGER NOT NULL DEFAULT 0,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            repeat_enabled INTEGER NOT NULL DEFAULT 0,
-            repeat_interval_minutes INTEGER,
-            destination_url TEXT NOT NULL DEFAULT '',
-            http_method TEXT NOT NULL DEFAULT 'POST',
-            auth_type TEXT NOT NULL DEFAULT 'none',
-            auth_config_json TEXT NOT NULL DEFAULT '{}',
-            payload_template TEXT NOT NULL DEFAULT '{}',
-            stream_mode TEXT NOT NULL DEFAULT 'continuous',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
 
-        CREATE TABLE IF NOT EXISTS webhook_apis (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            path_slug TEXT NOT NULL UNIQUE,
-            is_mock INTEGER NOT NULL DEFAULT 0,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            delivery_mode TEXT NOT NULL DEFAULT 'webhook',
-            callback_path TEXT NOT NULL DEFAULT '',
-            verification_token TEXT NOT NULL DEFAULT '',
-            signing_secret TEXT NOT NULL DEFAULT '',
-            signature_header TEXT NOT NULL DEFAULT '',
-            event_filter TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
+class PostgresConnectionAdapter:
+    def __init__(self, connection: Any):
+        self._connection = connection
+        self.backend = "postgres"
 
-        CREATE TABLE IF NOT EXISTS tools (
-            id TEXT PRIMARY KEY,
-            source_name TEXT NOT NULL,
-            source_description TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 0,
-            name_override TEXT,
-            description_override TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
+    def execute(self, query: str, params: Sequence[Any] = ()) -> PostgresCursorAdapter:
+        translated_query = _translate_qmark_placeholders(query)
+        cursor = self._connection.execute(translated_query, tuple(params))
+        return PostgresCursorAdapter(cursor)
 
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value_json TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
+    def executescript(self, script: str) -> None:
+        for statement in _split_sql_script(script):
+            self.execute(statement)
 
-        CREATE TABLE IF NOT EXISTS automation_runs (
-            run_id TEXT PRIMARY KEY,
-            automation_id TEXT NOT NULL,
-            trigger_type TEXT NOT NULL,
-            status TEXT NOT NULL,
-            worker_id TEXT,
-            worker_name TEXT,
-            started_at TEXT NOT NULL,
-            finished_at TEXT,
-            duration_ms INTEGER,
-            error_summary TEXT
-        );
+    def commit(self) -> None:
+        self._connection.commit()
 
-        CREATE TABLE IF NOT EXISTS automations (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            enabled INTEGER NOT NULL DEFAULT 1,
-            trigger_type TEXT NOT NULL,
-            trigger_config_json TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            last_run_at TEXT,
-            next_run_at TEXT
-        );
+    def rollback(self) -> None:
+        self._connection.rollback()
 
-        CREATE TABLE IF NOT EXISTS automation_steps (
-            step_id TEXT PRIMARY KEY,
-            automation_id TEXT NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
-            position INTEGER NOT NULL,
-            step_type TEXT NOT NULL,
-            name TEXT NOT NULL,
-            config_json TEXT NOT NULL DEFAULT '{}',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            UNIQUE(automation_id, position)
-        );
+    def close(self) -> None:
+        self._connection.close()
 
-        CREATE TABLE IF NOT EXISTS automation_run_steps (
-            step_id TEXT PRIMARY KEY,
-            run_id TEXT NOT NULL REFERENCES automation_runs(run_id) ON DELETE CASCADE,
-            step_name TEXT NOT NULL,
-            status TEXT NOT NULL,
-            request_summary TEXT,
-            response_summary TEXT,
-            started_at TEXT NOT NULL,
-            finished_at TEXT,
-            duration_ms INTEGER,
-            detail_json TEXT
-        );
 
-        CREATE TABLE IF NOT EXISTS scripts (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            language TEXT NOT NULL,
-            code TEXT NOT NULL,
-            validation_status TEXT NOT NULL DEFAULT 'unknown',
-            validation_message TEXT,
-            last_validated_at TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-        """
-    )
+def connect(*, database_url: str) -> Any:
+    if not _is_postgres_url(database_url):
+        raise RuntimeError("MALCOM_DATABASE_URL must be a valid PostgreSQL URL (postgresql://...)")
+    return _connect_postgres(database_url)
+
+
+def get_database_url() -> str:
+    return os.getenv("MALCOM_DATABASE_URL", DEFAULT_POSTGRES_URL).strip()
+
+
+def is_unique_violation(error: Exception) -> bool:
+    sqlstate = getattr(error, "sqlstate", None)
+    if sqlstate == "23505":
+        return True
+
+    cause = getattr(error, "__cause__", None)
+    if cause is not None and getattr(cause, "sqlstate", None) == "23505":
+        return True
+
+    message = str(error).lower()
+    return "duplicate key value violates unique constraint" in message
+
+
+def initialize(connection: Any) -> None:
+    connection.executescript(CREATE_SCHEMA_SQL)
     _ensure_column(connection, "inbound_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "inbound_api_events", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_scheduled_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
@@ -235,21 +289,98 @@ def initialize(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
-def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
-    existing_columns = {
-        row["name"]
-        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
-    }
+def _connect_postgres(database_url: str) -> PostgresConnectionAdapter:
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            "PostgreSQL is configured but psycopg is not installed. Add 'psycopg[binary]' to requirements."
+        ) from error
 
-    if column_name in existing_columns:
+    raw_connection = psycopg.connect(database_url, autocommit=False, row_factory=dict_row)
+    return PostgresConnectionAdapter(raw_connection)
+
+
+def _split_sql_script(script: str) -> list[str]:
+    return [segment.strip() for segment in script.split(";") if segment.strip()]
+
+
+def _is_postgres_url(database_url: str | None) -> bool:
+    if not database_url:
+        return False
+    normalized = database_url.strip().lower()
+    return normalized.startswith("postgresql://") or normalized.startswith("postgres://")
+
+
+def _translate_qmark_placeholders(query: str) -> str:
+    builder: list[str] = []
+    in_single_quote = False
+    in_double_quote = False
+    index = 0
+
+    while index < len(query):
+        char = query[index]
+
+        if char == "'" and not in_double_quote:
+            if in_single_quote and index + 1 < len(query) and query[index + 1] == "'":
+                builder.append("''")
+                index += 2
+                continue
+            in_single_quote = not in_single_quote
+            builder.append(char)
+            index += 1
+            continue
+
+        if char == '"' and not in_single_quote:
+            if in_double_quote and index + 1 < len(query) and query[index + 1] == '"':
+                builder.append('""')
+                index += 2
+                continue
+            in_double_quote = not in_double_quote
+            builder.append(char)
+            index += 1
+            continue
+
+        if char == "?" and not in_single_quote and not in_double_quote:
+            builder.append("%s")
+        else:
+            builder.append(char)
+
+        index += 1
+
+    return "".join(builder)
+
+
+def _quote_identifier(identifier: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", identifier):
+        raise ValueError(f"Invalid SQL identifier: {identifier}")
+    return f'"{identifier}"'
+
+
+def _ensure_column(connection: Any, table_name: str, column_name: str, definition: str) -> None:
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = ?
+          AND column_name = ?
+        LIMIT 1
+        """,
+        (table_name, column_name),
+    ).fetchone()
+    if row is not None:
         return
 
-    connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+    quoted_table = _quote_identifier(table_name)
+    quoted_column = _quote_identifier(column_name)
+    connection.execute(f"ALTER TABLE {quoted_table} ADD COLUMN IF NOT EXISTS {quoted_column} {definition}")
 
 
-def fetch_one(connection: sqlite3.Connection, query: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
-    return connection.execute(query, params).fetchone()
+def fetch_one(connection: Any, query: str, params: Sequence[Any] = ()) -> Mapping[str, Any] | None:
+    return connection.execute(query, tuple(params)).fetchone()
 
 
-def fetch_all(connection: sqlite3.Connection, query: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
-    return connection.execute(query, params).fetchall()
+def fetch_all(connection: Any, query: str, params: Sequence[Any] = ()) -> list[Mapping[str, Any]]:
+    return connection.execute(query, tuple(params)).fetchall()

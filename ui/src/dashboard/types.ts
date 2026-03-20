@@ -4,6 +4,8 @@ export type AlertSeverity = "info" | "warning" | "error";
 export type DeviceKind = "host" | "service" | "endpoint";
 export type TriggerType = "schedule" | "manual" | "api";
 export type LogLevel = "debug" | "info" | "warning" | "error";
+export type QueueStatus = "pending" | "claimed";
+export type QueueRuntimeStatus = "running" | "paused";
 
 export interface SystemHealthSummary {
   id: string;
@@ -115,6 +117,31 @@ export interface DashboardDevicesResponse {
 export interface DashboardLogsResponse {
   settings: DashboardLogSettings;
   entries: DashboardLogEntry[];
+}
+
+export interface DashboardQueueJob {
+  jobId: string;
+  runId: string;
+  stepId: string;
+  status: QueueStatus;
+  workerId: string | null;
+  workerName: string | null;
+  claimedAt: string | null;
+  completedAt: string | null;
+  triggerType: string;
+  apiId: string;
+  eventId: string;
+  receivedAt: string;
+}
+
+export interface DashboardQueueResponse {
+  status: QueueRuntimeStatus;
+  isPaused: boolean;
+  statusUpdatedAt: string;
+  totalJobs: number;
+  pendingJobs: number;
+  claimedJobs: number;
+  jobs: DashboardQueueJob[];
 }
 
 export interface MalcomLogStore {

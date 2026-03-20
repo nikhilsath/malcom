@@ -9,6 +9,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from backend.main import LocalLlmChatResponse, app, get_local_worker_id
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class AutomationsApiTestCase(unittest.TestCase):
@@ -18,10 +19,9 @@ class AutomationsApiTestCase(unittest.TestCase):
         (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
         self.previous_root_dir = app.state.root_dir
         self.previous_db_path = app.state.db_path
+        self.previous_database_url = app.state.database_url
         self.previous_skip_ui_build_check = getattr(app.state, "skip_ui_build_check", False)
-        app.state.root_dir = self.root_dir
-        app.state.db_path = str(self.root_dir / "malcom-test.db")
-        app.state.skip_ui_build_check = True
+        setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -29,6 +29,7 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.client.__exit__(None, None, None)
         app.state.root_dir = self.previous_root_dir
         app.state.db_path = self.previous_db_path
+        app.state.database_url = self.previous_database_url
         app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 

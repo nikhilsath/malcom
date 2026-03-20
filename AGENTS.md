@@ -6,7 +6,7 @@ Agents work best in this repo when they follow the real architecture instead of 
 
 Malcom is a FastAPI application with:
 
-- a SQLite runtime database
+- a PostgreSQL runtime database
 - server-rendered HTML entry pages built by Vite
 - a mix of React pages and vanilla JavaScript pages
 - database-backed tool metadata, settings, scripts, and automation state
@@ -17,7 +17,7 @@ This file is the operating manual for future agent changes.
 
 ## Machine-Readable Policy
 
-### Required Workflow
+### Required Workflow {#required-workflow}
 
 1. Execute work in small, testable steps.
 2. Validate each step before moving to the next.
@@ -26,7 +26,7 @@ This file is the operating manual for future agent changes.
 5. Match existing repo structure before introducing a new pattern.
 6. Prefer extending the current source of truth over creating a second one.
 
-### GitHub Update Workflow
+### GitHub Update Workflow {#github-update-workflow}
 
 When the user says to "update github", agents must use this git workflow:
 
@@ -40,7 +40,7 @@ Rules:
 - choose a concise commit message that reflects the actual change
 - do not run `git push` before `git commit`, because the new changes would not be included
 
-### Required Output For Development Work
+### Required Output For Development Work {#required-output-for-development-work}
 
 Every development-oriented response must include:
 
@@ -48,11 +48,99 @@ Every development-oriented response must include:
 - expected behavior
 - verification steps
 
+### Maintenance Sync Rule {#maintenance-sync-rule}
+
+When updating policy, agents must update all of the following in the same change when applicable:
+
+1. canonical prose rules
+2. `Quick Task → Where to Edit` reference table
+3. `Rules Matrix` entries
+4. machine index block between `MACHINE_INDEX_START` and `MACHINE_INDEX_END`
+
+Do not leave machine reference content stale after changing source rules.
+
 ---
 
-## Repo Map
+## Machine Reference Index {#machine-reference-index}
 
-### Backend
+Use this section as the first lookup for task routing. It accelerates file targeting but does not replace canonical rule text below.
+
+### Quick Task → Where to Edit {#quick-task-where-to-edit}
+
+| Task | Primary Files | Also Check | Must Not Edit |
+|---|---|---|---|
+| Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
+| Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
+| Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
+| Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
+| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
+| Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
+| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
+| Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
+
+### Rules Matrix {#rules-matrix}
+
+| Rule ID | Requirement | Enforced In |
+|---|---|---|
+| R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
+| R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
+| R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
+| R-TOOL-001 | Tool registration flows through backend catalog + DB sync | Tool lifecycle changes |
+| R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
+| R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
+| R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
+| R-TEST-001 | Development work responses include test instructions, expected behavior, and verification steps | All implementation responses |
+
+<!-- MACHINE_INDEX_START
+{
+  "version": 1,
+  "primary_sources": {
+    "ui_html_routes": ["backend/routes/ui.py"],
+    "db_schema": ["backend/database.py"],
+    "tool_catalog": ["backend/tool_registry.py"],
+    "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
+    "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"]
+  },
+  "task_routes": {
+    "db_schema_change": {
+      "edit": ["backend/database.py"],
+      "verify": ["tests/"]
+    },
+    "new_ui_page": {
+      "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py"],
+      "verify": ["ui/dist/"]
+    },
+    "tool_change": {
+      "edit": [
+        "backend/tool_registry.py",
+        "backend/services/support.py",
+        "ui/tools/<id>.html",
+        "ui/scripts/tools/<id>.js",
+        "ui/vite.config.ts",
+        "backend/routes/ui.py"
+      ],
+      "generate": ["scripts/generate-tools-manifest.mjs"],
+      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html"]
+    }
+  },
+  "forbidden_paths": [
+    "ui/dist/**",
+    "ui/node_modules/**",
+    "node_modules/**"
+  ],
+  "response_requirements": [
+    "testing_instructions",
+    "expected_behavior",
+    "verification_steps"
+  ]
+}
+MACHINE_INDEX_END -->
+
+---
+
+## Repo Map {#repo-map}
+
+### Backend {#repo-map-backend}
 
 - `backend/main.py`
   - FastAPI app factory
@@ -64,7 +152,7 @@ Every development-oriented response must include:
   - HTML page routes and redirect routes
   - this is the source of truth for served UI URLs
 - `backend/database.py`
-  - SQLite connection helpers
+  - database connection helpers
   - schema initialization
   - additive schema evolution via `_ensure_column`
 - `backend/tool_registry.py`
@@ -75,12 +163,10 @@ Every development-oriented response must include:
   - backend business logic and service helpers
 - `backend/schemas.py`
   - Pydantic request/response models
-- `backend/data/malcom.db`
-  - runtime SQLite database
 - `backend/data/logs/`
   - application log output
 
-### Frontend
+### Frontend {#repo-map-frontend}
 
 - `ui/<section>/<page>.html`
   - HTML entry pages
@@ -96,7 +182,7 @@ Every development-oriented response must include:
   - generated build output
   - do not hand edit
 
-### Other
+### Other {#repo-map-other}
 
 - `scripts/`
   - developer and maintenance scripts
@@ -110,22 +196,22 @@ Every development-oriented response must include:
 
 ---
 
-## Database Structure
+## Database Structure {#database-structure}
 
-### Source Of Truth
+### Source Of Truth {#database-source-of-truth}
 
-The schema source of truth is `backend/database.py`, not the checked-in contents of `backend/data/malcom.db`.
+The schema source of truth is `backend/database.py`, not any checked-in database file.
 
 Use the live database to inspect current state.
 Use `backend/database.py` to change structure.
 
-### Database Location
+### Database Location {#database-location}
 
-- runtime DB: `backend/data/malcom.db`
+- runtime DB: PostgreSQL (`MALCOM_DATABASE_URL`)
 - connection helper: `backend/database.py:connect`
 - initialization entrypoint: `backend/database.py:initialize`
 
-### Table Groups
+### Table Groups {#table-groups}
 
 #### API Registry Tables
 
@@ -171,28 +257,28 @@ Use `backend/database.py` to change structure.
   - stored script definitions
   - includes code, language, validation state, timestamps
 
-### Schema Rules
+### Schema Rules {#schema-rules}
 
 When changing the DB schema, agents must:
 
 1. update `backend/database.py`
 2. add new `CREATE TABLE IF NOT EXISTS` definitions there if introducing a table
 3. use `_ensure_column(...)` for additive column changes to existing tables
-4. keep booleans as SQLite `INTEGER` values
+4. keep booleans as integer-compatible values (`0`/`1`) for cross-database compatibility
 5. keep structured payloads in `*_json` text columns unless there is a strong reason not to
 6. update API serialization/deserialization logic and tests in the same task
 
 Agents must not:
 
-- treat `backend/data/malcom.db` as the schema source of truth
-- hand-edit SQLite files directly as a substitute for code changes
+- treat any runtime DB file as the schema source of truth
+- hand-edit runtime database tables/columns directly as a substitute for code changes
 - create ad hoc migration files unless the repo adopts a formal migration system first
 
 ---
 
-## File Placement Rules
+## File Placement Rules {#file-placement-rules}
 
-### Backend Files
+### Backend Files {#backend-files}
 
 Place new backend files by responsibility:
 
@@ -210,7 +296,7 @@ Backend rules:
 - do not put SQL in frontend files
 - do not add served HTML routes in `backend/main.py`; add them in `backend/routes/ui.py`
 
-### Frontend Entry Rules
+### Frontend Entry Rules {#frontend-entry-rules}
 
 The repo uses two frontend entry styles.
 
@@ -253,7 +339,7 @@ Legacy note:
 - agents may import them from page-specific entry files
 - agents must not add new page entry files at the root of `ui/scripts/`
 
-### Shared Shell Requirements
+### Shared Shell Requirements {#shared-shell-requirements}
 
 Navigation and brand markup are registered by shared shell convention, not by page-local copy/paste.
 
@@ -272,7 +358,7 @@ When adding or changing UI pages that use the shell, agents must:
 
 Agents must not hardcode new topnav or sidenav markup into page HTML when the shared shell applies.
 
-### UI Requirements
+### UI Requirements {#ui-requirements}
 
 For UI-facing work:
 
@@ -280,7 +366,7 @@ For UI-facing work:
 - CSS classes must be semantic and purpose-based
 - utility-first or presentation-only class naming should be avoided
 
-### Info Badge Pattern For Explanatory Text
+### Info Badge Pattern For Explanatory Text {#info-badge-pattern-for-explanatory-text}
 
 Explanatory descriptions are hidden by default behind info badges. Titles remain visible; explanations are revealed on demand.
 
@@ -323,7 +409,7 @@ Agents must not:
 - add visible `<p>` descriptions to new pages without the info-badge toggle
 - duplicate the toggle binding in page-specific scripts (navigation.js handles it)
 
-### Styles
+### Styles {#styles}
 
 Style placement rules:
 
@@ -337,7 +423,7 @@ When adding styles:
 - if a page needs its own stylesheet, place it under `ui/styles/pages/` with a clear section-oriented name
 - wire new page styles through `ui/styles/styles.css`
 
-### Assets And Media
+### Assets And Media {#assets-and-media}
 
 Current frontend asset source of truth is `ui/assets/`, not `ui/media/`.
 
@@ -349,9 +435,9 @@ Rules:
 
 ---
 
-## Vite Build And UI Routing
+## Vite Build And UI Routing {#vite-build-and-ui-routing}
 
-### Build Requirements
+### Build Requirements {#build-requirements}
 
 For a new UI page to exist correctly:
 
@@ -361,7 +447,7 @@ For a new UI page to exist correctly:
 4. run `npm run build` in `ui/`
 5. verify the generated file appears in `ui/dist/`
 
-### Route Requirements
+### Route Requirements {#route-requirements}
 
 Served HTML routes live in `backend/routes/ui.py`.
 
@@ -375,7 +461,7 @@ Agents must not assume a built HTML file is automatically served just because it
 
 ---
 
-## Tool Input/Output Contract
+## Tool Input/Output Contract {#tool-input-output-contract}
 
 Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:
 - DB sync (stored in `inputs_schema_json` and `outputs_schema_json` on the `tools` table)
@@ -383,7 +469,7 @@ Every tool in the catalog that can be used as a workflow step must declare its i
 - Backend validation in `validate_automation_definition()`
 - Execution engine dispatch and `inputs_json` tracking in `automation_run_steps`
 
-### Field Descriptor Format
+### Field Descriptor Format {#field-descriptor-format}
 
 Each entry in `inputs` and `outputs` is a dict with:
 
@@ -397,14 +483,14 @@ Each entry in `inputs` and `outputs` is a dict with:
 }
 ```
 
-### Supported Types
+### Supported Types {#supported-types}
 
 - `string` — single-line text input
 - `text` — multiline textarea
 - `number` — numeric input
 - `select` — dropdown; requires `options` list
 
-### Adding a New Tool with I/O Contract
+### Adding a New Tool with I/O Contract {#adding-a-new-tool-with-io-contract}
 
 1. Add the tool to `DEFAULT_TOOL_CATALOG` in `backend/tool_registry.py` with `inputs` and `outputs` lists
 2. Add the execution handler in `backend/services/support.py`:
@@ -414,14 +500,14 @@ Each entry in `inputs` and `outputs` is a dict with:
 3. Add required-input validation in `validate_automation_definition()`
 4. Run `node scripts/generate-tools-manifest.mjs` and `npm run build` in `ui/`
 
-### Tool Step in a Workflow (User Perspective)
+### Tool Step in a Workflow (User Perspective) {#tool-step-in-a-workflow-user-perspective}
 
 - Step type `"tool"` with `tool_id` set to the tool's catalog id
 - Inputs stored in `config.tool_inputs: { key: value }` (template variables supported)
 - Outputs available as `{{steps.<step_name>.<output_key>}}` in downstream steps
 - Example: a coqui-tts step named `tts` exposes `{{steps.tts.audio_file_path}}`
 
-### Policy
+### Policy {#tool-io-policy}
 
 Only add tools to the catalog when:
 - A backend execution handler is designed and implemented
@@ -430,7 +516,7 @@ Only add tools to the catalog when:
 
 Do not add placeholder tools. Remove tools from the catalog if their execution backend is removed.
 
-### Currently Implemented Tools
+### Currently Implemented Tools {#currently-implemented-tools}
 
 | Tool ID | Inputs | Key Outputs |
 |---------|--------|-------------|
@@ -440,24 +526,24 @@ Do not add placeholder tools. Remove tools from the catalog if their execution b
 
 ---
 
-## Tool Registration Requirements
+## Tool Registration Requirements {#tool-registration-requirements}
 
 Tools are registered by backend catalog plus database sync, not by static frontend markup and not by per-tool JSON files.
 
-### Source Of Truth
+### Source Of Truth {#tool-registration-source-of-truth}
 
 - `backend/tool_registry.py`
   - default tool catalog seed data
   - tool metadata validation
-  - sync into SQLite
-- `tools` table in SQLite
+  - sync into the runtime database
+- `tools` table in PostgreSQL
   - persisted tool state, enablement, overrides
 - `ui/scripts/tools-manifest.js`
   - generated frontend manifest
 - `scripts/generate-tools-manifest.mjs`
   - manifest generation script
 
-### Required Metadata Fields
+### Required Metadata Fields {#required-metadata-fields}
 
 - `id`
 - `name`
@@ -469,7 +555,7 @@ Validation rules:
 - all required fields must be non-empty strings
 - `id` values must remain stable because they map to DB rows, routes, pages, and sidenav items
 
-### Tool Folder Rules
+### Tool Folder Rules {#tool-folder-rules}
 
 The top-level `tools/` folder is not currently used for registration.
 
@@ -482,7 +568,7 @@ If future tool-specific collateral is needed:
 
 Primary app code still belongs in `backend/` and `ui/`.
 
-### Tool Change Workflow
+### Tool Change Workflow {#tool-change-workflow}
 
 When adding or changing tools, agents must:
 
@@ -503,7 +589,7 @@ Agents must not:
 - manually hardcode tool sidenav links on individual pages
 - add `tools/<tool-id>/tool.json` files for registration
 
-### Example Tool Metadata
+### Example Tool Metadata {#example-tool-metadata}
 
 ```python
 {
@@ -513,7 +599,7 @@ Agents must not:
 }
 ```
 
-### Example Verification Flow
+### Example Verification Flow {#example-verification-flow}
 
 1. Add `rss-poller` to the default tool catalog in `backend/tool_registry.py`.
 2. Run `node scripts/generate-tools-manifest.mjs`.
@@ -523,13 +609,13 @@ Agents must not:
 
 ---
 
-## Generated And Runtime Files
+## Generated And Runtime Files {#generated-and-runtime-files}
 
 Agents must not hand-edit generated or runtime artifact files unless the task explicitly targets them:
 
 - `ui/dist/**`
 - `ui/scripts/tools-manifest.js` without also regenerating it from the script
-- `backend/data/malcom.db` as a substitute for schema/code changes
+- runtime database objects directly as a substitute for schema/code changes
 - `ui/node_modules/**`
 - `node_modules/**`
 
@@ -537,22 +623,22 @@ If a generated file is expected to change, regenerate it from its source workflo
 
 ---
 
-## Testing And Verification
+## Testing And Verification {#testing-and-verification}
 
 Every meaningful code change should include the smallest relevant verification set.
 
-### Backend
+### Backend {#testing-backend}
 
 - run targeted `pytest` files in `tests/`
 - add or update API tests for route, schema, or DB behavior changes
 
-### Frontend
+### Frontend {#testing-frontend}
 
 - run `npm run build` in `ui/` for page wiring, Vite input, or asset changes
 - run `npm run test` in `ui/` for React test coverage when React code changes
 - manually verify the served page route if HTML/script wiring changed
 
-### Verification Minimum
+### Verification Minimum {#verification-minimum}
 
 For code changes, agent responses must tell the user:
 
@@ -562,7 +648,7 @@ For code changes, agent responses must tell the user:
 
 ---
 
-## Practical Do And Do Not Rules
+## Practical Do And Do Not Rules {#practical-do-and-do-not-rules}
 
 Do:
 

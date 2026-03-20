@@ -31,6 +31,7 @@ import {
 import type {
   DashboardDevicesResponse,
   DashboardLogsResponse,
+  DashboardQueueResponse,
   DashboardSummaryResponse
 } from "./types";
 
@@ -44,6 +45,7 @@ const dashboardSectionItems = dashboardSectionConfig?.items || [];
 const dashboardHomeItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-home");
 const dashboardDevicesItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-devices");
 const dashboardLogsItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-logs");
+const dashboardQueueItem = dashboardSectionItems.find((item) => item.id === "sidenav-dashboard-queue");
 
 const DashboardUiContext = createContext({});
 
@@ -127,6 +129,27 @@ const useLogsData = () => {
   return state;
 };
 
+const useQueueData = () => {
+  const [state, setState] = useState<DashboardQueueResponse | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    setState(null);
+
+    dashboardApi.getQueue().then((response) => {
+      if (isActive) {
+        setState(response);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  return state;
+};
+
 const DashboardLayout = () => {
   const routeHandle = useRouteHandle();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isSidebarCollapsed);
@@ -186,8 +209,9 @@ const HomePage = () => {
   useDashboardUi();
   const summary = useSummaryData();
   const logs = useLogsData();
+  const queue = useQueueData();
 
-  if (!summary || !logs) {
+  if (!summary || !logs || !queue) {
     return null;
   }
 
@@ -220,6 +244,8 @@ const HomePage = () => {
           <SummaryCard id="dashboard-overview-summary-errors" label="Run errors" value={runSummary.error} />
           <SummaryCard id="dashboard-overview-summary-warnings" label="Alerts" value={alertSummary.warning + alertSummary.error} />
           <SummaryCard id="dashboard-overview-summary-visible-logs" label="Stored logs" value={logs.entries.length} />
+          <SummaryCard id="dashboard-overview-summary-queue-status" label="Queue status" value={queue.isPaused ? "Paused" : "Running"} />
+          <SummaryCard id="dashboard-overview-summary-queue-pending" label="Queue pending" value={queue.pendingJobs} />
         </div>
       </section>
 
@@ -454,6 +480,99 @@ const LogsPage = () => {
   );
 };
 
+const QueuePage = () => {
+  useDashboardUi();
+  const queueData = useQueueData();
+  const [queueResponse, setQueueResponse] = useState<DashboardQueueResponse | null>(null);
+
+  useEffect(() => {
+    setQueueResponse(queueData);
+  }, [queueData]);
+
+  if (!queueResponse) {
+    return null;
+  }
+
+  const queueStatusLabel = queueResponse.isPaused ? "Paused" : "Running";
+
+  return (
+    <div id="dashboard-queue-layout" className="stacked-card-layout">
+      <section id="dashboard-queue-summary-card" className="card">
+        <div id="dashboard-queue-summary-grid" className="summary-grid">
+          <SummaryCard id="dashboard-queue-status-card" label="Queue status" value={queueStatusLabel} />
+          <SummaryCard id="dashboard-queue-total-card" label="Queue jobs" value={queueResponse.totalJobs} />
+          <SummaryCard id="dashboard-queue-pending-card" label="Pending" value={queueResponse.pendingJobs} />
+          <SummaryCard id="dashboard-queue-claimed-card" label="Claimed" value={queueResponse.claimedJobs} />
+        </div>
+      </section>
+
+      <section id="dashboard-queue-jobs-card" className="card">
+        <SectionToolbar
+          id="dashboard-queue-jobs-toolbar"
+          title="Runtime trigger jobs"
+          description="Pending and claimed trigger jobs currently waiting in the runtime worker queue."
+          action={
+            <div id="dashboard-queue-controls" className="dashboard-queue-controls">
+              <p id="dashboard-queue-jobs-count" className="dashboard-toolbar__description">
+                {queueResponse.jobs.length} active jobs • {queueStatusLabel}
+              </p>
+              <button
+                type="button"
+                id="dashboard-queue-toggle-button"
+                className="button button--secondary secondary-action-button"
+                onClick={async () => {
+                  const nextState = queueResponse.isPaused ? await dashboardApi.unpauseQueue() : await dashboardApi.pauseQueue();
+                  setQueueResponse(nextState);
+                }}
+              >
+                {queueResponse.isPaused ? "Unpause queue" : "Pause queue"}
+              </button>
+            </div>
+          }
+        />
+        {queueResponse.jobs.length === 0 ? (
+          <EmptyState
+            id="dashboard-queue-empty"
+            title="Queue is empty"
+            description="New runtime trigger jobs will appear here when automations enqueue work."
+          />
+        ) : (
+          <div id="dashboard-queue-table-shell" className="api-table-shell">
+            <table id="dashboard-queue-table" className="api-directory-table dashboard-table">
+              <thead>
+                <tr>
+                  <th id="dashboard-queue-header-job">Job</th>
+                  <th id="dashboard-queue-header-status">Status</th>
+                  <th id="dashboard-queue-header-trigger">Trigger</th>
+                  <th id="dashboard-queue-header-api">API</th>
+                  <th id="dashboard-queue-header-worker">Worker</th>
+                  <th id="dashboard-queue-header-received">Received</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queueResponse.jobs.map((job) => (
+                  <tr id={`dashboard-queue-row-${job.jobId}`} key={job.jobId}>
+                    <td id={`dashboard-queue-job-${job.jobId}`}>
+                      <span className="api-directory-name">{job.jobId}</span>
+                    </td>
+                    <td id={`dashboard-queue-status-cell-${job.jobId}`}>
+                      <StatusBadge id={`dashboard-queue-status-${job.jobId}`} value={job.status} />
+                    </td>
+                    <td id={`dashboard-queue-trigger-${job.jobId}`}>{job.triggerType}</td>
+                    <td id={`dashboard-queue-api-${job.jobId}`}>{job.apiId}</td>
+                    <td id={`dashboard-queue-worker-${job.jobId}`}>{job.workerName || job.workerId || "Unclaimed"}</td>
+                    <td id={`dashboard-queue-received-${job.jobId}`}>{formatDateTime(job.receivedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};
+
 const routeDefinitions = [
   {
     path: "/",
@@ -497,6 +616,14 @@ const routeDefinitions = [
         handle: {
           title: dashboardLogsItem?.pageTitle || "Dashboard Logs",
           description: dashboardLogsItem?.description || "Inspect recent runtime activity, operator events, and system history."
+        } satisfies RouteHandle
+      },
+      {
+        path: "queue",
+        element: <QueuePage />,
+        handle: {
+          title: dashboardQueueItem?.pageTitle || "Dashboard Queue",
+          description: dashboardQueueItem?.description || "Review pending and claimed runtime trigger jobs waiting for worker execution."
         } satisfies RouteHandle
       }
     ]

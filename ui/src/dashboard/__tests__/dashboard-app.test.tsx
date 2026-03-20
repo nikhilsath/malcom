@@ -12,12 +12,31 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        host: null,
-        devices: []
-      })
+    vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes("/api/v1/dashboard/queue")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "running",
+            is_paused: false,
+            status_updated_at: "2026-03-20T09:00:00.000Z",
+            total_jobs: 0,
+            pending_jobs: 0,
+            claimed_jobs: 0,
+            jobs: []
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          host: null,
+          devices: []
+        })
+      };
     })
   );
 });
@@ -33,6 +52,8 @@ describe("DashboardApp", () => {
     expect(screen.getByText("Waiting for data")).toBeInTheDocument();
     expect(screen.getByText("Backend dashboard endpoints are not yet connected.")).toBeInTheDocument();
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
+    expect(screen.getByText("Queue status")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
   it("renders loading-ready empty states for devices", async () => {
@@ -118,5 +139,92 @@ describe("DashboardApp", () => {
     expect(screen.getByText("Detailed log filters")).toBeInTheDocument();
     expect(screen.getByText("Log report builder")).toBeInTheDocument();
     expect(screen.getByText("Grafana")).toBeInTheDocument();
+  });
+
+  it("renders the queue route when requested", async () => {
+    renderDashboardApp(["/queue"]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Dashboard Queue")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Runtime trigger jobs")).toBeInTheDocument();
+    expect(screen.getByText("Queue is empty")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause queue" })).toBeInTheDocument();
+  });
+
+  it("toggles queue pause controls", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/v1/dashboard/queue/pause") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "paused",
+            is_paused: true,
+            status_updated_at: "2026-03-20T09:05:00.000Z",
+            total_jobs: 0,
+            pending_jobs: 0,
+            claimed_jobs: 0,
+            jobs: []
+          })
+        };
+      }
+
+      if (url.includes("/api/v1/dashboard/queue/unpause") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "running",
+            is_paused: false,
+            status_updated_at: "2026-03-20T09:06:00.000Z",
+            total_jobs: 0,
+            pending_jobs: 0,
+            claimed_jobs: 0,
+            jobs: []
+          })
+        };
+      }
+
+      if (url.includes("/api/v1/dashboard/queue")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "running",
+            is_paused: false,
+            status_updated_at: "2026-03-20T09:00:00.000Z",
+            total_jobs: 0,
+            pending_jobs: 0,
+            claimed_jobs: 0,
+            jobs: []
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          host: null,
+          devices: []
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDashboardApp(["/queue"]);
+
+    const pauseButton = await screen.findByRole("button", { name: "Pause queue" });
+    fireEvent.click(pauseButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Unpause queue" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Unpause queue" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Pause queue" })).toBeInTheDocument();
+    });
   });
 });

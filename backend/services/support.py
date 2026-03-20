@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from .validation import *
 from . import helpers as _helpers
 
 
-def get_connection(request: Request) -> sqlite3.Connection:
+def get_connection(request: Request) -> Any:
     return request.app.state.connection
 
 

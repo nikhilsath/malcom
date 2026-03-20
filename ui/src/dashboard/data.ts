@@ -5,6 +5,8 @@ import type {
   DashboardLogEntry,
   DashboardLogSettings,
   DashboardLogsResponse,
+  DashboardQueueJob,
+  DashboardQueueResponse,
   DashboardSummaryResponse,
   MalcomLogStore
 } from "./types";
@@ -101,6 +103,41 @@ type DashboardDevicesApiResponse = {
   devices: DashboardDevicesApiDevice[];
 };
 
+type DashboardQueueApiJob = {
+  job_id: string;
+  run_id: string;
+  step_id: string;
+  status: DashboardQueueJob["status"];
+  worker_id: string | null;
+  worker_name: string | null;
+  claimed_at: string | null;
+  completed_at: string | null;
+  trigger_type: string;
+  api_id: string;
+  event_id: string;
+  received_at: string;
+};
+
+type DashboardQueueApiResponse = {
+  status: DashboardQueueResponse["status"];
+  is_paused: boolean;
+  status_updated_at: string;
+  total_jobs: number;
+  pending_jobs: number;
+  claimed_jobs: number;
+  jobs: DashboardQueueApiJob[];
+};
+
+const emptyQueueResponse: DashboardQueueResponse = {
+  status: "running",
+  isPaused: false,
+  statusUpdatedAt: new Date().toISOString(),
+  totalJobs: 0,
+  pendingJobs: 0,
+  claimedJobs: 0,
+  jobs: []
+};
+
 const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
   id: host.id,
   name: host.name,
@@ -131,6 +168,31 @@ const mapApiDevice = (device: DashboardDevicesApiDevice): DashboardDevice => ({
   location: device.location,
   detail: device.detail,
   lastSeenAt: device.last_seen_at
+});
+
+const mapApiQueueJob = (job: DashboardQueueApiJob): DashboardQueueJob => ({
+  jobId: job.job_id,
+  runId: job.run_id,
+  stepId: job.step_id,
+  status: job.status,
+  workerId: job.worker_id,
+  workerName: job.worker_name,
+  claimedAt: job.claimed_at,
+  completedAt: job.completed_at,
+  triggerType: job.trigger_type,
+  apiId: job.api_id,
+  eventId: job.event_id,
+  receivedAt: job.received_at
+});
+
+const mapApiQueueResponse = (payload: DashboardQueueApiResponse): DashboardQueueResponse => ({
+  status: payload.status,
+  isPaused: payload.is_paused,
+  statusUpdatedAt: payload.status_updated_at,
+  totalJobs: payload.total_jobs,
+  pendingJobs: payload.pending_jobs,
+  claimedJobs: payload.claimed_jobs,
+  jobs: payload.jobs.map(mapApiQueueJob)
 });
 
 const createFallbackLogStore = (): MalcomLogStore => {
@@ -235,6 +297,49 @@ export const dashboardApi = {
       settings: store.getSettings(),
       entries: store.getLogs()
     };
+  },
+
+  async getQueue(): Promise<DashboardQueueResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/queue");
+
+      if (!response.ok) {
+        return { ...emptyQueueResponse };
+      }
+
+      const payload = (await response.json()) as DashboardQueueApiResponse;
+      return mapApiQueueResponse(payload);
+    } catch {
+      return { ...emptyQueueResponse };
+    }
+  },
+
+  async pauseQueue(): Promise<DashboardQueueResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/queue/pause", { method: "POST" });
+      if (!response.ok) {
+        return { ...emptyQueueResponse, status: "paused", isPaused: true };
+      }
+
+      const payload = (await response.json()) as DashboardQueueApiResponse;
+      return mapApiQueueResponse(payload);
+    } catch {
+      return { ...emptyQueueResponse, status: "paused", isPaused: true };
+    }
+  },
+
+  async unpauseQueue(): Promise<DashboardQueueResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/queue/unpause", { method: "POST" });
+      if (!response.ok) {
+        return { ...emptyQueueResponse };
+      }
+
+      const payload = (await response.json()) as DashboardQueueApiResponse;
+      return mapApiQueueResponse(payload);
+    } catch {
+      return { ...emptyQueueResponse };
+    }
   }
 };
 

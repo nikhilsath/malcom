@@ -10,12 +10,17 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.runtime import RuntimeTrigger, runtime_event_bus
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class DashboardDevicesApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
-        app.state.db_path = str(Path(self.tempdir.name) / "malcom-test.db")
+        root_dir = Path(self.tempdir.name)
+        (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        setup_postgres_test_app(app=app, root_dir=root_dir)
+        runtime_event_bus.clear()
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -81,6 +86,97 @@ class DashboardDevicesApiTestCase(unittest.TestCase):
         payload = response.json()
         device_ids = {device["id"] for device in payload["devices"]}
         self.assertIn("worker-worker_lan_02", device_ids)
+
+    def test_dashboard_queue_returns_empty_when_no_jobs_are_emitted(self) -> None:
+        response = self.client.get("/api/v1/dashboard/queue")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "running")
+        self.assertFalse(payload["is_paused"])
+        self.assertIsInstance(payload["status_updated_at"], str)
+        self.assertEqual(payload["total_jobs"], 0)
+        self.assertEqual(payload["pending_jobs"], 0)
+        self.assertEqual(payload["claimed_jobs"], 0)
+        self.assertEqual(payload["jobs"], [])
+
+    def test_dashboard_queue_includes_pending_runtime_jobs(self) -> None:
+        runtime_event_bus.emit(
+            RuntimeTrigger(
+                type="inbound_api",
+                api_id="orders-webhook",
+                event_id="evt_123",
+                payload={"order_id": "A100"},
+                received_at="2026-03-20T09:00:00.000Z",
+            ),
+            job_id="job_123",
+            run_id="run_123",
+            step_id="step_123",
+        )
+
+        response = self.client.get("/api/v1/dashboard/queue")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertEqual(payload["status"], "running")
+        self.assertFalse(payload["is_paused"])
+        self.assertEqual(payload["total_jobs"], 1)
+        self.assertEqual(payload["pending_jobs"], 1)
+        self.assertEqual(payload["claimed_jobs"], 0)
+        self.assertEqual(payload["jobs"][0]["job_id"], "job_123")
+        self.assertEqual(payload["jobs"][0]["status"], "pending")
+        self.assertEqual(payload["jobs"][0]["api_id"], "orders-webhook")
+
+    def test_dashboard_queue_pause_and_unpause_endpoints_toggle_claiming(self) -> None:
+        register_response = self.client.post(
+            "/api/v1/workers/register",
+            json={
+                "worker_id": "worker_pause_test",
+                "name": "Queue worker",
+                "hostname": "queue-worker.local",
+                "address": "127.0.0.1",
+                "capabilities": ["runtime-trigger-execution"],
+            },
+        )
+        self.assertEqual(register_response.status_code, 200)
+
+        runtime_event_bus.emit(
+            RuntimeTrigger(
+                type="inbound_api",
+                api_id="orders-webhook",
+                event_id="evt_pause_1",
+                payload={"order_id": "A200"},
+                received_at="2026-03-20T09:10:00.000Z",
+            ),
+            job_id="job_pause_1",
+            run_id="run_pause_1",
+            step_id="step_pause_1",
+        )
+
+        pause_response = self.client.post("/api/v1/dashboard/queue/pause")
+        self.assertEqual(pause_response.status_code, 200)
+        self.assertTrue(pause_response.json()["is_paused"])
+        self.assertEqual(pause_response.json()["status"], "paused")
+
+        claim_while_paused = self.client.post(
+            "/api/v1/workers/claim-trigger",
+            json={"worker_id": "worker_pause_test"},
+        )
+        self.assertEqual(claim_while_paused.status_code, 200)
+        self.assertIsNone(claim_while_paused.json()["job"])
+
+        unpause_response = self.client.post("/api/v1/dashboard/queue/unpause")
+        self.assertEqual(unpause_response.status_code, 200)
+        self.assertFalse(unpause_response.json()["is_paused"])
+        self.assertEqual(unpause_response.json()["status"], "running")
+
+        claim_after_unpause = self.client.post(
+            "/api/v1/workers/claim-trigger",
+            json={"worker_id": "worker_pause_test"},
+        )
+        self.assertEqual(claim_after_unpause.status_code, 200)
+        self.assertIsNotNone(claim_after_unpause.json()["job"])
+        self.assertEqual(claim_after_unpause.json()["job"]["job_id"], "job_pause_1")
 
 
 if __name__ == "__main__":

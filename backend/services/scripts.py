@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import sqlite3
 import subprocess
 import tempfile
 from pathlib import Path
@@ -103,7 +102,7 @@ def build_script_validation_fields(result: ScriptValidationResult) -> tuple[str,
     return "invalid", f"{location}{first_issue.message}", utc_now_iso()
 
 
-def row_to_script_summary(row: sqlite3.Row) -> ScriptSummaryResponse:
+def row_to_script_summary(row: dict[str, Any]) -> ScriptSummaryResponse:
     return ScriptSummaryResponse(
         id=row["id"],
         name=row["name"],
@@ -117,7 +116,7 @@ def row_to_script_summary(row: sqlite3.Row) -> ScriptSummaryResponse:
     )
 
 
-def row_to_script_response(row: sqlite3.Row) -> ScriptResponse:
+def row_to_script_response(row: dict[str, Any]) -> ScriptResponse:
     return ScriptResponse(
         **row_to_script_summary(row).model_dump(),
         code=row["code"],

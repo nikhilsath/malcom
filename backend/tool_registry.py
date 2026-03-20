@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from backend.database import connect, fetch_all, fetch_one, initialize
+from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize
 
 REQUIRED_FIELDS = ("id", "name", "description")
 DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
@@ -118,7 +118,7 @@ def discover_tools(root_dir: Path | None = None) -> list[dict[str, str]]:
     return tools
 
 
-def row_to_tool_metadata(row: sqlite3.Row) -> dict:
+def row_to_tool_metadata(row: dict[str, Any]) -> dict:
     return {
         "id": row["id"],
         "name": row["name_override"] or row["source_name"],
@@ -129,7 +129,7 @@ def row_to_tool_metadata(row: sqlite3.Row) -> dict:
     }
 
 
-def row_to_tool_directory_entry(row: sqlite3.Row, *, enabled: bool | None = None) -> dict[str, object]:
+def row_to_tool_directory_entry(row: dict[str, Any], *, enabled: bool | None = None) -> dict[str, object]:
     resolved_enabled = bool(row["enabled"]) if enabled is None else enabled
     return {
         "id": row["id"],
@@ -140,7 +140,7 @@ def row_to_tool_directory_entry(row: sqlite3.Row, *, enabled: bool | None = None
     }
 
 
-def sync_tools_to_database(root_dir: Path, connection: sqlite3.Connection) -> list[dict[str, str]]:
+def sync_tools_to_database(root_dir: Path, connection: Any) -> list[dict[str, str]]:
     discovered_tools = discover_tools(root_dir)
     known_tool_ids = [tool["id"] for tool in discovered_tools]
     now = utc_now_iso()
@@ -209,9 +209,9 @@ def sync_tools_to_database(root_dir: Path, connection: sqlite3.Connection) -> li
     return discovered_tools
 
 
-def load_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = None) -> list[dict[str, str]]:
+def load_tools_manifest(root_dir: Path, connection: Any | None = None) -> list[dict[str, str]]:
     managed_connection = connection is None
-    db = connection or connect()
+    db = connection or connect(database_url=get_database_url())
 
     try:
         initialize(db)
@@ -231,7 +231,7 @@ def load_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = 
             db.close()
 
 
-def write_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None = None) -> list[dict[str, str]]:
+def write_tools_manifest(root_dir: Path, connection: Any | None = None) -> list[dict[str, str]]:
     tools = load_tools_manifest(root_dir, connection)
     manifest_source = [
         f"export const toolsManifest = Object.freeze({json.dumps(tools, indent=2)});",
@@ -247,7 +247,7 @@ def write_tools_manifest(root_dir: Path, connection: sqlite3.Connection | None =
 
 def update_tool_metadata(
     root_dir: Path,
-    connection: sqlite3.Connection,
+    connection: Any,
     tool_id: str,
     *,
     name: str | None = None,
@@ -307,7 +307,7 @@ def update_tool_metadata(
 
 def set_tool_enabled(
     root_dir: Path,
-    connection: sqlite3.Connection,
+    connection: Any,
     tool_id: str,
     *,
     enabled: bool,
@@ -351,9 +351,9 @@ def set_tool_enabled(
     return row_to_tool_directory_entry(updated_row)
 
 
-def load_tool_directory(root_dir: Path, connection: sqlite3.Connection | None = None) -> list[dict[str, object]]:
+def load_tool_directory(root_dir: Path, connection: Any | None = None) -> list[dict[str, object]]:
     managed_connection = connection is None
-    db = connection or connect()
+    db = connection or connect(database_url=get_database_url())
 
     try:
         initialize(db)

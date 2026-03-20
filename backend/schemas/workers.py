@@ -43,6 +43,31 @@ class DashboardDevicesApiResponse(BaseModel):
     devices: list[DashboardDeviceResponse]
 
 
+class DashboardQueueJobResponse(BaseModel):
+    job_id: str
+    run_id: str
+    step_id: str
+    status: Literal["pending", "claimed"]
+    worker_id: str | None
+    worker_name: str | None
+    claimed_at: str | None
+    completed_at: str | None
+    trigger_type: str
+    api_id: str
+    event_id: str
+    received_at: str
+
+
+class DashboardQueueApiResponse(BaseModel):
+    status: Literal["running", "paused"]
+    is_paused: bool
+    status_updated_at: str
+    total_jobs: int
+    pending_jobs: int
+    claimed_jobs: int
+    jobs: list[DashboardQueueJobResponse]
+
+
 class WorkerRegistrationRequest(BaseModel):
     worker_id: str | None = Field(default=None, min_length=1, max_length=120)
     name: str = Field(min_length=1, max_length=120)
@@ -103,6 +128,8 @@ class RuntimeMachineResponse(BaseModel):
 __all__ = [
     "DashboardDeviceResponse",
     "DashboardDevicesApiResponse",
+    "DashboardQueueApiResponse",
+    "DashboardQueueJobResponse",
     "HostMachineSummary",
     "RuntimeMachineResponse",
     "WorkerClaimedJobResponse",

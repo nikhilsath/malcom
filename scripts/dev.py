@@ -4,8 +4,10 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -136,6 +138,73 @@ def ensure_ui_build() -> None:
     write_stamp(UI_BUILD_STAMP, build_hash)
 
 
+def ensure_postgres_running() -> None:
+    def is_postgres_responsive() -> bool:
+        """Check if PostgreSQL is accepting connections."""
+        try:
+            sock = socket.create_connection(("127.0.0.1", 5432), timeout=2)
+            sock.close()
+            return True
+        except (socket.timeout, ConnectionRefusedError, OSError):
+            return False
+
+    def discover_brew_postgres_services() -> list[str]:
+        result = subprocess.run(
+            ["brew", "services", "list"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+
+        services: list[str] = []
+        for line in result.stdout.splitlines():
+            columns = line.split()
+            if not columns:
+                continue
+            service_name = columns[0]
+            if service_name.startswith("postgresql"):
+                services.append(service_name)
+        return services
+
+    if is_postgres_responsive():
+        print_status("PostgreSQL is already running.")
+        return
+
+    print_status("Starting PostgreSQL via Homebrew services...")
+
+    if shutil.which("brew") is None:
+        raise SystemExit(
+            "Homebrew was not found in PATH. Install Homebrew and PostgreSQL, then run './malcom' again."
+        )
+
+    postgres_services = discover_brew_postgres_services()
+    if not postgres_services:
+        raise SystemExit(
+            "PostgreSQL Homebrew service was not found. Install it with:\n"
+            "  brew install postgresql@17\n"
+            "Then run:\n"
+            "  brew services start postgresql@17"
+        )
+
+    for service_name in postgres_services:
+        subprocess.run(["brew", "services", "start", service_name], check=False)
+
+    print_status("Waiting for PostgreSQL to be ready...")
+    for attempt in range(30):
+        if is_postgres_responsive():
+            print_status("PostgreSQL is now responsive.")
+            return
+        if attempt < 29:
+            time.sleep(1)
+
+    raise SystemExit(
+        "PostgreSQL failed to become responsive after 30 seconds.\n"
+        "Try checking service status with: brew services list"
+    )
+
+
 def start_backend() -> None:
     print_status("Starting backend at http://127.0.0.1:8000")
     os.execv(
@@ -161,6 +230,7 @@ def main() -> None:
     ensure_backend_dependencies()
     ensure_ui_dependencies()
     ensure_ui_build()
+    ensure_postgres_running()
     start_backend()
 
 

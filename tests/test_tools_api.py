@@ -10,18 +10,16 @@ from fastapi.testclient import TestClient
 from backend.database import connect, fetch_one
 from backend.main import LocalLlmChatResponse, app
 from backend.services.support import build_local_llm_native_chat_body, build_local_llm_stream, execute_local_llm_chat_request
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class ToolMetadataApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
-        self.db_path = self.root_dir / "backend" / "data" / "malcom.db"
         manifest_dir = self.root_dir / "ui" / "scripts"
         manifest_dir.mkdir(parents=True, exist_ok=True)
-        app.state.root_dir = self.root_dir
-        app.state.db_path = str(self.db_path)
-        app.state.skip_ui_build_check = True
+        self.database_url = setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -47,7 +45,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
             "Convert and normalize audio files for downstream processing.",
         )
 
-        connection = connect(self.db_path)
+        connection = connect(database_url=self.database_url)
         try:
             saved_row = fetch_one(
                 connection,
@@ -93,7 +91,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["enabled"])
 
-        connection = connect(self.db_path)
+        connection = connect(database_url=self.database_url)
         try:
             saved_row = fetch_one(
                 connection,
@@ -203,7 +201,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
             },
         )
 
-        connection = connect(self.db_path)
+        connection = connect(database_url=self.database_url)
         native_request = httpx.Request("POST", "http://127.0.0.1:1234/api/v1/chat")
         native_response = httpx.Response(404, request=native_request)
         fallback_response = mock.Mock()
@@ -272,7 +270,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
                 for line in self._lines:
                     yield line
 
-        connection = connect(self.db_path)
+        connection = connect(database_url=self.database_url)
         try:
             with mock.patch(
                 "backend.services.support.httpx.stream",

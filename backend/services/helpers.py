@@ -1,6 +1,7 @@
 from __future__ import annotations
 import ast
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -10,7 +11,6 @@ import platform
 import re
 import secrets
 import shlex
-import sqlite3
 import smtplib
 import socket
 import ssl
@@ -33,7 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from backend.schemas import *
-from backend.database import DEFAULT_DB_PATH, connect, fetch_all, fetch_one, initialize
+from backend.database import connect, fetch_all, fetch_one, initialize
 import httpx
 from pydantic import Field, ValidationError
 from backend.runtime import (
@@ -91,7 +91,11 @@ REMOTE_WORKER_POLL_INTERVAL_SECONDS = 1.0
 SMTP_TOOL_SETTINGS_KEY = "smtp_tool"
 LOCAL_LLM_TOOL_SETTINGS_KEY = "local_llm_tool"
 COQUI_TTS_TOOL_SETTINGS_KEY = "coqui_tts_tool"
+DatabaseConnection = Any
+DatabaseRow = dict[str, Any]
 CONNECTOR_PROTECTION_VERSION = "enc_v1"
+CONNECTOR_NONCE_BYTES = 16
+CONNECTOR_SIGNATURE_BYTES = 32
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
 SUPPORTED_CONNECTOR_PROVIDERS = {
     "google_calendar",
@@ -281,6 +285,12 @@ def get_connector_protection_secret(*, root_dir: Path | None = None, db_path: st
     return "|".join(seed_parts)
 def derive_connector_protection_key(protection_secret: str) -> bytes:
     return hashlib.sha256(protection_secret.encode("utf-8")).digest()
+
+
+def _xor_bytes(left: bytes, right: bytes) -> bytes:
+    return bytes(left_byte ^ right_byte for left_byte, right_byte in zip(left, right))
+
+
 def build_connector_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
     output = bytearray()
     counter = 0
@@ -291,24 +301,50 @@ def build_connector_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
         counter += 1
 
     return bytes(output[:length])
-def protect_connector_secret_value(value: str, protection_secret: str) -> str:
-    key = derive_connector_protection_key(protection_secret)
-    nonce = secrets.token_bytes(16)
-    payload = value.encode("utf-8")
-    keystream = build_connector_keystream(key, nonce, len(payload))
-    ciphertext = bytes(left ^ right for left, right in zip(payload, keystream))
-    signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
+
+
+def _encode_protected_connector_value(nonce: bytes, signature: bytes, ciphertext: bytes) -> str:
     token = base64.urlsafe_b64encode(nonce + signature + ciphertext).decode("ascii")
     return f"{CONNECTOR_PROTECTION_VERSION}:{token}"
-def unprotect_connector_secret_value(value: str | None, protection_secret: str) -> str | None:
+
+
+def _decode_protected_connector_value(value: str | None) -> tuple[bytes, bytes, bytes] | None:
     if not value or not value.startswith(f"{CONNECTOR_PROTECTION_VERSION}:"):
         return None
 
     encoded = value.split(":", 1)[1]
-    raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
-    nonce = raw[:16]
-    signature = raw[16:48]
-    ciphertext = raw[48:]
+    try:
+        raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
+    except (ValueError, binascii.Error):
+        return None
+
+    minimum_size = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
+    if len(raw) < minimum_size:
+        return None
+
+    nonce = raw[:CONNECTOR_NONCE_BYTES]
+    signature_end = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
+    signature = raw[CONNECTOR_NONCE_BYTES:signature_end]
+    ciphertext = raw[signature_end:]
+    return nonce, signature, ciphertext
+
+
+def protect_connector_secret_value(value: str, protection_secret: str) -> str:
+    key = derive_connector_protection_key(protection_secret)
+    nonce = secrets.token_bytes(CONNECTOR_NONCE_BYTES)
+    payload = value.encode("utf-8")
+    keystream = build_connector_keystream(key, nonce, len(payload))
+    ciphertext = _xor_bytes(payload, keystream)
+    signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
+    return _encode_protected_connector_value(nonce, signature, ciphertext)
+
+
+def unprotect_connector_secret_value(value: str | None, protection_secret: str) -> str | None:
+    decoded = _decode_protected_connector_value(value)
+    if decoded is None:
+        return None
+
+    nonce, signature, ciphertext = decoded
     key = derive_connector_protection_key(protection_secret)
     expected_signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
 
@@ -316,8 +352,11 @@ def unprotect_connector_secret_value(value: str | None, protection_secret: str) 
         return None
 
     keystream = build_connector_keystream(key, nonce, len(ciphertext))
-    plaintext = bytes(left ^ right for left, right in zip(ciphertext, keystream))
-    return plaintext.decode("utf-8")
+    try:
+        plaintext = _xor_bytes(ciphertext, keystream)
+        return plaintext.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 def mask_connector_secret(value: str | None) -> str | None:
     if not value:
         return None
@@ -398,7 +437,9 @@ def get_default_connector_settings() -> dict[str, Any]:
             "credential_visibility": "masked",
         },
     }
-def row_to_api_summary(row: sqlite3.Row) -> dict[str, Any]:
+
+
+def row_to_api_summary(row: DatabaseRow) -> dict[str, Any]:
     return {
         "id": row["id"],
         "name": row["name"],
@@ -413,7 +454,7 @@ def row_to_api_summary(row: sqlite3.Row) -> dict[str, Any]:
         "last_delivery_status": row["last_delivery_status"],
         "events_count": row["events_count"],
     }
-def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
+def row_to_event(row: DatabaseRow) -> dict[str, Any]:
     payload_json = row["payload_json"]
     return {
         "event_id": row["event_id"],
@@ -425,7 +466,7 @@ def row_to_event(row: sqlite3.Row) -> dict[str, Any]:
         "source_ip": row["source_ip"],
         "error_message": row["error_message"],
     }
-def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
+def row_to_run(row: DatabaseRow) -> dict[str, Any]:
     return {
         "run_id": row["run_id"],
         "automation_id": row["automation_id"],
@@ -438,7 +479,7 @@ def row_to_run(row: sqlite3.Row) -> dict[str, Any]:
         "duration_ms": row["duration_ms"],
         "error_summary": row["error_summary"],
     }
-def row_to_run_step(row: sqlite3.Row) -> dict[str, Any]:
+def row_to_run_step(row: DatabaseRow) -> dict[str, Any]:
     detail_json = row["detail_json"]
     return {
         "step_id": row["step_id"],
@@ -452,7 +493,7 @@ def row_to_run_step(row: sqlite3.Row) -> dict[str, Any]:
         "duration_ms": row["duration_ms"],
         "detail_json": json.loads(detail_json) if detail_json else None,
     }
-def row_to_automation_summary(row: sqlite3.Row) -> dict[str, Any]:
+def row_to_automation_summary(row: DatabaseRow) -> dict[str, Any]:
     return {
         "id": row["id"],
         "name": row["name"],
@@ -466,7 +507,7 @@ def row_to_automation_summary(row: sqlite3.Row) -> dict[str, Any]:
         "last_run_at": row["last_run_at"] if "last_run_at" in row.keys() else None,
         "next_run_at": row["next_run_at"] if "next_run_at" in row.keys() else None,
     }
-def row_to_automation_step(row: sqlite3.Row) -> AutomationStepDefinition:
+def row_to_automation_step(row: DatabaseRow) -> AutomationStepDefinition:
     return AutomationStepDefinition(
         id=row["step_id"],
         type=row["step_type"],
@@ -504,7 +545,7 @@ def claim_job_response(job: RuntimeTriggerJob) -> WorkerClaimResponse:
         )
     )
 def row_to_simple_api_resource(
-    row: sqlite3.Row,
+    row: DatabaseRow,
     *,
     api_type: str,
     endpoint_path: str | None = None,
@@ -535,7 +576,7 @@ def row_to_simple_api_resource(
         "has_verification_token": bool(row["verification_token"]) if "verification_token" in row.keys() else None,
         "has_signing_secret": bool(row["signing_secret"]) if "signing_secret" in row.keys() else None,
     }
-def row_to_outgoing_detail_response(row: sqlite3.Row, *, api_type: str, endpoint_path: str) -> OutgoingApiDetailResponse:
+def row_to_outgoing_detail_response(row: DatabaseRow, *, api_type: str, endpoint_path: str) -> OutgoingApiDetailResponse:
     resource = row_to_simple_api_resource(row, api_type=api_type, endpoint_path=endpoint_path)
     auth_config_json = row["auth_config_json"] if "auth_config_json" in row.keys() else "{}"
 
@@ -576,7 +617,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
 }
 def get_default_settings() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
-def seed_default_settings(connection: sqlite3.Connection) -> None:
+def seed_default_settings(connection: DatabaseConnection) -> None:
     now = utc_now_iso()
 
     for key, value in get_default_settings().items():
@@ -759,7 +800,7 @@ def sanitize_connector_settings_for_response(value: dict[str, Any] | None, prote
         ],
         "auth_policy": normalize_connector_auth_policy(current.get("auth_policy")),
     }
-def get_stored_connector_settings(connection: sqlite3.Connection) -> dict[str, Any]:
+def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
     stored_value = read_stored_settings_section(connection, "connectors")
     if not isinstance(stored_value, dict):
         return get_default_connector_settings()
@@ -769,7 +810,7 @@ def get_stored_connector_settings(connection: sqlite3.Connection) -> dict[str, A
         "records": [item for item in stored_value.get("records", []) if isinstance(item, dict)],
         "auth_policy": normalize_connector_auth_policy(stored_value.get("auth_policy")),
     }
-def find_stored_connector_record(connection: sqlite3.Connection, connector_id: str) -> dict[str, Any] | None:
+def find_stored_connector_record(connection: DatabaseConnection, connector_id: str) -> dict[str, Any] | None:
     settings = get_stored_connector_settings(connection)
     return next((item for item in settings["records"] if item.get("id") == connector_id), None)
 def build_outgoing_auth_config_from_connector(record: dict[str, Any], protection_secret: str) -> OutgoingAuthConfig:
@@ -808,7 +849,7 @@ def merge_outgoing_auth_config(
         header_value=override_config.header_value if override_config and override_config.header_value else base_config.header_value,
     )
 def hydrate_outgoing_configuration_from_connector(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     connector_id: str | None,
     destination_url: str,
@@ -914,7 +955,7 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
         return schema.model_validate(value).model_dump()
     except ValidationError:
         return schema.model_validate(get_default_settings()[section_key]).model_dump()
-def get_settings_payload(connection: sqlite3.Connection, *, protection_secret: str | None = None) -> dict[str, Any]:
+def get_settings_payload(connection: DatabaseConnection, *, protection_secret: str | None = None) -> dict[str, Any]:
     settings = get_default_settings()
     connector_secret = protection_secret or get_connector_protection_secret()
     rows = fetch_all(
@@ -946,7 +987,7 @@ def get_settings_payload(connection: sqlite3.Connection, *, protection_secret: s
     return settings
 def get_default_smtp_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_SMTP_TOOL_CONFIG))
-def get_smtp_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
+def get_smtp_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_smtp_tool_config()
     row = fetch_one(
         connection,
@@ -964,7 +1005,7 @@ def get_smtp_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
     if isinstance(stored_value, dict):
         config.update(stored_value)
     return config
-def save_smtp_tool_config(connection: sqlite3.Connection, config: dict[str, Any]) -> dict[str, Any]:
+def save_smtp_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
     now = utc_now_iso()
     connection.execute(
         """
@@ -993,7 +1034,7 @@ def get_default_local_llm_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_LOCAL_LLM_TOOL_CONFIG))
 def get_local_llm_endpoint_presets() -> dict[str, dict[str, Any]]:
     return json.loads(json.dumps(LOCAL_LLM_ENDPOINT_PRESETS))
-def get_local_llm_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
+def get_local_llm_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_local_llm_tool_config()
     row = fetch_one(
         connection,
@@ -1013,7 +1054,7 @@ def get_local_llm_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
         if isinstance(stored_value.get("endpoints"), dict):
             config["endpoints"].update(stored_value["endpoints"])
     return config
-def save_local_llm_tool_config(connection: sqlite3.Connection, config: dict[str, Any]) -> dict[str, Any]:
+def save_local_llm_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
     now = utc_now_iso()
     connection.execute(
         """
@@ -1051,7 +1092,7 @@ def normalize_local_llm_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     return normalized
 def get_default_coqui_tts_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_COQUI_TTS_TOOL_CONFIG))
-def get_coqui_tts_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
+def get_coqui_tts_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_coqui_tts_tool_config()
     row = fetch_one(
         connection,
@@ -1069,7 +1110,7 @@ def get_coqui_tts_tool_config(connection: sqlite3.Connection) -> dict[str, Any]:
     if isinstance(stored_value, dict):
         config.update(stored_value)
     return config
-def save_coqui_tts_tool_config(connection: sqlite3.Connection, config: dict[str, Any]) -> dict[str, Any]:
+def save_coqui_tts_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
     now = utc_now_iso()
     connection.execute(
         """
@@ -1108,7 +1149,7 @@ def _get_tool_input(step: AutomationStepDefinition, key: str, context: dict[str,
 
 
 def execute_coqui_tts_tool_step(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     step: AutomationStepDefinition,
     context: dict[str, Any],
     *,
@@ -1189,7 +1230,7 @@ def execute_coqui_tts_tool_step(
 
 
 def execute_llm_deepl_tool_step(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     step: AutomationStepDefinition,
     context: dict[str, Any],
 ) -> RuntimeExecutionResult:
@@ -1469,7 +1510,7 @@ def build_local_llm_openai_chat_body(
 
 
 def prepare_local_llm_chat_request(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     messages: list[dict[str, str]],
     model_identifier_override: str | None = None,
@@ -1519,7 +1560,7 @@ def build_local_llm_fallback_chat_request(
 
 
 def execute_local_llm_chat_request(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     messages: list[dict[str, str]],
     model_identifier_override: str | None = None,
@@ -1618,7 +1659,7 @@ def iter_local_llm_stream_events(response: httpx.Response, *, collected_fragment
 
 
 def build_local_llm_stream(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     messages: list[dict[str, str]],
     model_identifier_override: str | None = None,
@@ -1704,7 +1745,7 @@ class AutomationDetailResponse(AutomationSummaryResponse):
 class ScriptResponse(ScriptSummaryResponse):
     code: str
 async def lifespan(app: FastAPI):
-    connection = connect(Path(app.state.db_path))
+    connection = connect(database_url=app.state.database_url)
     initialize(connection)
     seed_default_settings(connection)
     write_tools_manifest(Path(app.state.root_dir), connection)
@@ -1767,7 +1808,7 @@ async def lifespan(app: FastAPI):
         if log_handler is not None:
             log_handler.flush()
         connection.close()
-def get_connection(request: Request) -> sqlite3.Connection:
+def get_connection(request: Request) -> DatabaseConnection:
     return request.app.state.connection
 def get_root_dir(request: Request) -> Path:
     return Path(request.app.state.root_dir)
@@ -1911,7 +1952,7 @@ def send_smtp_relay_message(payload: SmtpRelaySendRequest) -> None:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"SMTP recipients refused: {', '.join(error.recipients.keys())}") from error
     except smtplib.SMTPException as error:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"SMTP send failed: {error}") from error
-def sync_smtp_tool_runtime(app: FastAPI, connection: sqlite3.Connection) -> None:
+def sync_smtp_tool_runtime(app: FastAPI, connection: DatabaseConnection) -> None:
     smtp_manager: SmtpRuntimeManager = app.state.smtp_manager
     config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
     machines = list_runtime_machine_assignments()
@@ -1922,7 +1963,7 @@ def sync_smtp_tool_runtime(app: FastAPI, connection: sqlite3.Connection) -> None
         recipient_email=config.get("recipient_email"),
         machine=get_selected_smtp_machine(config, machines),
     )
-def build_smtp_tool_response(app: FastAPI, connection: sqlite3.Connection) -> SmtpToolResponse:
+def build_smtp_tool_response(app: FastAPI, connection: DatabaseConnection) -> SmtpToolResponse:
     config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
     machines = list_runtime_machine_assignments()
     runtime = app.state.smtp_manager.snapshot()
@@ -1939,7 +1980,7 @@ def build_smtp_tool_response(app: FastAPI, connection: sqlite3.Connection) -> Sm
         inbound_identity=build_smtp_inbound_identity(config, runtime),
         machines=[machine_assignment_to_response(machine) for machine in machines],
     )
-def build_local_llm_tool_response(connection: sqlite3.Connection) -> LocalLlmToolResponse:
+def build_local_llm_tool_response(connection: DatabaseConnection) -> LocalLlmToolResponse:
     config = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))
     presets = [
         LocalLlmPresetResponse(
@@ -1961,7 +2002,7 @@ def build_local_llm_tool_response(connection: sqlite3.Connection) -> LocalLlmToo
         ),
         presets=presets,
     )
-def build_coqui_tts_tool_response(connection: sqlite3.Connection, *, root_dir: Path) -> CoquiTtsToolResponse:
+def build_coqui_tts_tool_response(connection: DatabaseConnection, *, root_dir: Path) -> CoquiTtsToolResponse:
     config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
     return CoquiTtsToolResponse(
         tool_id="coqui-tts",
@@ -1975,7 +2016,7 @@ def build_coqui_tts_tool_response(connection: sqlite3.Connection, *, root_dir: P
         ),
     )
 def handle_smtp_message_automation_triggers(app: FastAPI, message: dict[str, Any]) -> None:
-    connection = connect(Path(app.state.db_path))
+    connection = connect(database_url=app.state.database_url)
     try:
         initialize(connection)
         matching_automations = fetch_all(
@@ -2137,7 +2178,48 @@ def get_runtime_devices_response() -> DashboardDevicesApiResponse:
         )
 
     return DashboardDevicesApiResponse(host=host, devices=devices)
-def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
+
+
+def get_runtime_queue_response() -> DashboardQueueApiResponse:
+    jobs = runtime_event_bus.pending_jobs()
+    queue_status = runtime_event_bus.queue_status()
+    queue_jobs = [
+        DashboardQueueJobResponse(
+            job_id=job.job_id,
+            run_id=job.run_id,
+            step_id=job.step_id,
+            status="claimed" if job.status == "claimed" else "pending",
+            worker_id=job.worker_id,
+            worker_name=job.worker_name,
+            claimed_at=job.claimed_at,
+            completed_at=job.completed_at,
+            trigger_type=job.trigger.type,
+            api_id=job.trigger.api_id,
+            event_id=job.trigger.event_id,
+            received_at=job.trigger.received_at,
+        )
+        for job in jobs
+    ]
+    pending_jobs = sum(1 for job in queue_jobs if job.status == "pending")
+    claimed_jobs = sum(1 for job in queue_jobs if job.status == "claimed")
+
+    return DashboardQueueApiResponse(
+        status=queue_status["status"],
+        is_paused=bool(queue_status["is_paused"]),
+        status_updated_at=str(queue_status["updated_at"]),
+        total_jobs=len(queue_jobs),
+        pending_jobs=pending_jobs,
+        claimed_jobs=claimed_jobs,
+        jobs=queue_jobs,
+    )
+
+
+def set_runtime_queue_pause_state(paused: bool) -> DashboardQueueApiResponse:
+    runtime_event_bus.set_queue_paused(paused)
+    return get_runtime_queue_response()
+
+
+def get_api_or_404(connection: DatabaseConnection, api_id: str) -> DatabaseRow:
     row = fetch_one(
         connection,
         """
@@ -2168,7 +2250,7 @@ def get_api_or_404(connection: sqlite3.Connection, api_id: str) -> sqlite3.Row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inbound API not found.")
 
     return row
-def serialize_api_detail(connection: sqlite3.Connection, api_id: str, request: Request) -> InboundApiDetail:
+def serialize_api_detail(connection: DatabaseConnection, api_id: str, request: Request) -> InboundApiDetail:
     api_row = get_api_or_404(connection, api_id)
     event_rows = fetch_all(
         connection,
@@ -2187,10 +2269,10 @@ def serialize_api_detail(connection: sqlite3.Connection, api_id: str, request: R
     detail["events"] = [row_to_event(row) for row in event_rows]
     return InboundApiDetail(**detail)
 def get_outgoing_api_or_404(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     api_id: str,
     api_type: Literal["outgoing_scheduled", "outgoing_continuous"],
-) -> sqlite3.Row:
+) -> DatabaseRow:
     table_name = "outgoing_scheduled_apis" if api_type == "outgoing_scheduled" else "outgoing_continuous_apis"
     row = fetch_one(
         connection,
@@ -2230,7 +2312,7 @@ def build_schedule_expression(scheduled_time: str) -> str:
     hour, minute = scheduled_time.split(":")
     return f"{int(minute)} {int(hour)} * * *"
 def log_event(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     logger: logging.Logger,
     *,
     event_id: str,
@@ -2286,7 +2368,7 @@ def calculate_duration_ms(started_at: str, finished_at: str) -> int:
     finished = datetime.fromisoformat(finished_at)
     return max(int((finished - started).total_seconds() * 1000), 0)
 def create_automation_run(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     run_id: str,
     automation_id: str,
@@ -2315,7 +2397,7 @@ def create_automation_run(
     )
     connection.commit()
 def create_automation_run_step(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     step_id: str,
     run_id: str,
@@ -2346,7 +2428,7 @@ def create_automation_run_step(
     )
     connection.commit()
 def finalize_automation_run_step(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     step_id: str,
     status_value: str,
@@ -2381,7 +2463,7 @@ def finalize_automation_run_step(
     )
     connection.commit()
 def finalize_automation_run(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     run_id: str,
     status_value: str,
@@ -2407,7 +2489,7 @@ def finalize_automation_run(
     )
     connection.commit()
 def assign_automation_run_worker(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     *,
     run_id: str,
     worker_id: str,
@@ -2439,7 +2521,7 @@ def register_runtime_worker(
         seen_at=utc_now_iso(),
     )
 def process_runtime_job(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     logger: logging.Logger,
     *,
     job: RuntimeTriggerJob,
@@ -2572,7 +2654,7 @@ def run_remote_worker_loop(app: FastAPI, stop_event: threading.Event, coordinato
             pass
 
         stop_event.wait(REMOTE_WORKER_POLL_INTERVAL_SECONDS)
-def get_automation_or_404(connection: sqlite3.Connection, automation_id: str) -> sqlite3.Row:
+def get_automation_or_404(connection: DatabaseConnection, automation_id: str) -> DatabaseRow:
     row = fetch_one(
         connection,
         """
@@ -2589,7 +2671,7 @@ def get_automation_or_404(connection: sqlite3.Connection, automation_id: str) ->
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Automation not found.")
     return row
-def list_automation_steps(connection: sqlite3.Connection, automation_id: str) -> list[AutomationStepDefinition]:
+def list_automation_steps(connection: DatabaseConnection, automation_id: str) -> list[AutomationStepDefinition]:
     rows = fetch_all(
         connection,
         """
@@ -2601,14 +2683,14 @@ def list_automation_steps(connection: sqlite3.Connection, automation_id: str) ->
         (automation_id,),
     )
     return [row_to_automation_step(row) for row in rows]
-def serialize_automation_detail(connection: sqlite3.Connection, automation_id: str) -> AutomationDetailResponse:
+def serialize_automation_detail(connection: DatabaseConnection, automation_id: str) -> AutomationDetailResponse:
     row = get_automation_or_404(connection, automation_id)
     return AutomationDetailResponse(
         **row_to_automation_summary(row),
         steps=list_automation_steps(connection, automation_id),
     )
 def replace_automation_steps(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     automation_id: str,
     steps: list[AutomationStepDefinition],
     *,
@@ -2641,7 +2723,7 @@ def replace_automation_steps(
                 timestamp,
             ),
         )
-def refresh_automation_schedule(connection: sqlite3.Connection, automation_id: str) -> None:
+def refresh_automation_schedule(connection: DatabaseConnection, automation_id: str) -> None:
     row = get_automation_or_404(connection, automation_id)
     trigger_config = AutomationTriggerConfig(**json.loads(row["trigger_config_json"]))
     next_run_at: str | None = None
@@ -2652,7 +2734,7 @@ def refresh_automation_schedule(connection: sqlite3.Connection, automation_id: s
         (next_run_at, utc_now_iso(), automation_id),
     )
     connection.commit()
-def refresh_outgoing_schedule(connection: sqlite3.Connection, api_id: str) -> None:
+def refresh_outgoing_schedule(connection: DatabaseConnection, api_id: str) -> None:
     row = fetch_one(connection, "SELECT enabled, scheduled_time FROM outgoing_scheduled_apis WHERE id = ?", (api_id,))
     if row is None:
         return
@@ -2681,7 +2763,7 @@ def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
     rendered = render_template_string(template or "{}", context)
     parsed = json.loads(rendered)
     return json.dumps(parsed)
-def execute_script_step(script_row: sqlite3.Row, context: dict[str, Any], *, root_dir: Path) -> RuntimeExecutionResult:
+def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, root_dir: Path) -> RuntimeExecutionResult:
     if script_row["language"] == "python":
         local_scope = {
             "context": context,
@@ -2737,7 +2819,7 @@ def execute_script_step(script_row: sqlite3.Row, context: dict[str, Any], *, roo
         output=json.loads(completed.stdout or "null"),
     )
 def execute_automation_step(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     logger: logging.Logger,
     *,
     automation_id: str,
@@ -2844,7 +2926,7 @@ def execute_automation_step(
         detail={"expression": step.config.expression, "result": result, "stop_on_false": step.config.stop_on_false},
         output=result,
     )
-def fetch_run_detail(connection: sqlite3.Connection, run_id: str) -> AutomationRunDetailResponse:
+def fetch_run_detail(connection: DatabaseConnection, run_id: str) -> AutomationRunDetailResponse:
     run_row = fetch_one(connection, "SELECT run_id, automation_id, trigger_type, status, started_at, finished_at, duration_ms, error_summary FROM automation_runs WHERE run_id = ?", (run_id,))
     if run_row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Automation run not found.")
@@ -2860,7 +2942,7 @@ def fetch_run_detail(connection: sqlite3.Connection, run_id: str) -> AutomationR
     )
     return AutomationRunDetailResponse(**row_to_run(run_row), steps=[AutomationRunStepResponse(**row_to_run_step(row)) for row in step_rows])
 def execute_automation_definition(
-    connection: sqlite3.Connection,
+    connection: DatabaseConnection,
     logger: logging.Logger,
     *,
     automation_id: str,
@@ -2951,7 +3033,7 @@ def execute_automation_definition(
         )
     connection.commit()
     return fetch_run_detail(connection, run_id)
-def execute_scheduled_api(connection: sqlite3.Connection, logger: logging.Logger, *, api_id: str) -> None:
+def execute_scheduled_api(connection: DatabaseConnection, logger: logging.Logger, *, api_id: str) -> None:
     row = fetch_one(connection, "SELECT * FROM outgoing_scheduled_apis WHERE id = ?", (api_id,))
     if row is None:
         return
@@ -3001,7 +3083,7 @@ def execute_scheduled_api(connection: sqlite3.Connection, logger: logging.Logger
     )
     connection.commit()
     write_application_log(logger, logging.INFO if result.ok else logging.WARNING, "scheduled_outgoing_api_executed", api_id=api_id, status_code=result.status_code)
-def refresh_scheduler_jobs(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+def refresh_scheduler_jobs(connection: DatabaseConnection) -> list[dict[str, Any]]:
     jobs: list[dict[str, Any]] = []
     for row in fetch_all(connection, "SELECT id, name, trigger_config_json, next_run_at FROM automations WHERE enabled = 1 AND trigger_type = 'schedule' ORDER BY created_at ASC"):
         trigger_config = json.loads(row["trigger_config_json"])

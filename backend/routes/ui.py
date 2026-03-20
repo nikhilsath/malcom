@@ -106,6 +106,11 @@ def redirect_dashboard_logs() -> RedirectResponse:
     return RedirectResponse(url="/dashboard/home.html#/logs")
 
 
+@router.get("/dashboard/queue.html")
+def redirect_dashboard_queue() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/home.html#/queue")
+
+
 @router.get("/automations")
 @router.get("/automations/")
 def redirect_automations_root() -> RedirectResponse:

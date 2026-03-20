@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from backend.database import fetch_all, fetch_one
@@ -23,7 +22,7 @@ def merge_settings_section(default_value: Any, stored_value: Any) -> Any:
     return merged_value
 
 
-def read_stored_settings_section(connection: sqlite3.Connection, key: str) -> Any:
+def read_stored_settings_section(connection: Any, key: str) -> Any:
     """Return the parsed JSON value stored for *key*, or ``None`` if absent."""
     row = fetch_one(connection, "SELECT value_json FROM settings WHERE key = ?", (key,))
     if row is None:
@@ -35,7 +34,7 @@ def read_stored_settings_section(connection: sqlite3.Connection, key: str) -> An
         return None
 
 
-def write_settings_section(connection: sqlite3.Connection, key: str, value: Any) -> None:
+def write_settings_section(connection: Any, key: str, value: Any) -> None:
     """Upsert *value* for *key* in the settings table and commit."""
     now = utc_now_iso()
     connection.execute(

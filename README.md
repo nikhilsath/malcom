@@ -75,7 +75,7 @@ The Tools section is registration-driven.
 Source of truth:
 
 * `backend/tool_registry.py` for the default tool catalog seed data
-* the `tools` table in SQLite for persisted enabled state and metadata overrides
+* the `tools` table in PostgreSQL for persisted enabled state and metadata overrides
 * `scripts/generate-tools-manifest.mjs` to regenerate `ui/scripts/tools-manifest.js`
 * `ui/scripts/shell-config.js` consuming the generated manifest to build the tools sidenav
 * `ui/tools/catalog.html` as the directory page for metadata edits and enable/disable state
@@ -117,7 +117,7 @@ The runtime is responsible for:
 
 Current implementation includes:
 
-* persisted automation definitions in SQLite
+* persisted automation definitions in PostgreSQL
 * manual, scheduled, and inbound API-triggered execution
 * structured run history with step-level request and response summaries
 * runtime and scheduler status APIs for the management UI
@@ -150,7 +150,7 @@ Examples:
 
 ### 6. Storage
 
-SQLite database used for:
+PostgreSQL database used for:
 
 * automation definitions
 * job schedules
@@ -169,7 +169,7 @@ Rules:
 * generate secrets with a cryptographically secure random source
 * use 256 bits of entropy for production-generated inbound bearer secrets
 * encode the random payload with URL-safe Base64 and prefix it with a stable Malcom identifier
-* store only the SHA-256 hash of the secret in SQLite
+* store only the SHA-256 hash of the secret in PostgreSQL
 * return the plaintext secret only once when an inbound API is created or rotated
 * require operators to store the returned secret externally because list and detail endpoints do not expose it later
 * rotate secrets when a credential is shared, leaked, or reaches the team rotation window
@@ -188,7 +188,19 @@ Developer mode exception:
 * Python
 * FastAPI
 * APScheduler
-* SQLite
+* PostgreSQL
+
+### Database Configuration
+
+Set `MALCOM_DATABASE_URL` to a PostgreSQL connection string before starting the app.
+
+Example:
+
+```bash
+export MALCOM_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/malcom"
+```
+
+If `MALCOM_DATABASE_URL` is not set, the app defaults to `postgresql://postgres:postgres@127.0.0.1:5432/malcom`.
 
 ## Frontend
 
@@ -394,7 +406,7 @@ Tools are defined in the backend catalog and surfaced in the UI through a genera
 Primary registration sources:
 
 * `backend/tool_registry.py`
-* the SQLite `tools` table
+* the PostgreSQL `tools` table
 * `ui/scripts/tools-manifest.js`
 
 Rules:
@@ -426,7 +438,7 @@ Expected behavior:
 * `ui/tools/catalog.html` renders the new tool automatically
 * no manual HTML edits are required to add the card
 * the manifest is generated from the backend tool catalog and stored DB records
-* saved name and description edits are stored in SQLite as overrides
+* saved name and description edits are stored in PostgreSQL as overrides
 
 Local UI note:
 

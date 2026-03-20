@@ -8,13 +8,15 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class ScriptsApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
-        self.db_path = Path(self.tempdir.name) / "malcom-test.db"
-        app.state.db_path = str(self.db_path)
+        root_dir = Path(self.tempdir.name)
+        (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        setup_postgres_test_app(app=app, root_dir=root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 

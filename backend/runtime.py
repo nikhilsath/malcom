@@ -48,6 +48,8 @@ class RuntimeEventBus:
         self._history: deque[RuntimeTrigger] = deque(maxlen=max_history)
         self._jobs: deque[RuntimeTriggerJob] = deque(maxlen=max_jobs)
         self._workers: dict[str, RegisteredWorker] = {}
+        self._queue_paused = False
+        self._queue_updated_at: str | None = None
 
     def emit(self, trigger: RuntimeTrigger, *, job_id: str, run_id: str, step_id: str) -> RuntimeTriggerJob:
         with self._lock:
@@ -79,6 +81,9 @@ class RuntimeEventBus:
 
     def claim_next(self, *, worker_id: str, worker_name: str, claimed_at: str) -> RuntimeTriggerJob | None:
         with self._lock:
+            if self._queue_paused:
+                return None
+
             for index, job in enumerate(self._jobs):
                 if job.status != "pending":
                     continue
@@ -98,6 +103,25 @@ class RuntimeEventBus:
                 return claimed_job
 
             return None
+
+    def set_queue_paused(self, paused: bool) -> dict[str, Any]:
+        with self._lock:
+            self._queue_paused = paused
+            self._queue_updated_at = utc_now_iso()
+            return {
+                "is_paused": self._queue_paused,
+                "status": "paused" if self._queue_paused else "running",
+                "updated_at": self._queue_updated_at,
+            }
+
+    def queue_status(self) -> dict[str, Any]:
+        with self._lock:
+            updated_at = self._queue_updated_at or utc_now_iso()
+            return {
+                "is_paused": self._queue_paused,
+                "status": "paused" if self._queue_paused else "running",
+                "updated_at": updated_at,
+            }
 
     def get_job(self, job_id: str) -> RuntimeTriggerJob | None:
         with self._lock:
@@ -163,6 +187,8 @@ class RuntimeEventBus:
             self._history.clear()
             self._jobs.clear()
             self._workers.clear()
+            self._queue_paused = False
+            self._queue_updated_at = utc_now_iso()
 
 
 runtime_event_bus = RuntimeEventBus()

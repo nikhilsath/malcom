@@ -8,6 +8,7 @@ import type {
   DashboardQuickLink,
   DashboardRunSummary,
   HealthStatus,
+  QueueStatus,
   RuntimeServiceStatus,
   RunStatus
 } from "./types";
@@ -21,6 +22,8 @@ const badgeToneMap: Record<string, string> = {
   offline: "status-badge--danger",
   error: "status-badge--danger",
   idle: "status-badge--muted",
+  pending: "status-badge--warning",
+  claimed: "status-badge--muted",
   info: "status-badge--muted",
   debug: "status-badge--muted"
 };
@@ -30,7 +33,7 @@ export const StatusBadge = ({
   value
 }: {
   id: string;
-  value: HealthStatus | RunStatus | AlertSeverity | DashboardLogEntry["level"];
+  value: HealthStatus | RunStatus | AlertSeverity | DashboardLogEntry["level"] | QueueStatus;
 }) => (
   <span id={id} className={`status-badge ${badgeToneMap[value] || "status-badge--muted"}`}>
     {value}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from backend.database import is_unique_violation
 from backend.schemas import *
 from backend.services.support import *
 
@@ -87,8 +88,10 @@ def create_inbound_api(payload: InboundApiCreate, request: Request) -> InboundAp
             ),
         )
         connection.commit()
-    except sqlite3.IntegrityError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+    except Exception as error:
+        if is_unique_violation(error):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+        raise
 
     created = row_to_api_summary(get_api_or_404(connection, api_id))
     created["secret"] = secret
@@ -352,8 +355,10 @@ def create_api_resource(payload: ApiResourceCreate, request: Request) -> ApiReso
                 ),
             )
         connection.commit()
-    except sqlite3.IntegrityError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+    except Exception as error:
+        if is_unique_violation(error):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+        raise
 
     row = fetch_one(
         connection,
@@ -430,8 +435,10 @@ def update_inbound_api(api_id: str, payload: InboundApiUpdate, request: Request)
             tuple(values),
         )
         connection.commit()
-    except sqlite3.IntegrityError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+    except Exception as error:
+        if is_unique_violation(error):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+        raise
 
     updated = row_to_api_summary(get_api_or_404(connection, api_id))
     write_application_log(
@@ -509,8 +516,10 @@ def update_outgoing_api(api_id: str, payload: OutgoingApiUpdate, request: Reques
             tuple(values),
         )
         connection.commit()
-    except sqlite3.IntegrityError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+    except Exception as error:
+        if is_unique_violation(error):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Path slug already exists.") from error
+        raise
 
     updated = get_outgoing_api_or_404(connection, api_id, payload.type)
     endpoint_path = "/api/v1/outgoing/scheduled" if payload.type == "outgoing_scheduled" else "/api/v1/outgoing/continuous"

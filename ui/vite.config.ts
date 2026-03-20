@@ -18,6 +18,7 @@ export default defineConfig({
         dashboardHome: resolve(__dirname, "dashboard/home.html"),
         dashboardDevices: resolve(__dirname, "dashboard/devices.html"),
         dashboardLogs: resolve(__dirname, "dashboard/logs.html"),
+        dashboardQueue: resolve(__dirname, "dashboard/queue.html"),
         automationsOverview: resolve(__dirname, "automations/overview.html"),
         automationsBuilder: resolve(__dirname, "automations/builder.html"),
         apisRegistry: resolve(__dirname, "apis/registry.html"),

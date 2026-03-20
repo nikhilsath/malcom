@@ -29,6 +29,21 @@ def get_dashboard_devices() -> DashboardDevicesApiResponse:
     return get_runtime_devices_response()
 
 
+@router.get("/api/v1/dashboard/queue", response_model=DashboardQueueApiResponse)
+def get_dashboard_queue() -> DashboardQueueApiResponse:
+    return get_runtime_queue_response()
+
+
+@router.post("/api/v1/dashboard/queue/pause", response_model=DashboardQueueApiResponse)
+def pause_dashboard_queue() -> DashboardQueueApiResponse:
+    return set_runtime_queue_pause_state(True)
+
+
+@router.post("/api/v1/dashboard/queue/unpause", response_model=DashboardQueueApiResponse)
+def unpause_dashboard_queue() -> DashboardQueueApiResponse:
+    return set_runtime_queue_pause_state(False)
+
+
 @router.get("/api/v1/runtime/triggers")
 def list_runtime_triggers() -> list[dict[str, Any]]:
     return [

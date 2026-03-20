@@ -24,7 +24,7 @@ def list_scripts(request: Request) -> list[ScriptSummaryResponse]:
         """
         SELECT id, name, description, language, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
-        ORDER BY updated_at DESC, name COLLATE NOCASE ASC
+        ORDER BY updated_at DESC, lower(name) ASC
         """,
     )
     return [row_to_script_summary(row) for row in rows]

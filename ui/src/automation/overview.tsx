@@ -73,7 +73,6 @@ export const AutomationOverviewApp = () => {
   const [error, setError] = useState("");
 
   const enabledCount = automations.filter((a) => a.enabled).length;
-  const disabledCount = automations.length - enabledCount;
   const enabledToolsCount = tools.filter((t) => t.enabled).length;
 
   useEffect(() => {
@@ -109,17 +108,9 @@ export const AutomationOverviewApp = () => {
     <div id="automations-overview-app" className="automations-overview">
 
       <div id="automations-overview-stats" className="automations-overview-stats">
-        <article id="overview-stat-total" className="overview-stat">
-          <span id="overview-stat-total-value" className="overview-stat__value">{automations.length}</span>
-          <span id="overview-stat-total-label" className="overview-stat__label">Automations</span>
-        </article>
         <article id="overview-stat-enabled" className="overview-stat overview-stat--success">
-          <span id="overview-stat-enabled-value" className="overview-stat__value">{enabledCount}</span>
-          <span id="overview-stat-enabled-label" className="overview-stat__label">Enabled</span>
-        </article>
-        <article id="overview-stat-disabled" className="overview-stat overview-stat--muted">
-          <span id="overview-stat-disabled-value" className="overview-stat__value">{disabledCount}</span>
-          <span id="overview-stat-disabled-label" className="overview-stat__label">Disabled</span>
+          <span id="overview-stat-enabled-value" className="overview-stat__value">{enabledCount}/{automations.length}</span>
+          <span id="overview-stat-enabled-label" className="overview-stat__label">Automations</span>
         </article>
         <article
           id="overview-stat-runtime"
