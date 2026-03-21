@@ -8,10 +8,9 @@ This project is a **self-hosted local automation middleware** designed to run co
 
 The system acts as a **local orchestration layer** between:
 
-* local programs
-* locally run AI tools
-* MCP tools
-* external APIs
+* local programs and managed runtimes
+* machine-executed capabilities such as local AI/model services
+* external APIs and SaaS providers reached through connector-backed HTTP requests
 
 The goal is to allow the user to **build and manage automations without relying on third‑party cloud automation platforms** such as Zapier, Make, or similar services.
 
@@ -72,6 +71,8 @@ Do not manually duplicate top navigation or side navigation markup on new pages.
 
 The Tools section is registration-driven.
 
+Tools are for **machine-executed capabilities** that Malcom runs locally or through a managed runtime or worker. Remote API integrations such as Gmail belong in the connector and outgoing-request flows unless they require a local executable/runtime layer.
+
 Source of truth:
 
 * `backend/tool_registry.py` for the default tool catalog seed data
@@ -87,13 +88,26 @@ Expected workflow for adding a new tool:
 2. Add `ui/tools/<tool-id>.html` and use the shared shell placeholders: `id="topnav"` and `id="sidenav"`.
 3. Set `data-section="tools"`, `data-sidenav-item="sidenav-tools-<tool-id>"`, `data-shell-path-prefix="../"`, and `data-tool-id="<tool-id>"` on the page body.
 4. Add the page to `ui/vite.config.ts`.
-5. Add the built route to `backend/main.py` so the backend can serve the HTML page.
+5. Add the built route to `backend/routes/ui.py` so the backend can serve the HTML page.
 6. Run `node scripts/generate-tools-manifest.mjs`.
 7. Build the UI and confirm the tool appears in both the catalog page and the sidenav without manual nav edits.
 
 The catalog page edits metadata and enabled state through `/api/v1/tools` and `/api/v1/tools/{tool_id}/directory`.
 Tool-specific runtime configuration, when needed, should live on the per-tool page rather than being embedded in the catalog.
 Do not create new `tools/<tool-id>/tool.json` files for tool registration. That legacy filesystem flow has been replaced by database-backed tool records plus the generated manifest.
+
+### Connector-Backed Remote APIs And HTTP Requests
+
+Use these three concepts separately:
+
+* **Connectors** store reusable provider auth, scopes, and base URLs for remote APIs.
+* **Outgoing APIs** and automation **HTTP request steps** define the actual request URL, method, payload, and cadence.
+* **Tools** are reserved for locally executed or runtime-managed capabilities, not remote API calls by themselves.
+
+Example:
+
+* a Gmail unread-count integration should use a Google/Gmail connector plus an outgoing API or automation HTTP step
+* it should not be added as a Tool unless Malcom must run a local program or managed runtime to perform that work
 
 ### 2. API Layer
 
@@ -139,14 +153,16 @@ Current implementation note:
 
 ### 5. Connectors
 
-Modular connectors handle interaction with external systems.
+Connectors store reusable auth and provider metadata for remote services and HTTP APIs.
 
 Examples:
 
-* HTTP APIs
-* local scripts
-* AI tools
-* MCP tools
+* Gmail and other Google APIs
+* Google Calendar
+* Google Sheets
+* GitHub
+
+Connectors are reused by outgoing APIs and automation HTTP request steps. They are not the same thing as Tools.
 
 ### 6. Storage
 
@@ -255,6 +271,8 @@ Prerequisites:
 # Tool Development
 
 Use this workflow whenever a new tool is introduced or an existing tool page is expanded.
+
+Use a tool only when the feature is a machine-executed or runtime-managed capability. For remote API work such as Gmail, prefer connectors plus outgoing APIs or automation HTTP steps.
 
 1. Register the tool in `backend/tool_registry.py`.
 2. Build or update the tool page in `ui/tools/<tool-id>.html`.
@@ -436,6 +454,8 @@ cd ui && npm run build
 ## Adding A New Tool
 
 Tools are defined in the backend catalog and surfaced in the UI through a generated manifest.
+
+This path is for runtime-managed capabilities. If the feature is a remote API integration that can be expressed as an HTTP request with saved credentials, use connectors plus outgoing APIs or automation HTTP steps instead of the tool catalog.
 
 Primary registration sources:
 

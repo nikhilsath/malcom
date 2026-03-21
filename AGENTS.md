@@ -28,7 +28,7 @@ Malcom is a FastAPI application with:
 - a PostgreSQL runtime database
 - server-rendered HTML entry pages built by Vite
 - a mix of React pages and vanilla JavaScript pages
-- database-backed tool metadata, settings, scripts, and automation state
+- database-backed tool metadata, connector settings, scripts, and automation state
 
 This file is the operating manual for future agent changes.
 
@@ -91,6 +91,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
 | Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
+| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `ui/settings/connectors.html`, `ui/scripts/connectors.js`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
@@ -104,6 +105,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
+| R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
@@ -120,7 +122,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 6,
+  "version": 7,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -130,6 +132,8 @@ Use this section as the first lookup for task routing. It accelerates file targe
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
+    "connector_registry": ["backend/routes/connectors.py", "backend/schemas/settings.py", "ui/settings/connectors.html", "ui/scripts/connectors.js"],
+    "outgoing_http_requests": ["backend/routes/apis.py", "backend/schemas/apis.py", "ui/apis/outgoing.html", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
@@ -143,6 +147,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "db_schema_change": {
       "edit": ["backend/database.py"],
       "verify": ["tests/"]
+    },
+    "connector_backed_remote_api_change": {
+      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
+      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "automation_http_step_reuse", "remote_api_not_tool_catalog"],
+      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector"]
     },
     "new_ui_page": {
       "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py"],
@@ -246,6 +255,38 @@ MACHINE_INDEX_END -->
   - not a registration source of truth
 - `media/`
   - repo-level reference media only, not bundled frontend assets
+
+---
+
+## Connector And Tool Boundary {#connector-and-tool-boundary}
+
+Use one integration model per responsibility. Do not blur remote API access, HTTP request definitions, and machine-executed runtimes.
+
+### Connectors {#connector-boundary-connectors}
+
+- Connectors store reusable provider credentials, auth state, scopes, and base URLs for remote services and HTTP APIs.
+- Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, Slack, or similar SaaS APIs.
+- Connector records live in workspace settings and are reused by outgoing APIs and automation HTTP steps.
+
+### Outgoing APIs And Automation HTTP Steps {#connector-boundary-http}
+
+- Outgoing APIs and automation HTTP steps are the request-definition layer.
+- They own the actual destination URL, HTTP method, payload template, cadence, and request execution behavior.
+- They may reuse a connector for auth and base URL defaults when calling a remote API.
+
+### Tools {#connector-boundary-tools}
+
+- Tools are machine-executed capabilities or managed runtimes that Malcom invokes locally or through a dedicated runtime or worker.
+- Use tools for capabilities such as local SMTP handling, local LLM execution, TTS, ffmpeg conversion, or other host/runtime-bound work.
+- Do not model Gmail-like API calls as tools unless Malcom must run a local executable, managed runtime, or worker-bound service to fulfill them.
+
+### Routing Rule {#connector-boundary-routing-rule}
+
+When deciding where a new integration belongs, agents must:
+
+1. use connectors plus outgoing APIs or automation HTTP steps for remote SaaS/API integrations, OAuth credentials, provider presets, and reusable auth/base URL state
+2. use the tool catalog only for locally executed binaries, managed runtimes, worker-bound services, or other non-HTTP machine capabilities
+3. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request
 
 ---
 
