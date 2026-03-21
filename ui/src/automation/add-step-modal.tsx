@@ -101,7 +101,7 @@ export const AddStepModal = ({
                     id={`add-step-type-${opt.value}`}
                     type="button"
                     className={`add-step-type-card add-step-type-card--${opt.value}`}
-                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool"
+                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script"
                       ? {
                         minHeight: "200px",
                         padding: "10px",
@@ -112,7 +112,7 @@ export const AddStepModal = ({
                       : undefined}
                     onClick={() => handlePickType(opt.value)}
                   >
-                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" ? (
+                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" ? (
                       <span
                         id={`add-step-type-${opt.value}-icon-stack`}
                         className="add-step-type-card__icon-stack"
@@ -136,11 +136,20 @@ export const AddStepModal = ({
                             aria-hidden="true"
                             style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
                           />
-                        ) : (
+                        ) : opt.value === "tool" ? (
                           <img
                             id="add-step-type-tool-icon"
                             className="add-step-type-card__icon"
                             src="/media/tools_icon.png"
+                            alt=""
+                            aria-hidden="true"
+                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
+                          />
+                        ) : (
+                          <img
+                            id="add-step-type-script-icon"
+                            className="add-step-type-card__icon"
+                            src="/media/script_icon.png"
                             alt=""
                             aria-hidden="true"
                             style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
