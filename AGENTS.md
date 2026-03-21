@@ -78,6 +78,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
+| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 
 ### Rules Matrix {#rules-matrix}
 
@@ -92,17 +93,23 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
 | R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
 | R-TEST-001 | Development work responses include test instructions, expected behavior, and verification steps | All implementation responses |
+| R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for default local validation and `scripts/test-full.sh` for smoke plus browser coverage | Testing workflow changes |
+| R-TEST-003 | Keep internal API smoke coverage in `tests/api_smoke_registry.py` aligned with every served `/api/v1/**` route and `/health` | Backend route additions and removals |
+| R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 2,
+  "version": 3,
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
-    "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"]
+    "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"],
+    "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh"],
+    "api_smoke_registry": ["tests/api_smoke_registry.py"],
+    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/"]
   },
   "task_routes": {
     "db_schema_change": {
@@ -129,6 +136,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
       ],
       "generate": ["scripts/generate-tools-manifest.mjs"],
       "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html"]
+    },
+    "test_workflow_change": {
+      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry.py"],
+      "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
+      "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     }
   },
   "forbidden_paths": [
@@ -655,12 +667,27 @@ Every meaningful code change should include the smallest relevant verification s
 
 - run targeted `pytest` files in `tests/`
 - add or update API tests for route, schema, or DB behavior changes
+- use `scripts/test-precommit.sh` as the default local backend/frontend gate before commits
+- use `scripts/test-full.sh` when backend route smoke coverage or browser smoke coverage needs validation
+- keep `/health` and every `/api/v1/**` route represented in `tests/api_smoke_registry.py`
 
 ### Frontend {#testing-frontend}
 
 - run `npm run build` in `ui/` for page wiring, Vite input, or asset changes
 - run `npm run test` in `ui/` for React test coverage when React code changes
+- run `npm run test:e2e` in `ui/` for browser smoke coverage when validating the full gate
 - manually verify the served page route if HTML/script wiring changed
+
+### Test Retirement {#test-retirement}
+
+When removing or rewriting tests:
+
+1. confirm the original behavior or contract was actually removed or replaced
+2. remove the stale test in the same change that removes the covered behavior
+3. add or update replacement coverage when the behavior still exists in a new shape
+4. update `tests/api_smoke_registry.py` when an internal API route is added, removed, or renamed
+
+Do not delete tests only because they are inconvenient or currently failing. Fix stale assertions, missing fixtures, or changed contracts explicitly.
 
 ### Verification Minimum {#verification-minimum}
 

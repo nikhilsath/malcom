@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xyflow/react", async () => {
   const React = await import("react");
 
-  const MockReactFlow = ({ nodes = [], nodeTypes = {}, onNodeClick, onNodeDragStop, children }: any) => (
+  const MockReactFlow = ({ nodes = [], nodeTypes = {}, onNodeClick, onNodeDragStop, onNodeContextMenu, children }: any) => (
     <div id="mock-react-flow">
       {nodes.map((node: any) => {
         const NodeComponent = nodeTypes[node.type];
@@ -18,9 +18,16 @@ vi.mock("@xyflow/react", async () => {
             <button
               id={`mock-drag-${node.id}`}
               type="button"
-              onClick={() => onNodeDragStop?.({}, { ...node, position: { ...node.position, y: node.position.y + 164 } })}
+              onClick={() => onNodeDragStop?.({}, { ...node, position: { ...node.position, y: node.position.y + 228 } })}
             >
               Drag {node.id}
+            </button>
+            <button
+              id={`mock-context-${node.id}`}
+              type="button"
+              onClick={() => onNodeContextMenu?.({ preventDefault() {}, clientX: 320, clientY: 240 }, node)}
+            >
+              Context {node.id}
             </button>
             {NodeComponent ? <NodeComponent id={node.id} data={node.data} selected={Boolean(node.data?.selected)} /> : null}
           </div>
@@ -35,7 +42,6 @@ vi.mock("@xyflow/react", async () => {
     ReactFlow: MockReactFlow,
     Background: ({ id }: { id?: string }) => <div id={id || "mock-background"} />,
     Controls: ({ id }: { id?: string }) => <div id={id || "mock-controls"} />,
-    MiniMap: ({ id }: { id?: string }) => <div id={id || "mock-minimap"} />,
     Handle: ({ className }: { className?: string }) => <span className={className} />,
     MarkerType: { ArrowClosed: "ArrowClosed" },
     Position: { Top: "top", Bottom: "bottom" }
@@ -87,50 +93,12 @@ const dailyIngest = {
   ]
 } as const;
 
-const emailTriage = {
-  id: "automation-email-triage",
-  name: "Email triage",
-  description: "Screen inbound support email.",
-  enabled: false,
-  trigger_type: "smtp_email",
-  trigger_config: {
-    smtp_subject: "Support",
-    smtp_recipient_email: "ops@example.com"
-  },
-  step_count: 2,
-  created_at: "2026-03-15T08:00:00.000Z",
-  updated_at: "2026-03-15T08:00:00.000Z",
-  last_run_at: null,
-  next_run_at: null,
-  steps: [
-    {
-      id: "step-email-guard",
-      type: "condition",
-      name: "Priority filter",
-      config: {
-        expression: "payload.priority == 'high'",
-        stop_on_false: true
-      }
-    },
-    {
-      id: "step-email-llm",
-      type: "llm_chat",
-      name: "Summarize thread",
-      config: {
-        system_prompt: "Summarize the issue.",
-        user_prompt: "Review the email body.",
-        model_identifier: "gpt-4.1-mini"
-      }
-    }
-  ]
-} as const;
-
 const renderAutomationApp = () => {
   document.body.innerHTML = '<button id="automations-create-button" type="button">Create</button>';
+  window.history.replaceState({}, "", "/automations/builder.html?id=automation-daily-ingest");
 
   const automationDetails: Record<string, any> = {
-    [dailyIngest.id]: structuredClone(dailyIngest),
-    [emailTriage.id]: structuredClone(emailTriage)
+    [dailyIngest.id]: structuredClone(dailyIngest)
   };
 
   const requestLog: RequestLogEntry[] = [];
@@ -138,27 +106,6 @@ const renderAutomationApp = () => {
     const method = options?.method || "GET";
     const body = options?.body ? JSON.parse(String(options.body)) : null;
     requestLog.push({ path, method, body });
-
-    if (path === "/api/v1/runtime/status") {
-      return {
-        active: true,
-        last_tick_started_at: "2026-03-15T08:29:00.000Z",
-        last_tick_finished_at: "2026-03-15T08:29:30.000Z",
-        last_error: null,
-        job_count: 1
-      };
-    }
-
-    if (path === "/api/v1/scheduler/jobs") {
-      return [
-        {
-          id: dailyIngest.id,
-          kind: "automation",
-          name: dailyIngest.name,
-          next_run_at: dailyIngest.next_run_at
-        }
-      ];
-    }
 
     if (path === "/api/v1/settings") {
       return {
@@ -208,21 +155,6 @@ const renderAutomationApp = () => {
       return null;
     }
 
-    if (path.startsWith("/api/v1/automations/") && path.endsWith("/runs")) {
-      return [
-        {
-          run_id: "run-1",
-          automation_id: dailyIngest.id,
-          trigger_type: "schedule",
-          status: "success",
-          started_at: "2026-03-15T08:30:00.000Z",
-          finished_at: "2026-03-15T08:30:01.000Z",
-          duration_ms: 1000,
-          error_summary: null
-        }
-      ];
-    }
-
     if (path === `/api/v1/automations/${dailyIngest.id}/validate`) {
       return { valid: true, issues: [] };
     }
@@ -254,33 +186,6 @@ const renderAutomationApp = () => {
       };
     }
 
-    if (path === "/api/v1/runs/run-1" || path === "/api/v1/runs/run-execute") {
-      return {
-        run_id: path.endsWith("run-1") ? "run-1" : "run-execute",
-        automation_id: dailyIngest.id,
-        trigger_type: "schedule",
-        status: "success",
-        started_at: "2026-03-15T08:30:00.000Z",
-        finished_at: "2026-03-15T08:30:01.000Z",
-        duration_ms: 1000,
-        error_summary: null,
-        steps: [
-          {
-            step_id: "run-step-1",
-            run_id: path.endsWith("run-1") ? "run-1" : "run-execute",
-            step_name: "Log ingest",
-            status: "success",
-            request_summary: "Built request",
-            response_summary: "Completed",
-            started_at: "2026-03-15T08:30:00.000Z",
-            finished_at: "2026-03-15T08:30:01.000Z",
-            duration_ms: 1000,
-            detail_json: null
-          }
-        ]
-      };
-    }
-
     if (path.startsWith("/api/v1/automations/")) {
       const automationId = path.replace("/api/v1/automations/", "");
       return structuredClone(automationDetails[automationId]);
@@ -300,32 +205,55 @@ beforeEach(() => {
 });
 
 describe("AutomationApp", () => {
-  it("renders the control room surfaces", async () => {
+  it("renders the workflow bar and focused canvas without the legacy inspector surfaces", async () => {
     const { container } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-summary-title")).toHaveTextContent("Daily ingest");
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
     });
 
+    expect(container.querySelector("#automations-workflow-bar")).toBeInTheDocument();
     expect(container.querySelector("#automations-canvas-panel")).toBeInTheDocument();
-    expect(container.querySelector("#automations-inspector-panel")).toBeInTheDocument();
-    expect(container.querySelector("#automations-run-history-panel")).toBeInTheDocument();
+    expect(container.querySelector("#automations-inspector-panel")).not.toBeInTheDocument();
+    expect(container.querySelector("#automations-run-history-panel")).not.toBeInTheDocument();
+    expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
   });
 
-  it("hydrates canvas nodes for the selected automation", async () => {
-    renderAutomationApp();
+  it("opens node actions and the step drawer from the selected canvas node", async () => {
+    const { container } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-summary-title")).toHaveTextContent("Daily ingest");
+      expect(container.querySelector("#automation-canvas-node-step-step-log-title")).toHaveTextContent("Log ingest");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /email triage/i }));
+    fireEvent.click(document.querySelector("#mock-select-step-node-step-log") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-step-step-log-actions-button") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automation-canvas-node-step-step-email-guard-title")).toHaveTextContent("Priority filter");
+      expect(container.querySelector("#automations-node-menu")).toBeInTheDocument();
     });
 
-    expect(document.querySelector("#automation-canvas-node-trigger-title")).toHaveTextContent("SMTP email");
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    });
+  });
+
+  it("supports the node context menu shortcut on desktop", async () => {
+    const { container } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(container.querySelector("#automation-canvas-node-step-step-http-title")).toHaveTextContent("Dispatch webhook");
+    });
+
+    fireEvent.click(document.querySelector("#mock-context-step-node-step-http") as HTMLElement);
+
+    await waitFor(() => {
+      expect(container.querySelector("#automations-node-menu")).toBeInTheDocument();
+      expect(container.querySelector("#automations-node-menu-remove")).toBeInTheDocument();
+    });
   });
 
   it("serializes reordered steps when the canvas order changes", async () => {
@@ -345,47 +273,54 @@ describe("AutomationApp", () => {
     });
   });
 
-  it("persists trigger and step edits through the existing automation payload", async () => {
-    const { requestLog } = renderAutomationApp();
+  it("keeps workflow identity outside trigger settings and shows test output only on demand", async () => {
+    const { container } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Workflow name")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Daily ingest revised" } });
-    fireEvent.click(document.querySelector("#mock-select-step-node-step-log") as HTMLElement);
-    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Updated log payload." } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
+
+    fireEvent.click(document.querySelector("#mock-select-trigger-node") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-trigger-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
-      expect(patchRequest?.body?.name).toBe("Daily ingest revised");
-      expect((patchRequest?.body?.steps as Array<any>)[0].config.message).toBe("Updated log payload.");
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+    });
+
+    const drawer = document.querySelector("#automations-editor-drawer") as HTMLElement;
+    expect(within(drawer).queryByLabelText("Workflow name")).not.toBeInTheDocument();
+    expect(within(drawer).getByText("Manual")).toBeInTheDocument();
+    expect(within(drawer).getByText("Schedule")).toBeInTheDocument();
+    fireEvent.click(within(drawer).getByRole("radio", { name: /schedule/i }));
+    expect(within(drawer).getByLabelText("Daily run time")).toBeInTheDocument();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-test-results-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-validation-results")).toBeInTheDocument();
     });
   });
 
-  it("keeps validate, run, and delete bound to the same backend endpoints", async () => {
+  it("shows run results in the on-demand test drawer", async () => {
     const { requestLog } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-summary-title")).toHaveTextContent("Daily ingest");
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
     fireEvent.click(screen.getByRole("button", { name: "Run now" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
-
-    await waitFor(() => {
-      expect(requestLog.some((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}/validate` && entry.method === "POST")).toBe(true);
       expect(requestLog.some((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}/execute` && entry.method === "POST")).toBe(true);
-      expect(requestLog.some((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "DELETE")).toBe(true);
     });
+
+    expect(await screen.findByText("Test run results")).toBeInTheDocument();
+    expect(await screen.findByText("Built request")).toBeInTheDocument();
   });
 
   it("keeps the legacy APIs automation page redirecting to the new route", () => {

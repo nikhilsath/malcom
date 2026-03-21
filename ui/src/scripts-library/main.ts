@@ -56,7 +56,9 @@ const scriptElements = {
   validationFeedback: document.getElementById("scripts-library-validation-feedback"),
   formFeedback: document.getElementById("scripts-library-form-feedback"),
   validationChip: document.getElementById("scripts-library-validation-chip"),
-  saveButton: document.getElementById("scripts-library-save-button") as HTMLButtonElement | null
+  saveButton: document.getElementById("scripts-library-save-button") as HTMLButtonElement | null,
+  editorModal: document.getElementById("scripts-library-editor-modal"),
+  modalCloseButtons: Array.from(document.querySelectorAll("[data-modal-close='scripts-library-editor-modal']")) as HTMLElement[]
 };
 
 const scriptState = {
@@ -67,6 +69,22 @@ const scriptState = {
     status: "unknown" as ValidationStatus,
     message: "Not validated"
   }
+};
+
+const openEditorModal = () => {
+  if (!scriptElements.editorModal) {
+    return;
+  }
+  scriptElements.editorModal.classList.add("modal--open");
+  document.body.classList.add("modal-open");
+};
+
+const closeEditorModal = () => {
+  if (!scriptElements.editorModal) {
+    return;
+  }
+  scriptElements.editorModal.classList.remove("modal--open");
+  document.body.classList.remove("modal-open");
 };
 
 const languageCompartment = new Compartment();
@@ -406,6 +424,7 @@ const loadScripts = async () => {
 const loadScript = async (scriptId: string) => {
   const script = await requestJson<ScriptRecord>(`/api/v1/scripts/${scriptId}`);
   applyScriptToForm(script);
+  openEditorModal();
 };
 
 const validateCurrentScript = async () => {
@@ -496,6 +515,7 @@ const handleSave = async (event: SubmitEvent) => {
 
 scriptElements.createButton?.addEventListener("click", () => {
   resetForm("python");
+  openEditorModal();
   scriptElements.nameInput?.focus();
 });
 
@@ -520,6 +540,16 @@ scriptElements.validateButton?.addEventListener("click", () => {
 
 scriptElements.form?.addEventListener("submit", (event) => {
   void handleSave(event as SubmitEvent);
+});
+
+scriptElements.modalCloseButtons.forEach((button) => {
+  button.addEventListener("click", closeEditorModal);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && scriptElements.editorModal?.classList.contains("modal--open")) {
+    closeEditorModal();
+  }
 });
 
 void loadScripts().catch((error) => {

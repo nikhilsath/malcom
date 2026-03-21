@@ -48,6 +48,11 @@ class ScriptsApiTestCase(unittest.TestCase):
         self.assertEqual(list_body[0]["id"], created_body["id"])
         self.assertEqual(list_body[0]["name"], "Normalize Payload")
 
+        detail_response = self.client.get(f"/api/v1/scripts/{created_body['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.json()["id"], created_body["id"])
+        self.assertIn("def run", detail_response.json()["code"])
+
         update_response = self.client.patch(
             f"/api/v1/scripts/{created_body['id']}",
             json={

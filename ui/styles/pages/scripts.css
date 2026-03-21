@@ -21,7 +21,7 @@
 }
 
 .script-system-alert {
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-accent);
@@ -34,21 +34,23 @@
 }
 
 .script-summary-card {
-  padding: 14px;
+  padding: var(--space-3);
 }
 
 .script-library-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.4fr);
-  gap: var(--space-5);
-  align-items: start;
+  display: block;
+}
+
+.script-editor-modal-dialog {
+  --modal-max-inline-size: 64rem;
+  --modal-min-inline-size: 44rem;
 }
 
 .script-library-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: 20px;
+  padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--panel);
@@ -64,8 +66,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg);
@@ -101,7 +103,7 @@
 
 .script-library-item__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -114,7 +116,7 @@
 .script-library-item__badge-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .script-language-badge,
@@ -123,10 +125,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 24px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -166,7 +168,7 @@
 }
 
 .script-editor-field {
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .script-editor-toolbar {
@@ -179,12 +181,12 @@
 .script-editor-toolbar-copy {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .script-editor-toolbar-help {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .script-editor-shell {
@@ -196,7 +198,7 @@
 
 .script-editor-shell .cm-editor {
   min-height: 420px;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
 }
 
 .script-editor-shell .cm-scroller {
@@ -213,8 +215,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .script-library-layout {
-    grid-template-columns: 1fr;
+  .script-editor-modal-dialog {
+    --modal-min-inline-size: 0px;
   }
 }
 

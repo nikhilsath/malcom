@@ -38,57 +38,65 @@
 
                 <div id="tools-directory-layout" class="tools-directory-layout">
                     <div id="tools-grid" class="tools-grid" role="list" aria-label="Available tools"></div>
-
-                    <section id="tool-detail-panel" class="card tool-detail-panel" aria-live="polite">
-                        <div id="tool-detail-header" class="section-header tool-detail-panel__header">
-                            <div id="tool-detail-copy" class="section-header__copy">
-                                <p id="tool-detail-eyebrow" class="section-header__eyebrow">Selected tool</p>
-                                <div class="title-row">
-                                    <h3 id="tool-detail-title" class="section-header__title">Choose a tool</h3>
-                                    <button type="button" id="tool-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tool-detail-description">i</button>
-                                </div>
-                                <p id="tool-detail-description" class="section-header__description" hidden>Manage tool metadata and enablement.</p>
-                            </div>
-                        </div>
-
-                        <form id="tool-detail-form" class="api-form">
-                            <div id="tool-detail-form-grid" class="api-form-grid">
-                                <label id="tool-detail-id-field" class="api-form-field">
-                                    <span id="tool-detail-id-label" class="api-form-label">Tool ID</span>
-                                    <input id="tool-detail-id-input" class="api-form-input" name="toolId" type="text" readonly>
-                                </label>
-
-                                <label id="tool-detail-enabled-field" class="api-form-field">
-                                    <span id="tool-detail-enabled-label" class="api-form-label">Availability</span>
-                                    <select id="tool-detail-enabled-input" class="api-form-input" name="enabled" required>
-                                        <option id="tool-detail-enabled-option-on" value="true">Enabled</option>
-                                        <option id="tool-detail-enabled-option-off" value="false">Disabled</option>
-                                    </select>
-                                </label>
-
-                                <label id="tool-detail-name-field" class="api-form-field api-form-field--full">
-                                    <span id="tool-detail-name-label" class="api-form-label">Tool name</span>
-                                    <input id="tool-detail-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
-                                </label>
-
-                                <label id="tool-detail-description-field" class="api-form-field api-form-field--full">
-                                    <span id="tool-detail-description-label" class="api-form-label">Description</span>
-                                    <textarea id="tool-detail-description-input" class="api-form-textarea" name="description" rows="4" maxlength="500" required></textarea>
-                                </label>
-                            </div>
-
-                            <div id="tool-detail-form-feedback" class="api-form-feedback" aria-live="polite"></div>
-
-                            <div id="tool-detail-form-actions" class="api-form-actions">
-                                <button type="submit" id="tool-detail-save-button" class="button button--primary primary-action-button">Save tool</button>
-                                <a id="tool-detail-config-link" class="button button--secondary secondary-action-button" href="../tools/catalog.html" aria-disabled="true">Open configuration</a>
-                            </div>
-                        </form>
-                    </section>
                 </div>
             </section>
         </div>
     </main>
+
+    <div id="tool-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="tool-detail-title" aria-describedby="tool-detail-description">
+        <button type="button" id="tool-detail-modal-backdrop" class="modal__backdrop" data-modal-close="tool-detail-modal" aria-label="Close tool details"></button>
+        <div class="modal__dialog modal__dialog--form tool-detail-modal-dialog">
+            <div class="modal__content">
+                <section id="tool-detail-panel" class="modal__panel tool-detail-panel" aria-live="polite">
+                    <div id="tool-detail-header" class="section-header modal__header tool-detail-panel__header">
+                        <div id="tool-detail-copy" class="section-header__copy modal__header-copy">
+                            <p id="tool-detail-eyebrow" class="section-header__eyebrow modal__eyebrow">Selected tool</p>
+                            <div class="title-row">
+                                <h3 id="tool-detail-title" class="section-header__title modal__title">Choose a tool</h3>
+                                <button type="button" id="tool-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tool-detail-description">i</button>
+                            </div>
+                            <p id="tool-detail-description" class="section-header__description modal__description" hidden>Manage tool metadata and enablement.</p>
+                        </div>
+                        <button type="button" id="tool-detail-modal-close" class="button button--secondary modal__close-button" data-modal-close="tool-detail-modal" aria-label="Close tool details">Close</button>
+                    </div>
+
+                    <form id="tool-detail-form" class="api-form modal__body modal__body--form tool-detail-modal-body">
+                        <div id="tool-detail-form-grid" class="api-form-grid">
+                            <label id="tool-detail-id-field" class="api-form-field">
+                                <span id="tool-detail-id-label" class="api-form-label">Tool ID</span>
+                                <input id="tool-detail-id-input" class="api-form-input" name="toolId" type="text" readonly>
+                            </label>
+
+                            <label id="tool-detail-enabled-field" class="api-form-field">
+                                <span id="tool-detail-enabled-label" class="api-form-label">Availability</span>
+                                <select id="tool-detail-enabled-input" class="api-form-input" name="enabled" required>
+                                    <option id="tool-detail-enabled-option-on" value="true">Enabled</option>
+                                    <option id="tool-detail-enabled-option-off" value="false">Disabled</option>
+                                </select>
+                            </label>
+
+                            <label id="tool-detail-name-field" class="api-form-field api-form-field--full">
+                                <span id="tool-detail-name-label" class="api-form-label">Tool name</span>
+                                <input id="tool-detail-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
+                            </label>
+
+                            <label id="tool-detail-description-field" class="api-form-field api-form-field--full">
+                                <span id="tool-detail-description-label" class="api-form-label">Description</span>
+                                <textarea id="tool-detail-description-input" class="api-form-textarea" name="description" rows="4" maxlength="500" required></textarea>
+                            </label>
+                        </div>
+
+                        <div id="tool-detail-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                        <div id="tool-detail-form-actions" class="api-form-actions">
+                            <button type="submit" id="tool-detail-save-button" class="button button--primary primary-action-button">Save tool</button>
+                            <a id="tool-detail-config-link" class="button button--secondary secondary-action-button" href="../tools/catalog.html" aria-disabled="true">Open configuration</a>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="../scripts/utils.js"></script>
     <script type="module" src="../scripts/log-store.js"></script>

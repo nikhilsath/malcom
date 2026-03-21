@@ -6,7 +6,7 @@ import type {
   ConnectorRecord,
   ToolManifestEntry
 } from "./types";
-import { stepTypeOptions, cloneStepTemplate } from "./types";
+import { stepTypeOptions, cloneStepTemplate, getDefaultStepName } from "./types";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
 import { ScriptStepForm } from "./step-modals/script-step-form";
@@ -36,7 +36,7 @@ export const AddStepModal = ({
 
   const handlePickType = (type: StepType) => {
     setPickedType(type);
-    setDraft(cloneStepTemplate(type));
+    setDraft({ ...cloneStepTemplate(type), name: "" });
   };
 
   const handleBack = () => {
@@ -52,7 +52,10 @@ export const AddStepModal = ({
 
   const handleAdd = () => {
     if (!draft) return;
-    onAdd(draft);
+    onAdd({
+      ...draft,
+      name: draft.name.trim() || getDefaultStepName(draft.type)
+    });
     setPickedType(null);
     setDraft(null);
   };
@@ -98,7 +101,7 @@ export const AddStepModal = ({
                     id={`add-step-type-${opt.value}`}
                     type="button"
                     className={`add-step-type-card add-step-type-card--${opt.value}`}
-                    style={opt.value === "log" || opt.value === "llm_chat"
+                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool"
                       ? {
                         minHeight: "200px",
                         padding: "10px",
@@ -109,7 +112,7 @@ export const AddStepModal = ({
                       : undefined}
                     onClick={() => handlePickType(opt.value)}
                   >
-                    {opt.value === "log" || opt.value === "llm_chat" ? (
+                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" ? (
                       <span
                         id={`add-step-type-${opt.value}-icon-stack`}
                         className="add-step-type-card__icon-stack"
@@ -124,11 +127,20 @@ export const AddStepModal = ({
                             aria-hidden="true"
                             style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
                           />
-                        ) : (
+                        ) : opt.value === "llm_chat" ? (
                           <img
                             id="add-step-type-llm_chat-icon"
                             className="add-step-type-card__icon"
                             src="/media/bot_icon"
+                            alt=""
+                            aria-hidden="true"
+                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
+                          />
+                        ) : (
+                          <img
+                            id="add-step-type-tool-icon"
+                            className="add-step-type-card__icon"
+                            src="/media/tools_icon.png"
                             alt=""
                             aria-hidden="true"
                             style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
@@ -175,11 +187,12 @@ export const AddStepModal = ({
               <div id="add-step-detail-form" className="automation-form automation-form--modal">
                 {/* shared name field */}
                 <label id="add-step-name-field" className="automation-field automation-field--full">
-                  <span id="add-step-name-label" className="automation-field__label">Step name</span>
+                  <span id="add-step-name-label" className="automation-field__label">Custom label (optional)</span>
                   <input
                     id="add-step-name-input"
                     className="automation-input"
                     value={draft?.name || ""}
+                    placeholder={draft ? getDefaultStepName(draft.type) : ""}
                     onChange={(e) =>
                       setDraft((prev) => prev ? { ...prev, name: e.target.value } : prev)
                     }

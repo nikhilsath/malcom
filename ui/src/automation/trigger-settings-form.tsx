@@ -1,4 +1,3 @@
-import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
 import type { TriggerType } from "./types";
 import { triggerTypeOptions } from "./types";
@@ -20,102 +19,97 @@ type Props = {
   idPrefix: string;
   value: TriggerSettingsValue;
   onPatch: (patch: Partial<TriggerSettingsValue>) => void;
+  showWorkflowFields?: boolean;
+  showEnabledField?: boolean;
 };
 
-const FlowSelect = <T extends string>({
-  rootId,
-  labelId,
-  value,
-  placeholder,
-  options,
-  onValueChange
-}: {
-  rootId: string;
-  labelId: string;
-  value: T;
-  placeholder: string;
-  options: Array<{ value: T; label: string }>;
-  onValueChange: (value: T) => void;
-}) => (
-  <Select.Root value={value} onValueChange={(nextValue) => onValueChange(String(nextValue) as T)}>
-    <Select.Trigger id={rootId} className="automation-select-trigger" aria-labelledby={labelId}>
-      <Select.Value placeholder={placeholder} />
-      <Select.Icon className="automation-select-trigger__icon">▾</Select.Icon>
-    </Select.Trigger>
-    <Select.Portal>
-      <Select.Positioner className="automation-select-positioner">
-        <Select.Popup className="automation-select-popup">
-          <Select.List className="automation-select-list">
-            {options.map((option) => (
-              <Select.Item
-                key={option.value}
-                id={`${rootId}-option-${option.value}`}
-                className="automation-select-item"
-                value={option.value}
-              >
-                <Select.ItemText>{option.label}</Select.ItemText>
-              </Select.Item>
-            ))}
-          </Select.List>
-        </Select.Popup>
-      </Select.Positioner>
-    </Select.Portal>
-  </Select.Root>
-);
+const triggerDescriptions: Record<TriggerType, string> = {
+  manual: "Run the workflow only when an operator starts it.",
+  schedule: "Start automatically at a set time each day.",
+  inbound_api: "Start when an inbound API endpoint receives an event.",
+  smtp_email: "Start when incoming email matches your filters."
+};
 
-export const TriggerSettingsForm = ({ idPrefix, value, onPatch }: Props) => {
+export const TriggerSettingsForm = ({
+  idPrefix,
+  value,
+  onPatch,
+  showWorkflowFields = true,
+  showEnabledField = true
+}: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
 
   return (
     <div id={id("form")} className="automation-form">
-      <label id={id("name-field")} className="automation-field automation-field--full">
-        <span id={id("name-label")} className="automation-field__label">Name</span>
-        <input
-          id={id("name-input")}
-          className="automation-input"
-          value={value.name}
-          onChange={(event) => onPatch({ name: event.target.value })}
-        />
-      </label>
+      {showWorkflowFields ? (
+        <>
+          <label id={id("name-field")} className="automation-field automation-field--full">
+            <span id={id("name-label")} className="automation-field__label">Name</span>
+            <input
+              id={id("name-input")}
+              className="automation-input"
+              value={value.name}
+              onChange={(event) => onPatch({ name: event.target.value })}
+            />
+          </label>
 
-      <label id={id("description-field")} className="automation-field automation-field--full">
-        <span id={id("description-label")} className="automation-field__label">Description</span>
-        <textarea
-          id={id("description-input")}
-          className="automation-textarea"
-          rows={4}
-          value={value.description}
-          onChange={(event) => onPatch({ description: event.target.value })}
-        />
-      </label>
+          <label id={id("description-field")} className="automation-field automation-field--full">
+            <span id={id("description-label")} className="automation-field__label">Description</span>
+            <textarea
+              id={id("description-input")}
+              className="automation-textarea"
+              rows={4}
+              value={value.description}
+              onChange={(event) => onPatch({ description: event.target.value })}
+            />
+          </label>
+        </>
+      ) : null}
 
-      <div id={id("enabled-field")} className="automation-switch-field">
-        <div id={id("enabled-copy")} className="automation-switch-field__copy">
-          <span id={id("enabled-label")} className="automation-field__label">Enabled</span>
-          <span id={id("enabled-description")} className="automation-switch-field__description">
-            {value.enabled ? "The runtime can execute this automation." : "The automation stays visible but will not execute."}
-          </span>
+      {showEnabledField ? (
+        <div id={id("enabled-field")} className="automation-switch-field">
+          <div id={id("enabled-copy")} className="automation-switch-field__copy">
+            <span id={id("enabled-label")} className="automation-field__label">Enabled</span>
+            <span id={id("enabled-description")} className="automation-switch-field__description">
+              {value.enabled ? "The runtime can execute this automation." : "The automation stays visible but will not execute."}
+            </span>
+          </div>
+          <Switch.Root
+            id={id("enabled-input")}
+            checked={value.enabled}
+            onCheckedChange={(checked) => onPatch({ enabled: checked })}
+            className="automation-switch"
+          >
+            <Switch.Thumb className="automation-switch__thumb" />
+          </Switch.Root>
         </div>
-        <Switch.Root
-          id={id("enabled-input")}
-          checked={value.enabled}
-          onCheckedChange={(checked) => onPatch({ enabled: checked })}
-          className="automation-switch"
-        >
-          <Switch.Thumb className="automation-switch__thumb" />
-        </Switch.Root>
-      </div>
+      ) : null}
 
       <div id={id("trigger-type-field")} className="automation-field automation-field--full">
         <span id={id("trigger-type-label")} className="automation-field__label">Trigger type</span>
-        <FlowSelect
-          rootId={id("trigger-type-input")}
-          labelId={id("trigger-type-label")}
-          value={value.trigger_type}
-          placeholder="Choose a trigger"
-          options={triggerTypeOptions}
-          onValueChange={(nextValue) => onPatch({ trigger_type: nextValue, trigger_config: {} })}
-        />
+        <div id={id("trigger-type-options")} className="automation-trigger-options" role="radiogroup" aria-labelledby={id("trigger-type-label")}>
+          {triggerTypeOptions.map((option) => {
+            const selected = value.trigger_type === option.value;
+            return (
+              <button
+                key={option.value}
+                id={id(`trigger-type-option-${option.value}`)}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={`automation-trigger-option${selected ? " automation-trigger-option--selected" : ""}`}
+                onClick={() => onPatch({ trigger_type: option.value, trigger_config: {} })}
+              >
+                <span id={id(`trigger-type-option-${option.value}-label`)} className="automation-trigger-option__label">
+                  {option.label}
+                </span>
+                <span id={id(`trigger-type-option-${option.value}-description`)} className="automation-trigger-option__description">
+                  {triggerDescriptions[option.value]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {value.trigger_type === "schedule" ? (

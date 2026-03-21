@@ -28,7 +28,7 @@
 
 .card {
   box-shadow: var(--shadow);
-  padding: 24px;
+  padding: var(--space-5);
 }
 
 .panel--muted,
@@ -126,7 +126,7 @@
 }
 
 .modal__title {
-  font-size: 1.375rem;
+  font-size: 1.125rem;
 }
 
 .section-header__description,
@@ -142,7 +142,7 @@
 }
 
 .dashboard-toolbar__description {
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .section-status,
@@ -177,12 +177,12 @@
 
 .selected-tools-count,
 .summary-card__value {
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .api-overview-count,
 .api-summary-value {
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
 
 .stat-card__label,
@@ -200,21 +200,21 @@
 .dashboard-log-item__meta,
 .dashboard-log-item__label {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .selected-tools-helper,
 .api-overview-helper,
 .api-summary-label {
   display: block;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 .api-summary-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .api-summary-card__header .api-summary-label {
@@ -226,14 +226,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: 1px solid #c4b5fd;
   border-radius: 999px;
   background: #f5f3ff;
   color: #6d28d9;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -241,9 +241,9 @@
 }
 
 .api-tooltip-toggle--compact {
-  width: 16px;
-  height: 16px;
-  font-size: 0.625rem;
+  width: 14px;
+  height: 14px;
+  font-size: 0.5625rem;
 }
 
 .info-badge:hover,
@@ -259,13 +259,13 @@
 
 .info-badge-content,
 .api-tooltip-content {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid #ddd6fe;
   border-radius: var(--radius-sm);
   background: #faf5ff;
   color: #581c87;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -274,10 +274,10 @@
 .status-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 24px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
 }
 
 .badge,
@@ -316,7 +316,7 @@
 .empty-state,
 .dashboard-empty-state,
 .api-empty-state {
-  padding: 20px;
+  padding: var(--space-5);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   background: var(--bg);
@@ -326,7 +326,7 @@
 .dashboard-empty-state__title,
 .api-empty-state__title {
   margin: 0 0 var(--space-2);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -335,7 +335,7 @@
 .secondary-action-button,
 .sidenav__action-button,
 .modal__close-button {
-  min-height: 42px;
+  min-height: 36px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-sm);
   font: inherit;
@@ -367,8 +367,8 @@
 }
 
 .sidenav__action-button {
-  min-height: 44px;
-  font-size: 0.9375rem;
+  min-height: 36px;
+  font-size: 0.875rem;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -417,7 +417,7 @@
 
 .form-label,
 .api-form-label {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -426,8 +426,8 @@
 .api-form-input,
 .api-form-textarea {
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--panel);
@@ -437,15 +437,15 @@
 
 .form-textarea,
 .api-form-textarea {
-  min-height: 104px;
+  min-height: 84px;
   resize: vertical;
 }
 
 .api-inline-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: var(--space-3);
+  min-height: 36px;
 }
 
 .api-detail-actions,
@@ -482,9 +482,9 @@
 .api-option-card__content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   min-height: 100%;
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--panel);
@@ -510,13 +510,13 @@
 }
 
 .api-option-card__title {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .api-option-card__description {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .modal {
@@ -575,7 +575,7 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
-  padding: 24px;
+  padding: var(--space-5);
   max-height: inherit;
   overflow: hidden;
 }
@@ -583,7 +583,7 @@
 .modal__body {
   flex: 1 1 auto;
   min-height: 0;
-  margin-top: 24px;
+  margin-top: var(--space-5);
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg);
@@ -593,7 +593,7 @@
 .modal__body--form {
   min-height: 0;
   border-style: solid;
-  padding: 20px;
+  padding: var(--space-5);
 }
 
 .tool-detail-modal-body {
@@ -602,22 +602,22 @@
 
 .api-code-block {
   margin: 0;
-  padding: 14px;
+  padding: var(--space-3);
   border-radius: var(--radius-sm);
   background: #0f172a;
   color: #e2e8f0;
   overflow-x: auto;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
 .api-system-alert {
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
 }
 
 .api-system-alert--success {
@@ -672,7 +672,7 @@
   }
 
   .modal__panel {
-    padding: 20px;
+    padding: var(--space-5);
   }
 
   .modal__close-button {

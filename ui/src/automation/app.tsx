@@ -1,14 +1,12 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
-import { Tabs } from "@base-ui/react/tabs";
 import {
   ReactFlow,
   Background,
   Controls,
   MarkerType,
-  MiniMap,
   type Edge,
   type Node,
   type NodeProps,
@@ -16,10 +14,9 @@ import {
   Handle
 } from "@xyflow/react";
 import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry } from "./types";
-import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId } from "./types";
+import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
 import { TriggerSettingsForm } from "./trigger-settings-form";
-import { TriggerSettingsModal } from "./trigger-settings-modal";
 
 declare global {
   interface Window {
@@ -27,6 +24,9 @@ declare global {
     INBOUND_APIS?: { id: string; name: string }[];
     SCRIPTS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
+    Malcom?: {
+      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
+    };
   }
 }
 
@@ -81,14 +81,6 @@ type AutomationRunDetail = AutomationRun & {
   }>;
 };
 
-type RuntimeStatus = {
-  active: boolean;
-  last_tick_started_at: string | null;
-  last_tick_finished_at: string | null;
-  last_error: string | null;
-  job_count: number;
-};
-
 type WorkflowNodeData = {
   canvasNodeId: string;
   kind: "trigger" | "step";
@@ -97,15 +89,45 @@ type WorkflowNodeData = {
   summary: string;
   accent: "trigger" | "log" | "http" | "script" | "tool" | "condition" | "llm";
   selected: boolean;
+  onOpenMenu?: (nodeId: string, anchor: DOMRect) => void;
 };
 
-declare global {
-  interface Window {
-    Malcom?: {
-      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
-    };
-  }
-}
+type InsertNodeData = {
+  canvasNodeId: string;
+  insertionIndex: number;
+  empty: boolean;
+  onInsert?: (index: number) => void;
+};
+
+type NodeMenuState = {
+  nodeId: string;
+  x: number;
+  y: number;
+};
+
+type EditorDrawerState =
+  | { kind: "trigger" }
+  | { kind: "step"; stepId: string }
+  | null;
+
+type ValidationResultState = {
+  kind: "validation";
+  valid: boolean;
+  issues: string[];
+};
+
+type TestRunResultState = {
+  kind: "run";
+  run: AutomationRunDetail;
+};
+
+type TestResultState = ValidationResultState | TestRunResultState | null;
+
+const CANVAS_X = 240;
+const TRIGGER_Y = 44;
+const INSERT_Y = 214;
+const STEP_Y = 304;
+const STEP_GAP = 228;
 
 const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   log: "log",
@@ -119,6 +141,7 @@ const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
 const normalizeStep = (step: AutomationStep): AutomationStep => ({
   ...step,
   id: step.id || createDraftStepId(),
+  name: step.name || getDefaultStepName(step.type),
   config: { ...step.config }
 });
 
@@ -129,12 +152,12 @@ const emptyDetail = (): AutomationDetail => ({
   enabled: true,
   trigger_type: "manual",
   trigger_config: {},
-  step_count: 1,
+  step_count: 0,
   created_at: "",
   updated_at: "",
   last_run_at: null,
   next_run_at: null,
-  steps: [cloneStepTemplate("log")]
+  steps: []
 });
 
 const requestJson = (path: string, options?: RequestInit) => {
@@ -184,7 +207,7 @@ const getTriggerSummary = (automation: AutomationDetail) => {
     return automation.trigger_config.inbound_api_id ? `Watches inbound API ${automation.trigger_config.inbound_api_id}` : "Attach an inbound API endpoint.";
   }
   if (automation.trigger_type === "smtp_email") {
-    return automation.trigger_config.smtp_subject ? `Matches messages with subject ${automation.trigger_config.smtp_subject}` : "Provide the inbound subject filter.";
+    return automation.trigger_config.smtp_subject ? `Matches subject ${automation.trigger_config.smtp_subject}` : "Provide the inbound subject filter.";
   }
   return "Runs on operator demand.";
 };
@@ -194,20 +217,18 @@ const getStepSummary = (step: AutomationStep) => {
     return step.config.message || "Emit a log message.";
   }
   if (step.type === "outbound_request") {
-    return step.config.destination_url || "Send a request to a remote endpoint.";
+    return step.config.destination_url || step.config.connector_id || "Send a request to a remote endpoint.";
   }
   if (step.type === "script") {
     return step.config.script_id ? `Execute script ${step.config.script_id}` : "Select a script to run.";
   }
   if (step.type === "tool") {
     if (step.config.tool_id) {
-      const manifest = (window.TOOLS_MANIFEST || []).find(t => t.id === step.config.tool_id);
+      const manifest = (window.TOOLS_MANIFEST || []).find((tool) => tool.id === step.config.tool_id);
       const toolName = manifest?.name || step.config.tool_id;
       const firstInputKey = manifest?.inputs?.[0]?.key;
-      const firstInputVal = firstInputKey ? step.config.tool_inputs?.[firstInputKey] : undefined;
-      return firstInputVal
-        ? `${toolName}: ${firstInputVal.slice(0, 48)}`
-        : `Invoke ${toolName}`;
+      const firstInputValue = firstInputKey ? step.config.tool_inputs?.[firstInputKey] : undefined;
+      return firstInputValue ? `${toolName}: ${firstInputValue.slice(0, 48)}` : `Invoke ${toolName}`;
     }
     return "Choose a tool to dispatch.";
   }
@@ -236,7 +257,7 @@ const validateAutomationDefinition = (automation: AutomationDetail) => {
   }
   automation.steps.forEach((step, index) => {
     if (step.type === "tool" && step.config.tool_id) {
-      const manifest = (window.TOOLS_MANIFEST || []).find(t => t.id === step.config.tool_id);
+      const manifest = (window.TOOLS_MANIFEST || []).find((tool) => tool.id === step.config.tool_id);
       if (manifest) {
         const toolInputs = step.config.tool_inputs || {};
         for (const field of manifest.inputs) {
@@ -263,17 +284,35 @@ const sanitizeAutomationDetail = (detail: AutomationDetail): AutomationDetail =>
   steps: detail.steps.map(normalizeStep)
 });
 
-const FlowAutomationNode = ({ data }: NodeProps<Node<WorkflowNodeData>>) => (
+const FlowAutomationNode = ({ id, data }: NodeProps<Node<WorkflowNodeData>>) => (
   <div
     id={data.canvasNodeId}
     className={`automation-node automation-node--${data.kind} automation-node--accent-${data.accent}${data.selected ? " automation-node--selected" : ""}`}
   >
     <Handle type="target" position={Position.Top} className="automation-node__handle" isConnectable={false} />
-    <div id={`${data.canvasNodeId}-eyebrow`} className="automation-node__eyebrow">
-      {data.kind === "trigger" ? "Trigger" : data.subtitle}
-    </div>
-    <div id={`${data.canvasNodeId}-title`} className="automation-node__title">
-      {data.label}
+    <div id={`${data.canvasNodeId}-header`} className="automation-node__header">
+      <div>
+        <div id={`${data.canvasNodeId}-eyebrow`} className="automation-node__eyebrow">
+          {data.kind === "trigger" ? "Trigger" : data.subtitle}
+        </div>
+        <div id={`${data.canvasNodeId}-title`} className="automation-node__title">
+          {data.label}
+        </div>
+      </div>
+      {data.selected ? (
+        <button
+          id={`${data.canvasNodeId}-actions-button`}
+          type="button"
+          className="automation-node__actions-button"
+          aria-label="Open node actions"
+          onClick={(event) => {
+            event.stopPropagation();
+            data.onOpenMenu?.(id, event.currentTarget.getBoundingClientRect());
+          }}
+        >
+          ...
+        </button>
+      ) : null}
     </div>
     <div id={`${data.canvasNodeId}-summary`} className="automation-node__summary">
       {data.summary}
@@ -282,8 +321,27 @@ const FlowAutomationNode = ({ data }: NodeProps<Node<WorkflowNodeData>>) => (
   </div>
 );
 
+const FlowInsertNode = ({ data }: NodeProps<Node<InsertNodeData>>) => (
+  <div id={data.canvasNodeId} className={`automation-insert-node${data.empty ? " automation-insert-node--empty" : ""}`}>
+    <Handle type="target" position={Position.Top} className="automation-insert-node__handle" isConnectable={false} />
+    <button
+      id={`${data.canvasNodeId}-button`}
+      type="button"
+      className="automation-insert-node__button"
+      onClick={(event) => {
+        event.stopPropagation();
+        data.onInsert?.(data.insertionIndex);
+      }}
+    >
+      {data.empty ? "Add your first step" : "Add step here"}
+    </button>
+    <Handle type="source" position={Position.Bottom} className="automation-insert-node__handle" isConnectable={false} />
+  </div>
+);
+
 const nodeTypes = {
-  automationNode: FlowAutomationNode
+  automationNode: FlowAutomationNode,
+  insertNode: FlowInsertNode
 };
 
 const FlowSelect = <T extends string>({
@@ -327,157 +385,67 @@ const FlowSelect = <T extends string>({
   </Select.Root>
 );
 
+const getNodeMenuLabel = (nodeId: string, steps: AutomationStep[]) => {
+  if (nodeId === "trigger-node") {
+    return "Trigger";
+  }
+  const step = steps.find((candidate) => `step-node-${candidate.id}` === nodeId);
+  return step?.name || "Step";
+};
+
 export const AutomationApp = () => {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
-  const [selectedRun, setSelectedRun] = useState<AutomationRunDetail | null>(null);
-  const [runs, setRuns] = useState<AutomationRun[]>([]);
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
-  const [inspectorTab, setInspectorTab] = useState("configure");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [addStepModalOpen, setAddStepModalOpen] = useState(false);
-  const [triggerSettingsModalOpen, setTriggerSettingsModalOpen] = useState(false);
+  const [editorDrawer, setEditorDrawer] = useState<EditorDrawerState>(null);
+  const [nodeMenu, setNodeMenu] = useState<NodeMenuState | null>(null);
+  const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
+  const [testResults, setTestResults] = useState<TestResultState>(null);
+  const [advancedLabelOpen, setAdvancedLabelOpen] = useState(false);
+  const nodeMenuRef = useRef<HTMLDivElement | null>(null);
 
   const selectedStep = currentAutomation.steps.find((step) => `step-node-${step.id}` === selectedNodeId) || null;
   const selectedStepIndex = selectedStep ? currentAutomation.steps.findIndex((step) => step.id === selectedStep.id) : -1;
+  const drawerStep = editorDrawer?.kind === "step"
+    ? currentAutomation.steps.find((step) => step.id === editorDrawer.stepId) || null
+    : null;
 
-  const flowNodes: Array<Node<WorkflowNodeData>> = [
-    {
-      id: "trigger-node",
-      type: "automationNode",
-      position: { x: 40, y: 48 },
-      draggable: false,
-      selectable: true,
-      data: {
-        canvasNodeId: "automation-canvas-node-trigger",
-        kind: "trigger",
-        label: getTriggerTypeLabel(currentAutomation.trigger_type),
-        subtitle: "Trigger",
-        summary: getTriggerSummary(currentAutomation),
-        accent: "trigger",
-        selected: selectedNodeId === "trigger-node"
-      }
-    },
-    ...currentAutomation.steps.map((step, index) => ({
-      id: `step-node-${step.id}`,
-      type: "automationNode",
-      position: { x: 40, y: 220 + (index * 164) },
-      draggable: true,
-      selectable: true,
-      data: {
-        canvasNodeId: `automation-canvas-node-step-${step.id}`,
-        kind: "step",
-        label: step.name,
-        subtitle: `${index + 1}. ${getStepTypeLabel(step.type)}`,
-        summary: getStepSummary(step),
-        accent: stepAccentByType[step.type],
-        selected: selectedNodeId === `step-node-${step.id}`
-      }
-    }))
-  ];
-
-  const flowEdges: Edge[] = currentAutomation.steps.map((step, index) => ({
-    id: `automation-canvas-edge-${step.id}`,
-    source: index === 0 ? "trigger-node" : `step-node-${currentAutomation.steps[index - 1].id}`,
-    target: `step-node-${step.id}`,
-    type: "smoothstep",
-    animated: selectedNodeId === `step-node-${step.id}`,
-    markerEnd: { type: MarkerType.ArrowClosed }
-  }));
-
-  const loadRuntime = async () => {
-    const [status, settings] = await Promise.all([
-      requestJson("/api/v1/runtime/status"),
-      requestJson("/api/v1/settings")
-    ]);
-    setRuntimeStatus(status);
-    setConnectors(settings.connectors?.records || []);
-  };
-
-  const applyNewAutomationDraft = () => {
-    startTransition(() => {
-      setCurrentAutomation(emptyDetail());
-      setSelectedNodeId("trigger-node");
-      setSelectedRun(null);
-      setRuns([]);
-      setInspectorTab("configure");
-      setDeleteDialogOpen(false);
-      setTriggerSettingsModalOpen(false);
-    });
-    setFeedback("");
-    setFeedbackTone("");
-  };
-
-  const selectAutomation = async (automationId: string) => {
-    const [detail, automationRuns] = await Promise.all([
-      requestJson(`/api/v1/automations/${automationId}`),
-      requestJson(`/api/v1/automations/${automationId}/runs`)
-    ]);
-
-    startTransition(() => {
-      setCurrentAutomation(sanitizeAutomationDetail(detail));
-      setRuns(automationRuns);
-      setSelectedNodeId("trigger-node");
-      setSelectedRun(null);
-      setInspectorTab("configure");
-      setTriggerSettingsModalOpen(false);
+  const openNodeMenu = (nodeId: string, anchor: DOMRect | { x: number; y: number }) => {
+    const x = anchor instanceof DOMRect ? anchor.right + 8 : anchor.x;
+    const y = anchor instanceof DOMRect ? anchor.top : anchor.y;
+    setSelectedNodeId(nodeId);
+    setNodeMenu({
+      nodeId,
+      x: Math.max(16, Math.min(window.innerWidth - 220, x)),
+      y: Math.max(16, Math.min(window.innerHeight - 180, y))
     });
   };
 
-  const loadAutomations = async (nextSelectedId?: string) => {
-    const list = (await requestJson("/api/v1/automations")) as Automation[];
-    setAutomations(list);
-    const matchingCurrentId = list.some((automation) => automation.id === currentAutomation.id) ? currentAutomation.id : "";
-    const targetId = nextSelectedId || matchingCurrentId || list[0]?.id;
-    if (!targetId) {
-      applyNewAutomationDraft();
+  const closeNodeMenu = () => setNodeMenu(null);
+
+  const closeEditorDrawer = () => {
+    setEditorDrawer(null);
+    setAdvancedLabelOpen(false);
+  };
+
+  const openEditorForNode = (nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    if (nodeId === "trigger-node") {
+      setEditorDrawer({ kind: "trigger" });
+      setAdvancedLabelOpen(false);
+      closeNodeMenu();
       return;
     }
-    await selectAutomation(targetId);
+    const stepId = nodeId.replace("step-node-", "");
+    setEditorDrawer({ kind: "step", stepId });
+    setAdvancedLabelOpen(false);
+    closeNodeMenu();
   };
-
-  const loadRunDetail = async (runId: string) => {
-    const detail = (await requestJson(`/api/v1/runs/${runId}`)) as AutomationRunDetail;
-    setSelectedRun(detail);
-    setInspectorTab("activity");
-  };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlId = params.get("id") ?? undefined;
-    const isNewDraft = params.get("new") === "true";
-
-    if (isNewDraft) {
-      loadRuntime().catch(() => undefined);
-      requestJson("/api/v1/automations").then((list: unknown) => {
-        setAutomations(list as Automation[]);
-        applyNewAutomationDraft();
-      }).catch((error: Error) => {
-        setFeedback(error.message);
-        setFeedbackTone("error");
-      });
-      return;
-    }
-
-    loadAutomations(urlId).catch((error: Error) => {
-      setFeedback(error.message);
-      setFeedbackTone("error");
-    });
-    loadRuntime().catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    const createButton = document.getElementById("automations-create-button");
-    const handleCreate = () => {
-      window.location.href = "builder.html?new=true";
-    };
-    createButton?.addEventListener("click", handleCreate);
-    return () => createButton?.removeEventListener("click", handleCreate);
-  }, []);
 
   const patchAutomation = (patch: Partial<AutomationDetail>) => {
     setCurrentAutomation((current) => ({
@@ -497,39 +465,149 @@ export const AutomationApp = () => {
     }));
   };
 
+  const updateDrawerStep = (updater: (step: AutomationStep) => AutomationStep) => {
+    if (!drawerStep) {
+      return;
+    }
+    setCurrentAutomation((current) => ({
+      ...current,
+      steps: current.steps.map((step) => (step.id === drawerStep.id ? normalizeStep(updater(step)) : step))
+    }));
+  };
+
   const updateStepOrder = (nextSteps: AutomationStep[]) => {
     setCurrentAutomation((current) => ({
       ...current,
-      steps: nextSteps,
+      steps: nextSteps.map(normalizeStep),
       step_count: nextSteps.length
     }));
   };
 
-  const appendStep = (step: AutomationStep) => {
-    const nextSteps = [...currentAutomation.steps, step];
-    updateStepOrder(nextSteps);
-    setSelectedNodeId(`step-node-${step.id}`);
+  const insertStep = (step: AutomationStep, index: number) => {
+    const normalizedStep = normalizeStep({
+      ...step,
+      name: step.name.trim() || getDefaultStepName(step.type)
+    });
+    setCurrentAutomation((current) => {
+      const nextSteps = [...current.steps];
+      nextSteps.splice(index, 0, normalizedStep);
+      return {
+        ...current,
+        steps: nextSteps,
+        step_count: nextSteps.length
+      };
+    });
+    setSelectedNodeId(`step-node-${normalizedStep.id}`);
   };
 
-  const moveSelectedStep = (offset: number) => {
-    if (!selectedStep || selectedStepIndex < 0) {
-      return;
-    }
-    const nextIndex = Math.min(currentAutomation.steps.length - 1, Math.max(0, selectedStepIndex + offset));
-    if (nextIndex === selectedStepIndex) {
-      return;
-    }
-    updateStepOrder(reorderSteps(currentAutomation.steps, selectedStepIndex, nextIndex));
-  };
-
-  const removeSelectedStep = () => {
-    if (!selectedStep) {
-      return;
-    }
-    const nextSteps = currentAutomation.steps.filter((step) => step.id !== selectedStep.id);
-    updateStepOrder(nextSteps.length > 0 ? nextSteps : [cloneStepTemplate("log")]);
+  const removeStepById = (stepId: string) => {
+    setCurrentAutomation((current) => {
+      const nextSteps = current.steps.filter((step) => step.id !== stepId);
+      return {
+        ...current,
+        steps: nextSteps,
+        step_count: nextSteps.length
+      };
+    });
     setSelectedNodeId("trigger-node");
+    closeEditorDrawer();
+    closeNodeMenu();
   };
+
+  const loadBuilderSupportData = async () => {
+    const settings = await requestJson("/api/v1/settings");
+    setConnectors(settings.connectors?.records || []);
+  };
+
+  const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
+    startTransition(() => {
+      setCurrentAutomation(emptyDetail());
+      setSelectedNodeId("trigger-node");
+      setDeleteDialogOpen(false);
+      setAddStepModalOpen(false);
+      closeEditorDrawer();
+      closeNodeMenu();
+      setTestResults(null);
+    });
+    if (updateUrl) {
+      window.history.replaceState({}, "", "builder.html?new=true");
+    }
+    setFeedback("");
+    setFeedbackTone("");
+  };
+
+  const selectAutomation = async (automationId: string) => {
+    const detail = await requestJson(`/api/v1/automations/${automationId}`);
+
+    startTransition(() => {
+      setCurrentAutomation(sanitizeAutomationDetail(detail));
+      setSelectedNodeId("trigger-node");
+      closeEditorDrawer();
+      closeNodeMenu();
+      setTestResults(null);
+    });
+  };
+
+  const loadAutomations = async (nextSelectedId?: string) => {
+    const list = (await requestJson("/api/v1/automations")) as Automation[];
+    setAutomations(list);
+    const matchingCurrentId = list.some((automation) => automation.id === currentAutomation.id) ? currentAutomation.id : "";
+    const targetId = nextSelectedId || matchingCurrentId || list[0]?.id;
+    if (!targetId) {
+      applyNewAutomationDraft();
+      return;
+    }
+    await selectAutomation(targetId);
+    window.history.replaceState({}, "", `builder.html?id=${targetId}`);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get("id") ?? undefined;
+    const isNewDraft = params.get("new") === "true";
+
+    Promise.all([
+      loadBuilderSupportData(),
+      isNewDraft
+        ? requestJson("/api/v1/automations").then((list: unknown) => {
+          setAutomations(list as Automation[]);
+          applyNewAutomationDraft({ updateUrl: false });
+        })
+        : loadAutomations(urlId)
+    ]).catch((error: Error) => {
+      setFeedback(error.message);
+      setFeedbackTone("error");
+    });
+  }, []);
+
+  useEffect(() => {
+    const createButton = document.getElementById("automations-create-button");
+    const handleCreate = () => {
+      applyNewAutomationDraft();
+    };
+    createButton?.addEventListener("click", handleCreate);
+    return () => createButton?.removeEventListener("click", handleCreate);
+  }, []);
+
+  useEffect(() => {
+    if (!nodeMenu) {
+      return undefined;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (nodeMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      closeNodeMenu();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [nodeMenu]);
+
+  useEffect(() => {
+    if (editorDrawer?.kind === "step" && !currentAutomation.steps.some((step) => step.id === editorDrawer.stepId)) {
+      closeEditorDrawer();
+    }
+  }, [currentAutomation.steps, editorDrawer]);
 
   const saveAutomation = async () => {
     const issues = validateAutomationDefinition(currentAutomation);
@@ -554,8 +632,30 @@ export const AutomationApp = () => {
 
     setFeedback(currentAutomation.id ? "Automation updated." : "Automation created.");
     setFeedbackTone("success");
+    window.history.replaceState({}, "", `builder.html?id=${response.id}`);
     await loadAutomations(response.id);
-    await loadRuntime();
+  };
+
+  const validateAutomation = async () => {
+    const localIssues = validateAutomationDefinition(currentAutomation);
+    if (localIssues.length > 0) {
+      setFeedback(localIssues.join(" "));
+      setFeedbackTone("error");
+      setTestResults({ kind: "validation", valid: false, issues: localIssues });
+      return;
+    }
+
+    if (!currentAutomation.id) {
+      setFeedback("Automation definition is valid.");
+      setFeedbackTone("success");
+      setTestResults({ kind: "validation", valid: true, issues: [] });
+      return;
+    }
+
+    const response = await requestJson(`/api/v1/automations/${currentAutomation.id}/validate`, { method: "POST" });
+    setFeedback(response.valid ? "Automation definition is valid." : response.issues.join(" "));
+    setFeedbackTone(response.valid ? "success" : "error");
+    setTestResults({ kind: "validation", valid: response.valid, issues: response.issues || [] });
   };
 
   const executeAutomation = async () => {
@@ -565,24 +665,14 @@ export const AutomationApp = () => {
       return;
     }
     const run = (await requestJson(`/api/v1/automations/${currentAutomation.id}/execute`, { method: "POST" })) as AutomationRunDetail;
-    setSelectedRun(run);
     setFeedback("Automation executed.");
     setFeedbackTone("success");
-    await selectAutomation(currentAutomation.id);
-    await loadRunDetail(run.run_id);
-    await loadRuntime();
-  };
-
-  const validateAutomation = async () => {
-    const issues = validateAutomationDefinition(currentAutomation);
-    if (!currentAutomation.id) {
-      setFeedback(issues.length > 0 ? issues.join(" ") : "Automation is valid.");
-      setFeedbackTone(issues.length > 0 ? "error" : "success");
-      return;
-    }
-    const response = await requestJson(`/api/v1/automations/${currentAutomation.id}/validate`, { method: "POST" });
-    setFeedback(response.valid ? "Automation definition is valid." : response.issues.join(" "));
-    setFeedbackTone(response.valid ? "success" : "error");
+    setTestResults({ kind: "run", run });
+    const refreshed = await requestJson(`/api/v1/automations/${currentAutomation.id}`);
+    setCurrentAutomation((current) => ({
+      ...sanitizeAutomationDetail(refreshed),
+      steps: current.steps
+    }));
   };
 
   const deleteAutomation = async () => {
@@ -595,18 +685,435 @@ export const AutomationApp = () => {
     setFeedback("Automation deleted.");
     setFeedbackTone("success");
     await loadAutomations();
-    await loadRuntime();
+  };
+
+  const flowNodes = useMemo(() => {
+    const nodes: Array<Node<WorkflowNodeData | InsertNodeData>> = [
+      {
+        id: "trigger-node",
+        type: "automationNode",
+        position: { x: CANVAS_X, y: TRIGGER_Y },
+        draggable: false,
+        selectable: true,
+        data: {
+          canvasNodeId: "automation-canvas-node-trigger",
+          kind: "trigger",
+          label: getTriggerTypeLabel(currentAutomation.trigger_type),
+          subtitle: "Trigger",
+          summary: getTriggerSummary(currentAutomation),
+          accent: "trigger",
+          selected: selectedNodeId === "trigger-node",
+          onOpenMenu: openNodeMenu
+        }
+      }
+    ];
+
+    currentAutomation.steps.forEach((step, index) => {
+      nodes.push({
+        id: `insert-node-${index}`,
+        type: "insertNode",
+        position: { x: CANVAS_X + 32, y: INSERT_Y + (index * STEP_GAP) },
+        draggable: false,
+        selectable: false,
+        data: {
+          canvasNodeId: `automation-canvas-insert-${index}`,
+          insertionIndex: index,
+          empty: false,
+          onInsert: (insertIndex) => {
+            setPendingInsertIndex(insertIndex);
+            setAddStepModalOpen(true);
+          }
+        }
+      });
+      nodes.push({
+        id: `step-node-${step.id}`,
+        type: "automationNode",
+        position: { x: CANVAS_X, y: STEP_Y + (index * STEP_GAP) },
+        draggable: true,
+        selectable: true,
+        data: {
+          canvasNodeId: `automation-canvas-node-step-${step.id}`,
+          kind: "step",
+          label: step.name,
+          subtitle: `${index + 1}. ${getStepTypeLabel(step.type)}`,
+          summary: getStepSummary(step),
+          accent: stepAccentByType[step.type],
+          selected: selectedNodeId === `step-node-${step.id}`,
+          onOpenMenu: openNodeMenu
+        }
+      });
+    });
+
+    nodes.push({
+      id: `insert-node-${currentAutomation.steps.length}`,
+      type: "insertNode",
+      position: { x: CANVAS_X + 32, y: INSERT_Y + (currentAutomation.steps.length * STEP_GAP) },
+      draggable: false,
+      selectable: false,
+      data: {
+        canvasNodeId: `automation-canvas-insert-${currentAutomation.steps.length}`,
+        insertionIndex: currentAutomation.steps.length,
+        empty: currentAutomation.steps.length === 0,
+        onInsert: (insertIndex) => {
+          setPendingInsertIndex(insertIndex);
+          setAddStepModalOpen(true);
+        }
+      }
+    });
+
+    return nodes;
+  }, [currentAutomation, selectedNodeId]);
+
+  const flowEdges = useMemo(() => {
+    const orderedNodeIds = [
+      "trigger-node",
+      ...currentAutomation.steps.flatMap((step, index) => [`insert-node-${index}`, `step-node-${step.id}`]),
+      `insert-node-${currentAutomation.steps.length}`
+    ];
+
+    return orderedNodeIds.slice(0, -1).map((sourceNodeId, index) => ({
+      id: `automation-canvas-edge-${sourceNodeId}-${orderedNodeIds[index + 1]}`,
+      source: sourceNodeId,
+      target: orderedNodeIds[index + 1],
+      type: "smoothstep",
+      markerEnd: { type: MarkerType.ArrowClosed },
+      animated: orderedNodeIds[index + 1] === selectedNodeId
+    })) as Edge[];
+  }, [currentAutomation.steps, selectedNodeId]);
+
+  const renderStepEditor = (step: AutomationStep) => {
+    const customLabelValue = step.name === getDefaultStepName(step.type) ? "" : step.name;
+
+    return (
+      <div id="automations-step-drawer-form" className="automation-form">
+        <div id="automations-step-type-field" className="automation-field automation-field--full">
+          <span id="automations-step-type-label" className="automation-field__label">Step type</span>
+          <FlowSelect
+            rootId="automations-step-type-input"
+            labelId="automations-step-type-label"
+            value={step.type}
+            placeholder="Choose a step type"
+            options={stepTypeOptions}
+            onValueChange={(nextValue) => updateDrawerStep(() => ({
+              ...cloneStepTemplate(nextValue),
+              id: step.id,
+              name: getDefaultStepName(nextValue)
+            }))}
+          />
+        </div>
+
+        {step.type === "log" ? (
+          <label id="automations-step-log-message-field" className="automation-field automation-field--full">
+            <span id="automations-step-log-message-label" className="automation-field__label">Message</span>
+            <textarea
+              id="automations-step-log-message-input"
+              className="automation-textarea"
+              rows={4}
+              value={step.config.message || ""}
+              onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, message: event.target.value } }))}
+            />
+          </label>
+        ) : null}
+
+        {step.type === "outbound_request" ? (
+          <>
+            <div id="automations-step-http-method-field" className="automation-field automation-field--full">
+              <span id="automations-step-http-method-label" className="automation-field__label">HTTP method</span>
+              <FlowSelect
+                rootId="automations-step-http-method-input"
+                labelId="automations-step-http-method-label"
+                value={(step.config.http_method || "POST") as "GET" | "POST" | "PUT" | "PATCH" | "DELETE"}
+                placeholder="Choose a method"
+                options={[
+                  { value: "GET", label: "GET" },
+                  { value: "POST", label: "POST" },
+                  { value: "PUT", label: "PUT" },
+                  { value: "PATCH", label: "PATCH" },
+                  { value: "DELETE", label: "DELETE" }
+                ]}
+                onValueChange={(nextValue) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, http_method: nextValue } }))}
+              />
+            </div>
+            <label id="automations-step-http-connector-field" className="automation-field automation-field--full">
+              <span id="automations-step-http-connector-label" className="automation-field__label">Saved connector</span>
+              <select
+                id="automations-step-http-connector-input"
+                className="automation-native-select"
+                value={step.config.connector_id || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, connector_id: event.target.value } }))}
+              >
+                <option value="">None</option>
+                {connectors.map((connector) => (
+                  <option key={connector.id} value={connector.id}>{connector.name}</option>
+                ))}
+              </select>
+            </label>
+            <label id="automations-step-http-url-field" className="automation-field automation-field--full">
+              <span id="automations-step-http-url-label" className="automation-field__label">Destination URL</span>
+              <input
+                id="automations-step-http-url-input"
+                className="automation-input"
+                value={step.config.destination_url || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, destination_url: event.target.value } }))}
+              />
+            </label>
+            <label id="automations-step-http-payload-field" className="automation-field automation-field--full">
+              <span id="automations-step-http-payload-label" className="automation-field__label">Payload template</span>
+              <textarea
+                id="automations-step-http-payload-input"
+                className="automation-textarea automation-textarea--code"
+                rows={6}
+                value={step.config.payload_template || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, payload_template: event.target.value } }))}
+              />
+            </label>
+          </>
+        ) : null}
+
+        {step.type === "script" ? (
+          <label id="automations-step-script-id-field" className="automation-field automation-field--full">
+            <span id="automations-step-script-id-label" className="automation-field__label">Script id</span>
+            <input
+              id="automations-step-script-id-input"
+              className="automation-input"
+              value={step.config.script_id || ""}
+              onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, script_id: event.target.value } }))}
+            />
+          </label>
+        ) : null}
+
+        {step.type === "tool" ? (
+          <>
+            <label id="automations-step-tool-id-field" className="automation-field automation-field--full">
+              <span id="automations-step-tool-id-label" className="automation-field__label">Tool</span>
+              <select
+                id="automations-step-tool-id-select"
+                className="automation-input"
+                value={step.config.tool_id || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({
+                  ...currentStep,
+                  config: { ...currentStep.config, tool_id: event.target.value, tool_inputs: {} }
+                }))}
+              >
+                <option value="">Select a tool...</option>
+                {(window.TOOLS_MANIFEST || []).map((tool) => (
+                  <option key={tool.id} value={tool.id}>{tool.name}</option>
+                ))}
+              </select>
+            </label>
+
+            {(() => {
+              const toolManifest = (window.TOOLS_MANIFEST || []).find((tool) => tool.id === step.config.tool_id);
+              if (!toolManifest || toolManifest.inputs.length === 0) return null;
+              const toolInputs = step.config.tool_inputs || {};
+              const updateInput = (key: string, value: string) =>
+                updateDrawerStep((currentStep) => ({
+                  ...currentStep,
+                  config: {
+                    ...currentStep.config,
+                    tool_inputs: { ...(currentStep.config.tool_inputs || {}), [key]: value }
+                  }
+                }));
+              return (
+                <>
+                  {toolManifest.inputs.map((field) => {
+                    const fieldId = `automations-step-tool-input-${field.key}`;
+                    const isFullWidth = field.type === "text";
+                    return (
+                      <label key={field.key} id={`${fieldId}-field`} className={`automation-field${isFullWidth ? " automation-field--full" : ""}`}>
+                        <span id={`${fieldId}-label`} className="automation-field__label">
+                          {field.label}{field.required ? " *" : ""}
+                        </span>
+                        {field.type === "text" ? (
+                          <textarea
+                            id={`${fieldId}-input`}
+                            className="automation-textarea"
+                            rows={4}
+                            value={toolInputs[field.key] || ""}
+                            onChange={(event) => updateInput(field.key, event.target.value)}
+                          />
+                        ) : field.type === "select" ? (
+                          <select
+                            id={`${fieldId}-input`}
+                            className="automation-input"
+                            value={toolInputs[field.key] || ""}
+                            onChange={(event) => updateInput(field.key, event.target.value)}
+                          >
+                            <option value="">Select...</option>
+                            {(field.options || []).map((option) => (
+                              <option key={option} value={option}>{option}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            id={`${fieldId}-input`}
+                            className="automation-input"
+                            type={field.type === "number" ? "number" : "text"}
+                            value={toolInputs[field.key] || ""}
+                            onChange={(event) => updateInput(field.key, event.target.value)}
+                          />
+                        )}
+                      </label>
+                    );
+                  })}
+                </>
+              );
+            })()}
+          </>
+        ) : null}
+
+        {step.type === "condition" ? (
+          <>
+            <label id="automations-step-condition-expression-field" className="automation-field automation-field--full">
+              <span id="automations-step-condition-expression-label" className="automation-field__label">Expression</span>
+              <textarea
+                id="automations-step-condition-expression-input"
+                className="automation-textarea automation-textarea--code"
+                rows={4}
+                value={step.config.expression || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, expression: event.target.value } }))}
+              />
+            </label>
+            <div id="automations-step-condition-stop-field" className="automation-switch-field">
+              <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
+                <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
+                <span id="automations-step-condition-stop-description" className="automation-switch-field__description">
+                  Exit the workflow when the guard evaluates to false.
+                </span>
+              </div>
+              <Switch.Root
+                id="automations-step-condition-stop-input"
+                checked={Boolean(step.config.stop_on_false)}
+                onCheckedChange={(checked) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, stop_on_false: checked } }))}
+                className="automation-switch"
+              >
+                <Switch.Thumb className="automation-switch__thumb" />
+              </Switch.Root>
+            </div>
+          </>
+        ) : null}
+
+        {step.type === "llm_chat" ? (
+          <>
+            <label id="automations-step-llm-model-field" className="automation-field automation-field--full">
+              <span id="automations-step-llm-model-label" className="automation-field__label">Model override</span>
+              <input
+                id="automations-step-llm-model-input"
+                className="automation-input"
+                value={step.config.model_identifier || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, model_identifier: event.target.value } }))}
+              />
+            </label>
+            <label id="automations-step-llm-system-field" className="automation-field automation-field--full">
+              <span id="automations-step-llm-system-label" className="automation-field__label">System prompt</span>
+              <textarea
+                id="automations-step-llm-system-input"
+                className="automation-textarea automation-textarea--code"
+                rows={5}
+                value={step.config.system_prompt || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, system_prompt: event.target.value } }))}
+              />
+            </label>
+            <label id="automations-step-llm-user-field" className="automation-field automation-field--full">
+              <span id="automations-step-llm-user-label" className="automation-field__label">User prompt</span>
+              <textarea
+                id="automations-step-llm-user-input"
+                className="automation-textarea automation-textarea--code"
+                rows={7}
+                value={step.config.user_prompt || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, user_prompt: event.target.value } }))}
+              />
+            </label>
+          </>
+        ) : null}
+
+        <details id="automations-step-advanced-section" className="automation-advanced-section" open={advancedLabelOpen} onToggle={(event) => setAdvancedLabelOpen((event.currentTarget as HTMLDetailsElement).open)}>
+          <summary id="automations-step-advanced-summary" className="automation-advanced-section__summary">
+            Advanced
+          </summary>
+          <div id="automations-step-advanced-content" className="automation-advanced-section__content">
+            <label id="automations-step-name-field" className="automation-field automation-field--full">
+              <span id="automations-step-name-label" className="automation-field__label">Custom label (optional)</span>
+              <input
+                id="automations-step-name-input"
+                className="automation-input"
+                value={customLabelValue}
+                placeholder={getDefaultStepName(step.type)}
+                onChange={(event) => updateDrawerStep((currentStep) => ({
+                  ...currentStep,
+                  name: event.target.value.trim() || getDefaultStepName(currentStep.type)
+                }))}
+              />
+            </label>
+          </div>
+        </details>
+
+        <div id="automations-step-danger-zone" className="automation-danger-zone">
+          <span id="automations-step-danger-label" className="automation-field__label">Danger zone</span>
+          <button
+            id="automations-step-remove-button"
+            type="button"
+            className="button button--secondary automation-danger-zone__button"
+            onClick={() => {
+              if (step.id) {
+                removeStepById(step.id);
+              }
+            }}
+          >
+            Remove step
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div id="automations-app-shell" className="automations-app">
-      <section id="automations-summary-banner" className="automation-hero">
-        <div id="automations-summary-copy" className="automation-hero__copy">
-          <p id="automations-summary-eyebrow" className="automation-hero__eyebrow">Middleware orchestration</p>
-          <h3 id="automations-summary-title" className="automation-hero__title">{currentAutomation.name || "New automation draft"}</h3>
-          <p id="automations-summary-description" className="automation-hero__description">Build, validate, and run this automation.</p>
+    <div id="automations-app-shell" className="automations-app automations-builder-app">
+      <section id="automations-workflow-bar" className="automation-workflow-bar">
+        <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
+          <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
+            <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
+            <input
+              id="automations-workflow-name-input"
+              className="automation-input"
+              placeholder="Name this automation"
+              value={currentAutomation.name}
+              onChange={(event) => patchAutomation({ name: event.target.value })}
+            />
+          </label>
+          <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
+            <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
+            <textarea
+              id="automations-workflow-description-input"
+              className="automation-textarea"
+              rows={2}
+              placeholder="Describe what this automation is for"
+              value={currentAutomation.description}
+              onChange={(event) => patchAutomation({ description: event.target.value })}
+            />
+          </label>
         </div>
-        <div id="automations-summary-actions" className="automation-hero__actions">
+
+        <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
+          <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
+            <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
+              <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
+              <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
+                Edit the trigger directly from the canvas trigger node.
+              </span>
+            </div>
+            <Switch.Root
+              id="automations-workflow-enabled-input"
+              checked={currentAutomation.enabled}
+              onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
+              className="automation-switch"
+            >
+              <Switch.Thumb className="automation-switch__thumb" />
+            </Switch.Root>
+          </div>
+        </div>
+
+        <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
           <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
             Save
           </button>
@@ -616,7 +1123,7 @@ export const AutomationApp = () => {
           <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
             Run now
           </button>
-          <button id="automations-new-button" type="button" className="button button--secondary" onClick={applyNewAutomationDraft}>
+          <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
             New draft
           </button>
           <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
@@ -633,507 +1140,260 @@ export const AutomationApp = () => {
         {feedback}
       </div>
 
-      <section
-        id="automations-workspace"
-        className={triggerSettingsModalOpen ? "automation-workspace-grid automation-workspace-grid--inspector-hidden" : "automation-workspace-grid"}
-      >
-        <section id="automations-canvas-panel" className="automation-panel automation-panel--canvas">
-          <div id="automations-canvas-header" className="automation-panel__header">
-            <div id="automations-canvas-copy" className="automation-panel__copy">
-              <p id="automations-canvas-eyebrow" className="automation-panel__eyebrow">Canvas</p>
-              <div className="title-row">
-                <h3 id="automations-canvas-title" className="automation-panel__title">Workflow path</h3>
-                <button type="button" id="automations-canvas-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-canvas-description">i</button>
-              </div>
-              <p id="automations-canvas-description" className="automation-panel__description" hidden>Drag steps to reorder execution.</p>
+      <section id="automations-canvas-panel" className="automation-panel automation-panel--canvas automation-panel--canvas-full">
+        <div id="automations-canvas-header" className="automation-panel__header automation-panel__header--canvas">
+          <div id="automations-canvas-copy" className="automation-panel__copy">
+            <p id="automations-canvas-eyebrow" className="automation-panel__eyebrow">Builder</p>
+            <div className="title-row">
+              <h3 id="automations-canvas-title" className="automation-panel__title">Workflow canvas</h3>
+              <button type="button" id="automations-canvas-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-canvas-description">i</button>
             </div>
-            <div id="automations-canvas-actions" className="automation-inline-actions">
-              <button id="automations-step-add-button" type="button" className="primary-action-button" onClick={() => setAddStepModalOpen(true)}>
-                Add step
-              </button>
-              <button id="automations-step-move-up-button" type="button" className="button button--secondary" disabled={!selectedStep || selectedStepIndex <= 0} onClick={() => moveSelectedStep(-1)}>
-                Move up
-              </button>
-              <button id="automations-step-move-down-button" type="button" className="button button--secondary" disabled={!selectedStep || selectedStepIndex >= currentAutomation.steps.length - 1} onClick={() => moveSelectedStep(1)}>
-                Move down
-              </button>
-              <button id="automations-step-remove-button" type="button" className="button button--secondary" disabled={!selectedStep} onClick={removeSelectedStep}>
-                Remove step
-              </button>
-            </div>
+            <p id="automations-canvas-description" className="automation-panel__description" hidden>Select a node, drag steps to reorder them, and use node actions to edit.</p>
           </div>
-          <div id="automations-canvas-surface" className="automation-canvas-surface">
-            <ReactFlow
-              id="automations-canvas"
-              nodes={flowNodes}
-              edges={flowEdges}
-              nodeTypes={nodeTypes}
-              fitView
-              deleteKeyCode={null}
-              connectOnClick={false}
-              nodesConnectable={false}
-              edgesFocusable={false}
-              elementsSelectable
-              onNodeClick={(_, node) => {
-                setSelectedNodeId(node.id);
-                setInspectorTab("configure");
+          <div id="automations-canvas-selection-chip" className="automation-selection-chip" hidden={!selectedNodeId}>
+            Selected: {getNodeMenuLabel(selectedNodeId, currentAutomation.steps)}
+          </div>
+        </div>
+
+        <div id="automations-canvas-surface" className="automation-canvas-surface automation-canvas-surface--full">
+          <ReactFlow
+            id="automations-canvas"
+            nodes={flowNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            deleteKeyCode={null}
+            connectOnClick={false}
+            nodesConnectable={false}
+            edgesFocusable={false}
+            elementsSelectable
+            snapToGrid
+            snapGrid={[16, 16]}
+            onPaneClick={() => {
+              setSelectedNodeId("");
+              closeNodeMenu();
+            }}
+            onNodeClick={(_, node) => {
+              if (String(node.id).startsWith("insert-node-")) {
+                return;
+              }
+              setSelectedNodeId(node.id);
+              closeNodeMenu();
+            }}
+            onNodeDoubleClick={(_, node) => {
+              if (String(node.id).startsWith("insert-node-")) {
+                return;
+              }
+              openEditorForNode(node.id);
+            }}
+            onNodeContextMenu={(event, node) => {
+              if (String(node.id).startsWith("insert-node-")) {
+                return;
+              }
+              event.preventDefault();
+              openNodeMenu(node.id, { x: event.clientX, y: event.clientY });
+            }}
+            onNodeDragStop={(_, node) => {
+              if (!String(node.id).startsWith("step-node-")) {
+                return;
+              }
+              const stepId = String(node.id).replace("step-node-", "");
+              const fromIndex = currentAutomation.steps.findIndex((step) => step.id === stepId);
+              if (fromIndex < 0) {
+                return;
+              }
+              const targetIndex = Math.min(
+                currentAutomation.steps.length - 1,
+                Math.max(0, Math.round((node.position.y - STEP_Y) / STEP_GAP))
+              );
+              if (targetIndex !== fromIndex) {
+                updateStepOrder(reorderSteps(currentAutomation.steps, fromIndex, targetIndex));
+              }
+              setSelectedNodeId(String(node.id));
+            }}
+            minZoom={0.6}
+            maxZoom={1.25}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background id="automations-canvas-background" color="#dbe3f1" gap={24} size={1.2} />
+            <Controls id="automations-canvas-controls" position="bottom-left" />
+          </ReactFlow>
+        </div>
+      </section>
+
+      {nodeMenu ? (
+        <div
+          id="automations-node-menu"
+          ref={nodeMenuRef}
+          className="automation-node-menu"
+          style={{ left: nodeMenu.x, top: nodeMenu.y }}
+          role="menu"
+          aria-label="Node actions"
+        >
+          <div id="automations-node-menu-heading" className="automation-node-menu__heading">
+            {getNodeMenuLabel(nodeMenu.nodeId, currentAutomation.steps)}
+          </div>
+          <button
+            id="automations-node-menu-edit"
+            type="button"
+            className="automation-node-menu__item"
+            onClick={() => openEditorForNode(nodeMenu.nodeId)}
+          >
+            Edit
+          </button>
+          <button
+            id="automations-node-menu-add-after"
+            type="button"
+            className="automation-node-menu__item"
+            onClick={() => {
+              const insertionIndex = nodeMenu.nodeId === "trigger-node"
+                ? 0
+                : currentAutomation.steps.findIndex((step) => `step-node-${step.id}` === nodeMenu.nodeId) + 1;
+              setPendingInsertIndex(Math.max(0, insertionIndex));
+              setAddStepModalOpen(true);
+              closeNodeMenu();
+            }}
+          >
+            Add step after
+          </button>
+          {nodeMenu.nodeId !== "trigger-node" ? (
+            <button
+              id="automations-node-menu-remove"
+              type="button"
+              className="automation-node-menu__item automation-node-menu__item--danger"
+              onClick={() => {
+                const stepId = nodeMenu.nodeId.replace("step-node-", "");
+                removeStepById(stepId);
               }}
-              onNodeDoubleClick={(_, node) => {
-                if (node.id !== "trigger-node") {
-                  return;
-                }
-                setTriggerSettingsModalOpen(true);
-                setSelectedNodeId("trigger-node");
-                setInspectorTab("configure");
-              }}
-              onNodeDragStop={(_, node) => {
-                if (!node.id.startsWith("step-node-")) {
-                  return;
-                }
-                const stepId = node.id.replace("step-node-", "");
-                const fromIndex = currentAutomation.steps.findIndex((step) => step.id === stepId);
-                if (fromIndex < 0) {
-                  return;
-                }
-                const targetIndex = Math.min(
-                  currentAutomation.steps.length - 1,
-                  Math.max(0, Math.round((node.position.y - 220) / 164))
-                );
-                if (targetIndex !== fromIndex) {
-                  updateStepOrder(reorderSteps(currentAutomation.steps, fromIndex, targetIndex));
-                }
-                setSelectedNodeId(node.id);
-              }}
-              minZoom={0.6}
-              maxZoom={1.4}
-              proOptions={{ hideAttribution: true }}
             >
-              <Background id="automations-canvas-background" color="#cbd5e1" gap={24} size={1.5} />
-              <MiniMap
-                id="automations-canvas-minimap"
-                pannable
-                zoomable
-                nodeColor={(node) => (node.id === "trigger-node" ? "#2563eb" : "#0f766e")}
-              />
-              <Controls id="automations-canvas-controls" position="bottom-left" />
-            </ReactFlow>
-          </div>
-        </section>
+              Remove step
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
-        <aside id="automations-inspector-panel" className="automation-panel automation-panel--inspector" hidden={triggerSettingsModalOpen}>
-          <Tabs.Root id="automations-inspector-tabs" value={inspectorTab} onValueChange={(value) => setInspectorTab(String(value))}>
-            <div id="automations-inspector-header" className="automation-panel__header">
-              <div id="automations-inspector-copy" className="automation-panel__copy">
-                <p id="automations-inspector-eyebrow" className="automation-panel__eyebrow">Inspector</p>
-                <div className="title-row">
-                  <h3 id="automations-inspector-title" className="automation-panel__title">{selectedStep ? selectedStep.name : "Trigger settings"}</h3>
-                  <button type="button" id="automations-inspector-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-inspector-description">i</button>
-                </div>
-                <p id="automations-inspector-description" className="automation-panel__description" hidden>
-                  {selectedStep ? "Configure the selected step and keep the linear execution path intact." : "Set the automation identity, trigger, and runtime availability."}
-                </p>
+      <Dialog.Root open={editorDrawer !== null} onOpenChange={(open) => { if (!open) closeEditorDrawer(); }}>
+        <Dialog.Portal>
+          <Dialog.Backdrop id="automations-editor-drawer-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
+          <Dialog.Popup id="automations-editor-drawer" className="automation-side-drawer automation-side-drawer--editor">
+            <div id="automations-editor-drawer-header" className="automation-side-drawer__header">
+              <div id="automations-editor-drawer-copy" className="automation-panel__copy">
+                <Dialog.Title id="automations-editor-drawer-title" className="automation-dialog__title">
+                  {editorDrawer?.kind === "trigger" ? "Edit trigger" : drawerStep?.name || "Edit step"}
+                </Dialog.Title>
+                <Dialog.Description id="automations-editor-drawer-description" className="automation-dialog__description">
+                  {editorDrawer?.kind === "trigger"
+                    ? "Configure when the workflow runs. Workflow naming stays separate in the builder header."
+                    : "Adjust the selected step. Essential fields come first, with optional custom labeling under Advanced."}
+                </Dialog.Description>
               </div>
+              <Dialog.Close id="automations-editor-drawer-close" className="button button--secondary">Close</Dialog.Close>
             </div>
-            <Tabs.List id="automations-inspector-tab-list" className="automation-tabs-list">
-              <Tabs.Tab id="automations-inspector-tab-configure" className="automation-tabs-tab" value="configure">Configure</Tabs.Tab>
-              <Tabs.Tab id="automations-inspector-tab-activity" className="automation-tabs-tab" value="activity">Activity</Tabs.Tab>
-              <Tabs.Indicator id="automations-inspector-tab-indicator" className="automation-tabs-indicator" />
-            </Tabs.List>
 
-            <Tabs.Panel id="automations-inspector-panel-configure" className="automation-tabs-panel" value="configure">
-              {!selectedStep ? (
+            <div id="automations-editor-drawer-body" className="automation-side-drawer__body">
+              {editorDrawer?.kind === "trigger" ? (
                 <TriggerSettingsForm
-                  idPrefix="automations-trigger-inspector"
+                  idPrefix="automations-trigger-drawer"
                   value={currentAutomation}
                   onPatch={patchAutomation}
+                  showWorkflowFields={false}
+                  showEnabledField={false}
                 />
-              ) : (
-                <div id="automations-step-form" className="automation-form">
-                  <label id="automations-step-name-field" className="automation-field automation-field--full">
-                    <span id="automations-step-name-label" className="automation-field__label">Step name</span>
-                    <input
-                      id="automations-step-name-input"
-                      className="automation-input"
-                      value={selectedStep.name}
-                      onChange={(event) => updateSelectedStep((step) => ({ ...step, name: event.target.value }))}
-                    />
-                  </label>
-
-                  <div id="automations-step-type-field" className="automation-field automation-field--full">
-                    <span id="automations-step-type-label" className="automation-field__label">Step type</span>
-                    <FlowSelect
-                      rootId="automations-step-type-input"
-                      labelId="automations-step-type-label"
-                      value={selectedStep.type}
-                      placeholder="Choose a step type"
-                      options={stepTypeOptions}
-                      onValueChange={(nextValue) => updateSelectedStep((step) => ({
-                        ...cloneStepTemplate(nextValue),
-                        id: step.id,
-                        name: cloneStepTemplate(nextValue).name
-                      }))}
-                    />
-                  </div>
-
-                  {selectedStep.type === "log" ? (
-                    <label id="automations-step-log-message-field" className="automation-field automation-field--full">
-                      <span id="automations-step-log-message-label" className="automation-field__label">Message</span>
-                      <textarea
-                        id="automations-step-log-message-input"
-                        className="automation-textarea"
-                        rows={4}
-                        value={selectedStep.config.message || ""}
-                        onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, message: event.target.value } }))}
-                      />
-                    </label>
-                  ) : null}
-
-                  {selectedStep.type === "outbound_request" ? (
-                    <>
-                      <div id="automations-step-http-method-field" className="automation-field automation-field--full">
-                        <span id="automations-step-http-method-label" className="automation-field__label">HTTP method</span>
-                        <FlowSelect
-                          rootId="automations-step-http-method-input"
-                          labelId="automations-step-http-method-label"
-                          value={(selectedStep.config.http_method || "POST") as "GET" | "POST" | "PUT" | "PATCH" | "DELETE"}
-                          placeholder="Choose a method"
-                          options={[
-                            { value: "GET", label: "GET" },
-                            { value: "POST", label: "POST" },
-                            { value: "PUT", label: "PUT" },
-                            { value: "PATCH", label: "PATCH" },
-                            { value: "DELETE", label: "DELETE" }
-                          ]}
-                          onValueChange={(nextValue) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, http_method: nextValue } }))}
-                        />
-                      </div>
-                      <label id="automations-step-http-connector-field" className="automation-field automation-field--full">
-                        <span id="automations-step-http-connector-label" className="automation-field__label">Saved connector</span>
-                        <select
-                          id="automations-step-http-connector-input"
-                          className="automation-native-select"
-                          value={selectedStep.config.connector_id || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, connector_id: event.target.value } }))}
-                        >
-                          <option value="">None</option>
-                          {connectors.map((connector) => (
-                            <option key={connector.id} value={connector.id}>{connector.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label id="automations-step-http-url-field" className="automation-field automation-field--full">
-                        <span id="automations-step-http-url-label" className="automation-field__label">Destination URL</span>
-                        <input
-                          id="automations-step-http-url-input"
-                          className="automation-input"
-                          value={selectedStep.config.destination_url || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, destination_url: event.target.value } }))}
-                        />
-                      </label>
-                      <label id="automations-step-http-payload-field" className="automation-field automation-field--full">
-                        <span id="automations-step-http-payload-label" className="automation-field__label">Payload template</span>
-                        <textarea
-                          id="automations-step-http-payload-input"
-                          className="automation-textarea automation-textarea--code"
-                          rows={6}
-                          value={selectedStep.config.payload_template || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, payload_template: event.target.value } }))}
-                        />
-                      </label>
-                    </>
-                  ) : null}
-
-                  {selectedStep.type === "script" ? (
-                    <label id="automations-step-script-id-field" className="automation-field automation-field--full">
-                      <span id="automations-step-script-id-label" className="automation-field__label">Script id</span>
-                      <input
-                        id="automations-step-script-id-input"
-                        className="automation-input"
-                        value={selectedStep.config.script_id || ""}
-                        onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, script_id: event.target.value } }))}
-                      />
-                    </label>
-                  ) : null}
-
-                  {selectedStep.type === "tool" ? (
-                    <>
-                      <label id="automations-step-tool-id-field" className="automation-field automation-field--full">
-                        <span id="automations-step-tool-id-label" className="automation-field__label">Tool</span>
-                        <select
-                          id="automations-step-tool-id-select"
-                          className="automation-input"
-                          value={selectedStep.config.tool_id || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({
-                            ...step,
-                            config: { ...step.config, tool_id: event.target.value, tool_inputs: {} }
-                          }))}
-                        >
-                          <option value="">Select a tool…</option>
-                          {(window.TOOLS_MANIFEST || []).map(tool => (
-                            <option key={tool.id} value={tool.id}>{tool.name}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      {(() => {
-                        const toolManifest = (window.TOOLS_MANIFEST || []).find(t => t.id === selectedStep.config.tool_id);
-                        if (!toolManifest || toolManifest.inputs.length === 0) return null;
-                        const toolInputs = selectedStep.config.tool_inputs || {};
-                        const updateInput = (key: string, value: string) =>
-                          updateSelectedStep((step) => ({
-                            ...step,
-                            config: {
-                              ...step.config,
-                              tool_inputs: { ...(step.config.tool_inputs || {}), [key]: value }
-                            }
-                          }));
-                        return (
-                          <>
-                            {toolManifest.inputs.map((field) => {
-                              const fieldId = `automations-step-tool-input-${field.key}`;
-                              const isFullWidth = field.type === "text";
-                              return (
-                                <label key={field.key} id={`${fieldId}-field`} className={`automation-field${isFullWidth ? " automation-field--full" : ""}`}>
-                                  <span id={`${fieldId}-label`} className="automation-field__label">
-                                    {field.label}{field.required ? " *" : ""}
-                                  </span>
-                                  {field.type === "text" ? (
-                                    <textarea
-                                      id={`${fieldId}-input`}
-                                      className="automation-textarea"
-                                      rows={4}
-                                      value={toolInputs[field.key] || ""}
-                                      onChange={(e) => updateInput(field.key, e.target.value)}
-                                    />
-                                  ) : field.type === "select" ? (
-                                    <select
-                                      id={`${fieldId}-input`}
-                                      className="automation-input"
-                                      value={toolInputs[field.key] || ""}
-                                      onChange={(e) => updateInput(field.key, e.target.value)}
-                                    >
-                                      <option value="">Select…</option>
-                                      {(field.options || []).map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      id={`${fieldId}-input`}
-                                      className="automation-input"
-                                      type={field.type === "number" ? "number" : "text"}
-                                      value={toolInputs[field.key] || ""}
-                                      onChange={(e) => updateInput(field.key, e.target.value)}
-                                    />
-                                  )}
-                                </label>
-                              );
-                            })}
-                            {toolManifest.outputs.length > 0 ? (
-                              <div id="automations-step-tool-outputs-panel" className="automation-tool-outputs">
-                                <span id="automations-step-tool-outputs-label" className="automation-field__label">Available outputs</span>
-                                <ul id="automations-step-tool-outputs-list" className="automation-tool-outputs__list">
-                                  {toolManifest.outputs.map((out) => (
-                                    <li key={out.key} id={`automations-step-tool-output-${out.key}`} className="automation-tool-outputs__item">
-                                      <code className="automation-tool-outputs__key">{"{{steps." + (selectedStep.name || "this_step") + "." + out.key + "}}"}</code>
-                                      <span className="automation-tool-outputs__desc">{out.label}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                          </>
-                        );
-                      })()}
-                    </>
-                  ) : null}
-
-                  {selectedStep.type === "condition" ? (
-                    <>
-                      <label id="automations-step-condition-expression-field" className="automation-field automation-field--full">
-                        <span id="automations-step-condition-expression-label" className="automation-field__label">Expression</span>
-                        <textarea
-                          id="automations-step-condition-expression-input"
-                          className="automation-textarea automation-textarea--code"
-                          rows={4}
-                          value={selectedStep.config.expression || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, expression: event.target.value } }))}
-                        />
-                      </label>
-                      <div id="automations-step-condition-stop-field" className="automation-switch-field">
-                        <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
-                          <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
-                          <span id="automations-step-condition-stop-description" className="automation-switch-field__description">
-                            Exit the workflow when the guard evaluates to false.
-                          </span>
-                        </div>
-                        <Switch.Root
-                          id="automations-step-condition-stop-input"
-                          checked={Boolean(selectedStep.config.stop_on_false)}
-                          onCheckedChange={(checked) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, stop_on_false: checked } }))}
-                          className="automation-switch"
-                        >
-                          <Switch.Thumb className="automation-switch__thumb" />
-                        </Switch.Root>
-                      </div>
-                    </>
-                  ) : null}
-
-                  {selectedStep.type === "llm_chat" ? (
-                    <>
-                      <label id="automations-step-llm-model-field" className="automation-field automation-field--full">
-                        <span id="automations-step-llm-model-label" className="automation-field__label">Model override</span>
-                        <input
-                          id="automations-step-llm-model-input"
-                          className="automation-input"
-                          value={selectedStep.config.model_identifier || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, model_identifier: event.target.value } }))}
-                        />
-                      </label>
-                      <label id="automations-step-llm-system-field" className="automation-field automation-field--full">
-                        <span id="automations-step-llm-system-label" className="automation-field__label">System prompt</span>
-                        <textarea
-                          id="automations-step-llm-system-input"
-                          className="automation-textarea automation-textarea--code"
-                          rows={5}
-                          value={selectedStep.config.system_prompt || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, system_prompt: event.target.value } }))}
-                        />
-                      </label>
-                      <label id="automations-step-llm-user-field" className="automation-field automation-field--full">
-                        <span id="automations-step-llm-user-label" className="automation-field__label">User prompt</span>
-                        <textarea
-                          id="automations-step-llm-user-input"
-                          className="automation-textarea automation-textarea--code"
-                          rows={7}
-                          value={selectedStep.config.user_prompt || ""}
-                          onChange={(event) => updateSelectedStep((step) => ({ ...step, config: { ...step.config, user_prompt: event.target.value } }))}
-                        />
-                      </label>
-                    </>
-                  ) : null}
-                </div>
-              )}
-
-            </Tabs.Panel>
-
-            <Tabs.Panel id="automations-inspector-panel-activity" className="automation-tabs-panel" value="activity">
-              <div id="automations-activity-panel" className="automation-activity-panel">
-                <article id="automations-activity-current-card" className="automation-activity-card">
-                  <span id="automations-activity-current-label" className="automation-activity-card__label">Current automation</span>
-                  <span id="automations-activity-current-value" className="automation-activity-card__value">{currentAutomation.name || "Unsaved draft"}</span>
-                </article>
-                <article id="automations-activity-next-run-card" className="automation-activity-card">
-                  <span id="automations-activity-next-run-label" className="automation-activity-card__label">Next run</span>
-                  <span id="automations-activity-next-run-value" className="automation-activity-card__value">{formatDateTime(currentAutomation.next_run_at)}</span>
-                </article>
-                <article id="automations-activity-last-tick-card" className="automation-activity-card">
-                  <span id="automations-activity-last-tick-label" className="automation-activity-card__label">Last scheduler tick</span>
-                  <span id="automations-activity-last-tick-value" className="automation-activity-card__value">{formatDateTime(runtimeStatus?.last_tick_finished_at)}</span>
-                </article>
-                <article id="automations-activity-error-card" className="automation-activity-card">
-                  <span id="automations-activity-error-label" className="automation-activity-card__label">Runtime error</span>
-                  <span id="automations-activity-error-value" className="automation-activity-card__value">{runtimeStatus?.last_error || "No recent runtime error."}</span>
-                </article>
-              </div>
-            </Tabs.Panel>
-          </Tabs.Root>
-        </aside>
-      </section>
-
-      <section id="automations-run-history-panel" className="automation-panel automation-panel--runs">
-        <div id="automations-run-history-header" className="automation-panel__header">
-          <div id="automations-run-history-copy" className="automation-panel__copy">
-            <p id="automations-run-history-eyebrow" className="automation-panel__eyebrow">Run history</p>
-            <div className="title-row">
-              <h3 id="automations-run-history-title" className="automation-panel__title">Execution timeline</h3>
-              <button type="button" id="automations-run-history-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-run-history-description">i</button>
+              ) : drawerStep ? renderStepEditor(drawerStep) : null}
             </div>
-            <p id="automations-run-history-description" className="automation-panel__description" hidden>Review runs and open step traces.</p>
-          </div>
-        </div>
-        <div id="automations-run-history-layout" className="automation-run-history-layout">
-          <div id="automations-run-list" className="automation-run-list">
-            {runs.length > 0 ? runs.map((run) => (
-              <button
-                key={run.run_id}
-                id={`automations-run-list-item-${run.run_id}`}
-                type="button"
-                className={selectedRun?.run_id === run.run_id ? "automation-run-card automation-run-card--selected" : "automation-run-card"}
-                onClick={() => {
-                  loadRunDetail(run.run_id).catch((error: Error) => {
-                    setFeedback(error.message);
-                    setFeedbackTone("error");
-                  });
-                }}
-              >
-                <span id={`automations-run-list-status-${run.run_id}`} className={`automation-run-card__status automation-run-card__status--${getRunStatusTone(run.status)}`}>
-                  {run.status}
-                </span>
-                <span id={`automations-run-list-trigger-${run.run_id}`} className="automation-run-card__title">{run.trigger_type}</span>
-                <span id={`automations-run-list-started-${run.run_id}`} className="automation-run-card__meta">{formatDateTime(run.started_at)}</span>
-                <span id={`automations-run-list-duration-${run.run_id}`} className="automation-run-card__meta">{formatDuration(run.duration_ms)}</span>
-              </button>
-            )) : (
-              <div id="automations-run-history-empty-state" className="automation-empty-state">
-                No runs yet.
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={testResults !== null} onOpenChange={(open) => { if (!open) setTestResults(null); }}>
+        <Dialog.Portal>
+          <Dialog.Backdrop id="automations-test-results-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
+          <Dialog.Popup id="automations-test-results-drawer" className="automation-side-drawer automation-side-drawer--results">
+            <div id="automations-test-results-header" className="automation-side-drawer__header">
+              <div id="automations-test-results-copy" className="automation-panel__copy">
+                <Dialog.Title id="automations-test-results-title" className="automation-dialog__title">
+                  {testResults?.kind === "validation" ? "Validation results" : "Test run results"}
+                </Dialog.Title>
+                <Dialog.Description id="automations-test-results-description" className="automation-dialog__description">
+                  {testResults?.kind === "validation"
+                    ? "Validation only appears when you test the draft."
+                    : "Execution output is shown on demand so the builder can stay focused on composition."}
+                </Dialog.Description>
               </div>
-            )}
-          </div>
-          <div id="automations-run-detail-panel" className="automation-run-detail-panel">
-            {selectedRun ? (
-              <>
-                <div id="automations-run-detail-header" className="automation-run-detail-header">
-                  <div id="automations-run-detail-copy" className="automation-panel__copy">
-                    <h4 id="automations-run-detail-title" className="automation-panel__title automation-panel__title--compact">Run {selectedRun.run_id}</h4>
-                    <p id="automations-run-detail-description" className="automation-panel__description">
-                      {selectedRun.status} · {formatDateTime(selectedRun.started_at)} · {formatDuration(selectedRun.duration_ms)}
-                    </p>
+              <Dialog.Close id="automations-test-results-close" className="button button--secondary">Close</Dialog.Close>
+            </div>
+
+            <div id="automations-test-results-body" className="automation-side-drawer__body automation-side-drawer__body--results">
+              {testResults?.kind === "validation" ? (
+                <div id="automations-validation-results" className="automation-results-panel">
+                  <div id="automations-validation-summary" className={`automation-results-banner automation-results-banner--${testResults.valid ? "success" : "error"}`}>
+                    {testResults.valid ? "No validation issues detected." : `${testResults.issues.length} validation issue${testResults.issues.length === 1 ? "" : "s"} found.`}
+                  </div>
+                  {testResults.issues.length > 0 ? (
+                    <ul id="automations-validation-issues" className="automation-results-list">
+                      {testResults.issues.map((issue, index) => (
+                        <li key={`${issue}-${index}`} id={`automations-validation-issue-${index}`} className="automation-results-list__item">
+                          {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : testResults?.kind === "run" ? (
+                <div id="automations-run-results" className="automation-results-panel automation-results-panel--run">
+                  <div id="automations-run-results-summary" className="automation-results-grid">
+                    <article id="automations-run-results-status-card" className="automation-runtime-stat">
+                      <span id="automations-run-results-status-label" className="automation-runtime-stat__label">Status</span>
+                      <span id="automations-run-results-status-value" className="automation-runtime-stat__value">{testResults.run.status}</span>
+                    </article>
+                    <article id="automations-run-results-trigger-card" className="automation-runtime-stat">
+                      <span id="automations-run-results-trigger-label" className="automation-runtime-stat__label">Trigger</span>
+                      <span id="automations-run-results-trigger-value" className="automation-runtime-stat__value">{testResults.run.trigger_type}</span>
+                    </article>
+                    <article id="automations-run-results-started-card" className="automation-runtime-stat">
+                      <span id="automations-run-results-started-label" className="automation-runtime-stat__label">Started</span>
+                      <span id="automations-run-results-started-value" className="automation-runtime-stat__value">{formatDateTime(testResults.run.started_at)}</span>
+                    </article>
+                    <article id="automations-run-results-duration-card" className="automation-runtime-stat">
+                      <span id="automations-run-results-duration-label" className="automation-runtime-stat__label">Duration</span>
+                      <span id="automations-run-results-duration-value" className="automation-runtime-stat__value">{formatDuration(testResults.run.duration_ms)}</span>
+                    </article>
+                  </div>
+
+                  <div id="automations-run-results-steps" className="automation-run-step-list">
+                    {testResults.run.steps.map((step, index) => (
+                      <article key={step.step_id} id={`automations-run-step-${step.step_id}`} className="automation-run-step-card">
+                        <div id={`automations-run-step-header-${step.step_id}`} className="automation-run-step-card__header">
+                          <span id={`automations-run-step-index-${step.step_id}`} className="automation-run-step-card__index">{index + 1}</span>
+                          <div id={`automations-run-step-copy-${step.step_id}`} className="automation-run-step-card__copy">
+                            <span id={`automations-run-step-name-${step.step_id}`} className="automation-run-step-card__title">{step.step_name}</span>
+                            <span id={`automations-run-step-status-${step.step_id}`} className={`automation-run-step-card__status automation-run-step-card__status--${getRunStatusTone(step.status)}`}>{step.status}</span>
+                          </div>
+                          <span id={`automations-run-step-duration-${step.step_id}`} className="automation-run-step-card__meta">{formatDuration(step.duration_ms)}</span>
+                        </div>
+                        <p id={`automations-run-step-request-${step.step_id}`} className="automation-run-step-card__text">{step.request_summary || "No request summary recorded."}</p>
+                        <p id={`automations-run-step-response-${step.step_id}`} className="automation-run-step-card__text">{step.response_summary || "No response summary recorded."}</p>
+                      </article>
+                    ))}
                   </div>
                 </div>
-                <div id="automations-run-detail-steps" className="automation-run-step-list">
-                  {selectedRun.steps.map((step, index) => (
-                    <article key={step.step_id} id={`automations-run-step-${step.step_id}`} className="automation-run-step-card">
-                      <div id={`automations-run-step-header-${step.step_id}`} className="automation-run-step-card__header">
-                        <span id={`automations-run-step-index-${step.step_id}`} className="automation-run-step-card__index">{index + 1}</span>
-                        <div id={`automations-run-step-copy-${step.step_id}`} className="automation-run-step-card__copy">
-                          <span id={`automations-run-step-name-${step.step_id}`} className="automation-run-step-card__title">{step.step_name}</span>
-                          <span id={`automations-run-step-status-${step.step_id}`} className={`automation-run-step-card__status automation-run-step-card__status--${getRunStatusTone(step.status)}`}>{step.status}</span>
-                        </div>
-                        <span id={`automations-run-step-duration-${step.step_id}`} className="automation-run-step-card__meta">{formatDuration(step.duration_ms)}</span>
-                      </div>
-                      <p id={`automations-run-step-request-${step.step_id}`} className="automation-run-step-card__text">{step.request_summary || "No request summary recorded."}</p>
-                      <p id={`automations-run-step-response-${step.step_id}`} className="automation-run-step-card__text">{step.response_summary || "No response summary recorded."}</p>
-                    </article>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div id="automations-run-detail-empty-state" className="automation-empty-state">
-                Select a run to inspect the step-by-step trace.
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+              ) : null}
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <AddStepModal
         open={addStepModalOpen}
         onClose={() => setAddStepModalOpen(false)}
-        onAdd={(step) => { appendStep(step); setAddStepModalOpen(false); }}
+        onAdd={(step) => {
+          insertStep(step, pendingInsertIndex);
+          setAddStepModalOpen(false);
+        }}
         connectors={connectors}
         toolsManifest={window.TOOLS_MANIFEST || []}
         scripts={window.SCRIPTS}
-      />
-
-      <TriggerSettingsModal
-        open={triggerSettingsModalOpen}
-        onClose={() => {
-          setTriggerSettingsModalOpen(false);
-          setSelectedNodeId("trigger-node");
-        }}
-        value={currentAutomation}
-        onPatch={patchAutomation}
       />
 
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1142,7 +1402,7 @@ export const AutomationApp = () => {
           <Dialog.Popup id="automations-delete-dialog" className="automation-dialog">
             <Dialog.Title id="automations-delete-dialog-title" className="automation-dialog__title">Delete automation?</Dialog.Title>
             <Dialog.Description id="automations-delete-dialog-description" className="automation-dialog__description">
-              This removes the automation definition and its step layout. Existing run history stays available only through the recorded runs API.
+              This removes the automation definition and its step layout. Existing run history stays available through recorded runs.
             </Dialog.Description>
             <div id="automations-delete-dialog-actions" className="automation-dialog__actions">
               <Dialog.Close id="automations-delete-dialog-cancel" className="button button--secondary">Cancel</Dialog.Close>

@@ -12,11 +12,29 @@ const toolsElements = {
   feedback: document.getElementById("tool-detail-form-feedback"),
   saveButton: document.getElementById("tool-detail-save-button"),
   configLink: document.getElementById("tool-detail-config-link"),
+  detailModal: document.getElementById("tool-detail-modal"),
+  modalCloseButtons: Array.from(document.querySelectorAll("[data-modal-close='tool-detail-modal']")),
 };
 
 let toolsCatalog = [];
 let activeToolId = null;
 let savingTool = false;
+
+const openDetailModal = () => {
+  if (!toolsElements.detailModal) {
+    return;
+  }
+  toolsElements.detailModal.classList.add("modal--open");
+  document.body.classList.add("modal-open");
+};
+
+const closeDetailModal = () => {
+  if (!toolsElements.detailModal) {
+    return;
+  }
+  toolsElements.detailModal.classList.remove("modal--open");
+  document.body.classList.remove("modal-open");
+};
 
 const emitToolsDirectoryUpdated = () => {
   window.dispatchEvent(new CustomEvent("malcom:tools-directory-updated"));
@@ -98,6 +116,7 @@ const buildToolCard = (tool) => {
   card.addEventListener("click", () => {
     activeToolId = tool.id;
     render();
+    openDetailModal();
   });
   return card;
 };
@@ -202,6 +221,16 @@ toolsElements.form?.addEventListener("submit", async (event) => {
     savingTool = false;
     toolsElements.saveButton.disabled = false;
     toolsElements.saveButton.textContent = "Save tool";
+  }
+});
+
+toolsElements.modalCloseButtons.forEach((button) => {
+  button.addEventListener("click", closeDetailModal);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && toolsElements.detailModal?.classList.contains("modal--open")) {
+    closeDetailModal();
   }
 });
 

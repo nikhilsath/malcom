@@ -81,68 +81,76 @@
 
                         <div id="scripts-library-list" class="script-library-list" aria-live="polite"></div>
                     </section>
-
-                    <section id="scripts-library-editor-panel" class="script-library-panel script-library-panel--editor" aria-labelledby="scripts-library-editor-title">
-                        <div id="scripts-library-editor-header" class="section-header script-panel-header">
-                            <div id="scripts-library-editor-copy" class="section-header__copy">
-                                <p id="scripts-library-editor-eyebrow" class="section-header__eyebrow">Editor</p>
-                                <div class="title-row">
-                                    <h3 id="scripts-library-editor-title" class="section-header__title">Script definition</h3>
-                                    <button type="button" id="scripts-library-editor-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="scripts-library-editor-description">i</button>
-                                </div>
-                                <p id="scripts-library-editor-description" class="section-header__description" hidden>Validate the script before saving.</p>
-                            </div>
-                            <div id="scripts-library-validation-chip" class="script-validation-chip script-validation-chip--unknown">Not validated</div>
-                        </div>
-
-                        <form id="scripts-library-form" class="api-form script-library-form">
-                            <input id="scripts-library-script-id-input" type="hidden" value="">
-
-                            <div id="scripts-library-form-grid" class="api-form-grid">
-                                <label id="scripts-library-name-field" class="api-form-field">
-                                    <span id="scripts-library-name-label" class="api-form-label">Name</span>
-                                    <input id="scripts-library-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
-                                </label>
-
-                                <label id="scripts-library-language-field" class="api-form-field">
-                                    <span id="scripts-library-language-label" class="api-form-label">Language</span>
-                                    <select id="scripts-library-language-input" class="api-form-input" name="language">
-                                        <option value="python">Python</option>
-                                        <option value="javascript">JavaScript</option>
-                                    </select>
-                                </label>
-
-                                <label id="scripts-library-description-field" class="api-form-field api-form-field--full">
-                                    <span id="scripts-library-description-label" class="api-form-label">Description</span>
-                                    <textarea id="scripts-library-description-input" class="api-form-textarea" name="description" rows="3" maxlength="500"></textarea>
-                                </label>
-
-                                <div id="scripts-library-editor-field" class="api-form-field api-form-field--full script-editor-field">
-                                    <div id="scripts-library-editor-toolbar" class="script-editor-toolbar">
-                                        <div id="scripts-library-editor-toolbar-copy" class="script-editor-toolbar-copy">
-                                            <span id="scripts-library-editor-toolbar-label" class="api-form-label">Source code</span>
-                                            <span id="scripts-library-editor-toolbar-help" class="script-editor-toolbar-help">Language controls highlighting and validation.</span>
-                                        </div>
-                                        <button type="button" id="scripts-library-validate-button" class="button button--secondary secondary-action-button">Validate</button>
-                                    </div>
-                                    <div id="scripts-library-editor-shell" class="script-editor-shell">
-                                        <div id="scripts-library-editor"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="scripts-library-validation-feedback" class="api-form-feedback" aria-live="polite"></div>
-                            <div id="scripts-library-form-feedback" class="api-form-feedback" aria-live="polite"></div>
-
-                            <div id="scripts-library-form-actions" class="api-form-actions">
-                                <button type="submit" id="scripts-library-save-button" class="primary-action-button">Save script</button>
-                            </div>
-                        </form>
-                    </section>
                 </div>
             </section>
         </div>
     </main>
+
+    <div id="scripts-library-editor-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="scripts-library-editor-title" aria-describedby="scripts-library-editor-description">
+        <button type="button" id="scripts-library-editor-modal-backdrop" class="modal__backdrop" data-modal-close="scripts-library-editor-modal" aria-label="Close script editor"></button>
+        <div class="modal__dialog modal__dialog--form script-editor-modal-dialog">
+            <div class="modal__content">
+                <section id="scripts-library-editor-panel" class="modal__panel script-library-panel script-library-panel--editor" aria-labelledby="scripts-library-editor-title">
+                    <div id="scripts-library-editor-header" class="section-header modal__header script-panel-header">
+                        <div id="scripts-library-editor-copy" class="section-header__copy modal__header-copy">
+                            <p id="scripts-library-editor-eyebrow" class="section-header__eyebrow modal__eyebrow">Editor</p>
+                            <div class="title-row">
+                                <h3 id="scripts-library-editor-title" class="section-header__title modal__title">Script definition</h3>
+                                <button type="button" id="scripts-library-editor-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="scripts-library-editor-description">i</button>
+                            </div>
+                            <p id="scripts-library-editor-description" class="section-header__description modal__description" hidden>Validate the script before saving.</p>
+                        </div>
+                        <div id="scripts-library-validation-chip" class="script-validation-chip script-validation-chip--unknown">Not validated</div>
+                        <button type="button" id="scripts-library-editor-modal-close" class="button button--secondary modal__close-button" data-modal-close="scripts-library-editor-modal" aria-label="Close script editor">Close</button>
+                    </div>
+
+                    <form id="scripts-library-form" class="api-form script-library-form modal__body modal__body--form">
+                        <input id="scripts-library-script-id-input" type="hidden" value="">
+
+                        <div id="scripts-library-form-grid" class="api-form-grid">
+                            <label id="scripts-library-name-field" class="api-form-field">
+                                <span id="scripts-library-name-label" class="api-form-label">Name</span>
+                                <input id="scripts-library-name-input" class="api-form-input" name="name" type="text" maxlength="120" required>
+                            </label>
+
+                            <label id="scripts-library-language-field" class="api-form-field">
+                                <span id="scripts-library-language-label" class="api-form-label">Language</span>
+                                <select id="scripts-library-language-input" class="api-form-input" name="language">
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                </select>
+                            </label>
+
+                            <label id="scripts-library-description-field" class="api-form-field api-form-field--full">
+                                <span id="scripts-library-description-label" class="api-form-label">Description</span>
+                                <textarea id="scripts-library-description-input" class="api-form-textarea" name="description" rows="3" maxlength="500"></textarea>
+                            </label>
+
+                            <div id="scripts-library-editor-field" class="api-form-field api-form-field--full script-editor-field">
+                                <div id="scripts-library-editor-toolbar" class="script-editor-toolbar">
+                                    <div id="scripts-library-editor-toolbar-copy" class="script-editor-toolbar-copy">
+                                        <span id="scripts-library-editor-toolbar-label" class="api-form-label">Source code</span>
+                                        <span id="scripts-library-editor-toolbar-help" class="script-editor-toolbar-help">Language controls highlighting and validation.</span>
+                                    </div>
+                                    <button type="button" id="scripts-library-validate-button" class="button button--secondary secondary-action-button">Validate</button>
+                                </div>
+                                <div id="scripts-library-editor-shell" class="script-editor-shell">
+                                    <div id="scripts-library-editor"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="scripts-library-validation-feedback" class="api-form-feedback" aria-live="polite"></div>
+                        <div id="scripts-library-form-feedback" class="api-form-feedback" aria-live="polite"></div>
+
+                        <div id="scripts-library-form-actions" class="api-form-actions">
+                            <button type="submit" id="scripts-library-save-button" class="primary-action-button">Save script</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="../scripts/utils.js"></script>
     <script type="module" src="../scripts/log-store.js"></script>

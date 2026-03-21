@@ -6,10 +6,7 @@
 }
 
 .tools-directory-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: var(--space-5);
-  align-items: start;
+  display: block;
 }
 
 .tools-selection-status {
@@ -28,7 +25,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: 20px;
+  padding: var(--space-4);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -68,14 +65,14 @@
 }
 
 .tool-card__title {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .tool-card__state {
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 
@@ -94,7 +91,7 @@
 }
 
 .tool-card__meta {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 
@@ -120,7 +117,7 @@
 
 .selected-tools-value {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -148,10 +145,10 @@
 
 .tool-config-checklist {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   color: var(--muted);
 }
 
@@ -185,7 +182,7 @@
 .local-llm-chat-transcript {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   max-height: 420px;
   overflow: auto;
 }
@@ -193,8 +190,8 @@
 .local-llm-chat-message {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
+  gap: var(--space-2);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--panel);
@@ -215,7 +212,7 @@
 }
 
 .local-llm-chat-message__role {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -257,9 +254,9 @@
 }
 
 .smtp-summary-card__support {
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .smtp-layout {
@@ -316,8 +313,8 @@
 .smtp-receive-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--primary-soft);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface-accent), var(--panel));
@@ -325,7 +322,7 @@
 
 .smtp-receive-card__address {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   word-break: break-word;
 }
@@ -339,7 +336,7 @@
 .smtp-action-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .smtp-action-grid {
@@ -355,15 +352,15 @@
 .smtp-mailbox-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .smtp-mailbox-item {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg);
@@ -409,19 +406,19 @@
 }
 
 .smtp-mailbox-item__subject {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .smtp-mailbox-item__timestamp,
 .smtp-mailbox-item__meta {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .smtp-mailbox-item__preview {
   color: var(--text);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
 }
 
 .smtp-message-detail {
@@ -439,19 +436,19 @@
 .smtp-message-detail__section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .smtp-message-detail__section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .smtp-message-detail__section-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .smtp-message-detail__code {
@@ -515,7 +512,7 @@
 .storage-type-grid__label {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -529,7 +526,7 @@
 
 .storage-config-section {
   gap: var(--space-4);
-  padding: 20px;
+  padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: linear-gradient(180deg, var(--panel), var(--surface-accent));
@@ -542,12 +539,12 @@
 .storage-config-section__copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .storage-config-section__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .storage-config-section__description {
@@ -564,14 +561,14 @@
 .storage-preview-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .storage-preview-list__row {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
-  padding-bottom: 12px;
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -581,7 +578,7 @@
 }
 
 .storage-preview-list__key {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -598,10 +595,10 @@
 
 .storage-checklist {
   margin: 0;
-  padding-left: 20px;
+  padding-left: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
   color: var(--muted);
 }
 

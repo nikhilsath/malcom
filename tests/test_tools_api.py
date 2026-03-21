@@ -189,6 +189,44 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(response.json()["response_text"], "Hello from local model.")
         execute_chat.assert_called_once()
 
+    def test_local_llm_stream_endpoint_uses_saved_tool_config(self) -> None:
+        self.client.patch(
+            "/api/v1/tools/llm-deepl/local-llm",
+            json={
+                "enabled": True,
+                "provider": "lm_studio_api_v1",
+                "server_base_url": "http://127.0.0.1:1234",
+                "model_identifier": "qwen/qwen3.5-9b",
+                "endpoints": {
+                    "chat": "/api/v1/chat",
+                },
+            },
+        )
+
+        with mock.patch(
+            "backend.routes.tools.build_local_llm_stream",
+            return_value=iter(
+                [
+                    b'event: delta\ndata: {"content": "Hello "}\n\n',
+                    b'event: done\ndata: {"response_text": "Hello stream"}\n\n',
+                ]
+            ),
+        ) as build_stream:
+            response = self.client.post(
+                "/api/v1/tools/llm-deepl/chat/stream",
+                json={
+                    "messages": [
+                        {"role": "user", "content": "Stream hello"}
+                    ]
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/event-stream", response.headers["content-type"])
+        self.assertIn('"content": "Hello "', response.text)
+        self.assertIn('"response_text": "Hello stream"', response.text)
+        build_stream.assert_called_once()
+
     def test_local_llm_chat_request_falls_back_to_openai_route_on_native_404(self) -> None:
         self.client.patch(
             "/api/v1/tools/llm-deepl/local-llm",
@@ -320,6 +358,46 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertNotIn("system", body)
         self.assertIn("System instructions:\nReply with yes only.", body["input"])
         self.assertIn("User: Test Message", body["input"])
+
+    def test_reads_and_updates_coqui_tts_tool_config(self) -> None:
+        initial_response = self.client.get("/api/v1/tools/coqui-tts")
+        self.assertEqual(initial_response.status_code, 200)
+        self.assertEqual(initial_response.json()["tool_id"], "coqui-tts")
+
+        update_response = self.client.patch(
+            "/api/v1/tools/coqui-tts",
+            json={
+                "enabled": True,
+                "command": "tts",
+                "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+                "speaker": "ljspeech",
+                "language": "en",
+                "output_directory": "generated-audio",
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        body = update_response.json()
+        self.assertTrue(body["config"]["enabled"])
+        self.assertEqual(body["config"]["command"], "tts")
+        self.assertEqual(body["config"]["language"], "en")
+        self.assertTrue(body["config"]["output_directory"].endswith("generated-audio"))
+
+    def test_updates_tool_metadata_via_generic_patch_endpoint(self) -> None:
+        response = self.client.patch(
+            "/api/v1/tools/convert-audio",
+            json={
+                "name": "Convert - Audio Runtime",
+                "description": "Updated through the generic metadata route.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["id"], "convert-audio")
+        self.assertEqual(response.json()["name"], "Convert - Audio Runtime")
+        self.assertEqual(response.json()["description"], "Updated through the generic metadata route.")
+
+        manifest_source = (self.root_dir / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
+        self.assertIn("Convert - Audio Runtime", manifest_source)
 
 
 if __name__ == "__main__":

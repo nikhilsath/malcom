@@ -11,12 +11,12 @@
 }
 
 .settings-section__header {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .settings-card__title {
   margin: 0 0 var(--space-2);
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -37,8 +37,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 .settings-option-card__copy {
@@ -48,7 +48,7 @@
 
 .settings-option-card__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -67,7 +67,7 @@
 
 .settings-connectors-summary-value {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.125rem;
   font-weight: 700;
 }
 

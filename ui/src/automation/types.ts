@@ -103,6 +103,8 @@ export const stepTemplates: Record<StepType, AutomationStep> = {
 let _draftStepSequence = 1;
 export const createDraftStepId = () => `draft-step-${_draftStepSequence++}`;
 
+export const getDefaultStepName = (stepType: StepType) => stepTemplates[stepType].name;
+
 export const cloneStepTemplate = (stepType: StepType): AutomationStep => ({
   ...stepTemplates[stepType],
   id: createDraftStepId(),

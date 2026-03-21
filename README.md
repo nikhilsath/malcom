@@ -216,6 +216,39 @@ For frontend development, prefer **TypeScript over JavaScript** for components, 
 
 * macOS launchd
 
+## Testing Workflow
+
+Default local validation before commits:
+
+```bash
+./scripts/test-precommit.sh
+```
+
+This runs:
+
+* backend `pytest` coverage-oriented validation against the configured PostgreSQL database
+* frontend `npm run test`
+* frontend `npm run build`
+
+Expanded validation:
+
+```bash
+./scripts/test-full.sh
+```
+
+This adds:
+
+* route-level API smoke coverage from `tests/api_smoke_registry.py`
+* browser smoke coverage through Playwright in `ui/e2e/`
+* the informational external probe report from `scripts/test-external-probes.py`
+
+Prerequisites:
+
+* set `MALCOM_DATABASE_URL` to a reachable local PostgreSQL instance
+* install backend dependencies from `requirements.txt`
+* install frontend dependencies in `ui/`
+* for browser smoke tests, run `cd ui && npm run test:e2e:install` at least once to install Chromium
+
 ---
 
 # Tool Development
