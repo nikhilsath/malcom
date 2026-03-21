@@ -304,13 +304,12 @@ describe("AutomationApp", () => {
     const { container } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-library-item-automation-daily-ingest")).toBeInTheDocument();
+      expect(document.querySelector("#automations-summary-title")).toHaveTextContent("Daily ingest");
     });
 
     expect(container.querySelector("#automations-canvas-panel")).toBeInTheDocument();
     expect(container.querySelector("#automations-inspector-panel")).toBeInTheDocument();
     expect(container.querySelector("#automations-run-history-panel")).toBeInTheDocument();
-    expect(container.querySelector("#automations-library-item-name-automation-daily-ingest")).toHaveTextContent("Daily ingest");
   });
 
   it("hydrates canvas nodes for the selected automation", async () => {
@@ -391,7 +390,7 @@ describe("AutomationApp", () => {
 
   it("keeps the legacy APIs automation page redirecting to the new route", () => {
     const redirectHtml = readFileSync(resolve(process.cwd(), "apis/automation.html"), "utf8");
-    expect(redirectHtml).toContain("../automations/overview.html");
+    expect(redirectHtml).toContain("../automations/library.html");
     expect(redirectHtml).toContain("window.location.replace");
   });
 });

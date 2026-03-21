@@ -24,7 +24,7 @@
                 <div id="apis-overview-copy" class="section-header api-overview-header">
                     <div id="apis-overview-copy-block" class="section-header__copy api-overview-copy">
                         <p id="apis-overview-eyebrow" class="section-header__eyebrow api-overview-eyebrow">API Registry</p>
-                        <h3 id="apis-overview-content-title" class="section-header__title api-overview-title">Top level view across configured API surfaces</h3>
+                        <h3 id="apis-overview-content-title" class="section-header__title api-overview-title">Configured API surfaces</h3>
                     </div>
                     <div id="apis-overview-status" class="section-status stat-card api-overview-status" aria-live="polite">
                         <span id="apis-overview-total-count" class="api-overview-count">0 configured APIs</span>
@@ -44,27 +44,27 @@
                             </div>
                         </div>
                     </div>
-                    <div id="apis-overview-actions-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Pick the API type first so the create form only shows fields for that workflow.</div>
+                    <div id="apis-overview-actions-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Choose a type to open the matching create form.</div>
                     <div id="apis-overview-action-grid" class="api-entry-grid">
                         <button type="button" id="apis-overview-create-incoming" class="api-entry-card" data-create-api-type="incoming">
                             <span id="apis-overview-create-incoming-title" class="api-entry-card__title">Incoming endpoint</span>
-                            <span id="apis-overview-create-incoming-description" class="api-entry-card__description">Provision a bearer-protected callback path for inbound JSON requests.</span>
+                            <span id="apis-overview-create-incoming-description" class="api-entry-card__description">Create an inbound endpoint.</span>
                         </button>
                         <button type="button" id="apis-overview-create-outgoing-scheduled" class="api-entry-card" data-create-api-type="outgoing_scheduled">
                             <span id="apis-overview-create-outgoing-scheduled-title" class="api-entry-card__title">Scheduled delivery</span>
-                            <span id="apis-overview-create-outgoing-scheduled-description" class="api-entry-card__description">Send a payload to a destination on a defined daily schedule.</span>
+                            <span id="apis-overview-create-outgoing-scheduled-description" class="api-entry-card__description">Send payloads on a daily schedule.</span>
                         </button>
                         <button type="button" id="apis-overview-create-outgoing-continuous" class="api-entry-card" data-create-api-type="outgoing_continuous">
                             <span id="apis-overview-create-outgoing-continuous-title" class="api-entry-card__title">Continuous delivery</span>
-                            <span id="apis-overview-create-outgoing-continuous-description" class="api-entry-card__description">Keep an outbound delivery ready for repeated sends at a fixed interval.</span>
+                            <span id="apis-overview-create-outgoing-continuous-description" class="api-entry-card__description">Send payloads on a repeat interval.</span>
                         </button>
                         <button type="button" id="apis-overview-create-from-connector" class="api-entry-card" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">
                             <span id="apis-overview-create-from-connector-title" class="api-entry-card__title">Create from connector</span>
-                            <span id="apis-overview-create-from-connector-description" class="api-entry-card__description">Start with a saved Google, GitHub, Slack, Notion, Trello, or generic connector.</span>
+                            <span id="apis-overview-create-from-connector-description" class="api-entry-card__description">Start from a saved connector.</span>
                         </button>
                         <button type="button" id="apis-overview-create-webhook" class="api-entry-card" data-create-api-type="webhook">
                             <span id="apis-overview-create-webhook-title" class="api-entry-card__title">Webhook definition</span>
-                            <span id="apis-overview-create-webhook-description" class="api-entry-card__description">Register callback verification and signature settings for an external publisher.</span>
+                            <span id="apis-overview-create-webhook-description" class="api-entry-card__description">Store webhook verification settings.</span>
                         </button>
                     </div>
                 </section>
@@ -76,7 +76,7 @@
                             <button type="button" id="apis-overview-summary-scheduled-active-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain active scheduled calls" aria-expanded="false" aria-controls="apis-overview-summary-scheduled-active-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-scheduled-active-value" class="api-summary-value">0</p>
-                        <div id="apis-overview-summary-scheduled-active-tooltip" class="api-tooltip-content" role="tooltip" hidden>Counts scheduled outbound APIs whose stored status is <strong>active</strong>.</div>
+                        <div id="apis-overview-summary-scheduled-active-tooltip" class="api-tooltip-content" role="tooltip" hidden>Scheduled outbound APIs with status <strong>active</strong>.</div>
                     </article>
                     <article id="apis-overview-summary-calls-hour" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-calls-hour-header" class="api-summary-card__header">
@@ -84,7 +84,7 @@
                             <button type="button" id="apis-overview-summary-calls-hour-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per hour" aria-expanded="false" aria-controls="apis-overview-summary-calls-hour-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-calls-hour-value" class="api-summary-value">0.0</p>
-                        <div id="apis-overview-summary-calls-hour-tooltip" class="api-tooltip-content" role="tooltip" hidden>Calculated as scheduled calls divided by 24, plus one active continuous stream per hour.</div>
+                        <div id="apis-overview-summary-calls-hour-tooltip" class="api-tooltip-content" role="tooltip" hidden>Estimated hourly calls from scheduled and continuous deliveries.</div>
                     </article>
                     <article id="apis-overview-summary-calls-day" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-calls-day-header" class="api-summary-card__header">
@@ -92,7 +92,7 @@
                             <button type="button" id="apis-overview-summary-calls-day-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per day" aria-expanded="false" aria-controls="apis-overview-summary-calls-day-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-calls-day-value" class="api-summary-value">0.0</p>
-                        <div id="apis-overview-summary-calls-day-tooltip" class="api-tooltip-content" role="tooltip" hidden>Calculated as daily scheduled calls plus 24 hourly intervals for each active continuous stream.</div>
+                        <div id="apis-overview-summary-calls-day-tooltip" class="api-tooltip-content" role="tooltip" hidden>Estimated daily calls from scheduled and continuous deliveries.</div>
                     </article>
                     <article id="apis-overview-summary-monitored-webhooks" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-monitored-webhooks-header" class="api-summary-card__header">
@@ -100,7 +100,7 @@
                             <button type="button" id="apis-overview-summary-monitored-webhooks-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain monitored webhooks" aria-expanded="false" aria-controls="apis-overview-summary-monitored-webhooks-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-monitored-webhooks-value" class="api-summary-value">0</p>
-                        <div id="apis-overview-summary-monitored-webhooks-tooltip" class="api-tooltip-content" role="tooltip" hidden>Counts enabled webhook records currently being monitored on this instance.</div>
+                        <div id="apis-overview-summary-monitored-webhooks-tooltip" class="api-tooltip-content" role="tooltip" hidden>Enabled webhook records on this instance.</div>
                     </article>
                 </div>
 
@@ -115,10 +115,10 @@
                             </div>
                             <a id="apis-overview-incoming-link" class="button button--secondary secondary-action-button" href="incoming.html">Open incoming registry</a>
                         </div>
-                        <div id="apis-overview-incoming-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Inbound endpoints created in Malcom, including bearer-authenticated callback paths and their current enablement state.</div>
+                        <div id="apis-overview-incoming-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Inbound endpoints and current status.</div>
                         <div id="apis-overview-incoming-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-incoming-empty-title" class="api-empty-state__title">No incoming APIs configured</h5>
-                            <p id="apis-overview-incoming-empty-description" class="api-empty-state__description">Create an incoming API to add it here.</p>
+                            <p id="apis-overview-incoming-empty-description" class="api-empty-state__description">Create an incoming API.</p>
                         </div>
                         <div id="apis-overview-incoming-list" class="resource-list" aria-live="polite"></div>
                     </section>
@@ -133,10 +133,10 @@
                             </div>
                             <a id="apis-overview-outgoing-link" class="button button--secondary secondary-action-button" href="outgoing.html">Open outgoing registry</a>
                         </div>
-                        <div id="apis-overview-outgoing-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Scheduled and continuous outbound deliveries, including destination, delivery policy, and current readiness.</div>
+                        <div id="apis-overview-outgoing-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Scheduled and continuous outbound deliveries.</div>
                         <div id="apis-overview-outgoing-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-outgoing-empty-title" class="api-empty-state__title">No outgoing APIs configured</h5>
-                            <p id="apis-overview-outgoing-empty-description" class="api-empty-state__description">Create a scheduled or continuous outbound API to add it here.</p>
+                            <p id="apis-overview-outgoing-empty-description" class="api-empty-state__description">Create an outgoing API.</p>
                         </div>
                         <div id="apis-overview-outgoing-list" class="resource-list" aria-live="polite"></div>
                     </section>
@@ -151,10 +151,10 @@
                             </div>
                             <a id="apis-overview-webhooks-link" class="button button--secondary secondary-action-button" href="webhooks.html">Open webhook registry</a>
                         </div>
-                        <div id="apis-overview-webhooks-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Webhook publisher definitions, including callback path, verification material, and signature expectations.</div>
+                        <div id="apis-overview-webhooks-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Webhook definitions and verification settings.</div>
                         <div id="apis-overview-webhooks-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-webhooks-empty-title" class="api-empty-state__title">No webhooks configured</h5>
-                            <p id="apis-overview-webhooks-empty-description" class="api-empty-state__description">Create a webhook definition to add it here.</p>
+                            <p id="apis-overview-webhooks-empty-description" class="api-empty-state__description">Create a webhook definition.</p>
                         </div>
                         <div id="apis-overview-webhooks-list" class="resource-list" aria-live="polite"></div>
                     </section>
@@ -173,7 +173,7 @@
         aria-hidden="true"
     >
         <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog" id="apis-create-modal-dialog">
+        <div class="modal__dialog modal__dialog--form" id="apis-create-modal-dialog">
             <div class="modal__content" id="apis-create-modal-content"></div>
         </div>
     </div>

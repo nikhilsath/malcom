@@ -18,7 +18,7 @@
                     <h2 class="page-title section-header__title--page" id="page-title">Coqui TTS</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Configure the local Coqui text-to-speech runtime used by workflow tool steps.</p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Configure the local Coqui TTS runtime.</p>
             </div>
 
             <section id="tools-coqui-workspace" class="card tool-config-workspace">
@@ -29,7 +29,7 @@
                             <h3 id="tools-coqui-title" class="section-header__title">Coqui TTS configuration</h3>
                             <button type="button" id="tools-coqui-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-description">i</button>
                         </div>
-                        <p id="tools-coqui-description" class="section-header__description" hidden>Load the saved command, model, and output path used for speech generation.</p>
+                        <p id="tools-coqui-description" class="section-header__description" hidden>Manage command, model, and output defaults.</p>
                     </div>
                     <div id="tools-coqui-status-card" class="stat-card tool-config-workspace__status" aria-live="polite">
                         <p id="tools-coqui-status-label" class="stat-card__label">Directory state</p>
@@ -62,7 +62,7 @@
                                     <h3 id="tools-coqui-form-title" class="section-header__title">Command and defaults</h3>
                                     <button type="button" id="tools-coqui-form-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-form-description">i</button>
                                 </div>
-                                <p id="tools-coqui-form-description" class="section-header__description" hidden>These settings drive workflow tool steps that target `coqui-tts`.</p>
+                                <p id="tools-coqui-form-description" class="section-header__description" hidden>These settings are used by `coqui-tts` steps.</p>
                             </div>
                         </div>
 
@@ -118,7 +118,7 @@
                                     <h3 id="tools-coqui-summary-title" class="section-header__title">Execution notes</h3>
                                     <button type="button" id="tools-coqui-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-summary-description">i</button>
                                 </div>
-                                <p id="tools-coqui-summary-description" class="section-header__description" hidden>Workflow tool steps can override the saved speaker, language, and output filename per run.</p>
+                                <p id="tools-coqui-summary-description" class="section-header__description" hidden>Steps can override speaker, language, and output filename.</p>
                             </div>
                         </div>
 
@@ -145,13 +145,13 @@
                                         <h3 id="tools-coqui-guidance-title" class="section-header__title">Before enabling</h3>
                                         <button type="button" id="tools-coqui-guidance-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-guidance-description">i</button>
                                     </div>
-                                    <p id="tools-coqui-guidance-description" class="section-header__description" hidden>Keep the runtime assumptions explicit because workflow steps call the local CLI directly.</p>
+                                    <p id="tools-coqui-guidance-description" class="section-header__description" hidden>Workflow steps call the local CLI directly.</p>
                                 </div>
                             </div>
                             <ol id="tools-coqui-guidance-list" class="tool-config-checklist">
-                                <li id="tools-coqui-guidance-item-1">Install the Coqui CLI so the configured command is available on the host running the backend.</li>
-                                <li id="tools-coqui-guidance-item-2">Set a model name that matches the installed runtime and defaults you want for automation runs.</li>
-                                <li id="tools-coqui-guidance-item-3">Use workflow tool steps with `tool_id` set to `coqui-tts` and provide `tool_text` for the speech content.</li>
+                                <li id="tools-coqui-guidance-item-1">Install the Coqui CLI on the backend host.</li>
+                                <li id="tools-coqui-guidance-item-2">Set a model name available in your runtime.</li>
+                                <li id="tools-coqui-guidance-item-3">Use `tool_id` = `coqui-tts` and provide `tool_text`.</li>
                             </ol>
                         </section>
                     </section>

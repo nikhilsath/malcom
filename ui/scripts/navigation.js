@@ -410,13 +410,22 @@ const closeInfoBadges = () => {
 };
 
 const initInfoBadges = () => {
-  document.querySelectorAll(".info-badge[aria-controls]").forEach((badge) => {
-    if (badge.dataset.infoBadgeBound === "true") {
+  if (document.body.dataset.infoBadgeListenerBound === "true") {
+    return;
+  }
+
+  document.body.dataset.infoBadgeListenerBound = "true";
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      closeInfoBadges();
       return;
     }
 
-    badge.dataset.infoBadgeBound = "true";
-    badge.addEventListener("click", (event) => {
+    const badge = target.closest(".info-badge[aria-controls]");
+    if (badge instanceof HTMLElement) {
       event.stopPropagation();
       const contentId = badge.getAttribute("aria-controls");
 
@@ -434,20 +443,6 @@ const initInfoBadges = () => {
       closeInfoBadges();
       badge.setAttribute("aria-expanded", String(shouldOpen));
       content.hidden = !shouldOpen;
-    });
-  });
-
-  if (document.body.dataset.infoBadgeListenerBound === "true") {
-    return;
-  }
-
-  document.body.dataset.infoBadgeListenerBound = "true";
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-
-    if (!(target instanceof Element)) {
-      closeInfoBadges();
       return;
     }
 

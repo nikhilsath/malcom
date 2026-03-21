@@ -20,6 +20,7 @@ import {
   AlertsPanel,
   DevicesTable,
   EmptyState,
+  LogEntryDetailsModal,
   LogEntryList,
   QuickLinksPanel,
   RecentLogsPreview,
@@ -189,10 +190,13 @@ const DashboardLayout = () => {
           <div className="page-header section-header--page" id="dashboard-page-header">
             <div className="page-header__inner">
               <div className="page-header__content">
-                <h2 className="page-title section-header__title--page" id="page-title">
-                  {routeHandle?.title || "Dashboard"}
-                </h2>
-                <p className="page-description section-header__description--page" id="page-description">
+                <div className="title-row">
+                  <h2 className="page-title section-header__title--page" id="page-title">
+                    {routeHandle?.title || "Dashboard"}
+                  </h2>
+                  <button type="button" id="page-info-badge" className="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p className="page-description section-header__description--page" id="page-description" hidden>
                   {routeHandle?.description || "Operational dashboard"}
                 </p>
               </div>
@@ -324,12 +328,11 @@ const LogsPage = () => {
   const [source, setSource] = useState("all");
   const [category, setCategory] = useState("all");
   const [timeframe, setTimeframe] = useState("all");
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 
-  if (!logsResponse) {
-    return null;
-  }
-
-  const visibleEntries = logsResponse.entries.slice(0, logsResponse.settings.maxVisibleEntries);
+  const visibleEntries = logsResponse
+    ? logsResponse.entries.slice(0, logsResponse.settings.maxVisibleEntries)
+    : [];
   const filteredEntries = filterLogs(visibleEntries, {
     query: query.trim().toLowerCase(),
     level,
@@ -337,8 +340,48 @@ const LogsPage = () => {
     category,
     timeframe
   });
-  const sources = [...new Set(logsResponse.entries.map((entry) => entry.source))].sort();
-  const categories = [...new Set(logsResponse.entries.map((entry) => entry.category))].sort();
+  const sources = logsResponse ? [...new Set(logsResponse.entries.map((entry) => entry.source))].sort() : [];
+  const categories = logsResponse ? [...new Set(logsResponse.entries.map((entry) => entry.category))].sort() : [];
+  const selectedEntry = filteredEntries.find((entry) => entry.id === selectedEntryId) || null;
+
+  useEffect(() => {
+    if (selectedEntryId && !filteredEntries.some((entry) => entry.id === selectedEntryId)) {
+      setSelectedEntryId(null);
+    }
+  }, [filteredEntries, selectedEntryId]);
+
+  useEffect(() => {
+    if (!selectedEntryId) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedEntryId(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedEntryId]);
+
+  const handleSelectEntry = (entryId: string) => {
+    if (selectedEntryId === entryId) {
+      setSelectedEntryId(null);
+      return;
+    }
+
+    setSelectedEntryId(entryId);
+  };
+
+  if (!logsResponse) {
+    return null;
+  }
+
+  const openDetailsCount = selectedEntry ? 1 : 0;
 
   return (
     <div id="dashboard-logs-layout" className="stacked-card-layout">
@@ -375,6 +418,7 @@ const LogsPage = () => {
                 setSource("all");
                 setCategory("all");
                 setTimeframe("all");
+                setSelectedEntryId(null);
               }}
             >
               Reset filters
@@ -458,11 +502,11 @@ const LogsPage = () => {
       <section id="dashboard-logs-results-card" className="card">
         <SectionToolbar
           id="dashboard-logs-results-toolbar"
-          title="Runtime entries"
-          description="The dashboard surfaces the newest retained entries up to the max configured in Settings."
+          title="Runtime event explorer"
+          description="Click an event to open a full detail popup with context and metadata."
           action={
             <p id="dashboard-logs-results-count" className="dashboard-toolbar__description">
-              {filteredEntries.length} matching logs
+              {filteredEntries.length} matching logs • {openDetailsCount} detail popup open
             </p>
           }
         />
@@ -473,9 +517,17 @@ const LogsPage = () => {
             description="Adjust the filters or generate new activity from the dashboard, APIs, tools, or settings pages."
           />
         ) : (
-          <LogEntryList entries={filteredEntries} maxDetailCharacters={logsResponse.settings.maxDetailCharacters} />
+          <LogEntryList entries={filteredEntries} selectedEntryId={selectedEntryId} onSelectEntry={handleSelectEntry} />
         )}
       </section>
+
+      {selectedEntry ? (
+        <LogEntryDetailsModal
+          entry={selectedEntry}
+          maxDetailCharacters={logsResponse.settings.maxDetailCharacters}
+          onClose={() => setSelectedEntryId(null)}
+        />
+      ) : null}
     </div>
   );
 };
@@ -583,7 +635,7 @@ const routeDefinitions = [
         element: <HomePage />,
         handle: {
           title: dashboardHomeItem?.pageTitle || "Dashboard Home",
-          description: dashboardHomeItem?.description || "Monitor the middleware at a glance and review the current workspace state."
+          description: dashboardHomeItem?.description || "View workspace status at a glance."
         } satisfies RouteHandle
       },
       {
@@ -591,7 +643,7 @@ const routeDefinitions = [
         element: <HomePage />,
         handle: {
           title: dashboardHomeItem?.pageTitle || "Dashboard Home",
-          description: dashboardHomeItem?.description || "Monitor the middleware at a glance and review the current workspace state."
+          description: dashboardHomeItem?.description || "View workspace status at a glance."
         } satisfies RouteHandle
       },
       {
@@ -607,7 +659,7 @@ const routeDefinitions = [
         element: <DevicesPage />,
         handle: {
           title: dashboardDevicesItem?.pageTitle || "Dashboard Devices",
-          description: dashboardDevicesItem?.description || "Review connected devices, runtime endpoints, and related middleware assets."
+          description: dashboardDevicesItem?.description || "View connected devices and runtime endpoints."
         } satisfies RouteHandle
       },
       {
@@ -615,7 +667,7 @@ const routeDefinitions = [
         element: <LogsPage />,
         handle: {
           title: dashboardLogsItem?.pageTitle || "Dashboard Logs",
-          description: dashboardLogsItem?.description || "Inspect recent runtime activity, operator events, and system history."
+          description: dashboardLogsItem?.description || "Review recent runtime logs and events."
         } satisfies RouteHandle
       },
       {
@@ -623,7 +675,7 @@ const routeDefinitions = [
         element: <QueuePage />,
         handle: {
           title: dashboardQueueItem?.pageTitle || "Dashboard Queue",
-          description: dashboardQueueItem?.description || "Review pending and claimed runtime trigger jobs waiting for worker execution."
+          description: dashboardQueueItem?.description || "Track pending and claimed queue jobs."
         } satisfies RouteHandle
       }
     ]

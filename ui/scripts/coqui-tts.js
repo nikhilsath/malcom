@@ -44,11 +44,11 @@ const renderTool = () => {
 
   const { config } = currentTool;
   coquiElements.title.textContent = "Coqui TTS configuration";
-  coquiElements.description.textContent = "Save the Coqui CLI runtime and defaults used by workflow tool steps.";
+  coquiElements.description.textContent = "Manage Coqui CLI runtime defaults.";
   coquiElements.statusValue.textContent = config.enabled ? "Enabled" : "Disabled";
   coquiElements.statusMessage.textContent = config.enabled
-    ? "Workflow tool steps can generate speech audio with the saved CLI settings."
-    : "Enable this tool after the Coqui CLI and model are available on the backend host.";
+    ? "Tool is ready for workflow steps."
+    : "Enable after CLI and model are available.";
   coquiElements.summaryModelValue.textContent = config.model_name || "Not configured";
   coquiElements.summaryCommandValue.textContent = config.command || "Not configured";
   coquiElements.summaryOutputValue.textContent = config.output_directory || "Not configured";

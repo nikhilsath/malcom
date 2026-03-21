@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Automation Library</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="automations" data-sidenav-item="sidenav-automations-library" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div id="automations-library-page-header" class="page-header section-header--page">
+                <div class="title-row">
+                    <h2 id="automations-library-page-title" class="page-title section-header__title--page">Automation Library</h2>
+                    <button type="button" id="automations-library-page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="automations-library-page-description">i</button>
+                </div>
+                <p id="automations-library-page-description" class="page-description section-header__description--page" hidden>Search saved automations and open them in Builder.</p>
+            </div>
+            <section id="automations-library-shell" class="automation-overview-shell">
+                <div id="automations-library-react-root"></div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/automation/library-main.tsx"></script>
+</body>
+</html>

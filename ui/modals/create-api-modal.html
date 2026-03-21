@@ -26,15 +26,18 @@
       Close
     </button>
   </div>
-  <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Provision a webhook endpoint with a bearer token for authenticated JSON requests.</div>
+  <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Create an API record with fields for the selected type.</div>
   <div class="modal__body modal__body--form" id="create-api-modal-body">
     <form id="create-api-form" class="api-form">
       <input id="create-api-type-input" name="resourceType" type="hidden" value="incoming">
       <section id="create-api-basics-step" class="api-form-step">
         <div id="create-api-basics-step-copy" class="api-form-section-copy">
           <p id="create-api-basics-step-eyebrow" class="api-form-step__eyebrow">Step 1</p>
-          <p id="create-api-basics-step-title" class="api-form-step__title">Define the API record</p>
-          <p id="create-api-basics-step-description" class="api-form-section-description">Name the resource, choose its path slug, and decide whether it should be active immediately.</p>
+          <div class="title-row">
+            <p id="create-api-basics-step-title" class="api-form-step__title">Define the API record</p>
+            <button type="button" id="create-api-basics-step-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="create-api-basics-step-description">i</button>
+          </div>
+          <p id="create-api-basics-step-description" class="api-form-section-description" hidden>Set name, path slug, and enabled state.</p>
         </div>
         <div id="create-api-form-grid" class="api-form-grid">
           <label id="create-api-name-field" class="api-form-field">
@@ -70,8 +73,11 @@
       <section id="create-api-outgoing-panel" class="api-form-step" hidden>
         <div id="create-api-outgoing-panel-copy" class="api-form-section-copy">
           <p id="create-api-outgoing-panel-eyebrow" class="api-form-step__eyebrow">Step 2</p>
-          <p id="create-api-outgoing-panel-title" class="api-form-step__title">Configure delivery</p>
-          <p id="create-api-outgoing-panel-description" class="api-form-section-description">Set the destination, cadence, authentication, and payload Malcom should send.</p>
+          <div class="title-row">
+            <p id="create-api-outgoing-panel-title" class="api-form-step__title">Configure delivery</p>
+            <button type="button" id="create-api-outgoing-panel-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="create-api-outgoing-panel-description">i</button>
+          </div>
+          <p id="create-api-outgoing-panel-description" class="api-form-section-description" hidden>Set destination, auth, schedule, and payload.</p>
         </div>
 
         <div id="create-api-outgoing-grid" class="api-form-grid">
@@ -176,7 +182,7 @@
             <aside id="create-api-payload-variables-panel" class="api-payload-variables-panel" hidden aria-live="polite">
               <div id="create-api-payload-variables-header" class="api-payload-variables-panel__header">
                 <p id="create-api-payload-variables-eyebrow" class="api-payload-variables-panel__eyebrow">Detected variables</p>
-                <p id="create-api-payload-variables-description" class="api-payload-variables-panel__description">Any value wrapped in double curly braces will be treated as a payload variable.</p>
+                <p id="create-api-payload-variables-description" class="api-payload-variables-panel__description">Values in double curly braces are treated as variables.</p>
               </div>
               <div id="create-api-payload-variables-list" class="api-payload-variables-panel__list"></div>
             </aside>
@@ -194,8 +200,11 @@
       <section id="create-api-webhook-panel" class="api-form-step" hidden>
         <div id="create-api-webhook-panel-copy" class="api-form-section-copy">
           <p id="create-api-webhook-panel-eyebrow" class="api-form-step__eyebrow">Step 2</p>
-          <p id="create-api-webhook-panel-title" class="api-form-step__title">Configure publisher verification</p>
-          <p id="create-api-webhook-panel-description" class="api-form-section-description">Capture the callback path, verification token, and signing expectations for the external publisher.</p>
+          <div class="title-row">
+            <p id="create-api-webhook-panel-title" class="api-form-step__title">Configure publisher verification</p>
+            <button type="button" id="create-api-webhook-panel-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="create-api-webhook-panel-description">i</button>
+          </div>
+          <p id="create-api-webhook-panel-description" class="api-form-section-description" hidden>Set callback path and verification fields.</p>
         </div>
 
         <div id="create-api-webhook-grid" class="api-form-grid">

@@ -314,7 +314,7 @@ export const createApiRenderer = ({ elements, state, actions }) => {
       renderLogSummary([]);
       setDetailState(false);
       if (statusCopy) {
-        statusCopy.textContent = "Choose a row to open the detail workspace. The selected endpoint stays highlighted in the directory.";
+        statusCopy.textContent = "Choose a row to open details.";
       }
       return;
     }
@@ -325,7 +325,7 @@ export const createApiRenderer = ({ elements, state, actions }) => {
     elements.detailDescription.textContent = entry.description || "No description provided.";
     elements.toggleStatusButton.textContent = entry.enabled ? "Disable endpoint" : "Enable endpoint";
     if (statusCopy) {
-      statusCopy.textContent = `Inspecting ${entry.name}. The directory highlight tracks the active endpoint while you review logs and metadata.`;
+      statusCopy.textContent = `Viewing ${entry.name}.`;
     }
     renderMetadata(entry);
     renderSecretPanel(entry);

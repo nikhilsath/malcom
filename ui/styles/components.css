@@ -520,13 +520,16 @@
 }
 
 .modal {
+  --modal-viewport-padding: var(--space-6);
+  --modal-max-inline-size: 40rem;
+  --modal-min-inline-size: 0px;
   position: fixed;
   inset: 0;
   z-index: 30;
   display: none;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--modal-viewport-padding);
   overflow-y: auto;
 }
 
@@ -543,19 +546,31 @@
 .modal__dialog {
   position: relative;
   z-index: 1;
-  width: min(100%, 640px);
-  max-height: calc(100dvh - (var(--space-6) * 2));
+  max-inline-size: calc(100vw - (var(--modal-viewport-padding) * 2));
+  max-height: calc(100dvh - (var(--modal-viewport-padding) * 2));
   margin: auto;
 }
 
+.modal__dialog--form {
+  --modal-min-inline-size: 34rem;
+}
+
+.modal__dialog--choice {
+  --modal-max-inline-size: 47.5rem;
+  --modal-min-inline-size: 32rem;
+}
+
 .modal__content {
-  width: 100%;
+  max-inline-size: inherit;
   max-height: inherit;
 }
 
 .modal__panel {
   display: flex;
   flex-direction: column;
+  inline-size: fit-content;
+  min-inline-size: min(var(--modal-min-inline-size), calc(100vw - (var(--modal-viewport-padding) * 2)));
+  max-inline-size: min(var(--modal-max-inline-size), calc(100vw - (var(--modal-viewport-padding) * 2)));
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -567,7 +582,7 @@
 
 .modal__body {
   flex: 1 1 auto;
-  min-height: 180px;
+  min-height: 0;
   margin-top: 24px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
@@ -644,11 +659,16 @@
 
 @media (max-width: 768px) {
   .modal {
-    padding: var(--space-4);
+    --modal-viewport-padding: var(--space-4);
   }
 
   .modal__dialog {
-    max-height: calc(100dvh - (var(--space-4) * 2));
+    max-height: calc(100dvh - (var(--modal-viewport-padding) * 2));
+  }
+
+  .modal__dialog--form,
+  .modal__dialog--choice {
+    --modal-min-inline-size: 0px;
   }
 
   .modal__panel {

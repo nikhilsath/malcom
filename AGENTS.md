@@ -75,6 +75,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
+| Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 
@@ -85,6 +86,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
+| R-UI-003 | Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges | UI copy and page layout changes |
 | R-TOOL-001 | Tool registration flows through backend catalog + DB sync | Tool lifecycle changes |
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
@@ -93,13 +95,14 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 1,
+  "version": 2,
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
-    "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"]
+    "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
+    "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"]
   },
   "task_routes": {
     "db_schema_change": {
@@ -109,6 +112,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "new_ui_page": {
       "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py"],
       "verify": ["ui/dist/"]
+    },
+    "ui_text_density_cleanup": {
+      "edit": ["ui/<section>/<page>.html", "ui/styles/pages/**"],
+      "check": ["ui/scripts/navigation.js", "ui/styles/components.css", "ui/styles/base.css"],
+      "verify": ["manual_badge_toggle", "default_page_readability"]
     },
     "tool_change": {
       "edit": [
@@ -365,6 +373,21 @@ For UI-facing work:
 - every rendered structural or interactive element must have a stable, deterministic `id`
 - CSS classes must be semantic and purpose-based
 - utility-first or presentation-only class naming should be avoided
+- default page state must be concise and scannable; keep non-essential instructional copy hidden by default
+
+### UI Text Density Policy {#ui-text-density-policy}
+
+Use minimal visible copy first, then progressive disclosure.
+
+Rules:
+
+1. Keep page-level visible text to titles, labels, and essential task guidance only.
+2. Move explanatory, educational, or “how this works” content behind info badges.
+3. Prefer one short sentence in visible state when context is necessary; place extended detail in badge-controlled content.
+4. Avoid stacked explanatory paragraphs in default state, especially above fold.
+5. Preserve accessibility state (`aria-expanded`, `aria-controls`, `hidden`) for any disclosed text.
+
+When modernizing existing pages with heavy copy, reduce on-screen paragraphs first and keep details discoverable through existing badge behavior (`initInfoBadges()`), instead of deleting useful guidance.
 
 ### Info Badge Pattern For Explanatory Text {#info-badge-pattern-for-explanatory-text}
 
@@ -408,6 +431,7 @@ Agents must not:
 - render explanatory text as always-visible paragraphs under headings
 - add visible `<p>` descriptions to new pages without the info-badge toggle
 - duplicate the toggle binding in page-specific scripts (navigation.js handles it)
+- keep multiple long helper paragraphs visible in the default page state when badge disclosure can be used
 
 ### Styles {#styles}
 

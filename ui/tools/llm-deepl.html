@@ -18,7 +18,7 @@
                     <h2 class="page-title section-header__title--page" id="page-title">Local LLM</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Configure a locally hosted LLM server, model identifier, and endpoint paths.</p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Configure a local LLM server and endpoints.</p>
             </div>
 
             <section id="tools-local-llm-workspace" class="card local-llm-workspace">
@@ -29,7 +29,7 @@
                             <h3 id="tools-local-llm-title" class="section-header__title">Local LLM configuration</h3>
                             <button type="button" id="tools-local-llm-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-local-llm-description">i</button>
                         </div>
-                        <p id="tools-local-llm-description" class="section-header__description" hidden>Load a preset or define custom endpoints for your local inference server.</p>
+                        <p id="tools-local-llm-description" class="section-header__description" hidden>Use a preset or set custom endpoints.</p>
                     </div>
                     <div id="tools-local-llm-status-card" class="stat-card local-llm-workspace__status" aria-live="polite">
                         <p id="tools-local-llm-status-label" class="stat-card__label">Tool status</p>
@@ -62,7 +62,7 @@
                                     <h3 id="tools-local-llm-form-title" class="section-header__title">Server and model</h3>
                                     <button type="button" id="tools-local-llm-form-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-local-llm-form-description">i</button>
                                 </div>
-                                <p id="tools-local-llm-form-description" class="section-header__description" hidden>Choose a preset, then adjust the base URL and paths if your local runtime differs.</p>
+                                <p id="tools-local-llm-form-description" class="section-header__description" hidden>Choose a preset, then adjust base URL and paths.</p>
                             </div>
                         </div>
 
@@ -134,7 +134,7 @@
                                     <h3 id="tools-local-llm-endpoints-title" class="section-header__title">Endpoint preview</h3>
                                     <button type="button" id="tools-local-llm-endpoints-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-local-llm-endpoints-description">i</button>
                                 </div>
-                                <p id="tools-local-llm-endpoints-description" class="section-header__description" hidden>These are the full request targets the middleware will use once the tool is enabled.</p>
+                                <p id="tools-local-llm-endpoints-description" class="section-header__description" hidden>Resolved request targets used when enabled.</p>
                             </div>
                         </div>
 
@@ -169,13 +169,13 @@
                                         <h3 id="tools-local-llm-guidance-title" class="section-header__title">LM Studio API v1</h3>
                                         <button type="button" id="tools-local-llm-guidance-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-local-llm-guidance-description">i</button>
                                     </div>
-                                    <p id="tools-local-llm-guidance-description" class="section-header__description" hidden>Applying the LM Studio preset preloads the standard local server address and API v1 paths shown in your reference.</p>
+                                    <p id="tools-local-llm-guidance-description" class="section-header__description" hidden>The LM Studio preset loads default API v1 paths.</p>
                                 </div>
                             </div>
                             <ol id="tools-local-llm-guidance-list" class="tool-config-checklist">
-                                <li id="tools-local-llm-guidance-item-1">Start with the preset if LM Studio is serving on `http://127.0.0.1:1234`.</li>
-                                <li id="tools-local-llm-guidance-item-2">Set the model identifier to the exact value your local server exposes.</li>
-                                <li id="tools-local-llm-guidance-item-3">Only enable the tool after the server, model, and endpoints are all reachable.</li>
+                                <li id="tools-local-llm-guidance-item-1">Use the preset for LM Studio on `http://127.0.0.1:1234`.</li>
+                                <li id="tools-local-llm-guidance-item-2">Set the exact model identifier exposed by your server.</li>
+                                <li id="tools-local-llm-guidance-item-3">Enable only after server and endpoints are reachable.</li>
                             </ol>
                         </section>
                     </section>
@@ -189,7 +189,7 @@
                                 <h3 id="tools-local-llm-chat-title" class="section-header__title">Talk to the configured model</h3>
                                 <button type="button" id="tools-local-llm-chat-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-local-llm-chat-description">i</button>
                             </div>
-                            <p id="tools-local-llm-chat-description" class="section-header__description" hidden>Chat history stays in-memory for this page session only. Responses stream in as the model generates them.</p>
+                            <p id="tools-local-llm-chat-description" class="section-header__description" hidden>Chat history is local to this page session.</p>
                         </div>
                     </div>
 

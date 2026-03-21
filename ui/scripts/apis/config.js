@@ -12,7 +12,7 @@ export const modalFallbackMarkup = `
     </div>
     <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The shared create form could not be loaded.</div>
     <div class="modal__body" id="create-api-modal-body">
-      <p id="create-api-modal-fallback-copy" class="modal__description">Refresh the page and try again. If the problem persists, check the UI asset path for the shared modal template.</p>
+      <p id="create-api-modal-fallback-copy" class="modal__description">Refresh and try again.</p>
     </div>
   </div>
 `;
@@ -35,7 +35,7 @@ export const createTypeModalFallbackMarkup = `
             <div class="modal__header-copy" id="apis-create-type-modal-header-copy">
               <p class="modal__eyebrow" id="apis-create-type-modal-eyebrow">Create</p>
               <h3 class="modal__title" id="apis-create-type-modal-title">Choose an API surface</h3>
-              <p class="modal__description" id="apis-create-type-modal-description">Select the workflow you want to create and the full form will open with the relevant fields.</p>
+              <p class="modal__description" id="apis-create-type-modal-description">Choose the API type to continue.</p>
             </div>
             <button type="button" class="button button--secondary modal__close-button" id="apis-create-type-modal-close" aria-label="Close create API type modal" data-modal-close="apis-create-type-modal">Close</button>
           </div>
@@ -83,7 +83,7 @@ export const outgoingEditModalFallbackMarkup = `
     </div>
     <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The outgoing edit form could not be loaded.</div>
     <div class="modal__body" id="outgoing-api-edit-modal-body">
-      <p id="outgoing-api-edit-modal-fallback-copy" class="modal__description">Refresh the page and try again. If the problem persists, check the UI asset path for the outgoing edit modal template.</p>
+      <p id="outgoing-api-edit-modal-fallback-copy" class="modal__description">Refresh and try again.</p>
     </div>
   </div>
 `;
@@ -91,7 +91,7 @@ export const outgoingEditModalFallbackMarkup = `
 export const apiResourceTypes = {
   incoming: {
     title: "New Incoming API",
-    description: "Provision a webhook endpoint with a bearer token for authenticated JSON requests.",
+    description: "Create an inbound endpoint.",
     authLabel: "Bearer secret",
     enabledCopy: "Accept requests immediately",
     submitLabel: "Create incoming API",
@@ -101,7 +101,7 @@ export const apiResourceTypes = {
   },
   outgoing_scheduled: {
     title: "New Outgoing Scheduled API",
-    description: "Configure the destination URL, daily send time, credentials, and payload Malcom should deliver once by default or repeat daily when enabled.",
+    description: "Set destination, auth, schedule, and payload.",
     authLabel: "Managed by destination configuration",
     enabledCopy: "Enable this scheduled delivery on create",
     submitLabel: "Create scheduled API",
@@ -111,7 +111,7 @@ export const apiResourceTypes = {
   },
   outgoing_continuous: {
     title: "New Outgoing Continuous API",
-    description: "Configure the destination URL, credentials, payload, and optional repeat interval for continuous outbound delivery.",
+    description: "Set destination, auth, payload, and repeat interval.",
     authLabel: "Managed by destination configuration",
     enabledCopy: "Enable this outbound delivery on create",
     submitLabel: "Create continuous API",
@@ -121,7 +121,7 @@ export const apiResourceTypes = {
   },
   webhook: {
     title: "New Webhook",
-    description: "Register a webhook record for external publisher callbacks and verification settings.",
+    description: "Register callback and verification settings.",
     authLabel: "Defined per webhook publisher",
     enabledCopy: "Enable the webhook immediately",
     submitLabel: "Create webhook",

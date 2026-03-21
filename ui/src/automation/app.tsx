@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
@@ -15,32 +15,11 @@ import {
   Position,
   Handle
 } from "@xyflow/react";
-
-type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
-type StepType = "log" | "outbound_request" | "script" | "tool" | "condition" | "llm_chat";
-
-type ToolInputField = {
-  key: string;
-  label: string;
-  type: "string" | "text" | "number" | "select";
-  required: boolean;
-  options?: string[];
-};
-
-type ToolOutputField = {
-  key: string;
-  label: string;
-  type: string;
-};
-
-type ToolManifestEntry = {
-  id: string;
-  name: string;
-  description: string;
-  pageHref: string;
-  inputs: ToolInputField[];
-  outputs: ToolOutputField[];
-};
+import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry } from "./types";
+import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId } from "./types";
+import { AddStepModal } from "./add-step-modal";
+import { TriggerSettingsForm } from "./trigger-settings-form";
+import { TriggerSettingsModal } from "./trigger-settings-modal";
 
 declare global {
   interface Window {
@@ -50,32 +29,6 @@ declare global {
     CONNECTORS?: { id: string; name: string }[];
   }
 }
-
-type AutomationStep = {
-  id?: string;
-  type: StepType;
-  name: string;
-  config: {
-    message?: string;
-    destination_url?: string;
-    http_method?: string;
-    auth_type?: string;
-    connector_id?: string;
-    payload_template?: string;
-    script_id?: string;
-    tool_id?: string;
-    tool_inputs?: Record<string, string>;
-    tool_text?: string;
-    tool_output_filename?: string;
-    tool_speaker?: string;
-    tool_language?: string;
-    expression?: string;
-    stop_on_false?: boolean;
-    system_prompt?: string;
-    user_prompt?: string;
-    model_identifier?: string;
-  };
-};
 
 type Automation = {
   id: string;
@@ -136,14 +89,6 @@ type RuntimeStatus = {
   job_count: number;
 };
 
-type ConnectorRecord = {
-  id: string;
-  provider: string;
-  name: string;
-  auth_type: string;
-  base_url?: string | null;
-};
-
 type WorkflowNodeData = {
   canvasNodeId: string;
   kind: "trigger" | "step";
@@ -162,49 +107,6 @@ declare global {
   }
 }
 
-const triggerTypeOptions: Array<{ value: TriggerType; label: string }> = [
-  { value: "manual", label: "Manual" },
-  { value: "schedule", label: "Schedule" },
-  { value: "inbound_api", label: "Inbound API" },
-  { value: "smtp_email", label: "SMTP email" }
-];
-
-const stepTypeOptions: Array<{ value: StepType; label: string }> = [
-  { value: "log", label: "Log" },
-  { value: "outbound_request", label: "HTTP request" },
-  { value: "script", label: "Script" },
-  { value: "tool", label: "Tool" },
-  { value: "condition", label: "Condition" },
-  { value: "llm_chat", label: "LLM chat" }
-];
-
-const stepTemplates: Record<StepType, AutomationStep> = {
-  log: { type: "log", name: "Log step", config: { message: "Reached {{timestamp}}" } },
-  outbound_request: {
-    type: "outbound_request",
-    name: "HTTP request",
-    config: {
-      destination_url: "https://example.com/hooks/run",
-      http_method: "POST",
-      auth_type: "none",
-      connector_id: "",
-      payload_template: "{\"automation_id\":\"{{automation.id}}\"}"
-    }
-  },
-  script: { type: "script", name: "Script step", config: { script_id: "" } },
-  tool: { type: "tool", name: "Tool step", config: { tool_id: "" } },
-  condition: { type: "condition", name: "Guard condition", config: { expression: "true", stop_on_false: true } },
-  llm_chat: {
-    type: "llm_chat",
-    name: "LLM chat",
-    config: {
-      system_prompt: "You are a helpful middleware automation assistant.",
-      user_prompt: "Summarize the current payload and propose the next middleware action.",
-      model_identifier: ""
-    }
-  }
-};
-
 const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   log: "log",
   outbound_request: "http",
@@ -214,20 +116,10 @@ const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   llm_chat: "llm"
 };
 
-let draftStepSequence = 1;
-
-const createDraftStepId = () => `draft-step-${draftStepSequence++}`;
-
 const normalizeStep = (step: AutomationStep): AutomationStep => ({
   ...step,
   id: step.id || createDraftStepId(),
   config: { ...step.config }
-});
-
-const cloneStepTemplate = (stepType: StepType): AutomationStep => ({
-  ...stepTemplates[stepType],
-  id: createDraftStepId(),
-  config: { ...stepTemplates[stepType].config }
 });
 
 const emptyDetail = (): AutomationDetail => ({
@@ -442,22 +334,13 @@ export const AutomationApp = () => {
   const [selectedRun, setSelectedRun] = useState<AutomationRunDetail | null>(null);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
-  const [schedulerJobs, setSchedulerJobs] = useState<Array<Record<string, unknown>>>([]);
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [inspectorTab, setInspectorTab] = useState("configure");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const deferredQuery = useDeferredValue(searchQuery);
-
-  const visibleAutomations = automations.filter((automation) => {
-    const query = deferredQuery.trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-    return `${automation.name} ${automation.description}`.toLowerCase().includes(query);
-  });
+  const [addStepModalOpen, setAddStepModalOpen] = useState(false);
+  const [triggerSettingsModalOpen, setTriggerSettingsModalOpen] = useState(false);
 
   const selectedStep = currentAutomation.steps.find((step) => `step-node-${step.id}` === selectedNodeId) || null;
   const selectedStepIndex = selectedStep ? currentAutomation.steps.findIndex((step) => step.id === selectedStep.id) : -1;
@@ -507,13 +390,11 @@ export const AutomationApp = () => {
   }));
 
   const loadRuntime = async () => {
-    const [status, jobs, settings] = await Promise.all([
+    const [status, settings] = await Promise.all([
       requestJson("/api/v1/runtime/status"),
-      requestJson("/api/v1/scheduler/jobs"),
       requestJson("/api/v1/settings")
     ]);
     setRuntimeStatus(status);
-    setSchedulerJobs(jobs);
     setConnectors(settings.connectors?.records || []);
   };
 
@@ -525,6 +406,7 @@ export const AutomationApp = () => {
       setRuns([]);
       setInspectorTab("configure");
       setDeleteDialogOpen(false);
+      setTriggerSettingsModalOpen(false);
     });
     setFeedback("");
     setFeedbackTone("");
@@ -542,6 +424,7 @@ export const AutomationApp = () => {
       setSelectedNodeId("trigger-node");
       setSelectedRun(null);
       setInspectorTab("configure");
+      setTriggerSettingsModalOpen(false);
     });
   };
 
@@ -589,8 +472,11 @@ export const AutomationApp = () => {
 
   useEffect(() => {
     const createButton = document.getElementById("automations-create-button");
-    createButton?.addEventListener("click", applyNewAutomationDraft);
-    return () => createButton?.removeEventListener("click", applyNewAutomationDraft);
+    const handleCreate = () => {
+      window.location.href = "builder.html?new=true";
+    };
+    createButton?.addEventListener("click", handleCreate);
+    return () => createButton?.removeEventListener("click", handleCreate);
   }, []);
 
   const patchAutomation = (patch: Partial<AutomationDetail>) => {
@@ -619,11 +505,10 @@ export const AutomationApp = () => {
     }));
   };
 
-  const addStep = (stepType: StepType) => {
-    const nextStep = cloneStepTemplate(stepType);
-    const nextSteps = [...currentAutomation.steps, nextStep];
+  const appendStep = (step: AutomationStep) => {
+    const nextSteps = [...currentAutomation.steps, step];
     updateStepOrder(nextSteps);
-    setSelectedNodeId(`step-node-${nextStep.id}`);
+    setSelectedNodeId(`step-node-${step.id}`);
   };
 
   const moveSelectedStep = (offset: number) => {
@@ -719,23 +604,7 @@ export const AutomationApp = () => {
         <div id="automations-summary-copy" className="automation-hero__copy">
           <p id="automations-summary-eyebrow" className="automation-hero__eyebrow">Middleware orchestration</p>
           <h3 id="automations-summary-title" className="automation-hero__title">{currentAutomation.name || "New automation draft"}</h3>
-          <p id="automations-summary-description" className="automation-hero__description">
-            Visualize the linear middleware path, adjust trigger settings, and inspect runtime activity without leaving the automation control room.
-          </p>
-        </div>
-        <div id="automations-summary-stats" className="automation-hero__stats">
-          <article id="automations-summary-trigger-card" className="automation-hero-stat">
-            <span id="automations-summary-trigger-label" className="automation-hero-stat__label">Trigger</span>
-            <span id="automations-summary-trigger-value" className="automation-hero-stat__value">{getTriggerTypeLabel(currentAutomation.trigger_type)}</span>
-          </article>
-          <article id="automations-summary-steps-card" className="automation-hero-stat">
-            <span id="automations-summary-steps-label" className="automation-hero-stat__label">Steps</span>
-            <span id="automations-summary-steps-value" className="automation-hero-stat__value">{currentAutomation.steps.length}</span>
-          </article>
-          <article id="automations-summary-runs-card" className="automation-hero-stat">
-            <span id="automations-summary-runs-label" className="automation-hero-stat__label">Latest run</span>
-            <span id="automations-summary-runs-value" className="automation-hero-stat__value">{formatDateTime(currentAutomation.last_run_at)}</span>
-          </article>
+          <p id="automations-summary-description" className="automation-hero__description">Build, validate, and run this automation.</p>
         </div>
         <div id="automations-summary-actions" className="automation-hero__actions">
           <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
@@ -764,92 +633,24 @@ export const AutomationApp = () => {
         {feedback}
       </div>
 
-      <section id="automations-workspace" className="automation-workspace-grid">
-        <aside id="automations-left-rail" className="automation-panel automation-panel--rail">
-          <div id="automations-library-header" className="automation-panel__header">
-            <div id="automations-library-copy" className="automation-panel__copy">
-              <p id="automations-library-eyebrow" className="automation-panel__eyebrow">Library</p>
-              <h3 id="automations-library-title" className="automation-panel__title">Saved automations</h3>
-              <p id="automations-library-description" className="automation-panel__description">Filter the workflow catalog and load an automation into the canvas.</p>
-            </div>
-          </div>
-          <label id="automations-search-field" className="automation-field automation-field--full">
-            <span id="automations-search-label" className="automation-field__label">Search</span>
-            <input
-              id="automations-search-input"
-              className="automation-input"
-              value={searchQuery}
-              placeholder="Find an automation"
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </label>
-          <div id="automations-library-list" className="automation-library-list">
-            {visibleAutomations.length > 0 ? visibleAutomations.map((automation) => (
-              <button
-                key={automation.id}
-                id={`automations-library-item-${automation.id}`}
-                type="button"
-                className={currentAutomation.id === automation.id ? "automation-library-card automation-library-card--selected" : "automation-library-card"}
-                aria-pressed={currentAutomation.id === automation.id}
-                onClick={() => {
-                  selectAutomation(automation.id).catch((error: Error) => {
-                    setFeedback(error.message);
-                    setFeedbackTone("error");
-                  });
-                }}
-              >
-                <span id={`automations-library-item-name-${automation.id}`} className="automation-library-card__title">{automation.name}</span>
-                <span id={`automations-library-item-description-${automation.id}`} className="automation-library-card__description">{automation.description || "No description provided."}</span>
-                <span id={`automations-library-item-meta-${automation.id}`} className="automation-library-card__meta">
-                  {getTriggerTypeLabel(automation.trigger_type)} · {automation.step_count} steps
-                </span>
-              </button>
-            )) : (
-              <div id="automations-library-empty-state" className="automation-empty-state">
-                No automations match the current filter.
-              </div>
-            )}
-          </div>
-
-          <div id="automations-runtime-panel" className="automation-runtime-panel">
-            <div id="automations-runtime-header" className="automation-panel__header automation-panel__header--compact">
-              <div id="automations-runtime-copy" className="automation-panel__copy">
-                <h4 id="automations-runtime-title" className="automation-panel__title automation-panel__title--compact">Runtime</h4>
-                <p id="automations-runtime-description" className="automation-panel__description">Scheduler health and scheduled jobs.</p>
-              </div>
-            </div>
-            <div id="automations-runtime-stats" className="automation-runtime-stats">
-              <article id="automations-runtime-active-card" className="automation-runtime-stat">
-                <span id="automations-runtime-active-label" className="automation-runtime-stat__label">Scheduler</span>
-                <span id="automations-runtime-active-value" className="automation-runtime-stat__value">{runtimeStatus?.active ? "Active" : "Inactive"}</span>
-              </article>
-              <article id="automations-runtime-jobs-card" className="automation-runtime-stat">
-                <span id="automations-runtime-jobs-label" className="automation-runtime-stat__label">Jobs</span>
-                <span id="automations-runtime-jobs-value" className="automation-runtime-stat__value">{runtimeStatus?.job_count ?? 0}</span>
-              </article>
-            </div>
-            <div id="automations-runtime-jobs-list" className="automation-job-list">
-              {schedulerJobs.length > 0 ? schedulerJobs.map((job, index) => (
-                <article key={`${job.id}-${index}`} id={`automations-runtime-job-${index}`} className="automation-job-card">
-                  <span id={`automations-runtime-job-name-${index}`} className="automation-job-card__title">{String(job.name ?? "Unnamed job")}</span>
-                  <span id={`automations-runtime-job-kind-${index}`} className="automation-job-card__meta">{String(job.kind ?? "automation")}</span>
-                  <span id={`automations-runtime-job-next-run-${index}`} className="automation-job-card__meta">{formatDateTime(String(job.next_run_at ?? ""))}</span>
-                </article>
-              )) : (
-                <div id="automations-runtime-empty-state" className="automation-empty-state">No scheduled jobs registered.</div>
-              )}
-            </div>
-          </div>
-        </aside>
-
+      <section
+        id="automations-workspace"
+        className={triggerSettingsModalOpen ? "automation-workspace-grid automation-workspace-grid--inspector-hidden" : "automation-workspace-grid"}
+      >
         <section id="automations-canvas-panel" className="automation-panel automation-panel--canvas">
           <div id="automations-canvas-header" className="automation-panel__header">
             <div id="automations-canvas-copy" className="automation-panel__copy">
               <p id="automations-canvas-eyebrow" className="automation-panel__eyebrow">Canvas</p>
-              <h3 id="automations-canvas-title" className="automation-panel__title">Workflow path</h3>
-              <p id="automations-canvas-description" className="automation-panel__description">Drag steps vertically to reorder the linear execution path.</p>
+              <div className="title-row">
+                <h3 id="automations-canvas-title" className="automation-panel__title">Workflow path</h3>
+                <button type="button" id="automations-canvas-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-canvas-description">i</button>
+              </div>
+              <p id="automations-canvas-description" className="automation-panel__description" hidden>Drag steps to reorder execution.</p>
             </div>
             <div id="automations-canvas-actions" className="automation-inline-actions">
+              <button id="automations-step-add-button" type="button" className="primary-action-button" onClick={() => setAddStepModalOpen(true)}>
+                Add step
+              </button>
               <button id="automations-step-move-up-button" type="button" className="button button--secondary" disabled={!selectedStep || selectedStepIndex <= 0} onClick={() => moveSelectedStep(-1)}>
                 Move up
               </button>
@@ -875,6 +676,14 @@ export const AutomationApp = () => {
               elementsSelectable
               onNodeClick={(_, node) => {
                 setSelectedNodeId(node.id);
+                setInspectorTab("configure");
+              }}
+              onNodeDoubleClick={(_, node) => {
+                if (node.id !== "trigger-node") {
+                  return;
+                }
+                setTriggerSettingsModalOpen(true);
+                setSelectedNodeId("trigger-node");
                 setInspectorTab("configure");
               }}
               onNodeDragStop={(_, node) => {
@@ -911,13 +720,16 @@ export const AutomationApp = () => {
           </div>
         </section>
 
-        <aside id="automations-inspector-panel" className="automation-panel automation-panel--inspector">
+        <aside id="automations-inspector-panel" className="automation-panel automation-panel--inspector" hidden={triggerSettingsModalOpen}>
           <Tabs.Root id="automations-inspector-tabs" value={inspectorTab} onValueChange={(value) => setInspectorTab(String(value))}>
             <div id="automations-inspector-header" className="automation-panel__header">
               <div id="automations-inspector-copy" className="automation-panel__copy">
                 <p id="automations-inspector-eyebrow" className="automation-panel__eyebrow">Inspector</p>
-                <h3 id="automations-inspector-title" className="automation-panel__title">{selectedStep ? selectedStep.name : "Trigger settings"}</h3>
-                <p id="automations-inspector-description" className="automation-panel__description">
+                <div className="title-row">
+                  <h3 id="automations-inspector-title" className="automation-panel__title">{selectedStep ? selectedStep.name : "Trigger settings"}</h3>
+                  <button type="button" id="automations-inspector-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-inspector-description">i</button>
+                </div>
+                <p id="automations-inspector-description" className="automation-panel__description" hidden>
                   {selectedStep ? "Configure the selected step and keep the linear execution path intact." : "Set the automation identity, trigger, and runtime availability."}
                 </p>
               </div>
@@ -930,105 +742,11 @@ export const AutomationApp = () => {
 
             <Tabs.Panel id="automations-inspector-panel-configure" className="automation-tabs-panel" value="configure">
               {!selectedStep ? (
-                <div id="automations-trigger-form" className="automation-form">
-                  <label id="automations-name-field" className="automation-field automation-field--full">
-                    <span id="automations-name-label" className="automation-field__label">Name</span>
-                    <input
-                      id="automations-name-input"
-                      className="automation-input"
-                      value={currentAutomation.name}
-                      onChange={(event) => patchAutomation({ name: event.target.value })}
-                    />
-                  </label>
-
-                  <label id="automations-description-field" className="automation-field automation-field--full">
-                    <span id="automations-description-label" className="automation-field__label">Description</span>
-                    <textarea
-                      id="automations-description-input"
-                      className="automation-textarea"
-                      rows={4}
-                      value={currentAutomation.description}
-                      onChange={(event) => patchAutomation({ description: event.target.value })}
-                    />
-                  </label>
-
-                  <div id="automations-enabled-field" className="automation-switch-field">
-                    <div id="automations-enabled-copy" className="automation-switch-field__copy">
-                      <span id="automations-enabled-label" className="automation-field__label">Enabled</span>
-                      <span id="automations-enabled-description" className="automation-switch-field__description">
-                        {currentAutomation.enabled ? "The runtime can execute this automation." : "The automation stays visible but will not execute."}
-                      </span>
-                    </div>
-                    <Switch.Root
-                      id="automations-enabled-input"
-                      checked={currentAutomation.enabled}
-                      onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
-                      className="automation-switch"
-                    >
-                      <Switch.Thumb className="automation-switch__thumb" />
-                    </Switch.Root>
-                  </div>
-
-                  <div id="automations-trigger-type-field" className="automation-field automation-field--full">
-                    <span id="automations-trigger-type-label" className="automation-field__label">Trigger type</span>
-                    <FlowSelect
-                      rootId="automations-trigger-type-input"
-                      labelId="automations-trigger-type-label"
-                      value={currentAutomation.trigger_type}
-                      placeholder="Choose a trigger"
-                      options={triggerTypeOptions}
-                      onValueChange={(nextValue) => patchAutomation({ trigger_type: nextValue, trigger_config: {} })}
-                    />
-                  </div>
-
-                  {currentAutomation.trigger_type === "schedule" ? (
-                    <label id="automations-trigger-schedule-field" className="automation-field automation-field--full">
-                      <span id="automations-trigger-schedule-label" className="automation-field__label">Daily run time</span>
-                      <input
-                        id="automations-trigger-schedule-input"
-                        className="automation-input"
-                        type="time"
-                        value={currentAutomation.trigger_config.schedule_time || ""}
-                        onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, schedule_time: event.target.value } })}
-                      />
-                    </label>
-                  ) : null}
-
-                  {currentAutomation.trigger_type === "inbound_api" ? (
-                    <label id="automations-trigger-api-field" className="automation-field automation-field--full">
-                      <span id="automations-trigger-api-label" className="automation-field__label">Inbound API id</span>
-                      <input
-                        id="automations-trigger-api-input"
-                        className="automation-input"
-                        value={currentAutomation.trigger_config.inbound_api_id || ""}
-                        onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, inbound_api_id: event.target.value } })}
-                      />
-                    </label>
-                  ) : null}
-
-                  {currentAutomation.trigger_type === "smtp_email" ? (
-                    <>
-                      <label id="automations-trigger-smtp-subject-field" className="automation-field automation-field--full">
-                        <span id="automations-trigger-smtp-subject-label" className="automation-field__label">Email subject</span>
-                        <input
-                          id="automations-trigger-smtp-subject-input"
-                          className="automation-input"
-                          value={currentAutomation.trigger_config.smtp_subject || ""}
-                          onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, smtp_subject: event.target.value } })}
-                        />
-                      </label>
-                      <label id="automations-trigger-smtp-recipient-field" className="automation-field automation-field--full">
-                        <span id="automations-trigger-smtp-recipient-label" className="automation-field__label">Recipient filter</span>
-                        <input
-                          id="automations-trigger-smtp-recipient-input"
-                          className="automation-input"
-                          value={currentAutomation.trigger_config.smtp_recipient_email || ""}
-                          onChange={(event) => patchAutomation({ trigger_config: { ...currentAutomation.trigger_config, smtp_recipient_email: event.target.value } })}
-                        />
-                      </label>
-                    </>
-                  ) : null}
-                </div>
+                <TriggerSettingsForm
+                  idPrefix="automations-trigger-inspector"
+                  value={currentAutomation}
+                  onPatch={patchAutomation}
+                />
               ) : (
                 <div id="automations-step-form" className="automation-form">
                   <label id="automations-step-name-field" className="automation-field automation-field--full">
@@ -1297,22 +1015,6 @@ export const AutomationApp = () => {
                 </div>
               )}
 
-              <div id="automations-add-step-panel" className="automation-add-step-panel">
-                <span id="automations-add-step-label" className="automation-field__label">Append a step</span>
-                <div id="automations-add-step-actions" className="automation-add-step-actions">
-                  {stepTypeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      id={`automations-add-step-${option.value}`}
-                      type="button"
-                      className="button button--secondary"
-                      onClick={() => addStep(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </Tabs.Panel>
 
             <Tabs.Panel id="automations-inspector-panel-activity" className="automation-tabs-panel" value="activity">
@@ -1343,8 +1045,11 @@ export const AutomationApp = () => {
         <div id="automations-run-history-header" className="automation-panel__header">
           <div id="automations-run-history-copy" className="automation-panel__copy">
             <p id="automations-run-history-eyebrow" className="automation-panel__eyebrow">Run history</p>
-            <h3 id="automations-run-history-title" className="automation-panel__title">Execution timeline</h3>
-            <p id="automations-run-history-description" className="automation-panel__description">Inspect recent runs and open a detailed trace for each step.</p>
+            <div className="title-row">
+              <h3 id="automations-run-history-title" className="automation-panel__title">Execution timeline</h3>
+              <button type="button" id="automations-run-history-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-run-history-description">i</button>
+            </div>
+            <p id="automations-run-history-description" className="automation-panel__description" hidden>Review runs and open step traces.</p>
           </div>
         </div>
         <div id="automations-run-history-layout" className="automation-run-history-layout">
@@ -1371,7 +1076,7 @@ export const AutomationApp = () => {
               </button>
             )) : (
               <div id="automations-run-history-empty-state" className="automation-empty-state">
-                No runs have been recorded for this automation yet.
+                No runs yet.
               </div>
             )}
           </div>
@@ -1411,6 +1116,25 @@ export const AutomationApp = () => {
           </div>
         </div>
       </section>
+
+      <AddStepModal
+        open={addStepModalOpen}
+        onClose={() => setAddStepModalOpen(false)}
+        onAdd={(step) => { appendStep(step); setAddStepModalOpen(false); }}
+        connectors={connectors}
+        toolsManifest={window.TOOLS_MANIFEST || []}
+        scripts={window.SCRIPTS}
+      />
+
+      <TriggerSettingsModal
+        open={triggerSettingsModalOpen}
+        onClose={() => {
+          setTriggerSettingsModalOpen(false);
+          setSelectedNodeId("trigger-node");
+        }}
+        value={currentAutomation}
+        onPatch={patchAutomation}
+      />
 
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <Dialog.Portal>

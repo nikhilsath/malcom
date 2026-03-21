@@ -56,7 +56,7 @@
 }
 
 .api-create-type-modal-panel {
-  width: min(100%, 760px);
+  width: 100%;
 }
 
 .api-create-type-modal-body {
@@ -492,11 +492,13 @@
 }
 
 .modal__dialog--wide {
-  width: min(100%, 1040px);
+  --modal-max-inline-size: 65rem;
+  --modal-min-inline-size: 42rem;
 }
 
 .modal__dialog--payload-expanded {
-  width: min(100%, 960px);
+  --modal-max-inline-size: 60rem;
+  --modal-min-inline-size: 42rem;
 }
 
 .api-payload-layout {
@@ -777,6 +779,11 @@
 }
 
 @media (max-width: 768px) {
+  .modal__dialog--wide,
+  .modal__dialog--payload-expanded {
+    --modal-min-inline-size: 0px;
+  }
+
   .api-directory-table th,
   .api-directory-table td {
     min-width: 140px;

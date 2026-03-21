@@ -26,7 +26,7 @@
       Close
     </button>
   </div>
-  <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Edit the full outgoing delivery definition, including auth, payload, schedule, and enabled state.</div>
+  <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Edit destination, auth, payload, schedule, and status.</div>
   <div class="modal__body modal__body--form" id="outgoing-api-edit-modal-body">
     <form id="outgoing-api-edit-form" class="api-form">
       <input id="outgoing-api-edit-type-input" name="resourceType" type="hidden" value="outgoing_scheduled">
@@ -95,7 +95,7 @@
             <span id="outgoing-api-edit-scheduled-repeat-label" class="api-form-label">Repeat daily</span>
             <span id="outgoing-api-edit-scheduled-repeat-control" class="api-inline-toggle">
               <input id="outgoing-api-edit-scheduled-repeat-input" name="repeatEnabledScheduled" type="checkbox">
-              <span id="outgoing-api-edit-scheduled-repeat-copy" class="api-inline-toggle__label">Repeat every day</span>
+              <span id="outgoing-api-edit-scheduled-repeat-copy" class="api-inline-toggle__label">Keep this delivery active</span>
             </span>
           </label>
 
@@ -103,7 +103,7 @@
             <span id="outgoing-api-edit-continuous-repeat-label" class="api-form-label">Repeat continuously</span>
             <span id="outgoing-api-edit-continuous-repeat-control" class="api-inline-toggle">
               <input id="outgoing-api-edit-continuous-repeat-input" name="repeatEnabledContinuous" type="checkbox">
-              <span id="outgoing-api-edit-continuous-repeat-copy" class="api-inline-toggle__label">Repeat on an interval</span>
+              <span id="outgoing-api-edit-continuous-repeat-copy" class="api-inline-toggle__label">Keep this delivery active</span>
             </span>
           </label>
 

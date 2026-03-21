@@ -17,7 +17,7 @@
                     <h2 class="page-title section-header__title--page" id="page-title">SMTP Tools</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Operate the listener, inspect inbound mail, and send test or relay messages.</p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage listener, mailbox, and outbound tests.</p>
             </div>
 
             <section id="tools-smtp-workspace" class="card smtp-workspace__panel">
@@ -28,7 +28,7 @@
                             <h3 id="tools-smtp-overview-title" class="section-header__title">SMTP runtime and mailbox</h3>
                             <button type="button" id="tools-smtp-overview-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-overview-description">i</button>
                         </div>
-                        <p id="tools-smtp-overview-description" class="section-header__description" hidden>Control the listener, surface the receive address, and inspect recent inbound traffic.</p>
+                        <p id="tools-smtp-overview-description" class="section-header__description" hidden>Control listener status and review inbound traffic.</p>
                     </div>
                     <div id="tools-smtp-runtime-status-card" class="stat-card smtp-workspace__status" aria-live="polite">
                         <p id="tools-smtp-runtime-status-label" class="stat-card__label">Runtime status</p>
@@ -72,7 +72,7 @@
                                         <h3 id="tools-smtp-config-title" class="section-header__title">Listener settings</h3>
                                         <button type="button" id="tools-smtp-config-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-config-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-config-description" class="section-header__description" hidden>Choose the machine, bind address, and mailbox filter.</p>
+                                    <p id="tools-smtp-config-description" class="section-header__description" hidden>Set machine, bind host, port, and mailbox.</p>
                                 </div>
                             </div>
 
@@ -117,7 +117,7 @@
                                         <h3 id="tools-smtp-receive-title" class="section-header__title">Receive mail at</h3>
                                         <button type="button" id="tools-smtp-receive-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-receive-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-receive-description" class="section-header__description" hidden>Expose the mailbox or catch-all listener details operators need.</p>
+                                    <p id="tools-smtp-receive-description" class="section-header__description" hidden>View mailbox and listener receive details.</p>
                                 </div>
                             </div>
 
@@ -139,7 +139,7 @@
                                         <h3 id="tools-smtp-outbound-title" class="section-header__title">Compose and send</h3>
                                         <button type="button" id="tools-smtp-outbound-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-outbound-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-outbound-description" class="section-header__description" hidden>Run a local loopback test or send through an external SMTP relay.</p>
+                                    <p id="tools-smtp-outbound-description" class="section-header__description" hidden>Send a local test or relay message.</p>
                                 </div>
                             </div>
 
@@ -158,7 +158,7 @@
                                         <h3 id="tools-smtp-activity-title" class="section-header__title">Listener runtime</h3>
                                         <button type="button" id="tools-smtp-activity-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-activity-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-activity-description" class="section-header__description" hidden>Track starts, stops, sessions, and the latest inbound mail.</p>
+                                    <p id="tools-smtp-activity-description" class="section-header__description" hidden>Track runtime start/stop events and latest mail.</p>
                                 </div>
                             </div>
 
@@ -200,7 +200,7 @@
                                         <h3 id="tools-smtp-mailbox-title" class="section-header__title">Recent inbound messages</h3>
                                         <button type="button" id="tools-smtp-mailbox-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-mailbox-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-mailbox-description" class="section-header__description" hidden>The latest accepted messages are kept in runtime memory for inspection.</p>
+                                    <p id="tools-smtp-mailbox-description" class="section-header__description" hidden>Recent accepted messages in runtime memory.</p>
                                 </div>
                             </div>
 
@@ -216,7 +216,7 @@
                                         <h3 id="tools-smtp-message-title" class="section-header__title">Selected email</h3>
                                         <button type="button" id="tools-smtp-message-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-message-description">i</button>
                                     </div>
-                                    <p id="tools-smtp-message-description" class="section-header__description" hidden>Select a message to inspect the body and raw SMTP content.</p>
+                                    <p id="tools-smtp-message-description" class="section-header__description" hidden>Select a message to inspect body and raw content.</p>
                                 </div>
                             </div>
 
@@ -272,7 +272,7 @@
                                 <h3 id="tools-smtp-machines-title" class="section-header__title">Available machines</h3>
                                 <button type="button" id="tools-smtp-machines-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-machines-description">i</button>
                             </div>
-                            <p id="tools-smtp-machines-description" class="section-header__description" hidden>Local execution is supported today. Remote assignment is visible as an operational limitation.</p>
+                            <p id="tools-smtp-machines-description" class="section-header__description" hidden>Local execution is supported; remote assignment is unavailable.</p>
                         </div>
                     </div>
 
@@ -296,14 +296,14 @@
 
     <div id="tools-smtp-test-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="tools-smtp-test-modal-title" aria-describedby="tools-smtp-test-modal-description">
         <div id="tools-smtp-test-modal-backdrop" class="modal__backdrop" data-modal-close="tools-smtp-test-modal"></div>
-        <div id="tools-smtp-test-modal-dialog" class="modal__dialog">
+        <div id="tools-smtp-test-modal-dialog" class="modal__dialog modal__dialog--form">
             <div id="tools-smtp-test-modal-content" class="modal__content">
                 <div id="tools-smtp-test-modal-panel" class="modal__panel">
                     <div id="tools-smtp-test-modal-header" class="modal__header">
                         <div id="tools-smtp-test-modal-header-copy" class="modal__header-copy">
                             <p id="tools-smtp-test-modal-eyebrow" class="modal__eyebrow">Local test</p>
                             <h3 id="tools-smtp-test-modal-title" class="modal__title">Send test email</h3>
-                            <p id="tools-smtp-test-modal-description" class="modal__description">Deliver a message through the active Malcom SMTP listener and watch it land in the mailbox.</p>
+                            <p id="tools-smtp-test-modal-description" class="modal__description">Send a message through the active SMTP listener.</p>
                         </div>
                         <button type="button" id="tools-smtp-test-modal-close" class="button button--secondary modal__close-button" data-modal-close="tools-smtp-test-modal">Close</button>
                     </div>
@@ -340,14 +340,14 @@
 
     <div id="tools-smtp-relay-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="tools-smtp-relay-modal-title" aria-describedby="tools-smtp-relay-modal-description">
         <div id="tools-smtp-relay-modal-backdrop" class="modal__backdrop" data-modal-close="tools-smtp-relay-modal"></div>
-        <div id="tools-smtp-relay-modal-dialog" class="modal__dialog smtp-modal-dialog--wide">
+        <div id="tools-smtp-relay-modal-dialog" class="modal__dialog modal__dialog--form smtp-modal-dialog--wide">
             <div id="tools-smtp-relay-modal-content" class="modal__content">
                 <div id="tools-smtp-relay-modal-panel" class="modal__panel">
                     <div id="tools-smtp-relay-modal-header" class="modal__header">
                         <div id="tools-smtp-relay-modal-header-copy" class="modal__header-copy">
                             <p id="tools-smtp-relay-modal-eyebrow" class="modal__eyebrow">External relay</p>
                             <h3 id="tools-smtp-relay-modal-title" class="modal__title">Send through SMTP relay</h3>
-                            <p id="tools-smtp-relay-modal-description" class="modal__description">Send a one-off email through any reachable SMTP host without persisting credentials.</p>
+                            <p id="tools-smtp-relay-modal-description" class="modal__description">Send a one-off email through an SMTP host.</p>
                         </div>
                         <button type="button" id="tools-smtp-relay-modal-close" class="button button--secondary modal__close-button" data-modal-close="tools-smtp-relay-modal">Close</button>
                     </div>

@@ -91,10 +91,13 @@ export const SectionToolbar = ({
 }) => (
   <div id={id} className="section-header dashboard-toolbar">
     <div id={`${id}-copy`} className="section-header__copy dashboard-toolbar__copy">
-      <h3 id={`${id}-title`} className="section-header__title dashboard-toolbar__title">
-        {title}
-      </h3>
-      <p id={`${id}-description`} className="section-header__description dashboard-toolbar__description">
+      <div className="title-row">
+        <h3 id={`${id}-title`} className="section-header__title dashboard-toolbar__title">
+          {title}
+        </h3>
+        <button type="button" id={`${id}-description-badge`} className="info-badge" aria-label="More information" aria-expanded="false" aria-controls={`${id}-description`}>i</button>
+      </div>
+      <p id={`${id}-description`} className="section-header__description dashboard-toolbar__description" hidden>
         {description}
       </p>
     </div>
@@ -107,13 +110,13 @@ export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatu
     <SectionToolbar
       id="dashboard-overview-services-toolbar"
       title="Runtime status"
-      description="Current health checks across the local middleware stack."
+      description="Current service health checks."
     />
     {services.length === 0 ? (
       <EmptyState
         id="dashboard-overview-services-empty"
         title="No service data loaded"
-        description="Connect the summary endpoint to populate runtime checks."
+        description="Connect the summary endpoint to load checks."
       />
     ) : (
       <div id="dashboard-overview-services-grid" className="dashboard-service-grid">
@@ -145,13 +148,13 @@ export const RecentRunsTable = ({ runs }: { runs: DashboardRunSummary[] }) => (
     <SectionToolbar
       id="dashboard-overview-runs-toolbar"
       title="Recent runs"
-      description="Most recent workflow executions across scheduled, manual, and API-triggered work."
+      description="Recent workflow executions."
     />
     {runs.length === 0 ? (
       <EmptyState
         id="dashboard-overview-runs-empty"
         title="No run history loaded"
-        description="The dashboard is ready for backend run history once the execution APIs are connected."
+        description="Connect execution APIs to load run history."
       />
     ) : (
       <div id="dashboard-overview-runs-table-shell" className="api-table-shell">
@@ -191,13 +194,13 @@ export const AlertsPanel = ({ alerts }: { alerts: DashboardAlert[] }) => (
     <SectionToolbar
       id="dashboard-overview-alerts-toolbar"
       title="Active attention items"
-      description="Signals that should direct the next operator action."
+      description="Items that need operator action."
     />
     {alerts.length === 0 ? (
       <EmptyState
         id="dashboard-overview-alerts-empty"
         title="No active alerts"
-        description="Alert rows will appear here when the dashboard receives runtime warnings or errors."
+        description="Alerts appear here when warnings or errors are detected."
       />
     ) : (
       <div id="dashboard-overview-alert-list" className="dashboard-alert-list">
@@ -229,7 +232,7 @@ export const QuickLinksPanel = ({ quickLinks }: { quickLinks: DashboardQuickLink
     <SectionToolbar
       id="dashboard-overview-links-toolbar"
       title="Quick links"
-      description="Jump to the next operational surface without losing context."
+      description="Shortcuts to related pages."
     />
     <div id="dashboard-overview-links-grid" className="dashboard-quick-links-grid">
       {quickLinks.map((link) => (
@@ -256,7 +259,7 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
     <SectionToolbar
       id="dashboard-overview-log-preview-toolbar"
       title="Recent log preview"
-      description="A compact preview of the newest retained runtime entries."
+      description="Newest retained log entries."
       action={
         <a id="dashboard-overview-log-preview-link" className="button button--secondary secondary-action-button" href="logs.html">
           Open full logs
@@ -267,7 +270,7 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
       <EmptyState
         id="dashboard-overview-log-preview-empty"
         title="No recent logs loaded"
-        description="Connect the backend to populate this log preview."
+        description="Connect the backend to load logs."
       />
     ) : (
       <div id="dashboard-overview-log-preview-list" className="dashboard-log-preview-list">
@@ -294,7 +297,7 @@ export const ReportBuilderPanel = () => (
     <SectionToolbar
       id="dashboard-logs-report-builder-toolbar"
       title="Log report builder"
-      description="Use an open-source reporting surface to turn retained runtime events into incident summaries, delivery trends, and operator-ready exports."
+      description="Build reports from retained runtime logs."
       action={
         <a
           id="dashboard-logs-report-builder-link"
@@ -314,7 +317,7 @@ export const ReportBuilderPanel = () => (
           Grafana
         </h3>
         <p id="dashboard-logs-report-builder-description" className="dashboard-host-card__detail">
-          Open-source dashboards and reports for log-backed trend analysis, incident review, and exported operator summaries.
+          Open-source dashboards and reports for log analysis.
         </p>
       </div>
       <dl id="dashboard-logs-report-builder-metadata" className="dashboard-report-builder-card__metadata">
@@ -324,7 +327,7 @@ export const ReportBuilderPanel = () => (
         </div>
         <div id="dashboard-logs-report-builder-focus-group">
           <dt className="summary-card__label">Best fit</dt>
-          <dd id="dashboard-logs-report-builder-focus-value">Reports from retained logs and operational events</dd>
+          <dd id="dashboard-logs-report-builder-focus-value">Reports from retained logs</dd>
         </div>
       </dl>
     </article>
@@ -343,13 +346,13 @@ export const DevicesTable = ({
       <SectionToolbar
         id="dashboard-devices-host-toolbar"
         title="Host machine"
-        description="Primary runtime host and its immediate operating context."
+        description="Primary runtime host details."
       />
       {!host ? (
         <EmptyState
           id="dashboard-devices-host-empty"
           title="No host inventory loaded"
-          description="This panel will populate once the devices endpoint is connected."
+          description="Connect the devices endpoint to load host data."
         />
       ) : (
         <div id={`dashboard-device-host-${host.id}`} className="dashboard-host-card">
@@ -485,14 +488,23 @@ export const DevicesTable = ({
 
 export const LogEntryList = ({
   entries,
-  maxDetailCharacters
+  selectedEntryId,
+  onSelectEntry
 }: {
   entries: DashboardLogEntry[];
-  maxDetailCharacters: number;
+  selectedEntryId: string | null;
+  onSelectEntry: (entryId: string) => void;
 }) => (
   <div id="dashboard-logs-list" className="dashboard-log-list">
     {entries.map((entry) => (
-      <article id={`dashboard-log-item-${entry.id}`} key={entry.id} className="dashboard-log-item">
+      <button
+        type="button"
+        id={`dashboard-log-item-${entry.id}`}
+        key={entry.id}
+        className={`dashboard-log-item ${selectedEntryId === entry.id ? "dashboard-log-item--active" : ""}`}
+        onClick={() => onSelectEntry(entry.id)}
+        aria-pressed={selectedEntryId === entry.id}
+      >
         <div id={`dashboard-log-header-${entry.id}`} className="dashboard-log-item__header">
           <div id={`dashboard-log-header-copy-${entry.id}`} className="dashboard-log-item__header-copy">
             <p id={`dashboard-log-meta-${entry.id}`} className="dashboard-log-item__meta">
@@ -509,25 +521,99 @@ export const LogEntryList = ({
             </span>
           </div>
         </div>
-        <div id={`dashboard-log-grid-${entry.id}`} className="dashboard-log-item__grid">
-          <section id={`dashboard-log-context-panel-${entry.id}`} className="dashboard-log-item__panel">
-            <p id={`dashboard-log-context-label-${entry.id}`} className="dashboard-log-item__label">
-              Context
-            </p>
-            <pre id={`dashboard-log-context-value-${entry.id}`} className="api-code-block">
-              {stringifyValue(entry.context, maxDetailCharacters)}
-            </pre>
-          </section>
-          <section id={`dashboard-log-details-panel-${entry.id}`} className="dashboard-log-item__panel">
-            <p id={`dashboard-log-details-label-${entry.id}`} className="dashboard-log-item__label">
-              Details
-            </p>
-            <pre id={`dashboard-log-details-value-${entry.id}`} className="api-code-block">
-              {stringifyValue(entry.details, maxDetailCharacters)}
-            </pre>
-          </section>
-        </div>
-      </article>
+      </button>
     ))}
   </div>
+);
+
+export const LogEntryDetailsPanel = ({
+  entry,
+  maxDetailCharacters
+}: {
+  entry: DashboardLogEntry;
+  maxDetailCharacters: number;
+}) => (
+  <article id={`dashboard-log-details-${entry.id}`} className="dashboard-log-details">
+    <div id={`dashboard-log-details-header-${entry.id}`} className="dashboard-log-details__header">
+      <div id={`dashboard-log-details-title-row-${entry.id}`} className="dashboard-log-details__title-row">
+        <h4 id={`dashboard-log-details-title-${entry.id}`} className="dashboard-log-details__title">
+          {entry.message}
+        </h4>
+        <StatusBadge id={`dashboard-log-details-level-${entry.id}`} value={entry.level} />
+      </div>
+      <p id={`dashboard-log-details-meta-${entry.id}`} className="dashboard-log-details__meta">
+        {formatDateTime(entry.timestamp)} • {entry.source} • {entry.action}
+      </p>
+    </div>
+    <dl id={`dashboard-log-details-overview-${entry.id}`} className="dashboard-log-details__overview">
+      <div id={`dashboard-log-details-id-group-${entry.id}`}>
+        <dt className="summary-card__label">Event id</dt>
+        <dd id={`dashboard-log-details-id-value-${entry.id}`}>{entry.id}</dd>
+      </div>
+      <div id={`dashboard-log-details-category-group-${entry.id}`}>
+        <dt className="summary-card__label">Category</dt>
+        <dd id={`dashboard-log-details-category-value-${entry.id}`}>{entry.category}</dd>
+      </div>
+    </dl>
+    <div id={`dashboard-log-details-grid-${entry.id}`} className="dashboard-log-details__grid">
+      <section id={`dashboard-log-context-panel-${entry.id}`} className="dashboard-log-details__panel">
+        <p id={`dashboard-log-context-label-${entry.id}`} className="dashboard-log-details__label">
+          Context
+        </p>
+        <pre id={`dashboard-log-context-value-${entry.id}`} className="api-code-block">
+          {stringifyValue(entry.context, maxDetailCharacters)}
+        </pre>
+      </section>
+      <section id={`dashboard-log-details-panel-${entry.id}`} className="dashboard-log-details__panel">
+        <p id={`dashboard-log-details-label-${entry.id}`} className="dashboard-log-details__label">
+          Details
+        </p>
+        <pre id={`dashboard-log-details-value-${entry.id}`} className="api-code-block">
+          {stringifyValue(entry.details, maxDetailCharacters)}
+        </pre>
+      </section>
+    </div>
+  </article>
+);
+
+export const LogEntryDetailsModal = ({
+  entry,
+  maxDetailCharacters,
+  onClose
+}: {
+  entry: DashboardLogEntry;
+  maxDetailCharacters: number;
+  onClose: () => void;
+}) => (
+  <>
+    <button
+      type="button"
+      id="dashboard-log-details-modal-backdrop"
+      className="dashboard-log-details-modal-backdrop"
+      aria-label="Close event details"
+      onClick={onClose}
+    />
+    <div
+      id="dashboard-log-details-modal"
+      className="dashboard-log-details-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dashboard-log-details-modal-title"
+    >
+      <div id="dashboard-log-details-modal-header" className="dashboard-log-details-modal__header">
+        <h4 id="dashboard-log-details-modal-title" className="dashboard-log-details-modal__title">
+          Event details
+        </h4>
+        <button
+          type="button"
+          id="dashboard-log-details-modal-close"
+          className="button button--secondary secondary-action-button"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+      <LogEntryDetailsPanel entry={entry} maxDetailCharacters={maxDetailCharacters} />
+    </div>
+  </>
 );

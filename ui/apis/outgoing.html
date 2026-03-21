@@ -35,13 +35,13 @@
                         <button type="button" id="apis-outgoing-create-from-connector-button" class="button button--secondary secondary-action-button" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">Create from connector</button>
                     </div>
                 </div>
-                <div id="apis-outgoing-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled and continuous deliveries, destination readiness, and quick actions from one registry.</div>
+                <div id="apis-outgoing-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled and continuous deliveries in one registry.</div>
                 <div id="apis-outgoing-status-bar" class="api-directory-status-bar">
                     <p id="apis-outgoing-status-copy" class="api-directory-status-copy" hidden>Active deliveries show in green and inactive deliveries show in yellow.</p>
                 </div>
                 <div id="apis-outgoing-list-empty" class="empty-state api-empty-state" hidden>
                     <h4 id="apis-outgoing-list-empty-title" class="api-empty-state__title">No outgoing APIs configured</h4>
-                    <p id="apis-outgoing-list-empty-description" class="api-empty-state__description">Create an outgoing API to add it to the scheduled or continuous registry.</p>
+                    <p id="apis-outgoing-list-empty-description" class="api-empty-state__description">Create an outgoing API.</p>
                 </div>
                 <div id="apis-outgoing-list" class="resource-list" aria-live="polite"></div>
             </section>
@@ -57,7 +57,7 @@
         aria-hidden="true"
     >
         <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog" id="apis-create-modal-dialog">
+        <div class="modal__dialog modal__dialog--form" id="apis-create-modal-dialog">
             <div class="modal__content" id="apis-create-modal-content"></div>
         </div>
     </div>
@@ -71,7 +71,7 @@
         aria-hidden="true"
     >
         <div class="modal__backdrop" id="outgoing-api-edit-modal-backdrop" data-modal-close="outgoing-api-edit-modal"></div>
-        <div class="modal__dialog modal__dialog--wide" id="outgoing-api-edit-modal-dialog">
+        <div class="modal__dialog modal__dialog--form modal__dialog--wide" id="outgoing-api-edit-modal-dialog">
             <div class="modal__content" id="outgoing-api-edit-modal-content"></div>
         </div>
     </div>

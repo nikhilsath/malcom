@@ -86,7 +86,7 @@
                         </div>
                         <div id="settings-connectors-empty" class="api-empty-state" hidden>
                             <h4 id="settings-connectors-empty-title" class="api-empty-state__title">No connectors configured</h4>
-                            <p id="settings-connectors-empty-description" class="api-empty-state__description">Use Connect provider to add Google Calendar, GitHub, Slack, Notion, Trello, or a generic HTTP connector.</p>
+                            <p id="settings-connectors-empty-description" class="api-empty-state__description">Use Connect provider to add a connector.</p>
                         </div>
                         <div id="settings-connectors-table-shell" class="api-table-shell">
                             <table id="settings-connectors-table" class="api-directory-table">
@@ -275,14 +275,14 @@
 
     <div id="settings-connectors-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-connectors-modal-title" aria-hidden="true">
         <div id="settings-connectors-modal-backdrop" class="modal__backdrop" data-modal-close="settings-connectors-modal"></div>
-        <div id="settings-connectors-modal-dialog" class="modal__dialog">
+        <div id="settings-connectors-modal-dialog" class="modal__dialog modal__dialog--choice">
             <div id="settings-connectors-modal-content" class="modal__content">
                 <div id="settings-connectors-modal-panel" class="modal__panel">
                     <div id="settings-connectors-modal-header" class="modal__header">
                         <div id="settings-connectors-modal-header-copy" class="modal__header-copy">
                             <p id="settings-connectors-modal-eyebrow" class="modal__eyebrow">Connect</p>
                             <h3 id="settings-connectors-modal-title" class="modal__title">Choose a provider preset</h3>
-                            <p id="settings-connectors-modal-description" class="modal__description">Each preset seeds the connector detail form with the provider auth model and docs link.</p>
+                            <p id="settings-connectors-modal-description" class="modal__description">Choose a preset to prefill connector fields.</p>
                         </div>
                         <button type="button" id="settings-connectors-modal-close" class="button button--secondary modal__close-button" data-modal-close="settings-connectors-modal">Close</button>
                     </div>

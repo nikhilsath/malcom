@@ -15,6 +15,7 @@ UI_HTML_ROUTES = {
     "/settings/connectors.html": "settings/connectors.html",
     "/settings/data.html": "settings/data.html",
     "/automations/overview.html": "automations/overview.html",
+    "/automations/library.html": "automations/library.html",
     "/automations/builder.html": "automations/builder.html",
     "/apis/registry.html": "apis/registry.html",
     "/apis/incoming.html": "apis/incoming.html",

@@ -33,13 +33,13 @@
                         <button type="button" id="apis-webhooks-create-button" class="primary-action-button" data-create-api-type="webhook">Create webhook</button>
                     </div>
                 </div>
-                <div id="apis-webhooks-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Track verification, signing, and callback configuration for each webhook definition.</div>
+                <div id="apis-webhooks-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Track verification and callback settings for each webhook.</div>
                 <div id="apis-webhooks-status-bar" class="api-directory-status-bar">
                     <p id="apis-webhooks-status-copy" class="api-directory-status-copy" hidden>Use card actions for copy and follow-up.</p>
                 </div>
                 <div id="apis-webhooks-list-empty" class="empty-state api-empty-state" hidden>
                     <h4 id="apis-webhooks-list-empty-title" class="api-empty-state__title">No webhooks configured</h4>
-                    <p id="apis-webhooks-list-empty-description" class="api-empty-state__description">Create a webhook to register it and make it available through the backend registry.</p>
+                    <p id="apis-webhooks-list-empty-description" class="api-empty-state__description">Create a webhook to register it.</p>
                 </div>
                 <div id="apis-webhooks-list" class="resource-list" aria-live="polite"></div>
             </section>
@@ -55,7 +55,7 @@
         aria-hidden="true"
     >
         <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog" id="apis-create-modal-dialog">
+        <div class="modal__dialog modal__dialog--form" id="apis-create-modal-dialog">
             <div class="modal__content" id="apis-create-modal-content"></div>
         </div>
     </div>

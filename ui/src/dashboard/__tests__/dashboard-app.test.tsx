@@ -125,8 +125,8 @@ describe("DashboardApp", () => {
     const sourceSelect = await screen.findByLabelText("Source");
     fireEvent.change(sourceSelect, { target: { value: "api.webhooks" } });
 
-    expect(screen.getByText("1 matching logs")).toBeInTheDocument();
-    expect(screen.getByText("Webhook signature verification retried against the local secret store.")).toBeInTheDocument();
+    expect(document.querySelector("#dashboard-logs-results-count")?.textContent).toContain("1 matching logs");
+    expect(screen.getAllByText("Webhook signature verification retried against the local secret store.").length).toBeGreaterThan(0);
   });
 
   it("renders the logs route when requested", async () => {
@@ -137,8 +137,22 @@ describe("DashboardApp", () => {
     });
 
     expect(screen.getByText("Detailed log filters")).toBeInTheDocument();
+    expect(screen.getByText("Runtime event explorer")).toBeInTheDocument();
     expect(screen.getByText("Log report builder")).toBeInTheDocument();
     expect(screen.getByText("Grafana")).toBeInTheDocument();
+  });
+
+  it("updates event detail when selecting another log", async () => {
+    renderDashboardApp(["/logs"]);
+
+    await screen.findByText("Runtime event explorer");
+
+    fireEvent.click(screen.getByRole("button", { name: /Default logging thresholds applied\./i }));
+
+    expect(screen.getByRole("dialog", { name: "Event details" })).toBeInTheDocument();
+    expect(screen.getAllByText("Default logging thresholds applied.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Event id")).toBeInTheDocument();
+    expect(screen.getByText("log-settings-defaults")).toBeInTheDocument();
   });
 
   it("renders the queue route when requested", async () => {
@@ -148,7 +162,7 @@ describe("DashboardApp", () => {
       expect(screen.getByText("Dashboard Queue")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Runtime trigger jobs")).toBeInTheDocument();
+    expect(await screen.findByText("Runtime trigger jobs")).toBeInTheDocument();
     expect(screen.getByText("Queue is empty")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pause queue" })).toBeInTheDocument();
   });

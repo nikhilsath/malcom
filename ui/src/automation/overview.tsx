@@ -141,10 +141,11 @@ export const AutomationOverviewApp = () => {
           <div id="automations-overview-list-header" className="automation-panel__header">
             <div id="automations-overview-list-copy" className="automation-panel__copy">
               <p id="automations-overview-list-eyebrow" className="automation-panel__eyebrow">Workflows</p>
-              <h3 id="automations-overview-list-title" className="automation-panel__title">All automations</h3>
-              <p id="automations-overview-list-description" className="automation-panel__description">
-                Click any automation to view its details and open it in the builder.
-              </p>
+              <div className="title-row">
+                <h3 id="automations-overview-list-title" className="automation-panel__title">All automations</h3>
+                <button type="button" id="automations-overview-list-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-overview-list-description">i</button>
+              </div>
+              <p id="automations-overview-list-description" className="automation-panel__description" hidden>Select an automation to view details or open Builder.</p>
             </div>
             <a
               id="automations-overview-create-link"
@@ -205,10 +206,11 @@ export const AutomationOverviewApp = () => {
           <div id="automations-overview-tools-header" className="automation-panel__header">
             <div id="automations-overview-tools-copy" className="automation-panel__copy">
               <p id="automations-overview-tools-eyebrow" className="automation-panel__eyebrow">Tools</p>
-              <h3 id="automations-overview-tools-title" className="automation-panel__title">Tool availability</h3>
-              <p id="automations-overview-tools-description" className="automation-panel__description">
-                Enabled tools are available as steps in your automations.
-              </p>
+              <div className="title-row">
+                <h3 id="automations-overview-tools-title" className="automation-panel__title">Tool availability</h3>
+                <button type="button" id="automations-overview-tools-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-overview-tools-description">i</button>
+              </div>
+              <p id="automations-overview-tools-description" className="automation-panel__description" hidden>Enabled tools can be used as workflow steps.</p>
             </div>
           </div>
           <div id="automations-overview-tools-list" className="automations-overview-tools-list">

@@ -89,6 +89,13 @@
   align-items: start;
 }
 
+.automations-library-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-5);
+  align-items: start;
+}
+
 /* Automation list panel */
 
 .automations-overview-list-panel {
@@ -269,7 +276,9 @@
   top: 50%;
   left: 50%;
   z-index: 51;
-  width: min(92vw, 560px);
+  inline-size: fit-content;
+  max-inline-size: min(92vw, 35rem);
+  max-block-size: calc(100dvh - (var(--space-8) * 2));
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -278,6 +287,7 @@
   transform: translate(-50%, -50%);
   display: grid;
   gap: var(--space-5);
+  overflow: auto;
 }
 
 .automation-detail-dialog__header {
@@ -447,9 +457,13 @@
 
 .automation-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   gap: var(--space-5);
   align-items: start;
+}
+
+.automation-workspace-grid--inspector-hidden {
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
 }
 
 .automation-panel {
@@ -462,7 +476,6 @@
   box-shadow: var(--shadow);
 }
 
-.automation-panel--rail,
 .automation-panel--inspector {
   position: sticky;
   top: calc(var(--topnav-height) + 24px);
@@ -906,13 +919,16 @@
   top: 50%;
   left: 50%;
   z-index: 51;
-  width: min(92vw, 420px);
+  inline-size: fit-content;
+  max-inline-size: min(92vw, var(--automation-dialog-max-inline-size, 26.25rem));
+  max-block-size: calc(100dvh - (var(--space-8) * 2));
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: #ffffff;
   box-shadow: 0 30px 60px rgba(15, 23, 42, 0.24);
   transform: translate(-50%, -50%);
+  overflow: auto;
 }
 
 .automation-dialog__title {
@@ -924,26 +940,120 @@
   margin: 0 0 18px;
 }
 
+.automation-dialog--wide {
+  --automation-dialog-max-inline-size: 40rem;
+}
+
+/* ── Add-step modal: type picker grid ── */
+.add-step-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  justify-content: start;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.add-step-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.add-step-type-card--log,
+.add-step-type-card--llm_chat {
+  min-height: 170px;
+  padding: 10px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.add-step-type-card:hover,
+.add-step-type-card:focus-visible {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, #fff);
+  outline: none;
+}
+
+.add-step-type-card__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.add-step-type-card__label--below {
+  font-size: 1rem;
+}
+
+.add-step-type-card__icon-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.add-step-type-card__label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-step-type-card__icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  flex: 0 0 14px;
+}
+
+.add-step-type-card--log .add-step-type-card__icon,
+.add-step-type-card--llm_chat .add-step-type-card__icon {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+}
+
+.add-step-type-card__description {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Add-step modal: detail form ── */
+.automation-form--modal {
+  display: grid;
+  gap: var(--space-4);
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 20px;
+}
+
 @media (max-width: 1360px) {
   .automation-workspace-grid {
-    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .automation-panel--inspector {
     position: static;
-    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 1100px) {
   .automation-hero,
+  .automations-library-main,
   .automation-run-history-layout,
   .automation-workspace-grid {
     grid-template-columns: 1fr;
-  }
-
-  .automation-panel--rail {
-    position: static;
   }
 
   .automation-canvas-surface {

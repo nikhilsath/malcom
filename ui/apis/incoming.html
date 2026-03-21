@@ -36,7 +36,7 @@
                             <button type="button" id="api-directory-create-button" class="primary-action-button" data-create-api-type="incoming">Create incoming API</button>
                         </div>
                     </div>
-                    <div id="api-directory-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Select a row to inspect endpoint details, secrets, and recent request activity.</div>
+                    <div id="api-directory-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Select a row to view endpoint details and logs.</div>
 
                     <div id="api-directory-status-bar" class="api-directory-status-bar">
                         <p id="api-directory-status-copy" class="api-directory-status-copy" hidden>Select a row to open details.</p>
@@ -44,7 +44,7 @@
 
                     <div id="api-directory-empty" class="api-empty-state" hidden>
                         <h4 id="api-directory-empty-title" class="api-empty-state__title">No incoming APIs configured</h4>
-                        <p id="api-directory-empty-description" class="api-empty-state__description">Use the create action to provision the first inbound API and bearer token.</p>
+                        <p id="api-directory-empty-description" class="api-empty-state__description">Create your first incoming API.</p>
                     </div>
 
                     <div id="api-table-shell" class="api-table-shell">
@@ -75,7 +75,7 @@
         aria-hidden="true"
     >
         <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog" id="apis-create-modal-dialog">
+        <div class="modal__dialog modal__dialog--form" id="apis-create-modal-dialog">
             <div class="modal__content" id="apis-create-modal-content"></div>
         </div>
     </div>
@@ -94,7 +94,7 @@
                 <div id="api-detail-panel" class="modal__panel api-detail-panel">
                     <div id="api-detail-empty" class="api-empty-state">
                         <h4 id="api-detail-empty-title" class="api-empty-state__title">Select an incoming API</h4>
-                        <p id="api-detail-empty-description" class="api-empty-state__description">Endpoint metadata, sample requests, and recent event logs will appear here.</p>
+                        <p id="api-detail-empty-description" class="api-empty-state__description">Endpoint details and logs appear here.</p>
                     </div>
 
                     <div id="api-detail-content" class="api-detail-content" hidden>
@@ -134,7 +134,7 @@
                                 </div>
                             </div>
                             </div>
-                            <div id="api-logs-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Filter and inspect recent request results without leaving the modal.</div>
+                            <div id="api-logs-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Filter and inspect recent request results.</div>
 
                             <div id="api-logs-toolbar" class="api-logs-toolbar">
                                 <div id="api-logs-summary" class="api-logs-summary" aria-live="polite">
@@ -196,7 +196,7 @@
 
                             <div id="api-logs-empty" class="api-empty-state" hidden>
                                 <h5 id="api-logs-empty-title" class="api-empty-state__title">No requests received yet</h5>
-                                <p id="api-logs-empty-description" class="api-empty-state__description">Send a JSON payload to this endpoint to populate the delivery log.</p>
+                                <p id="api-logs-empty-description" class="api-empty-state__description">Send a request to populate the log.</p>
                             </div>
 
                             <div id="api-log-list" class="api-log-list"></div>

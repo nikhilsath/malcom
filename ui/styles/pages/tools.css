@@ -462,7 +462,8 @@
 }
 
 .smtp-modal-dialog--wide {
-  width: min(100%, 820px);
+  --modal-max-inline-size: 51.25rem;
+  --modal-min-inline-size: 36rem;
 }
 
 .storage-workspace {
@@ -605,6 +606,10 @@
 }
 
 @media (max-width: 900px) {
+  .smtp-modal-dialog--wide {
+    --modal-min-inline-size: 0px;
+  }
+
   .tools-selection-status {
     width: 100%;
     min-width: 0;
