@@ -51,6 +51,9 @@ export type AutomationStep = {
   id?: string;
   type: StepType;
   name: string;
+  on_true_step_id?: string | null;
+  on_false_step_id?: string | null;
+  is_merge_target?: boolean;
   config: {
     message?: string;
     destination_url?: string;

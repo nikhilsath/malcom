@@ -10,6 +10,7 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
   Position,
   Handle
 } from "@xyflow/react";
@@ -89,6 +90,8 @@ type WorkflowNodeData = {
   summary: string;
   accent: "trigger" | "log" | "http" | "script" | "tool" | "condition" | "llm";
   selected: boolean;
+  isMergeTarget?: boolean;
+  hasBranchEdges?: boolean;
   onOpenMenu?: (nodeId: string, anchor: DOMRect) => void;
 };
 
@@ -128,6 +131,10 @@ const TRIGGER_Y = 44;
 const INSERT_Y = 214;
 const STEP_Y = 304;
 const STEP_GAP = 228;
+// Zoom gate: height of the canvas surface element (matches CSS .automation-canvas-surface--full)
+const CANVAS_SURFACE_HEIGHT = 980;
+// Zoom is also enabled when step count reaches this threshold regardless of overflow
+const ZOOM_STEP_COUNT_THRESHOLD = 5;
 
 const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   log: "log",
@@ -273,7 +280,16 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
   if (automation.steps.length === 0) {
     issues.push("At least one step is required.");
   }
+  const stepIdSet = new Set(automation.steps.map((s) => s.id).filter((id): id is string => Boolean(id)));
   automation.steps.forEach((step, index) => {
+    if (step.type === "condition") {
+      if (step.on_true_step_id && !stepIdSet.has(step.on_true_step_id)) {
+        issues.push(`Step ${index + 1}: TRUE branch target does not exist in this automation.`);
+      }
+      if (step.on_false_step_id && !stepIdSet.has(step.on_false_step_id)) {
+        issues.push(`Step ${index + 1}: FALSE branch target does not exist in this automation.`);
+      }
+    }
     if (step.type === "tool" && step.config.tool_id) {
       const manifest = (window.TOOLS_MANIFEST || []).find((tool) => tool.id === step.config.tool_id);
       if (manifest) {
@@ -305,9 +321,12 @@ const sanitizeAutomationDetail = (detail: AutomationDetail): AutomationDetail =>
 const FlowAutomationNode = ({ id, data }: NodeProps<Node<WorkflowNodeData>>) => (
   <div
     id={data.canvasNodeId}
-    className={`automation-node automation-node--${data.kind} automation-node--accent-${data.accent}${data.selected ? " automation-node--selected" : ""}`}
+    className={`automation-node automation-node--${data.kind} automation-node--accent-${data.accent}${data.selected ? " automation-node--selected" : ""}${data.isMergeTarget ? " automation-node--merge-target" : ""}`}
   >
     <Handle type="target" position={Position.Top} className="automation-node__handle" isConnectable={false} />
+    {data.isMergeTarget ? (
+      <div id={`${data.canvasNodeId}-merge-badge`} className="automation-merge-badge" aria-label="Merge target">⇢ merge</div>
+    ) : null}
     <div id={`${data.canvasNodeId}-header`} className="automation-node__header">
       <div>
         <div id={`${data.canvasNodeId}-eyebrow`} className="automation-node__eyebrow">
@@ -426,7 +445,26 @@ export const AutomationApp = () => {
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);
   const [advancedLabelOpen, setAdvancedLabelOpen] = useState(false);
+  const [workflowBarCollapsed, setWorkflowBarCollapsed] = useState(false);
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
+  const reactFlowRef = useRef<ReactFlowInstance | null>(null);
+
+  // Derived: any condition step with explicit branch targets locks drag-reorder and widens canvas
+  const hasBranchSteps = useMemo(
+    () => currentAutomation.steps.some((s) => s.type === "condition" && (s.on_true_step_id || s.on_false_step_id)),
+    [currentAutomation.steps]
+  );
+
+  // Zoom gate: enable when content overflows canvas height OR step count hits threshold
+  const contentHeight = STEP_Y + Math.max(0, currentAutomation.steps.length) * STEP_GAP + 200;
+  const zoomEnabled = contentHeight > CANVAS_SURFACE_HEIGHT * 0.85 || currentAutomation.steps.length >= ZOOM_STEP_COUNT_THRESHOLD;
+
+  // Lock-to-fit when zoom is not needed (small flows)
+  useEffect(() => {
+    if (!zoomEnabled && reactFlowRef.current) {
+      reactFlowRef.current.fitView({ padding: 0.2, duration: 300 });
+    }
+  }, [zoomEnabled, currentAutomation.steps.length]);
 
   const selectedStep = currentAutomation.steps.find((step) => `step-node-${step.id}` === selectedNodeId) || null;
   const selectedStepIndex = selectedStep ? currentAutomation.steps.findIndex((step) => step.id === selectedStep.id) : -1;
@@ -752,7 +790,7 @@ export const AutomationApp = () => {
         id: `step-node-${step.id}`,
         type: "automationNode",
         position: { x: CANVAS_X, y: STEP_Y + (index * STEP_GAP) },
-        draggable: true,
+        draggable: !hasBranchSteps,
         selectable: true,
         data: {
           canvasNodeId: `automation-canvas-node-step-${step.id}`,
@@ -762,6 +800,8 @@ export const AutomationApp = () => {
           summary: getStepSummary(step),
           accent: stepAccentByType[step.type],
           selected: selectedNodeId === `step-node-${step.id}`,
+          isMergeTarget: Boolean(step.is_merge_target),
+          hasBranchEdges: step.type === "condition" && Boolean(step.on_true_step_id || step.on_false_step_id),
           onOpenMenu: openNodeMenu
         }
       });
@@ -794,14 +834,49 @@ export const AutomationApp = () => {
       `insert-node-${currentAutomation.steps.length}`
     ];
 
-    return orderedNodeIds.slice(0, -1).map((sourceNodeId, index) => ({
+    const edges: Edge[] = orderedNodeIds.slice(0, -1).map((sourceNodeId, index) => ({
       id: `automation-canvas-edge-${sourceNodeId}-${orderedNodeIds[index + 1]}`,
       source: sourceNodeId,
       target: orderedNodeIds[index + 1],
       type: "smoothstep",
       markerEnd: { type: MarkerType.ArrowClosed },
       animated: orderedNodeIds[index + 1] === selectedNodeId
-    })) as Edge[];
+    }));
+
+    // Add labeled branch edges for condition steps that have explicit targets
+    currentAutomation.steps.forEach((step) => {
+      if (step.type !== "condition") return;
+      if (step.on_true_step_id) {
+        edges.push({
+          id: `branch-true-${step.id}-${step.on_true_step_id}`,
+          source: `step-node-${step.id}`,
+          target: `step-node-${step.on_true_step_id}`,
+          type: "smoothstep",
+          label: "TRUE",
+          labelStyle: { fill: "#15803d", fontWeight: 700, fontSize: 11 },
+          labelBgStyle: { fill: "rgba(220, 252, 231, 0.92)", stroke: "#86efac", strokeWidth: 1 },
+          style: { stroke: "#16a34a", strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#16a34a" },
+          animated: false
+        } as Edge);
+      }
+      if (step.on_false_step_id) {
+        edges.push({
+          id: `branch-false-${step.id}-${step.on_false_step_id}`,
+          source: `step-node-${step.id}`,
+          target: `step-node-${step.on_false_step_id}`,
+          type: "smoothstep",
+          label: "FALSE",
+          labelStyle: { fill: "#b91c1c", fontWeight: 700, fontSize: 11 },
+          labelBgStyle: { fill: "rgba(254, 226, 226, 0.92)", stroke: "#fca5a5", strokeWidth: 1 },
+          style: { stroke: "#dc2626", strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "#dc2626" },
+          animated: false
+        } as Edge);
+      }
+    });
+
+    return edges;
   }, [currentAutomation.steps, selectedNodeId]);
 
   const renderStepEditor = (step: AutomationStep) => {
@@ -1001,7 +1076,7 @@ export const AutomationApp = () => {
               <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
                 <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
                 <span id="automations-step-condition-stop-description" className="automation-switch-field__description">
-                  Exit the workflow when the guard evaluates to false.
+                  Exit the workflow when the guard evaluates to false (ignored when a FALSE branch target is set).
                 </span>
               </div>
               <Switch.Root
@@ -1013,6 +1088,36 @@ export const AutomationApp = () => {
                 <Switch.Thumb className="automation-switch__thumb" />
               </Switch.Root>
             </div>
+
+            <label id="automations-step-condition-true-branch-field" className="automation-field automation-field--full">
+              <span id="automations-step-condition-true-branch-label" className="automation-field__label">On TRUE — jump to step</span>
+              <select
+                id="automations-step-condition-true-branch-input"
+                className="automation-native-select"
+                value={step.on_true_step_id || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, on_true_step_id: event.target.value || null }))}
+              >
+                <option value="">Continue in sequence</option>
+                {currentAutomation.steps.filter((s) => s.id !== step.id).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label id="automations-step-condition-false-branch-field" className="automation-field automation-field--full">
+              <span id="automations-step-condition-false-branch-label" className="automation-field__label">On FALSE — jump to step</span>
+              <select
+                id="automations-step-condition-false-branch-input"
+                className="automation-native-select"
+                value={step.on_false_step_id || ""}
+                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, on_false_step_id: event.target.value || null }))}
+              >
+                <option value="">Use &ldquo;stop on false&rdquo; setting</option>
+                {currentAutomation.steps.filter((s) => s.id !== step.id).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
           </>
         ) : null}
 
@@ -1068,6 +1173,23 @@ export const AutomationApp = () => {
                 }))}
               />
             </label>
+
+            <div id="automations-step-merge-target-field" className="automation-switch-field">
+              <div id="automations-step-merge-target-copy" className="automation-switch-field__copy">
+                <span id="automations-step-merge-target-label" className="automation-field__label">Merge target</span>
+                <span id="automations-step-merge-target-description" className="automation-switch-field__description">
+                  Mark this step as the convergence point where conditional branches rejoin.
+                </span>
+              </div>
+              <Switch.Root
+                id="automations-step-merge-target-input"
+                checked={Boolean(step.is_merge_target)}
+                onCheckedChange={(checked) => updateDrawerStep((currentStep) => ({ ...currentStep, is_merge_target: checked }))}
+                className="automation-switch"
+              >
+                <Switch.Thumb className="automation-switch__thumb" />
+              </Switch.Root>
+            </div>
           </div>
         </details>
 
@@ -1093,65 +1215,81 @@ export const AutomationApp = () => {
   return (
     <div id="automations-app-shell" className="automations-app automations-builder-app">
       <section id="automations-workflow-bar" className="automation-workflow-bar">
-        <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
-          <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
-            <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
-            <input
-              id="automations-workflow-name-input"
-              className="automation-input"
-              placeholder="Name this automation"
-              value={currentAutomation.name}
-              onChange={(event) => patchAutomation({ name: event.target.value })}
-            />
-          </label>
-          <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
-            <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
-            <textarea
-              id="automations-workflow-description-input"
-              className="automation-textarea"
-              rows={2}
-              placeholder="Describe what this automation is for"
-              value={currentAutomation.description}
-              onChange={(event) => patchAutomation({ description: event.target.value })}
-            />
-          </label>
+        <div id="automations-workflow-bar-header" className="automation-workflow-bar__header">
+          <h3 id="automations-workflow-bar-title" className="automation-workflow-bar__title">Workflow settings</h3>
+          <button
+            id="automations-workflow-bar-collapse-toggle"
+            type="button"
+            className="button button--secondary automation-workflow-bar__toggle"
+            aria-expanded={!workflowBarCollapsed}
+            aria-controls="automations-workflow-bar-content"
+            onClick={() => setWorkflowBarCollapsed((current) => !current)}
+          >
+            {workflowBarCollapsed ? "Expand" : "Collapse"}
+          </button>
         </div>
 
-        <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
-          <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
-            <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
-              <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
-              <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
-                Edit the trigger directly from the canvas trigger node.
-              </span>
-            </div>
-            <Switch.Root
-              id="automations-workflow-enabled-input"
-              checked={currentAutomation.enabled}
-              onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
-              className="automation-switch"
-            >
-              <Switch.Thumb className="automation-switch__thumb" />
-            </Switch.Root>
+        <div id="automations-workflow-bar-content" className="automation-workflow-bar__content" hidden={workflowBarCollapsed}>
+          <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
+            <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
+              <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
+              <input
+                id="automations-workflow-name-input"
+                className="automation-input"
+                placeholder="Name this automation"
+                value={currentAutomation.name}
+                onChange={(event) => patchAutomation({ name: event.target.value })}
+              />
+            </label>
+            <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
+              <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
+              <textarea
+                id="automations-workflow-description-input"
+                className="automation-textarea"
+                rows={2}
+                placeholder="Describe what this automation is for"
+                value={currentAutomation.description}
+                onChange={(event) => patchAutomation({ description: event.target.value })}
+              />
+            </label>
           </div>
-        </div>
 
-        <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
-          <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-            Save
-          </button>
-          <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-            Validate
-          </button>
-          <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-            Run now
-          </button>
-          <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
-            New draft
-          </button>
-          <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
-            Delete
-          </button>
+          <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
+            <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
+              <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
+                <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
+                <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
+                  Edit the trigger directly from the canvas trigger node.
+                </span>
+              </div>
+              <Switch.Root
+                id="automations-workflow-enabled-input"
+                checked={currentAutomation.enabled}
+                onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
+                className="automation-switch"
+              >
+                <Switch.Thumb className="automation-switch__thumb" />
+              </Switch.Root>
+            </div>
+          </div>
+
+          <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
+            <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Save
+            </button>
+            <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Validate
+            </button>
+            <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Run now
+            </button>
+            <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
+              New draft
+            </button>
+            <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
+              Delete
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1173,8 +1311,15 @@ export const AutomationApp = () => {
             </div>
             <p id="automations-canvas-description" className="automation-panel__description" hidden>Select a node, drag steps to reorder them, and use node actions to edit.</p>
           </div>
-          <div id="automations-canvas-selection-chip" className="automation-selection-chip" hidden={!selectedNodeId}>
-            Selected: {getNodeMenuLabel(selectedNodeId, currentAutomation.steps)}
+          <div id="automations-canvas-chips" className="automation-canvas-chips">
+            <div id="automations-canvas-selection-chip" className="automation-selection-chip" hidden={!selectedNodeId}>
+              Selected: {getNodeMenuLabel(selectedNodeId, currentAutomation.steps)}
+            </div>
+            {hasBranchSteps ? (
+              <div id="automations-canvas-branch-chip" className="automation-selection-chip automation-selection-chip--branch" title="Drag reorder is disabled while conditional branches are configured. Remove branch targets to re-enable.">
+                Branch mode
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1235,12 +1380,17 @@ export const AutomationApp = () => {
               }
               setSelectedNodeId(String(node.id));
             }}
-            minZoom={0.6}
-            maxZoom={1.25}
+            onInit={(instance) => { reactFlowRef.current = instance; }}
+            zoomOnScroll={zoomEnabled}
+            zoomOnPinch={zoomEnabled}
+            zoomOnDoubleClick={false}
+            panOnScroll={!zoomEnabled}
+            minZoom={zoomEnabled ? 0.6 : 1}
+            maxZoom={zoomEnabled ? 1.25 : 1}
             proOptions={{ hideAttribution: true }}
           >
             <Background id="automations-canvas-background" color="#dbe3f1" gap={24} size={1.2} />
-            <Controls id="automations-canvas-controls" position="bottom-left" />
+            {zoomEnabled ? <Controls id="automations-canvas-controls" position="bottom-left" /> : null}
           </ReactFlow>
         </div>
       </section>

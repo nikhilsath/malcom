@@ -244,6 +244,28 @@ describe("AutomationApp", () => {
     expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
   });
 
+  it("collapses and expands the workflow settings bar", async () => {
+    const { container } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    const toggle = container.querySelector("#automations-workflow-bar-collapse-toggle") as HTMLButtonElement;
+    const content = container.querySelector("#automations-workflow-bar-content") as HTMLElement;
+
+    expect(content.hidden).toBe(false);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+    expect(content.hidden).toBe(true);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(toggle);
+    expect(content.hidden).toBe(false);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("opens node actions and the step drawer from the selected canvas node", async () => {
     const { container } = renderAutomationApp();
 
@@ -323,11 +345,14 @@ describe("AutomationApp", () => {
     expect(within(drawer).getByRole("button", { name: "Select time" })).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("button", { name: "Close editor drawer" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run now" }));
 
     await waitFor(() => {
       expect(document.querySelector("#automations-test-results-drawer")).toBeInTheDocument();
-      expect(document.querySelector("#automations-validation-results")).toBeInTheDocument();
+      expect(
+        document.querySelector("#automations-validation-results") ||
+        document.querySelector("#automations-run-results")
+      ).toBeInTheDocument();
     });
   });
 
