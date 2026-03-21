@@ -37,8 +37,15 @@ def validate_automation_definition(
         issues.append("Automations require at least one step.")
 
     for index, step in enumerate(steps or [], start=1):
-        if step.type == "log" and not step.config.message:
-            issues.append(f"Step {index} requires config.message for log steps.")
+        if step.type == "log":
+            if step.config.log_table_id:
+                if not step.config.log_column_mappings:
+                    issues.append(
+                        f"Step {index}: log steps targeting a table require log_column_mappings."
+                    )
+            else:
+                if not step.config.message:
+                    issues.append(f"Step {index} requires config.message or a log_table_id for log steps.")
         if step.type == "outbound_request":
             if not step.config.destination_url and not step.config.connector_id:
                 issues.append(f"Step {index} requires config.destination_url.")

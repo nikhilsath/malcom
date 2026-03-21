@@ -42,6 +42,20 @@ export type ConnectorRecord = {
   base_url?: string | null;
 };
 
+export type LogDbTableOption = {
+  id: string;
+  name: string;
+  description: string;
+  columns: Array<{ column_name: string; data_type: string }>;
+};
+
+export type LogDbColumnDef = {
+  column_name: string;
+  data_type: "text" | "integer" | "real" | "boolean" | "timestamp";
+  nullable: boolean;
+  default_value: string;
+};
+
 export type InboundApiOption = {
   id: string;
   name: string;
@@ -69,11 +83,14 @@ export type AutomationStep = {
     system_prompt?: string;
     user_prompt?: string;
     model_identifier?: string;
+    // Log / Write-to-DB fields
+    log_table_id?: string;
+    log_column_mappings?: Record<string, string>;
   };
 };
 
 export const stepTypeOptions: Array<{ value: StepType; label: string; description: string }> = [
-  { value: "log", label: "Log", description: "Emit a log message at runtime." },
+  { value: "log", label: "Log", description: "Write a row to a managed database table." },
   { value: "outbound_request", label: "HTTP request", description: "Send an HTTP request to a remote endpoint." },
   { value: "script", label: "Script", description: "Run a stored script from the script library." },
   { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
@@ -82,7 +99,7 @@ export const stepTypeOptions: Array<{ value: StepType; label: string; descriptio
 ];
 
 export const stepTemplates: Record<StepType, AutomationStep> = {
-  log: { type: "log", name: "Log step", config: { message: "Reached {{timestamp}}" } },
+  log: { type: "log", name: "Log step", config: { log_table_id: "", log_column_mappings: {} } },
   outbound_request: {
     type: "outbound_request",
     name: "HTTP request",

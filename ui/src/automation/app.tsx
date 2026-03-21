@@ -17,6 +17,7 @@ import {
 import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry, InboundApiOption } from "./types";
 import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
+import { LogStepForm } from "./step-modals/log-step-form";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 
 declare global {
@@ -236,7 +237,11 @@ const isInboundApiSelectionMissing = (automation: AutomationDetail, inboundApis:
 
 const getStepSummary = (step: AutomationStep) => {
   if (step.type === "log") {
-    return step.config.message || "Emit a log message.";
+    if (step.config.log_table_id) {
+      const colCount = Object.keys(step.config.log_column_mappings || {}).length;
+      return `Write to table · ${colCount} column${colCount !== 1 ? "s" : ""}`;
+    }
+    return step.config.message || "Write a row to a managed database table.";
   }
   if (step.type === "outbound_request") {
     return step.config.destination_url || step.config.connector_id || "Send a request to a remote endpoint.";
@@ -901,16 +906,10 @@ export const AutomationApp = () => {
         </div>
 
         {step.type === "log" ? (
-          <label id="automations-step-log-message-field" className="automation-field automation-field--full">
-            <span id="automations-step-log-message-label" className="automation-field__label">Message</span>
-            <textarea
-              id="automations-step-log-message-input"
-              className="automation-textarea"
-              rows={4}
-              value={step.config.message || ""}
-              onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, message: event.target.value } }))}
-            />
-          </label>
+          <LogStepForm
+            draft={step}
+            onChange={(updated) => updateDrawerStep(() => updated)}
+          />
         ) : null}
 
         {step.type === "outbound_request" ? (

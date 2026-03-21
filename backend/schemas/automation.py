@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .apis import OutgoingAuthConfig
+
+_IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+
+
+def _validate_db_identifier(value: str) -> str:
+    if not _IDENTIFIER_RE.match(value):
+        raise ValueError(
+            "Must start with a lowercase letter and contain only lowercase letters, "
+            "digits, and underscores (max 63 characters)."
+        )
+    return value
 
 
 class AutomationRunStepResponse(BaseModel):
@@ -66,6 +78,9 @@ class AutomationStepConfig(BaseModel):
     system_prompt: str | None = Field(default=None, max_length=5000)
     user_prompt: str | None = Field(default=None, max_length=20000)
     model_identifier: str | None = Field(default=None, max_length=255)
+    # Log / Write-to-DB fields (mutually exclusive with message for new steps)
+    log_table_id: str | None = Field(default=None, max_length=120)
+    log_column_mappings: dict[str, str] | None = None
 
 
 class AutomationStepDefinition(BaseModel):
@@ -127,6 +142,66 @@ class RuntimeStatusResponse(BaseModel):
     job_count: int
 
 
+# ── Log / Write-to-DB table management models ────────────────────────────────
+
+_ALLOWED_COLUMN_TYPES = {"text", "integer", "real", "boolean", "timestamp"}
+
+
+class LogDbColumnDefinition(BaseModel):
+    column_name: str = Field(min_length=1, max_length=63)
+    data_type: Literal["text", "integer", "real", "boolean", "timestamp"] = "text"
+    nullable: bool = True
+    default_value: str | None = Field(default=None, max_length=255)
+
+    @field_validator("column_name")
+    @classmethod
+    def validate_column_name(cls, v: str) -> str:
+        return _validate_db_identifier(v)
+
+
+class LogDbTableCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=63)
+    description: str = Field(default="", max_length=500)
+    columns: list[LogDbColumnDefinition] = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        return _validate_db_identifier(v)
+
+
+class LogDbColumnResponse(BaseModel):
+    id: str
+    table_id: str
+    column_name: str
+    data_type: str
+    nullable: bool
+    default_value: str | None
+    position: int
+    created_at: str
+
+
+class LogDbTableSummary(BaseModel):
+    id: str
+    name: str
+    description: str
+    row_count: int
+    created_at: str
+    updated_at: str
+
+
+class LogDbTableDetail(LogDbTableSummary):
+    columns: list[LogDbColumnResponse]
+
+
+class LogDbRowsResponse(BaseModel):
+    table_id: str
+    table_name: str
+    columns: list[str]
+    rows: list[dict[str, Any]]
+    total: int
+
+
 __all__ = [
     "AutomationCreate",
     "AutomationDetailResponse",
@@ -139,5 +214,11 @@ __all__ = [
     "AutomationTriggerConfig",
     "AutomationUpdate",
     "AutomationValidationResponse",
+    "LogDbColumnDefinition",
+    "LogDbColumnResponse",
+    "LogDbRowsResponse",
+    "LogDbTableCreate",
+    "LogDbTableDetail",
+    "LogDbTableSummary",
     "RuntimeStatusResponse",
 ]

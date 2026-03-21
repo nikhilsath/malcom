@@ -267,6 +267,19 @@ def configure_smtp_tool(context: SmokeContext) -> dict[str, Any]:
     return response.json()
 
 
+def create_log_table(context: SmokeContext) -> dict[str, Any]:
+    response = context.client.post(
+        "/api/v1/log-tables",
+        json={
+            "name": "smoke_log_tbl",
+            "description": "Smoke log table.",
+            "columns": [{"column_name": "entry", "data_type": "text", "nullable": True}],
+        },
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def _assert_json_response(response: Any, _: SmokeContext, __: dict[str, Any]) -> None:
     assert response.headers["content-type"].startswith("application/json")
 
@@ -861,5 +874,53 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = (
         },
         payload={"smoke": True},
         response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase("log-tables-list", "GET", "/api/v1/log-tables", 200, response_assert=_assert_json_response),
+    RouteSmokeCase(
+        "log-tables-create",
+        "POST",
+        "/api/v1/log-tables",
+        201,
+        payload={
+            "name": "smoke_events",
+            "description": "Smoke test log table.",
+            "columns": [{"column_name": "payload", "data_type": "text", "nullable": True}],
+        },
+        response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase(
+        "log-tables-detail",
+        "GET",
+        lambda _context, state: f"/api/v1/log-tables/{state['log_table']['id']}",
+        200,
+        route_path="/api/v1/log-tables/{table_id}",
+        setup=lambda context: {"log_table": create_log_table(context)},
+        response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase(
+        "log-tables-rows",
+        "GET",
+        lambda _context, state: f"/api/v1/log-tables/{state['log_table']['id']}/rows",
+        200,
+        route_path="/api/v1/log-tables/{table_id}/rows",
+        setup=lambda context: {"log_table": create_log_table(context)},
+        response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase(
+        "log-tables-rows-clear",
+        "POST",
+        lambda _context, state: f"/api/v1/log-tables/{state['log_table']['id']}/rows/clear",
+        200,
+        route_path="/api/v1/log-tables/{table_id}/rows/clear",
+        setup=lambda context: {"log_table": create_log_table(context)},
+        response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase(
+        "log-tables-delete",
+        "DELETE",
+        lambda _context, state: f"/api/v1/log-tables/{state['log_table']['id']}",
+        204,
+        route_path="/api/v1/log-tables/{table_id}",
+        setup=lambda context: {"log_table": create_log_table(context)},
     ),
 )

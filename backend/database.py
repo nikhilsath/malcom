@@ -172,6 +172,26 @@ CREATE TABLE IF NOT EXISTS scripts (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS log_db_tables (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS log_db_columns (
+    id TEXT PRIMARY KEY,
+    table_id TEXT NOT NULL REFERENCES log_db_tables(id) ON DELETE CASCADE,
+    column_name TEXT NOT NULL,
+    data_type TEXT NOT NULL DEFAULT 'text',
+    nullable INTEGER NOT NULL DEFAULT 1,
+    default_value TEXT,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE(table_id, column_name)
+);
 """
 
 

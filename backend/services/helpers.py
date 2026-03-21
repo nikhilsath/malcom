@@ -2924,6 +2924,97 @@ def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, roo
         detail={"script_id": script_row["id"]},
         output=json.loads(completed.stdout or "null"),
     )
+
+
+_LOG_DB_PG_TYPE_MAP: dict[str, str] = {
+    "text": "TEXT",
+    "integer": "INTEGER",
+    "real": "DOUBLE PRECISION",
+    "boolean": "BOOLEAN",
+    "timestamp": "TIMESTAMPTZ",
+}
+
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+
+
+def _assert_safe_identifier(name: str) -> str:
+    """Raises RuntimeError if name is not a safe SQL identifier."""
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise RuntimeError(f"Unsafe SQL identifier rejected: {name!r}")
+    return name
+
+
+def _execute_log_db_write(
+    connection: DatabaseConnection,
+    logger: logging.Logger,
+    *,
+    automation_id: str,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+) -> RuntimeExecutionResult:
+    """Write a row to a managed log DB table for a Write-to-DB log step."""
+    table_id = step.config.log_table_id
+    mappings = step.config.log_column_mappings or {}
+
+    table_row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
+    if table_row is None:
+        raise RuntimeError(f"Log table '{table_id}' not found. Create it before executing.")
+
+    table_name = _assert_safe_identifier(table_row["name"])
+    data_table = f"log_data_{table_name}"
+
+    col_rows = fetch_all(
+        connection,
+        "SELECT column_name, data_type FROM log_db_columns WHERE table_id = ? ORDER BY position",
+        (table_id,),
+    )
+    known_columns = {r["column_name"] for r in col_rows}
+
+    rendered: dict[str, Any] = {}
+    for col_name, template in mappings.items():
+        _assert_safe_identifier(col_name)
+        if col_name not in known_columns:
+            raise RuntimeError(f"Column '{col_name}' does not exist in log table '{table_name}'.")
+        rendered[col_name] = render_template_string(template, context)
+
+    row_id = f"logrow_{uuid4().hex[:12]}"
+    now = utc_now_iso()
+    system_cols = ["row_id", "automation_id", "inserted_at"]
+    system_vals: list[Any] = [row_id, automation_id, now]
+
+    user_col_names = list(rendered.keys())
+    user_col_vals = [rendered[c] for c in user_col_names]
+
+    all_cols = system_cols + user_col_names
+    all_vals = system_vals + user_col_vals
+
+    col_list = ", ".join(all_cols)
+    placeholders = ", ".join(["?"] * len(all_vals))
+
+    connection.execute(
+        f"INSERT INTO {data_table} ({col_list}) VALUES ({placeholders})",
+        all_vals,
+    )
+    connection.commit()
+
+    write_application_log(
+        logger,
+        logging.INFO,
+        "automation_log_db_write",
+        automation_id=automation_id,
+        step_name=step.name,
+        table=table_name,
+        row_id=row_id,
+    )
+    summary = f"Wrote row to {table_name} ({len(rendered)} column(s))"
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary=summary,
+        detail={"table": table_name, "row_id": row_id, "columns_written": list(rendered.keys())},
+        output={"table": table_name, "row_id": row_id},
+    )
+
+
 def execute_automation_step(
     connection: DatabaseConnection,
     logger: logging.Logger,
@@ -2934,6 +3025,8 @@ def execute_automation_step(
     root_dir: Path,
 ) -> RuntimeExecutionResult:
     if step.type == "log":
+        if step.config.log_table_id:
+            return _execute_log_db_write(connection, logger, automation_id=automation_id, step=step, context=context)
         message = render_template_string(step.config.message, context)
         write_application_log(logger, logging.INFO, "automation_log_step", automation_id=automation_id, step_name=step.name, message=message)
         return RuntimeExecutionResult(status="completed", response_summary=message, detail={"message": message}, output=message)

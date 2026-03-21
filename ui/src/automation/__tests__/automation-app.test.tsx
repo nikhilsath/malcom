@@ -291,7 +291,7 @@ describe("AutomationApp", () => {
 
     await waitFor(() => {
       expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
-      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+      expect(document.querySelector("#log-step-form-root")).toBeInTheDocument();
     });
   });
 

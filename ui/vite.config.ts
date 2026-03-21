@@ -22,6 +22,7 @@ export default defineConfig({
         automationsOverview: resolve(__dirname, "automations/overview.html"),
         automationsLibrary: resolve(__dirname, "automations/library.html"),
         automationsBuilder: resolve(__dirname, "automations/builder.html"),
+        automationsData: resolve(__dirname, "automations/data.html"),
         apisRegistry: resolve(__dirname, "apis/registry.html"),
         apisIncoming: resolve(__dirname, "apis/incoming.html"),
         apisOutgoing: resolve(__dirname, "apis/outgoing.html"),

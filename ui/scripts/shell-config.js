@@ -115,6 +115,13 @@ export const shellSections = {
         href: "automations/builder.html",
         pageTitle: "Automation Builder",
         description: "Build and configure an automation workflow."
+      },
+      {
+        id: "sidenav-automations-data",
+        label: "Log Data",
+        href: "automations/data.html",
+        pageTitle: "Log Data",
+        description: "Browse rows written to managed log tables by automation Log steps."
       }
     ],
     footer: {

@@ -84,6 +84,44 @@
                     </div>
                 </form>
             </section>
+
+            <!-- Log table storage management -->
+            <section id="settings-log-storage-section" class="card settings-section">
+                <button
+                    id="settings-log-storage-collapse-toggle"
+                    type="button"
+                    class="section-collapse-top-strip"
+                    aria-expanded="false"
+                    aria-controls="settings-log-storage-body"
+                    aria-label="Expand log table storage management"
+                >
+                    <span id="settings-log-storage-header">
+                        <p id="settings-log-storage-eyebrow" class="section-header__eyebrow">Storage</p>
+                        <div class="title-row">
+                            <h3 id="settings-log-storage-title" class="settings-card__title">Log table storage</h3>
+                        </div>
+                    </span>
+                    <span id="settings-log-storage-collapse-symbol" aria-hidden="true">+</span>
+                    <span class="sr-only">Expand log table storage management</span>
+                </button>
+                <div id="settings-log-storage-body" hidden class="settings-log-storage-body">
+                    <div id="settings-log-storage-description-row" class="title-row">
+                        <p id="settings-log-storage-hint" class="settings-card__description">
+                            Log tables are created by automation Log steps.
+                        </p>
+                        <button type="button" id="settings-log-storage-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-log-storage-description">i</button>
+                    </div>
+                    <p id="settings-log-storage-description" class="settings-card__description" hidden>
+                        Each row represents one automation execution event. You can view full data in Automations › Log Data. Use the controls here to check current storage and clear stale rows.
+                    </p>
+                    <div id="settings-log-tables-stats" class="settings-log-tables-stats" aria-live="polite">
+                        <p id="settings-log-tables-loading" class="automation-empty-state">Loading…</p>
+                    </div>
+                    <div id="settings-log-storage-actions" class="api-form-actions">
+                        <a id="settings-log-storage-view-link" href="../automations/data.html" class="button button--secondary">View log data →</a>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 

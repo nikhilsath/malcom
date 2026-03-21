@@ -1,5 +1,24 @@
 # AGENTS.md
 
+## Entry Point Routing {#entry-point-routing}
+
+Start every prompt with `[AREA: <keyword>]` to scope which sections of this file apply. Agents must read only the sections listed in the **Read** column and may skip the rest.
+
+| Keyword | Read These Sections | Skip These Sections |
+|---|---|---|
+| `db` | Database Structure, Schema Rules, File Placement → Backend, Testing → Backend | All UI rules, Tool I/O Contract, Vite/Build |
+| `ui` | File Placement → Frontend, Shared Shell, UI Requirements, Collapsible Pattern, Text Density, Info Badge, Styles, Vite Build | DB structure, Tool I/O Contract, Backend file rules |
+| `tools` | Tool Registration, Tool I/O Contract, File Placement → Frontend Entry Rules, Vite Build | DB schema, Shell/badge/collapsible rules |
+| `api` | File Placement → Backend, Repo Map → Backend, Testing → Backend | UI rules, Tool I/O, Vite build |
+| `test` | Testing and Verification, Rules Matrix R-TEST-\*, Practical Do/Do Not | UI rules, Tool I/O Contract, Vite |
+| `automation` | Tool I/O Contract, Tool Registration, DB → Automation Tables, Testing | UI Shell rules, Styles, Vite |
+| `nav` | Shared Shell Requirements, UI Text Density, Info Badge Pattern, Styles | DB, Tool I/O, Backend file rules |
+| `scripts` | File Placement → Backend, Repo Map → Backend, Testing | UI rules, Tool I/O |
+
+**If no `[AREA:]` prefix is present**, read the Quick Task → Where to Edit table in the Machine Reference Index first, then load only the sections that table points to.
+
+---
+
 ## Purpose
 
 Agents work best in this repo when they follow the real architecture instead of inventing parallel structure.
@@ -101,7 +120,13 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 5,
+  "version": 6,
+  "prompt_prefix": {
+    "convention": "[AREA: <keyword>] <task description>",
+    "routing_section": "#entry-point-routing",
+    "keywords": ["db", "ui", "tools", "api", "test", "automation", "nav", "scripts"],
+    "fallback": "Read Quick Task → Where to Edit table in #machine-reference-index first"
+  },
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],

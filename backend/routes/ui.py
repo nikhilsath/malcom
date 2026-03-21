@@ -17,6 +17,7 @@ UI_HTML_ROUTES = {
     "/automations/overview.html": "automations/overview.html",
     "/automations/library.html": "automations/library.html",
     "/automations/builder.html": "automations/builder.html",
+    "/automations/data.html": "automations/data.html",
     "/apis/registry.html": "apis/registry.html",
     "/apis/incoming.html": "apis/incoming.html",
     "/apis/outgoing.html": "apis/outgoing.html",

@@ -1,0 +1,278 @@
+"""Backend routes for managing Log / Write-to-DB table definitions and their data."""
+
+from __future__ import annotations
+
+import re
+
+from fastapi import APIRouter, HTTPException, Request, Response, status
+
+from backend.schemas import (
+    LogDbColumnDefinition,
+    LogDbColumnResponse,
+    LogDbRowsResponse,
+    LogDbTableCreate,
+    LogDbTableDetail,
+    LogDbTableSummary,
+)
+from backend.services.support import (
+    fetch_all,
+    fetch_one,
+    get_connection,
+    utc_now_iso,
+)
+from uuid import uuid4
+
+router = APIRouter()
+
+_SAFE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+_PG_TYPE_MAP = {
+    "text": "TEXT",
+    "integer": "INTEGER",
+    "real": "DOUBLE PRECISION",
+    "boolean": "BOOLEAN",
+    "timestamp": "TIMESTAMPTZ",
+}
+
+
+def _assert_safe_identifier(name: str) -> str:
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Invalid identifier '{name}': must start with a lowercase letter and contain only lowercase letters, digits, and underscores.",
+        )
+    return name
+
+
+def _data_table_name(table_name: str) -> str:
+    return f"log_data_{table_name}"
+
+
+def _build_table_summary(row: dict, connection) -> LogDbTableSummary:
+    data_table = _data_table_name(row["name"])
+    try:
+        count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
+        row_count = count_row["cnt"] if count_row else 0
+    except Exception:
+        row_count = 0
+    return LogDbTableSummary(
+        id=row["id"],
+        name=row["name"],
+        description=row["description"],
+        row_count=row_count,
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _build_column_response(row: dict) -> LogDbColumnResponse:
+    return LogDbColumnResponse(
+        id=row["id"],
+        table_id=row["table_id"],
+        column_name=row["column_name"],
+        data_type=row["data_type"],
+        nullable=bool(row["nullable"]),
+        default_value=row.get("default_value"),
+        position=row["position"],
+        created_at=row["created_at"],
+    )
+
+
+# ── List managed log tables ───────────────────────────────────────────────────
+
+@router.get("/api/v1/log-tables", response_model=list[LogDbTableSummary])
+def list_log_tables(request: Request) -> list[LogDbTableSummary]:
+    connection = get_connection(request)
+    rows = fetch_all(
+        connection,
+        "SELECT * FROM log_db_tables ORDER BY created_at DESC",
+    )
+    return [_build_table_summary(dict(row), connection) for row in rows]
+
+
+# ── Create a new managed log table ───────────────────────────────────────────
+
+@router.post("/api/v1/log-tables", response_model=LogDbTableDetail, status_code=status.HTTP_201_CREATED)
+def create_log_table(payload: LogDbTableCreate, request: Request) -> LogDbTableDetail:
+    connection = get_connection(request)
+    _assert_safe_identifier(payload.name)
+
+    existing = fetch_one(connection, "SELECT id FROM log_db_tables WHERE name = ?", (payload.name,))
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A log table named '{payload.name}' already exists.",
+        )
+
+    now = utc_now_iso()
+    table_id = f"logtbl_{uuid4().hex[:10]}"
+    data_table = _data_table_name(payload.name)
+
+    # Build CREATE TABLE SQL for the actual data table
+    col_defs: list[str] = [
+        "row_id TEXT PRIMARY KEY",
+        "automation_id TEXT NOT NULL",
+        "inserted_at TIMESTAMPTZ NOT NULL",
+    ]
+    for col in payload.columns:
+        _assert_safe_identifier(col.column_name)
+        pg_type = _PG_TYPE_MAP.get(col.data_type, "TEXT")
+        null_clause = "" if col.nullable else " NOT NULL"
+        default_clause = ""
+        if col.default_value is not None:
+            # Only allow simple literal defaults - no arbitrary SQL expressions
+            safe_default = col.default_value.replace("'", "''")
+            default_clause = f" DEFAULT '{safe_default}'"
+        col_defs.append(f"{col.column_name} {pg_type}{null_clause}{default_clause}")
+
+    create_sql = f"CREATE TABLE IF NOT EXISTS {data_table} ({', '.join(col_defs)})"
+    connection.execute(create_sql)
+
+    # Persist the metadata
+    connection.execute(
+        "INSERT INTO log_db_tables (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (table_id, payload.name, payload.description, now, now),
+    )
+
+    col_responses: list[LogDbColumnResponse] = []
+    for position, col in enumerate(payload.columns):
+        col_id = f"logcol_{uuid4().hex[:10]}"
+        connection.execute(
+            """
+            INSERT INTO log_db_columns
+                (id, table_id, column_name, data_type, nullable, default_value, position, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                col_id,
+                table_id,
+                col.column_name,
+                col.data_type,
+                int(col.nullable),
+                col.default_value,
+                position,
+                now,
+            ),
+        )
+        col_responses.append(
+            LogDbColumnResponse(
+                id=col_id,
+                table_id=table_id,
+                column_name=col.column_name,
+                data_type=col.data_type,
+                nullable=col.nullable,
+                default_value=col.default_value,
+                position=position,
+                created_at=now,
+            )
+        )
+
+    connection.commit()
+
+    return LogDbTableDetail(
+        id=table_id,
+        name=payload.name,
+        description=payload.description,
+        row_count=0,
+        created_at=now,
+        updated_at=now,
+        columns=col_responses,
+    )
+
+
+# ── Get a single managed log table ───────────────────────────────────────────
+
+@router.get("/api/v1/log-tables/{table_id}", response_model=LogDbTableDetail)
+def get_log_table(table_id: str, request: Request) -> LogDbTableDetail:
+    connection = get_connection(request)
+    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
+
+    col_rows = fetch_all(
+        connection,
+        "SELECT * FROM log_db_columns WHERE table_id = ? ORDER BY position",
+        (table_id,),
+    )
+    summary = _build_table_summary(dict(row), connection)
+    return LogDbTableDetail(
+        **summary.model_dump(),
+        columns=[_build_column_response(dict(c)) for c in col_rows],
+    )
+
+
+# ── Delete a managed log table ────────────────────────────────────────────────
+
+@router.delete("/api/v1/log-tables/{table_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_log_table(table_id: str, request: Request) -> Response:
+    connection = get_connection(request)
+    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
+
+    data_table = _data_table_name(row["name"])
+    _assert_safe_identifier(row["name"])
+    connection.execute(f"DROP TABLE IF EXISTS {data_table}")
+    connection.execute("DELETE FROM log_db_tables WHERE id = ?", (table_id,))
+    connection.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── List rows from a managed log table ───────────────────────────────────────
+
+@router.get("/api/v1/log-tables/{table_id}/rows", response_model=LogDbRowsResponse)
+def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> LogDbRowsResponse:
+    if limit < 1 or limit > 1000:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="limit must be between 1 and 1000.")
+    connection = get_connection(request)
+    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
+
+    data_table = _data_table_name(row["name"])
+    _assert_safe_identifier(row["name"])
+
+    col_rows = fetch_all(
+        connection,
+        "SELECT column_name FROM log_db_columns WHERE table_id = ? ORDER BY position",
+        (table_id,),
+    )
+    col_names = ["row_id", "automation_id", "inserted_at"] + [c["column_name"] for c in col_rows]
+
+    try:
+        data_rows = fetch_all(
+            connection,
+            f"SELECT * FROM {data_table} ORDER BY inserted_at DESC LIMIT ?",
+            (limit,),
+        )
+    except Exception:
+        data_rows = []
+
+    try:
+        count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
+        total = count_row["cnt"] if count_row else 0
+    except Exception:
+        total = 0
+
+    return LogDbRowsResponse(
+        table_id=table_id,
+        table_name=row["name"],
+        columns=col_names,
+        rows=[dict(r) for r in data_rows],
+        total=total,
+    )
+
+
+# ── Clear all rows from a managed log table ───────────────────────────────────
+
+@router.post("/api/v1/log-tables/{table_id}/rows/clear", status_code=status.HTTP_200_OK)
+def clear_log_table_rows(table_id: str, request: Request) -> dict:
+    connection = get_connection(request)
+    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
+
+    data_table = _data_table_name(row["name"])
+    _assert_safe_identifier(row["name"])
+    connection.execute(f"DELETE FROM {data_table}")
+    connection.commit()
+    return {"cleared": True, "table": row["name"]}

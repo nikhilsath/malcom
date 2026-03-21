@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Log Data</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="automations" data-sidenav-item="sidenav-automations-data" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell">
+            <div id="automations-data-page-header" class="page-header section-header--page">
+                <div class="title-row">
+                    <h2 id="automations-data-page-title" class="page-title section-header__title--page">Log Data</h2>
+                    <button type="button" id="automations-data-page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="automations-data-page-description">i</button>
+                </div>
+                <p id="automations-data-page-description" class="page-description section-header__description--page" hidden>Browse rows written to managed log tables by automation Log steps.</p>
+            </div>
+            <section id="automations-data-shell" class="automation-overview-shell">
+                <div id="automations-data-react-root"></div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../src/automation/data-main.tsx"></script>
+</body>
+</html>
