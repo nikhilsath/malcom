@@ -8,6 +8,23 @@ from backend.services.support import *
 router = APIRouter()
 
 
+def _ensure_inbound_trigger_reference_exists(connection: DatabaseConnection, payload: AutomationCreate) -> None:
+    if payload.trigger_type != "inbound_api":
+        return
+    inbound_api_id = payload.trigger_config.inbound_api_id
+    if not inbound_api_id:
+        return
+    try:
+        get_api_or_404(connection, inbound_api_id)
+    except HTTPException as error:
+        if error.status_code == status.HTTP_404_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Inbound API automations require an existing trigger_config.inbound_api_id.",
+            ) from error
+        raise
+
+
 @router.get("/api/v1/automations", response_model=list[AutomationSummaryResponse])
 def list_automations(request: Request) -> list[AutomationSummaryResponse]:
     rows = fetch_all(
@@ -32,6 +49,7 @@ def create_automation(payload: AutomationCreate, request: Request) -> Automation
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=" ".join(issues))
 
     connection = get_connection(request)
+    _ensure_inbound_trigger_reference_exists(connection, payload)
     now = utc_now_iso()
     automation_id = f"automation_{uuid4().hex[:10]}"
     next_run_at = None
@@ -91,6 +109,7 @@ def update_automation(automation_id: str, payload: AutomationUpdate, request: Re
     issues = validate_automation_definition(next_payload, require_steps=True)
     if issues:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=" ".join(issues))
+    _ensure_inbound_trigger_reference_exists(connection, next_payload)
 
     now = utc_now_iso()
     next_run_at = None
@@ -131,7 +150,9 @@ def delete_automation(automation_id: str, request: Request) -> Response:
 
 @router.post("/api/v1/automations/{automation_id}/validate", response_model=AutomationValidationResponse)
 def validate_automation_endpoint(automation_id: str, request: Request) -> AutomationValidationResponse:
-    automation = serialize_automation_detail(get_connection(request), automation_id)
+    connection = get_connection(request)
+    automation = serialize_automation_detail(connection, automation_id)
+    _ensure_inbound_trigger_reference_exists(connection, AutomationCreate(**automation.model_dump()))
     issues = validate_automation_definition(automation, require_steps=True)
     return AutomationValidationResponse(valid=not issues, issues=issues)
 

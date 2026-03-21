@@ -843,7 +843,11 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = (
         200,
         route_path="/api/v1/outgoing/{api_id}",
         setup=lambda context: {"api": create_outgoing_api(context, api_type="outgoing_continuous")},
-        payload={"description": "Updated by smoke", "repeat_interval_minutes": 30},
+        payload={
+            "type": "outgoing_continuous",
+            "description": "Updated by smoke",
+            "repeat_interval_minutes": 30,
+        },
         response_assert=_assert_json_response,
     ),
     RouteSmokeCase(

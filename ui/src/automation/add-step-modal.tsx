@@ -82,7 +82,7 @@ export const AddStepModal = ({
     <Dialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); }}>
       <Dialog.Portal>
         <Dialog.Backdrop id="add-step-modal-backdrop" className="automation-dialog-backdrop" />
-        <Dialog.Popup id="add-step-modal" className="automation-dialog automation-dialog--wide">
+        <Dialog.Popup className="automation-dialog automation-dialog--wide">
           <div id="add-step-modal-dismiss-row" className="automation-dialog__dismiss-row">
             <Dialog.Close
               id="add-step-modal-close-icon"
@@ -96,13 +96,6 @@ export const AddStepModal = ({
           {/* ── Page 1: type picker ── */}
           {!pickedType ? (
             <>
-              <Dialog.Title id="add-step-modal-title" className="automation-dialog__title">
-                Add a step
-              </Dialog.Title>
-              <Dialog.Description id="add-step-modal-description" className="automation-dialog__description">
-                Choose the kind of step to append to the workflow.
-              </Dialog.Description>
-
               <div id="add-step-type-grid" className="add-step-type-grid">
                 {stepTypeOptions.map((opt) => (
                   <button

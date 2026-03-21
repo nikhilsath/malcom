@@ -321,7 +321,7 @@ describe("AutomationApp", () => {
     expect(within(drawer).getByText("Schedule")).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("radio", { name: /schedule/i }));
     expect(within(drawer).getByRole("button", { name: "Select time" })).toBeInTheDocument();
-    fireEvent.click(document.querySelector("#automations-editor-drawer-close") as HTMLElement);
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close editor drawer" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
 

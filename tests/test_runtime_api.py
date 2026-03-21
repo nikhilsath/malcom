@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,15 @@ from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class RuntimeApiTestCase(unittest.TestCase):
+    def wait_for_runtime_history(self, expected_count: int) -> list[dict]:
+        deadline = time.time() + 3
+        while time.time() < deadline:
+            triggers = self.client.get("/api/v1/runtime/triggers").json()
+            if len(triggers) >= expected_count:
+                return triggers
+            time.sleep(0.05)
+        self.fail("Timed out waiting for runtime trigger history.")
+
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         root_dir = Path(self.tempdir.name)
@@ -63,9 +73,7 @@ class RuntimeApiTestCase(unittest.TestCase):
         )
         self.assertEqual(receive_response.status_code, 202)
 
-        triggers_response = self.client.get("/api/v1/runtime/triggers")
-        self.assertEqual(triggers_response.status_code, 200)
-        triggers = triggers_response.json()
+        triggers = self.wait_for_runtime_history(1)
         self.assertEqual(len(triggers), 1)
         self.assertEqual(triggers[0]["api_id"], inbound["id"])
         self.assertEqual(triggers[0]["payload"], {"id": 42})

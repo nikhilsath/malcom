@@ -163,6 +163,57 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["trigger_type"], "inbound_api")
 
+    def test_inbound_triggered_automation_requires_existing_inbound_api(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Inbound automation",
+                "description": "Runs on inbound events.",
+                "enabled": True,
+                "trigger_type": "inbound_api",
+                "trigger_config": {"inbound_api_id": "missing-api"},
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Inbound log",
+                        "config": {"message": "Received event"},
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 422)
+        self.assertIn("existing trigger_config.inbound_api_id", create_response.json()["detail"])
+
+        inbound = self.create_inbound_api()
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Inbound automation",
+                "description": "Runs on inbound events.",
+                "enabled": True,
+                "trigger_type": "inbound_api",
+                "trigger_config": {"inbound_api_id": inbound["id"]},
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Inbound log",
+                        "config": {"message": "Received event"},
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+
+        update_response = self.client.patch(
+            f"/api/v1/automations/{automation_response.json()['id']}",
+            json={
+                "trigger_type": "inbound_api",
+                "trigger_config": {"inbound_api_id": "missing-api"},
+            },
+        )
+        self.assertEqual(update_response.status_code, 422)
+        self.assertIn("existing trigger_config.inbound_api_id", update_response.json()["detail"])
+
     def test_manual_automation_can_execute_llm_chat_step(self) -> None:
         automation_response = self.client.post(
             "/api/v1/automations",

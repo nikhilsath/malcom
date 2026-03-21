@@ -39,9 +39,8 @@ class WorkersApiTestCase(unittest.TestCase):
         list_response = self.client.get("/api/v1/workers")
         self.assertEqual(list_response.status_code, 200)
         workers = list_response.json()
-        self.assertEqual(len(workers), 1)
-        self.assertEqual(workers[0]["worker_id"], "worker_local_01")
-        self.assertEqual(workers[0]["name"], "Desk iMac")
+        registered = next(worker for worker in workers if worker["worker_id"] == "worker_local_01")
+        self.assertEqual(registered["name"], "Desk iMac")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from backend.database import connect, initialize
+from backend.runtime import runtime_event_bus
 
 
 TABLES_TO_TRUNCATE = (
@@ -27,7 +28,7 @@ def get_test_database_url() -> str:
     return (
         os.getenv("MALCOM_TEST_DATABASE_URL", "").strip()
         or os.getenv("MALCOM_DATABASE_URL", "").strip()
-        or "postgresql://postgres:postgres@127.0.0.1:5432/malcom"
+        or "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test"
     )
 
 
@@ -49,6 +50,7 @@ def setup_postgres_test_app(*, app, root_dir: Path, skip_ui_build_check: bool = 
     except Exception as error:
         raise unittest.SkipTest(f"PostgreSQL test database is unavailable: {error}") from error
 
+    runtime_event_bus.clear()
     app.state.root_dir = root_dir
     app.state.db_path = "postgresql"
     app.state.database_url = database_url

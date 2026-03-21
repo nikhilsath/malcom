@@ -87,7 +87,7 @@ class ScriptsApiTestCase(unittest.TestCase):
             "/api/v1/scripts/validate",
             json={
                 "language": "javascript",
-                "code": "export function run( { return true; }",
+                "code": "if (",
             },
         )
 

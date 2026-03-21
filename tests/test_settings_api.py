@@ -175,7 +175,9 @@ class SettingsApiTestCase(unittest.TestCase):
                 """,
             )[0]
             settings_payload = json.loads(row["value_json"])
-            settings_payload["records"][0]["auth_config_protected_json"]["client_secret"] = "enc_v1:not-base64"
+            auth_config = settings_payload["records"][0].setdefault("auth_config", {})
+            protected_secrets = auth_config.setdefault("protected_secrets", {})
+            protected_secrets["client_secret"] = "enc_v1:not-base64"
             now_value = "2026-03-20T00:00:00+00:00"
             connection.execute(
                 """

@@ -720,18 +720,24 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
         run_id=run_id,
         job_id=job_id,
     )
-    matching_automations = fetch_all(
+    matching_automations = []
+    for automation_row in fetch_all(
         connection,
         """
-        SELECT id
+        SELECT id, trigger_config_json
         FROM automations
         WHERE enabled = 1
           AND trigger_type = 'inbound_api'
-          AND json_extract(trigger_config_json, '$.inbound_api_id') = ?
         ORDER BY created_at ASC
         """,
-        (api_id,),
-    )
+    ):
+        try:
+            trigger_config = json.loads(automation_row["trigger_config_json"] or "{}")
+        except json.JSONDecodeError:
+            continue
+        if trigger_config.get("inbound_api_id") == api_id:
+            matching_automations.append(automation_row)
+
     for automation_row in matching_automations:
         execute_automation_definition(
             connection,

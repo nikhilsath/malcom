@@ -28,5 +28,6 @@ test("loads the automation builder page", async ({ page }) => {
   await page.goto("/automations/builder.html?new=true");
   await expect(page.locator("#automations-builder-page-title")).toHaveText("Automation Builder");
   await expect(page.locator("#automations-react-root")).toBeVisible();
-  await expect(page.locator("#automations-summary-title")).toBeVisible();
+  await expect(page.locator("#automations-workflow-bar")).toBeVisible();
+  await expect(page.locator("#automations-canvas-panel")).toBeVisible();
 });

@@ -245,6 +245,7 @@ This adds:
 Prerequisites:
 
 * set `MALCOM_DATABASE_URL` to a reachable local PostgreSQL instance
+* prefer `MALCOM_TEST_DATABASE_URL` for the isolated test database used by `pytest` and Playwright
 * install backend dependencies from `requirements.txt`
 * install frontend dependencies in `ui/`
 * for browser smoke tests, run `cd ui && npm run test:e2e:install` at least once to install Chromium
