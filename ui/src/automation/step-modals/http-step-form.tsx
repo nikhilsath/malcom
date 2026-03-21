@@ -10,7 +10,7 @@ const httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 export const HttpStepForm = ({ draft, connectors, onChange }: Props) => (
   <>
-    <div id="add-step-http-method-field" className="automation-field automation-field--full">
+    <label id="add-step-http-method-field" className="automation-field automation-field--full automation-field--inline-label">
       <span id="add-step-http-method-label" className="automation-field__label">HTTP method</span>
       <select
         id="add-step-http-method-input"
@@ -24,9 +24,9 @@ export const HttpStepForm = ({ draft, connectors, onChange }: Props) => (
           <option key={m} value={m}>{m}</option>
         ))}
       </select>
-    </div>
+    </label>
 
-    <label id="add-step-http-connector-field" className="automation-field automation-field--full">
+    <label id="add-step-http-connector-field" className="automation-field automation-field--full automation-field--inline-label">
       <span id="add-step-http-connector-label" className="automation-field__label">Saved connector</span>
       <select
         id="add-step-http-connector-input"
@@ -43,7 +43,7 @@ export const HttpStepForm = ({ draft, connectors, onChange }: Props) => (
       </select>
     </label>
 
-    <label id="add-step-http-url-field" className="automation-field automation-field--full">
+    <label id="add-step-http-url-field" className="automation-field automation-field--full automation-field--inline-label">
       <span id="add-step-http-url-label" className="automation-field__label">Destination URL</span>
       <input
         id="add-step-http-url-input"
@@ -55,7 +55,7 @@ export const HttpStepForm = ({ draft, connectors, onChange }: Props) => (
       />
     </label>
 
-    <label id="add-step-http-payload-field" className="automation-field automation-field--full">
+    <label id="add-step-http-payload-field" className="automation-field automation-field--full automation-field--inline-label">
       <span id="add-step-http-payload-label" className="automation-field__label">Payload template</span>
       <textarea
         id="add-step-http-payload-input"

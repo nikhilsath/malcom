@@ -27,6 +27,15 @@ export const TriggerSettingsModal = ({ open, onClose, value, onPatch }: Props) =
     <Dialog.Portal>
       <Dialog.Backdrop id="trigger-settings-modal-backdrop" className="automation-dialog-backdrop" />
       <Dialog.Popup id="trigger-settings-modal" className="automation-dialog automation-dialog--wide">
+        <div id="trigger-settings-modal-dismiss-row" className="automation-dialog__dismiss-row">
+          <Dialog.Close
+            id="trigger-settings-modal-close"
+            className="modal__close-icon-button automation-dialog__close-button"
+            aria-label="Close trigger settings modal"
+          >
+            ×
+          </Dialog.Close>
+        </div>
         <Dialog.Title id="trigger-settings-modal-title" className="automation-dialog__title">
           Trigger settings
         </Dialog.Title>
@@ -40,12 +49,6 @@ export const TriggerSettingsModal = ({ open, onClose, value, onPatch }: Props) =
             value={value}
             onPatch={onPatch}
           />
-        </div>
-
-        <div id="trigger-settings-modal-actions" className="automation-dialog__actions">
-          <Dialog.Close id="trigger-settings-modal-close" className="button button--secondary">
-            Close
-          </Dialog.Close>
         </div>
       </Dialog.Popup>
     </Dialog.Portal>

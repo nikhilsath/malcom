@@ -386,6 +386,34 @@
   outline-offset: 2px;
 }
 
+.modal__close-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.modal__close-icon-button:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+
+.modal__close-icon-button:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
 .form-stack,
 .api-form {
   display: flex;
@@ -675,7 +703,7 @@
     padding: var(--space-5);
   }
 
-  .modal__close-button {
+  .modal__close-button:not(.modal__close-icon-button) {
     width: 100%;
   }
 }

@@ -8,7 +8,7 @@ export const modalFallbackMarkup = `
           <button type="button" id="create-api-modal-description-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain this API type" aria-expanded="false" aria-controls="create-api-modal-description">i</button>
         </div>
       </div>
-      <button type="button" class="button button--secondary modal__close-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">Close</button>
+      <button type="button" class="modal__close-icon-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">×</button>
     </div>
     <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The shared create form could not be loaded.</div>
     <div class="modal__body" id="create-api-modal-body">
@@ -37,7 +37,7 @@ export const createTypeModalFallbackMarkup = `
               <h3 class="modal__title" id="apis-create-type-modal-title">Choose an API surface</h3>
               <p class="modal__description" id="apis-create-type-modal-description">Choose the API type to continue.</p>
             </div>
-            <button type="button" class="button button--secondary modal__close-button" id="apis-create-type-modal-close" aria-label="Close create API type modal" data-modal-close="apis-create-type-modal">Close</button>
+            <button type="button" class="modal__close-icon-button" id="apis-create-type-modal-close" aria-label="Close create API type modal" data-modal-close="apis-create-type-modal">×</button>
           </div>
           <div class="modal__body modal__body--form api-create-type-modal-body" id="apis-create-type-modal-body">
             <div id="apis-create-type-modal-options" class="api-create-type-modal-options">
@@ -79,7 +79,7 @@ export const outgoingEditModalFallbackMarkup = `
           <button type="button" id="outgoing-api-edit-modal-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain outgoing API editing" aria-expanded="false" aria-controls="outgoing-api-edit-modal-description">i</button>
         </div>
       </div>
-      <button type="button" class="button button--secondary modal__close-button" id="outgoing-api-edit-modal-close" aria-label="Close outgoing API modal" data-modal-close="outgoing-api-edit-modal">Close</button>
+      <button type="button" class="modal__close-icon-button" id="outgoing-api-edit-modal-close" aria-label="Close outgoing API modal" data-modal-close="outgoing-api-edit-modal">×</button>
     </div>
     <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The outgoing edit form could not be loaded.</div>
     <div class="modal__body" id="outgoing-api-edit-modal-body">

@@ -257,6 +257,15 @@ export const AutomationOverviewApp = () => {
           <Dialog.Popup id="automation-detail-modal" className="automation-detail-dialog">
             {selectedAutomation && (
               <>
+                <div id="automation-detail-modal-dismiss-row" className="automation-dialog__dismiss-row">
+                  <Dialog.Close
+                    id="automation-detail-modal-close"
+                    className="modal__close-icon-button automation-detail-dialog__close-button"
+                    aria-label="Close automation details"
+                  >
+                    ×
+                  </Dialog.Close>
+                </div>
                 <div id="automation-detail-modal-header" className="automation-detail-dialog__header">
                   <div id="automation-detail-modal-title-row" className="automation-detail-dialog__title-row">
                     <Dialog.Title
@@ -317,12 +326,6 @@ export const AutomationOverviewApp = () => {
                   >
                     Open in Builder
                   </a>
-                  <Dialog.Close
-                    id="automation-detail-modal-close"
-                    className="button button--secondary"
-                  >
-                    Close
-                  </Dialog.Close>
                 </div>
               </>
             )}

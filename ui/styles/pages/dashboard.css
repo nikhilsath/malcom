@@ -116,6 +116,14 @@
   font-weight: 700;
 }
 
+.dashboard-log-details-modal__close {
+  color: var(--muted);
+}
+
+.dashboard-log-details-modal__close:hover {
+  color: var(--text);
+}
+
 .dashboard-log-details {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

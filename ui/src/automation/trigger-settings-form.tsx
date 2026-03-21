@@ -1,4 +1,5 @@
 import { Switch } from "@base-ui/react/switch";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TriggerType } from "./types";
 import { triggerTypeOptions } from "./types";
 
@@ -21,6 +22,8 @@ type Props = {
   onPatch: (patch: Partial<TriggerSettingsValue>) => void;
   showWorkflowFields?: boolean;
   showEnabledField?: boolean;
+  inboundApiOptions?: Array<{ id: string; name: string }>;
+  inboundApiMissingSelection?: boolean;
 };
 
 const triggerDescriptions: Record<TriggerType, string> = {
@@ -30,14 +33,110 @@ const triggerDescriptions: Record<TriggerType, string> = {
   smtp_email: "Start when incoming email matches your filters."
 };
 
+const scheduleHourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+const scheduleMinuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+const parseScheduleTime = (scheduleTime?: string | null) => {
+  const fallback = { hour: "12", minute: "00", period: "AM" as const };
+  if (!scheduleTime || !/^\d{2}:\d{2}$/.test(scheduleTime)) {
+    return fallback;
+  }
+
+  const [rawHour, rawMinute] = scheduleTime.split(":");
+  const hour24 = Number(rawHour);
+  const minute = Number(rawMinute);
+  if (!Number.isInteger(hour24) || !Number.isInteger(minute) || hour24 < 0 || hour24 > 23 || minute < 0 || minute > 59) {
+    return fallback;
+  }
+
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return { hour: String(hour12), minute: String(minute).padStart(2, "0"), period };
+};
+
+const formatScheduleTimeLabel = (scheduleTime?: string | null) => {
+  if (!scheduleTime || !/^\d{2}:\d{2}$/.test(scheduleTime)) {
+    return "Select time";
+  }
+  const parsed = parseScheduleTime(scheduleTime);
+  return `${parsed.hour.padStart(2, "0")}:${parsed.minute} ${parsed.period}`;
+};
+
+const to24HourScheduleTime = (hour: string, minute: string, period: "AM" | "PM") => {
+  const hour12 = Number(hour);
+  const minuteValue = Number(minute);
+  if (!Number.isInteger(hour12) || !Number.isInteger(minuteValue) || hour12 < 1 || hour12 > 12 || minuteValue < 0 || minuteValue > 59) {
+    return null;
+  }
+  const hour24 = period === "AM" ? hour12 % 12 : (hour12 % 12) + 12;
+  return `${String(hour24).padStart(2, "0")}:${String(minuteValue).padStart(2, "0")}`;
+};
+
 export const TriggerSettingsForm = ({
   idPrefix,
   value,
   onPatch,
   showWorkflowFields = true,
-  showEnabledField = true
+  showEnabledField = true,
+  inboundApiOptions = [],
+  inboundApiMissingSelection = false
 }: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
+  const schedulePickerRef = useRef<HTMLDivElement | null>(null);
+  const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
+
+  const initialSchedule = parseScheduleTime(value.trigger_config.schedule_time);
+  const [scheduleHour, setScheduleHour] = useState(initialSchedule.hour);
+  const [scheduleMinute, setScheduleMinute] = useState(initialSchedule.minute);
+  const [schedulePeriod, setSchedulePeriod] = useState<"AM" | "PM">(initialSchedule.period);
+
+  useEffect(() => {
+    const parsed = parseScheduleTime(value.trigger_config.schedule_time);
+    setScheduleHour(parsed.hour);
+    setScheduleMinute(parsed.minute);
+    setSchedulePeriod(parsed.period);
+  }, [value.trigger_config.schedule_time]);
+
+  useEffect(() => {
+    if (!schedulePickerOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!schedulePickerRef.current || schedulePickerRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setSchedulePickerOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [schedulePickerOpen]);
+
+  const scheduleButtonLabel = useMemo(
+    () => formatScheduleTimeLabel(value.trigger_config.schedule_time),
+    [value.trigger_config.schedule_time]
+  );
+
+  const inboundApiId = value.trigger_config.inbound_api_id || "";
+  const inboundApiHasCurrentOption = inboundApiOptions.some((option) => option.id === inboundApiId);
+
+  const inboundApiSelectOptions = useMemo(() => {
+    if (!inboundApiId || inboundApiHasCurrentOption) {
+      return inboundApiOptions;
+    }
+    return [{ id: inboundApiId, name: "Unavailable API" }, ...inboundApiOptions];
+  }, [inboundApiHasCurrentOption, inboundApiId, inboundApiOptions]);
+
+  const patchScheduleTime = (nextHour: string, nextMinute: string, nextPeriod: "AM" | "PM") => {
+    const scheduleTime = to24HourScheduleTime(nextHour, nextMinute, nextPeriod);
+    if (!scheduleTime) {
+      return;
+    }
+    onPatch({ trigger_config: { ...value.trigger_config, schedule_time: scheduleTime } });
+  };
 
   return (
     <div id={id("form")} className="automation-form">
@@ -113,27 +212,98 @@ export const TriggerSettingsForm = ({
       </div>
 
       {value.trigger_type === "schedule" ? (
-        <label id={id("trigger-schedule-field")} className="automation-field automation-field--full">
+        <div id={id("trigger-schedule-field")} className="automation-field automation-field--full automation-time-picker" ref={schedulePickerRef}>
           <span id={id("trigger-schedule-label")} className="automation-field__label">Daily run time</span>
-          <input
+          <button
             id={id("trigger-schedule-input")}
-            className="automation-input"
-            type="time"
-            value={value.trigger_config.schedule_time || ""}
-            onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, schedule_time: event.target.value } })}
-          />
-        </label>
+            className="automation-input automation-time-picker__trigger"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={schedulePickerOpen}
+            aria-controls={id("trigger-schedule-picker")}
+            onClick={() => setSchedulePickerOpen((open) => !open)}
+          >
+            {scheduleButtonLabel}
+          </button>
+
+          {schedulePickerOpen ? (
+            <div id={id("trigger-schedule-picker")} className="automation-time-picker__panel" role="dialog" aria-label="Schedule time picker">
+              <label id={id("trigger-schedule-hour-field")} className="automation-field automation-time-picker__field">
+                <span id={id("trigger-schedule-hour-label")} className="automation-field__label">Hour</span>
+                <select
+                  id={id("trigger-schedule-hour-input")}
+                  className="automation-input"
+                  value={scheduleHour}
+                  onChange={(event) => {
+                    const nextHour = event.target.value;
+                    setScheduleHour(nextHour);
+                    patchScheduleTime(nextHour, scheduleMinute, schedulePeriod);
+                  }}
+                >
+                  {scheduleHourOptions.map((hourOption) => (
+                    <option key={hourOption} value={hourOption}>{hourOption}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label id={id("trigger-schedule-minute-field")} className="automation-field automation-time-picker__field">
+                <span id={id("trigger-schedule-minute-label")} className="automation-field__label">Minute</span>
+                <select
+                  id={id("trigger-schedule-minute-input")}
+                  className="automation-input"
+                  value={scheduleMinute}
+                  onChange={(event) => {
+                    const nextMinute = event.target.value;
+                    setScheduleMinute(nextMinute);
+                    patchScheduleTime(scheduleHour, nextMinute, schedulePeriod);
+                  }}
+                >
+                  {scheduleMinuteOptions.map((minuteOption) => (
+                    <option key={minuteOption} value={minuteOption}>{minuteOption}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label id={id("trigger-schedule-period-field")} className="automation-field automation-time-picker__field">
+                <span id={id("trigger-schedule-period-label")} className="automation-field__label">Period</span>
+                <select
+                  id={id("trigger-schedule-period-input")}
+                  className="automation-input"
+                  value={schedulePeriod}
+                  onChange={(event) => {
+                    const nextPeriod = event.target.value as "AM" | "PM";
+                    setSchedulePeriod(nextPeriod);
+                    patchScheduleTime(scheduleHour, scheduleMinute, nextPeriod);
+                  }}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {value.trigger_type === "inbound_api" ? (
         <label id={id("trigger-api-field")} className="automation-field automation-field--full">
-          <span id={id("trigger-api-label")} className="automation-field__label">Inbound API id</span>
-          <input
+          <span id={id("trigger-api-label")} className="automation-field__label">Inbound API</span>
+          <select
             id={id("trigger-api-input")}
             className="automation-input"
-            value={value.trigger_config.inbound_api_id || ""}
+            value={inboundApiId}
             onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, inbound_api_id: event.target.value } })}
-          />
+          >
+            <option value="">Select inbound API</option>
+            {inboundApiSelectOptions.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+          {inboundApiMissingSelection ? (
+            <span id={id("trigger-api-missing-selection")} className="automation-switch-field__description">
+              The selected inbound API is no longer available. Choose another API to continue.
+            </span>
+          ) : null}
         </label>
       ) : null}
 

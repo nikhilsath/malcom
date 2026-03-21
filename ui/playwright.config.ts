@@ -22,7 +22,10 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}/health`,
     reuseExistingServer: true,
     env: {
-      MALCOM_DATABASE_URL: process.env.MALCOM_DATABASE_URL || "postgresql://postgres:postgres@127.0.0.1:5432/malcom"
+      MALCOM_DATABASE_URL:
+        process.env.MALCOM_TEST_DATABASE_URL ||
+        process.env.MALCOM_DATABASE_URL ||
+        "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test"
     }
   }
 });

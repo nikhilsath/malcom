@@ -13,7 +13,7 @@ import {
   Position,
   Handle
 } from "@xyflow/react";
-import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry } from "./types";
+import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry, InboundApiOption } from "./types";
 import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
 import { TriggerSettingsForm } from "./trigger-settings-form";
@@ -199,17 +199,32 @@ const getRunStatusTone = (value: string) => {
   return "neutral";
 };
 
-const getTriggerSummary = (automation: AutomationDetail) => {
+const getTriggerSummary = (automation: AutomationDetail, inboundApis: InboundApiOption[]) => {
   if (automation.trigger_type === "schedule") {
     return automation.trigger_config.schedule_time ? `Runs daily at ${automation.trigger_config.schedule_time}` : "Choose a daily schedule.";
   }
   if (automation.trigger_type === "inbound_api") {
-    return automation.trigger_config.inbound_api_id ? `Watches inbound API ${automation.trigger_config.inbound_api_id}` : "Attach an inbound API endpoint.";
+    if (!automation.trigger_config.inbound_api_id) {
+      return "Attach an inbound API endpoint.";
+    }
+    const matchedInboundApi = inboundApis.find((api) => api.id === automation.trigger_config.inbound_api_id);
+    return `Watches inbound API ${matchedInboundApi?.name || automation.trigger_config.inbound_api_id}`;
   }
   if (automation.trigger_type === "smtp_email") {
     return automation.trigger_config.smtp_subject ? `Matches subject ${automation.trigger_config.smtp_subject}` : "Provide the inbound subject filter.";
   }
   return "Runs on operator demand.";
+};
+
+const isInboundApiSelectionMissing = (automation: AutomationDetail, inboundApis: InboundApiOption[]) => {
+  if (automation.trigger_type !== "inbound_api") {
+    return false;
+  }
+  const inboundApiId = automation.trigger_config.inbound_api_id;
+  if (!inboundApiId) {
+    return false;
+  }
+  return !inboundApis.some((option) => option.id === inboundApiId);
 };
 
 const getStepSummary = (step: AutomationStep) => {
@@ -238,7 +253,7 @@ const getStepSummary = (step: AutomationStep) => {
   return step.config.model_identifier ? `Use model ${step.config.model_identifier}` : "Prompt an LLM with middleware context.";
 };
 
-const validateAutomationDefinition = (automation: AutomationDetail) => {
+const validateAutomationDefinition = (automation: AutomationDetail, inboundApis: InboundApiOption[]) => {
   const issues: string[] = [];
   if (!automation.name.trim()) {
     issues.push("Name is required.");
@@ -248,6 +263,9 @@ const validateAutomationDefinition = (automation: AutomationDetail) => {
   }
   if (automation.trigger_type === "inbound_api" && !automation.trigger_config.inbound_api_id) {
     issues.push("Inbound API id is required for inbound-triggered automations.");
+  }
+  if (isInboundApiSelectionMissing(automation, inboundApis)) {
+    issues.push("Selected inbound API is unavailable. Choose a currently configured inbound API.");
   }
   if (automation.trigger_type === "smtp_email" && !automation.trigger_config.smtp_subject) {
     issues.push("Email subject is required for SMTP-triggered automations.");
@@ -398,6 +416,7 @@ export const AutomationApp = () => {
   const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
+  const [inboundApis, setInboundApis] = useState<InboundApiOption[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -515,8 +534,12 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const settings = await requestJson("/api/v1/settings");
+    const [settings, inbound] = await Promise.all([
+      requestJson("/api/v1/settings") as Promise<{ connectors?: { records?: ConnectorRecord[] } }>,
+      requestJson("/api/v1/inbound") as Promise<Array<{ id: string; name: string }>>
+    ]);
     setConnectors(settings.connectors?.records || []);
+    setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
@@ -610,7 +633,7 @@ export const AutomationApp = () => {
   }, [currentAutomation.steps, editorDrawer]);
 
   const saveAutomation = async () => {
-    const issues = validateAutomationDefinition(currentAutomation);
+    const issues = validateAutomationDefinition(currentAutomation, inboundApis);
     if (issues.length > 0) {
       setFeedback(issues.join(" "));
       setFeedbackTone("error");
@@ -637,7 +660,7 @@ export const AutomationApp = () => {
   };
 
   const validateAutomation = async () => {
-    const localIssues = validateAutomationDefinition(currentAutomation);
+    const localIssues = validateAutomationDefinition(currentAutomation, inboundApis);
     if (localIssues.length > 0) {
       setFeedback(localIssues.join(" "));
       setFeedbackTone("error");
@@ -700,7 +723,7 @@ export const AutomationApp = () => {
           kind: "trigger",
           label: getTriggerTypeLabel(currentAutomation.trigger_type),
           subtitle: "Trigger",
-          summary: getTriggerSummary(currentAutomation),
+          summary: getTriggerSummary(currentAutomation, inboundApis),
           accent: "trigger",
           selected: selectedNodeId === "trigger-node",
           onOpenMenu: openNodeMenu
@@ -762,7 +785,7 @@ export const AutomationApp = () => {
     });
 
     return nodes;
-  }, [currentAutomation, selectedNodeId]);
+  }, [currentAutomation, selectedNodeId, inboundApis]);
 
   const flowEdges = useMemo(() => {
     const orderedNodeIds = [
@@ -1288,7 +1311,13 @@ export const AutomationApp = () => {
                     : "Adjust the selected step. Essential fields come first, with optional custom labeling under Advanced."}
                 </Dialog.Description>
               </div>
-              <Dialog.Close id="automations-editor-drawer-close" className="button button--secondary">Close</Dialog.Close>
+              <Dialog.Close
+                id="automations-editor-drawer-close"
+                className="modal__close-icon-button automation-side-drawer__close"
+                aria-label="Close editor drawer"
+              >
+                ×
+              </Dialog.Close>
             </div>
 
             <div id="automations-editor-drawer-body" className="automation-side-drawer__body">
@@ -1299,6 +1328,8 @@ export const AutomationApp = () => {
                   onPatch={patchAutomation}
                   showWorkflowFields={false}
                   showEnabledField={false}
+                  inboundApiOptions={inboundApis}
+                  inboundApiMissingSelection={isInboundApiSelectionMissing(currentAutomation, inboundApis)}
                 />
               ) : drawerStep ? renderStepEditor(drawerStep) : null}
             </div>
@@ -1321,7 +1352,13 @@ export const AutomationApp = () => {
                     : "Execution output is shown on demand so the builder can stay focused on composition."}
                 </Dialog.Description>
               </div>
-              <Dialog.Close id="automations-test-results-close" className="button button--secondary">Close</Dialog.Close>
+              <Dialog.Close
+                id="automations-test-results-close"
+                className="modal__close-icon-button automation-side-drawer__close"
+                aria-label="Close test results drawer"
+              >
+                ×
+              </Dialog.Close>
             </div>
 
             <div id="automations-test-results-body" className="automation-side-drawer__body automation-side-drawer__body--results">
@@ -1400,12 +1437,20 @@ export const AutomationApp = () => {
         <Dialog.Portal>
           <Dialog.Backdrop id="automations-delete-dialog-backdrop" className="automation-dialog-backdrop" />
           <Dialog.Popup id="automations-delete-dialog" className="automation-dialog">
+            <div id="automations-delete-dialog-dismiss-row" className="automation-dialog__dismiss-row">
+              <Dialog.Close
+                id="automations-delete-dialog-cancel"
+                className="modal__close-icon-button automation-dialog__close-button"
+                aria-label="Close delete automation dialog"
+              >
+                ×
+              </Dialog.Close>
+            </div>
             <Dialog.Title id="automations-delete-dialog-title" className="automation-dialog__title">Delete automation?</Dialog.Title>
             <Dialog.Description id="automations-delete-dialog-description" className="automation-dialog__description">
               This removes the automation definition and its step layout. Existing run history stays available through recorded runs.
             </Dialog.Description>
             <div id="automations-delete-dialog-actions" className="automation-dialog__actions">
-              <Dialog.Close id="automations-delete-dialog-cancel" className="button button--secondary">Cancel</Dialog.Close>
               <button
                 id="automations-delete-dialog-confirm"
                 type="button"

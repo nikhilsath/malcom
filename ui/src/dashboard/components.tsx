@@ -607,10 +607,11 @@ export const LogEntryDetailsModal = ({
         <button
           type="button"
           id="dashboard-log-details-modal-close"
-          className="button button--secondary secondary-action-button"
+          className="modal__close-icon-button dashboard-log-details-modal__close"
+          aria-label="Close event details"
           onClick={onClose}
         >
-          Close
+          ×
         </button>
       </div>
       <LogEntryDetailsPanel entry={entry} maxDetailCharacters={maxDetailCharacters} />

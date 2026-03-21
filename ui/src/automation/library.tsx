@@ -207,6 +207,15 @@ export const AutomationLibraryApp = () => {
           <Dialog.Popup id="automations-library-detail-modal" className="automation-detail-dialog">
             {selectedAutomation ? (
               <>
+                <div id="automations-library-detail-modal-dismiss-row" className="automation-dialog__dismiss-row">
+                  <Dialog.Close
+                    id="automations-library-detail-modal-close"
+                    className="modal__close-icon-button automation-detail-dialog__close-button"
+                    aria-label="Close automation details"
+                  >
+                    ×
+                  </Dialog.Close>
+                </div>
                 <div id="automations-library-detail-modal-header" className="automation-detail-dialog__header">
                   <div id="automations-library-detail-modal-title-row" className="automation-detail-dialog__title-row">
                     <Dialog.Title id="automations-library-detail-modal-title" className="automation-detail-dialog__title">
@@ -251,9 +260,6 @@ export const AutomationLibraryApp = () => {
                   >
                     Open in Builder
                   </a>
-                  <Dialog.Close id="automations-library-detail-modal-close" className="button button--secondary">
-                    Close
-                  </Dialog.Close>
                 </div>
               </>
             ) : null}

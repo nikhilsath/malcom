@@ -616,6 +616,34 @@
   color: var(--muted);
 }
 
+.automation-time-picker {
+  position: relative;
+}
+
+.automation-time-picker__trigger {
+  text-align: left;
+}
+
+.automation-time-picker__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  width: min(100%, 420px);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.automation-time-picker__field {
+  min-width: 0;
+}
+
 .automation-select-positioner {
   z-index: 40;
 }
@@ -989,6 +1017,24 @@
   margin: 0 0 18px;
 }
 
+.automation-dialog__dismiss-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 8px;
+}
+
+.automation-dialog__close-button,
+.automation-detail-dialog__close-button,
+.automation-side-drawer__close {
+  color: var(--muted);
+}
+
+.automation-dialog__close-button:hover,
+.automation-detail-dialog__close-button:hover,
+.automation-side-drawer__close:hover {
+  color: var(--text);
+}
+
 .automation-dialog--wide {
   --automation-dialog-max-inline-size: 40rem;
 }
@@ -1087,6 +1133,25 @@
   margin-bottom: 20px;
 }
 
+#add-step-detail-form .automation-field--inline-label {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 10.5rem) minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-2);
+  row-gap: var(--space-2);
+}
+
+#add-step-detail-form .automation-field--inline-label .automation-field__label {
+  margin: 0;
+  align-self: center;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+#add-step-detail-form .automation-field--inline-label .automation-textarea {
+  min-height: 7.5rem;
+}
+
 @media (max-width: 1360px) {
   .automation-workspace-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1138,6 +1203,15 @@
 
   .automation-canvas-surface {
     height: 640px;
+  }
+
+  #add-step-detail-form .automation-field--inline-label {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  #add-step-detail-form .automation-field--inline-label .automation-field__label {
+    align-self: start;
   }
 }
 

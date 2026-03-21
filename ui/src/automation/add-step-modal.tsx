@@ -83,6 +83,15 @@ export const AddStepModal = ({
       <Dialog.Portal>
         <Dialog.Backdrop id="add-step-modal-backdrop" className="automation-dialog-backdrop" />
         <Dialog.Popup id="add-step-modal" className="automation-dialog automation-dialog--wide">
+          <div id="add-step-modal-dismiss-row" className="automation-dialog__dismiss-row">
+            <Dialog.Close
+              id="add-step-modal-close-icon"
+              className="modal__close-icon-button automation-dialog__close-button"
+              aria-label="Close add step modal"
+            >
+              ×
+            </Dialog.Close>
+          </div>
 
           {/* ── Page 1: type picker ── */}
           {!pickedType ? (
@@ -101,7 +110,7 @@ export const AddStepModal = ({
                     id={`add-step-type-${opt.value}`}
                     type="button"
                     className={`add-step-type-card add-step-type-card--${opt.value}`}
-                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script"
+                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" || opt.value === "outbound_request" || opt.value === "condition"
                       ? {
                         minHeight: "200px",
                         padding: "10px",
@@ -112,7 +121,7 @@ export const AddStepModal = ({
                       : undefined}
                     onClick={() => handlePickType(opt.value)}
                   >
-                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" ? (
+                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" || opt.value === "outbound_request" || opt.value === "condition" ? (
                       <span
                         id={`add-step-type-${opt.value}-icon-stack`}
                         className="add-step-type-card__icon-stack"
@@ -145,6 +154,24 @@ export const AddStepModal = ({
                             aria-hidden="true"
                             style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
                           />
+                        ) : opt.value === "outbound_request" ? (
+                          <img
+                            id="add-step-type-outbound_request-icon"
+                            className="add-step-type-card__icon"
+                            src="/media/api_icon.png"
+                            alt=""
+                            aria-hidden="true"
+                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
+                          />
+                        ) : opt.value === "condition" ? (
+                          <img
+                            id="add-step-type-condition-icon"
+                            className="add-step-type-card__icon"
+                            src="/media/conditional_icon.png"
+                            alt=""
+                            aria-hidden="true"
+                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
+                          />
                         ) : (
                           <img
                             id="add-step-type-script-icon"
@@ -171,15 +198,6 @@ export const AddStepModal = ({
                     )}
                   </button>
                 ))}
-              </div>
-
-              <div id="add-step-modal-picker-actions" className="automation-dialog__actions">
-                <Dialog.Close
-                  id="add-step-modal-cancel"
-                  className="button button--secondary"
-                >
-                  Cancel
-                </Dialog.Close>
               </div>
             </>
           ) : (

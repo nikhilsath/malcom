@@ -42,6 +42,11 @@ export type ConnectorRecord = {
   base_url?: string | null;
 };
 
+export type InboundApiOption = {
+  id: string;
+  name: string;
+};
+
 export type AutomationStep = {
   id?: string;
   type: StepType;

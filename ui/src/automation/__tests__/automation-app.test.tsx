@@ -93,12 +93,33 @@ const dailyIngest = {
   ]
 } as const;
 
-const renderAutomationApp = () => {
+const renderAutomationApp = (options?: {
+  initialAutomation?: Partial<typeof dailyIngest> & {
+    trigger_config?: Record<string, unknown>;
+    steps?: Array<Record<string, unknown>>;
+  };
+  inboundApis?: Array<{ id: string; name: string }>;
+}) => {
   document.body.innerHTML = '<button id="automations-create-button" type="button">Create</button>';
   window.history.replaceState({}, "", "/automations/builder.html?id=automation-daily-ingest");
 
+  const initialAutomation = {
+    ...structuredClone(dailyIngest),
+    ...structuredClone(options?.initialAutomation || {}),
+    trigger_config: {
+      ...structuredClone(dailyIngest.trigger_config),
+      ...(options?.initialAutomation?.trigger_config || {})
+    },
+    steps: (options?.initialAutomation?.steps as any[]) || structuredClone(dailyIngest.steps)
+  };
+
+  const inboundApis = options?.inboundApis || [
+    { id: "inbound-orders", name: "Orders API" },
+    { id: "inbound-invoices", name: "Invoices API" }
+  ];
+
   const automationDetails: Record<string, any> = {
-    [dailyIngest.id]: structuredClone(dailyIngest)
+    [dailyIngest.id]: structuredClone(initialAutomation)
   };
 
   const requestLog: RequestLogEntry[] = [];
@@ -121,6 +142,10 @@ const renderAutomationApp = () => {
           ]
         }
       };
+    }
+
+    if (path === "/api/v1/inbound") {
+      return inboundApis;
     }
 
     if (path === "/api/v1/automations") {
@@ -264,7 +289,7 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#mock-drag-step-node-step-log") as HTMLElement);
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
 
     await waitFor(() => {
       const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
@@ -295,14 +320,74 @@ describe("AutomationApp", () => {
     expect(within(drawer).getByText("Manual")).toBeInTheDocument();
     expect(within(drawer).getByText("Schedule")).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("radio", { name: /schedule/i }));
-    expect(within(drawer).getByLabelText("Daily run time")).toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    expect(within(drawer).getByRole("button", { name: "Select time" })).toBeInTheDocument();
+    fireEvent.click(document.querySelector("#automations-editor-drawer-close") as HTMLElement);
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
 
     await waitFor(() => {
       expect(document.querySelector("#automations-test-results-drawer")).toBeInTheDocument();
       expect(document.querySelector("#automations-validation-results")).toBeInTheDocument();
+    });
+  });
+
+  it("loads inbound API options and blocks stale inbound trigger selections", async () => {
+    const { requestLog } = renderAutomationApp({
+      initialAutomation: {
+        trigger_type: "inbound_api",
+        trigger_config: { inbound_api_id: "missing-api" }
+      }
+    });
+
+    await waitFor(() => {
+      expect(requestLog.some((entry) => entry.path === "/api/v1/inbound" && entry.method === "GET")).toBe(true);
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-trigger-node") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-trigger-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+    });
+
+    const drawer = document.querySelector("#automations-editor-drawer") as HTMLElement;
+    expect(within(drawer).getByText("The selected inbound API is no longer available. Choose another API to continue.")).toBeInTheDocument();
+
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      expect(screen.getByText("Selected inbound API is unavailable. Choose a currently configured inbound API.")).toBeInTheDocument();
+    });
+  });
+
+  it("stores schedule time from custom picker controls", async () => {
+    const { requestLog } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-trigger-node") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-trigger-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-type-option-schedule") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-schedule-input") as HTMLElement);
+    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-hour-input") as HTMLElement, { target: { value: "1" } });
+    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-minute-input") as HTMLElement, { target: { value: "07" } });
+    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-period-input") as HTMLElement, { target: { value: "PM" } });
+
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
+      expect(patchRequest).toBeDefined();
+      expect(patchRequest?.body?.trigger_config).toEqual({ schedule_time: "13:07" });
     });
   });
 
