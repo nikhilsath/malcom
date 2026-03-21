@@ -252,18 +252,25 @@ describe("AutomationApp", () => {
     });
 
     const toggle = container.querySelector("#automations-workflow-bar-collapse-toggle") as HTMLButtonElement;
-    const content = container.querySelector("#automations-workflow-bar-content") as HTMLElement;
+    const symbol = container.querySelector("#automations-workflow-bar-collapse-symbol") as HTMLElement;
+    const workflowBarBody = container.querySelector("#automations-workflow-bar-body") as HTMLElement;
 
-    expect(content.hidden).toBe(false);
+    expect(workflowBarBody.hidden).toBe(false);
+    expect(workflowBarBody).not.toHaveClass("automation-workflow-bar__body--hidden");
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(symbol).toHaveTextContent("-");
 
     fireEvent.click(toggle);
-    expect(content.hidden).toBe(true);
+    expect(workflowBarBody.hidden).toBe(true);
+    expect(workflowBarBody).toHaveClass("automation-workflow-bar__body--hidden");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(symbol).toHaveTextContent("+");
 
     fireEvent.click(toggle);
-    expect(content.hidden).toBe(false);
+    expect(workflowBarBody.hidden).toBe(false);
+    expect(workflowBarBody).not.toHaveClass("automation-workflow-bar__body--hidden");
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(symbol).toHaveTextContent("-");
   });
 
   it("opens node actions and the step drawer from the selected canvas node", async () => {

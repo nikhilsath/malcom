@@ -101,14 +101,6 @@ export interface DashboardSummaryResponse {
   quickLinks: DashboardQuickLink[];
 }
 
-export interface DashboardRunsResponse {
-  runs: DashboardRunSummary[];
-}
-
-export interface DashboardAlertsResponse {
-  alerts: DashboardAlert[];
-}
-
 export interface DashboardDevicesResponse {
   host: DashboardHost | null;
   devices: DashboardDevice[];

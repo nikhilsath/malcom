@@ -6,7 +6,6 @@ import type {
   DashboardHost,
   DashboardLogEntry,
   DashboardQuickLink,
-  DashboardRunSummary,
   HealthStatus,
   QueueStatus,
   RuntimeServiceStatus,
@@ -138,52 +137,6 @@ export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatu
             </p>
           </article>
         ))}
-      </div>
-    )}
-  </section>
-);
-
-export const RecentRunsTable = ({ runs }: { runs: DashboardRunSummary[] }) => (
-  <section id="dashboard-overview-runs" className="card">
-    <SectionToolbar
-      id="dashboard-overview-runs-toolbar"
-      title="Recent runs"
-      description="Recent workflow executions."
-    />
-    {runs.length === 0 ? (
-      <EmptyState
-        id="dashboard-overview-runs-empty"
-        title="No run history loaded"
-        description="Connect execution APIs to load run history."
-      />
-    ) : (
-      <div id="dashboard-overview-runs-table-shell" className="api-table-shell">
-        <table id="dashboard-overview-runs-table" className="api-directory-table dashboard-table">
-          <thead>
-            <tr>
-              <th id="dashboard-overview-runs-header-automation">Automation</th>
-              <th id="dashboard-overview-runs-header-trigger">Trigger</th>
-              <th id="dashboard-overview-runs-header-status">Status</th>
-              <th id="dashboard-overview-runs-header-duration">Duration</th>
-              <th id="dashboard-overview-runs-header-updated">Last updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((run) => (
-              <tr id={`dashboard-run-row-${run.id}`} key={run.id}>
-                <td id={`dashboard-run-name-${run.id}`}>
-                  <span className="api-directory-name">{run.automationName}</span>
-                </td>
-                <td id={`dashboard-run-trigger-${run.id}`}>{run.triggerType}</td>
-                <td id={`dashboard-run-status-cell-${run.id}`}>
-                  <StatusBadge id={`dashboard-run-status-${run.id}`} value={run.status} />
-                </td>
-                <td id={`dashboard-run-duration-${run.id}`}>{formatDuration(run.durationMs)}</td>
-                <td id={`dashboard-run-updated-${run.id}`}>{formatDateTime(run.finishedAt || run.startedAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     )}
   </section>

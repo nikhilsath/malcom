@@ -1214,81 +1214,94 @@ export const AutomationApp = () => {
 
   return (
     <div id="automations-app-shell" className="automations-app automations-builder-app">
-      <section id="automations-workflow-bar" className="automation-workflow-bar">
-        <div id="automations-workflow-bar-header" className="automation-workflow-bar__header">
-          <h3 id="automations-workflow-bar-title" className="automation-workflow-bar__title">Workflow settings</h3>
-          <button
-            id="automations-workflow-bar-collapse-toggle"
-            type="button"
-            className="button button--secondary automation-workflow-bar__toggle"
-            aria-expanded={!workflowBarCollapsed}
-            aria-controls="automations-workflow-bar-content"
-            onClick={() => setWorkflowBarCollapsed((current) => !current)}
-          >
-            {workflowBarCollapsed ? "Expand" : "Collapse"}
-          </button>
-        </div>
+      <section
+        id="automations-workflow-bar"
+        className={`automation-workflow-bar${workflowBarCollapsed ? " automation-workflow-bar--collapsed" : ""}`}
+      >
+        <button
+          id="automations-workflow-bar-collapse-toggle"
+          type="button"
+          className="automation-workflow-bar__top-toggle"
+          aria-expanded={!workflowBarCollapsed}
+          aria-controls="automations-workflow-bar-body"
+          aria-label={workflowBarCollapsed ? "Expand workflow settings" : "Collapse workflow settings"}
+          onClick={() => setWorkflowBarCollapsed((current) => !current)}
+        >
+          <span id="automations-workflow-bar-top-label" className="automation-workflow-bar__top-label">Workflow settings</span>
+          <span id="automations-workflow-bar-collapse-symbol" className="automation-workflow-bar__collapse-symbol" aria-hidden="true">
+            {workflowBarCollapsed ? "+" : "-"}
+          </span>
+          <span id="automations-workflow-bar-collapse-label" className="sr-only">
+            {workflowBarCollapsed ? "Expand workflow settings" : "Collapse workflow settings"}
+          </span>
+        </button>
 
-        <div id="automations-workflow-bar-content" className="automation-workflow-bar__content" hidden={workflowBarCollapsed}>
-          <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
-            <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
-              <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
-              <input
-                id="automations-workflow-name-input"
-                className="automation-input"
-                placeholder="Name this automation"
-                value={currentAutomation.name}
-                onChange={(event) => patchAutomation({ name: event.target.value })}
-              />
-            </label>
-            <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
-              <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
-              <textarea
-                id="automations-workflow-description-input"
-                className="automation-textarea"
-                rows={2}
-                placeholder="Describe what this automation is for"
-                value={currentAutomation.description}
-                onChange={(event) => patchAutomation({ description: event.target.value })}
-              />
-            </label>
-          </div>
-
-          <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
-            <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
-              <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
-                <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
-                <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
-                  Edit the trigger directly from the canvas trigger node.
-                </span>
-              </div>
-              <Switch.Root
-                id="automations-workflow-enabled-input"
-                checked={currentAutomation.enabled}
-                onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
-                className="automation-switch"
-              >
-                <Switch.Thumb className="automation-switch__thumb" />
-              </Switch.Root>
+        <div
+          id="automations-workflow-bar-body"
+          className={`automation-workflow-bar__body${workflowBarCollapsed ? " automation-workflow-bar__body--hidden" : ""}`}
+          hidden={workflowBarCollapsed}
+        >
+          <div id="automations-workflow-bar-content" className="automation-workflow-bar__content">
+            <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
+              <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
+                <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
+                <input
+                  id="automations-workflow-name-input"
+                  className="automation-input"
+                  placeholder="Name this automation"
+                  value={currentAutomation.name}
+                  onChange={(event) => patchAutomation({ name: event.target.value })}
+                />
+              </label>
+              <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
+                <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
+                <textarea
+                  id="automations-workflow-description-input"
+                  className="automation-textarea"
+                  rows={2}
+                  placeholder="Describe what this automation is for"
+                  value={currentAutomation.description}
+                  onChange={(event) => patchAutomation({ description: event.target.value })}
+                />
+              </label>
             </div>
-          </div>
 
-          <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
-            <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-              Save
-            </button>
-            <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-              Validate
-            </button>
-            <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-              Run now
-            </button>
-            <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
-              New draft
-            </button>
-            <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
-              Delete
-            </button>
+            <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
+              <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
+                <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
+                  <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
+                  <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
+                    Edit the trigger directly from the canvas trigger node.
+                  </span>
+                </div>
+                <Switch.Root
+                  id="automations-workflow-enabled-input"
+                  checked={currentAutomation.enabled}
+                  onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
+                  className="automation-switch"
+                >
+                  <Switch.Thumb className="automation-switch__thumb" />
+                </Switch.Root>
+              </div>
+            </div>
+
+            <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
+              <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                Save
+              </button>
+              <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                Validate
+              </button>
+              <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                Run now
+              </button>
+              <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
+                New draft
+              </button>
+              <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -1384,7 +1397,7 @@ export const AutomationApp = () => {
             zoomOnScroll={zoomEnabled}
             zoomOnPinch={zoomEnabled}
             zoomOnDoubleClick={false}
-            panOnScroll={!zoomEnabled}
+            panOnScroll={zoomEnabled}
             minZoom={zoomEnabled ? 0.6 : 1}
             maxZoom={zoomEnabled ? 1.25 : 1}
             proOptions={{ hideAttribution: true }}

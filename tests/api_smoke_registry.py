@@ -151,26 +151,6 @@ def create_outgoing_api(context: SmokeContext, *, api_type: str) -> dict[str, An
     return response.json()
 
 
-def create_webhook_api(context: SmokeContext) -> dict[str, Any]:
-    response = context.client.post(
-        "/api/v1/apis",
-        json={
-            "type": "webhook",
-            "name": "Smoke webhook",
-            "description": "Webhook route smoke coverage.",
-            "path_slug": "smoke-webhook",
-            "enabled": True,
-            "callback_path": "/hooks/smoke",
-            "verification_token": "verify-token",
-            "signing_secret": "signing-secret",
-            "signature_header": "X-Signature",
-            "event_filter": "order.created",
-        },
-    )
-    response.raise_for_status()
-    return response.json()
-
-
 def create_connector_record(context: SmokeContext, *, auth_type: str = "bearer") -> dict[str, Any]:
     payload = {
         "connectors": {

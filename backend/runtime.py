@@ -7,6 +7,9 @@ from threading import Event, Lock, Thread
 from typing import Any, Callable
 
 
+RUNTIME_TRIGGER_CLAIM_LEASE_SECONDS = 30
+
+
 @dataclass(frozen=True)
 class RuntimeTrigger:
     type: str
@@ -77,10 +80,12 @@ class RuntimeEventBus:
 
     def pending_jobs(self) -> list[RuntimeTriggerJob]:
         with self._lock:
+            self._requeue_expired_claims_locked(reference_time=utc_now())
             return [job for job in self._jobs if job.status in {"pending", "claimed"}]
 
     def claim_next(self, *, worker_id: str, worker_name: str, claimed_at: str) -> RuntimeTriggerJob | None:
         with self._lock:
+            self._requeue_expired_claims_locked(reference_time=utc_now())
             if self._queue_paused:
                 return None
 
@@ -125,6 +130,7 @@ class RuntimeEventBus:
 
     def get_job(self, job_id: str) -> RuntimeTriggerJob | None:
         with self._lock:
+            self._requeue_expired_claims_locked(reference_time=utc_now())
             for job in self._jobs:
                 if job.job_id == job_id:
                     return job
@@ -133,7 +139,7 @@ class RuntimeEventBus:
     def complete_job(self, *, job_id: str, worker_id: str, status_value: str, completed_at: str) -> RuntimeTriggerJob | None:
         with self._lock:
             for index, job in enumerate(self._jobs):
-                if job.job_id != job_id or job.worker_id != worker_id:
+                if job.job_id != job_id or job.worker_id != worker_id or job.status != "claimed":
                     continue
 
                 completed_job = RuntimeTriggerJob(
@@ -151,6 +157,33 @@ class RuntimeEventBus:
                 return completed_job
 
             return None
+
+    def _requeue_expired_claims_locked(self, *, reference_time: datetime) -> None:
+        reclaim_before = reference_time - timedelta(seconds=RUNTIME_TRIGGER_CLAIM_LEASE_SECONDS)
+
+        for index, job in enumerate(self._jobs):
+            if job.status != "claimed" or not job.claimed_at:
+                continue
+
+            claimed_at = parse_iso_datetime(job.claimed_at)
+            if claimed_at is None:
+                continue
+            if claimed_at.tzinfo is None:
+                claimed_at = claimed_at.replace(tzinfo=UTC)
+            if claimed_at > reclaim_before:
+                continue
+
+            self._jobs[index] = RuntimeTriggerJob(
+                job_id=job.job_id,
+                run_id=job.run_id,
+                step_id=job.step_id,
+                trigger=job.trigger,
+                status="pending",
+                worker_id=None,
+                worker_name=None,
+                claimed_at=None,
+                completed_at=None,
+            )
 
     def register_worker(
         self,

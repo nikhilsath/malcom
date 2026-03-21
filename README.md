@@ -510,6 +510,17 @@ On smaller screens:
 * sidebar becomes a drawer
 * navigation remains accessible via icon
 
+### Collapsible Sections
+
+For collapsible settings/content panels in the app UI:
+
+* use a compact full-width collapse bar (not a CTA button)
+* place the collapse bar directly under the section title and above the collapsible content
+* show `-` when expanded and `+` when collapsed
+* wire `aria-expanded` + `aria-controls` on the toggle
+* use `hidden` on the controlled content container
+* keep stable IDs for the toggle, symbol, and content panel
+
 ---
 
 ## Page Template

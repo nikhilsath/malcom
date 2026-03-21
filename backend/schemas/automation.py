@@ -73,6 +73,9 @@ class AutomationStepDefinition(BaseModel):
     type: Literal["log", "outbound_request", "script", "tool", "condition", "llm_chat"]
     name: str = Field(min_length=1, max_length=120)
     config: AutomationStepConfig = Field(default_factory=AutomationStepConfig)
+    on_true_step_id: str | None = Field(default=None, max_length=120)
+    on_false_step_id: str | None = Field(default=None, max_length=120)
+    is_merge_target: bool = False
 
 
 class AutomationSummaryResponse(BaseModel):

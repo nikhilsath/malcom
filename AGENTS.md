@@ -76,6 +76,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
 | Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
+| Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or collapse states that leave empty layout space |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
@@ -88,6 +89,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
 | R-UI-003 | Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges | UI copy and page layout changes |
+| R-UI-004 | Collapsible sections use a compact full-width top-strip collapse control with `+`/`-` indicator, persistent visibility, `aria-expanded` + `aria-controls` wiring, and true layout collapse (`display: none`) for hidden content | UI collapsible controls |
 | R-TOOL-001 | Tool registration flows through backend catalog + DB sync | Tool lifecycle changes |
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
@@ -99,7 +101,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 3,
+  "version": 5,
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
@@ -107,6 +109,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
     "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"],
+    "ui_collapsible_controls": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
     "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh"],
     "api_smoke_registry": ["tests/api_smoke_registry.py"],
     "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/"]
@@ -124,6 +127,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "edit": ["ui/<section>/<page>.html", "ui/styles/pages/**"],
       "check": ["ui/scripts/navigation.js", "ui/styles/components.css", "ui/styles/base.css"],
       "verify": ["manual_badge_toggle", "default_page_readability"]
+    },
+    "ui_collapsible_control_change": {
+      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
+      "check": ["aria_expanded", "aria_controls", "hidden", "stable_ids", "top_strip_toggle", "display_none_layout_collapse"],
+      "verify": ["toggle_click", "toggle_keyboard", "indicator_plus_minus", "collapsed_body_not_in_layout"]
     },
     "tool_change": {
       "edit": [
@@ -386,6 +394,45 @@ For UI-facing work:
 - CSS classes must be semantic and purpose-based
 - utility-first or presentation-only class naming should be avoided
 - default page state must be concise and scannable; keep non-essential instructional copy hidden by default
+
+### Collapsible Element Pattern {#collapsible-element-pattern}
+
+Use a compact top-strip collapse control instead of a prominent action button.
+
+Rules:
+
+1. Collapsible sections must expose a full-width, low-visual-weight top strip with a centered or right-aligned `+` or `-` indicator.
+2. The top strip control must remain visible in both expanded and collapsed states.
+3. Keep the control as a real `<button type="button">` for keyboard and assistive-tech compatibility.
+4. Preserve accessibility state via `aria-expanded` and `aria-controls` on the control, and `hidden` on the controlled region.
+5. Keep deterministic IDs for the control, indicator element, and controlled panel.
+6. Hidden collapsed content must be removed from layout (`display: none`) so collapsing actually saves viewport space.
+7. Do not use primary/secondary CTA button styling for expand/collapse controls.
+
+Reference markup pattern:
+
+```html
+<button
+  id="section-collapse-toggle"
+  type="button"
+  class="section-collapse-top-strip"
+  aria-expanded="false"
+  aria-controls="section-body"
+  aria-label="Expand section"
+>
+  <span id="section-title">Section title</span>
+  <span id="section-collapse-symbol" aria-hidden="true">+</span>
+  <span class="sr-only">Expand section</span>
+</button>
+<div id="section-body" hidden class="section-body section-body--collapsed">...</div>
+```
+
+```css
+.section-body[hidden],
+.section-body--collapsed {
+  display: none;
+}
+```
 
 ### UI Text Density Policy {#ui-text-density-policy}
 

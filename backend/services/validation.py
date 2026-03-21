@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import urllib.parse
-from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -26,6 +25,7 @@ def validate_automation_definition(
     trigger_type = payload.trigger_type
     trigger_config = payload.trigger_config
     steps = payload.steps if hasattr(payload, "steps") else None
+    step_ids = {s.id for s in (steps or []) if s.id}
 
     if trigger_type == "schedule" and not trigger_config.schedule_time:
         issues.append("Scheduled automations require trigger_config.schedule_time.")
@@ -74,6 +74,11 @@ def validate_automation_definition(
                     issues.append(f"Step {index} requires input 'output_format' for convert-audio steps.")
         if step.type == "condition" and not step.config.expression:
             issues.append(f"Step {index} requires config.expression for condition steps.")
+        if step.type == "condition":
+            if step.on_true_step_id and step.on_true_step_id not in step_ids:
+                issues.append(f"Step {index}: on_true_step_id '{step.on_true_step_id}' does not reference a known step in this automation.")
+            if step.on_false_step_id and step.on_false_step_id not in step_ids:
+                issues.append(f"Step {index}: on_false_step_id '{step.on_false_step_id}' does not reference a known step in this automation.")
         if step.type == "llm_chat" and not step.config.user_prompt:
             issues.append(f"Step {index} requires config.user_prompt for LLM chat steps.")
 

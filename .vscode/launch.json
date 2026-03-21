@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Malcom: FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "uvicorn",
+      "args": [
+        "backend.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "cwd": "${workspaceFolder}",
+      "jinja": true,
+      "justMyCode": true,
+      "serverReadyAction": {
+        "action": "startDebugging",
+        "pattern": "Uvicorn running on (https?://\\S+)",
+        "name": "Malcom: Chrome"
+      }
+    },
+    {
+      "name": "Malcom: Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:8000",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Malcom: Integrated Browser",
+      "type": "editor-browser",
+      "request": "launch",
+      "url": "http://127.0.0.1:8000",
+      "webRoot": "${workspaceFolder}"
+    }
+  ]
+}

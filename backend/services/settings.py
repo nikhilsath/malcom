@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from backend.database import fetch_all, fetch_one
+from backend.database import fetch_one
 from backend.services.utils import utc_now_iso
 
 

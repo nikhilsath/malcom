@@ -508,11 +508,15 @@ def row_to_automation_summary(row: DatabaseRow) -> dict[str, Any]:
         "next_run_at": row["next_run_at"] if "next_run_at" in row.keys() else None,
     }
 def row_to_automation_step(row: DatabaseRow) -> AutomationStepDefinition:
+    row_keys = row.keys()
     return AutomationStepDefinition(
         id=row["step_id"],
         type=row["step_type"],
         name=row["name"],
         config=AutomationStepConfig(**json.loads(row["config_json"])),
+        on_true_step_id=row["on_true_step_id"] if "on_true_step_id" in row_keys else None,
+        on_false_step_id=row["on_false_step_id"] if "on_false_step_id" in row_keys else None,
+        is_merge_target=bool(row["is_merge_target"]) if "is_merge_target" in row_keys else False,
     )
 def worker_to_response(worker: RegisteredWorker) -> WorkerResponse:
     return WorkerResponse(
@@ -2572,6 +2576,78 @@ def process_runtime_job(
         error_summary=None,
         finished_at=finished_at,
     )
+
+
+def fail_runtime_job(
+    connection: DatabaseConnection,
+    logger: logging.Logger,
+    *,
+    job: RuntimeTriggerJob,
+    worker_id: str,
+    worker_name: str,
+    error_summary: str,
+) -> None:
+    finished_at = utc_now_iso()
+    completed_job = runtime_event_bus.complete_job(
+        job_id=job.job_id,
+        worker_id=worker_id,
+        status_value="failed",
+        completed_at=finished_at,
+    )
+    if completed_job is None:
+        write_application_log(
+            logger,
+            logging.WARNING,
+            "runtime_trigger_failure_untracked",
+            api_id=job.trigger.api_id,
+            event_id=job.trigger.event_id,
+            trigger_type=job.trigger.type,
+            worker_id=worker_id,
+            worker_name=worker_name,
+            error=error_summary,
+        )
+        return
+
+    assign_automation_run_worker(
+        connection,
+        run_id=job.run_id,
+        worker_id=worker_id,
+        worker_name=worker_name,
+    )
+    write_application_log(
+        logger,
+        logging.WARNING,
+        "runtime_trigger_failed",
+        api_id=job.trigger.api_id,
+        event_id=job.trigger.event_id,
+        trigger_type=job.trigger.type,
+        worker_id=worker_id,
+        worker_name=worker_name,
+        error=error_summary,
+    )
+    finalize_automation_run_step(
+        connection,
+        step_id=job.step_id,
+        status_value="failed",
+        response_summary=error_summary,
+        detail={
+            "event_id": job.trigger.event_id,
+            "api_id": job.trigger.api_id,
+            "worker_id": worker_id,
+            "worker_name": worker_name,
+            "error": error_summary,
+        },
+        finished_at=finished_at,
+    )
+    finalize_automation_run(
+        connection,
+        run_id=job.run_id,
+        status_value="failed",
+        error_summary=error_summary,
+        finished_at=finished_at,
+    )
+
+
 def run_local_worker_loop(app: FastAPI, stop_event: threading.Event) -> None:
     logger = app.state.logger
     connection = app.state.connection
@@ -2600,14 +2676,27 @@ def run_local_worker_loop(app: FastAPI, stop_event: threading.Event) -> None:
             stop_event.wait(LOCAL_WORKER_POLL_INTERVAL_SECONDS)
             continue
 
-        process_runtime_job(
-            connection,
-            logger,
-            job=job,
-            worker_id=worker_id,
-            worker_name=worker_name,
-        )
+        try:
+            process_runtime_job(
+                connection,
+                logger,
+                job=job,
+                worker_id=worker_id,
+                worker_name=worker_name,
+            )
+        except Exception as error:
+            fail_runtime_job(
+                connection,
+                logger,
+                job=job,
+                worker_id=worker_id,
+                worker_name=worker_name,
+                error_summary=str(error),
+            )
+
+
 def run_remote_worker_loop(app: FastAPI, stop_event: threading.Event, coordinator_url: str) -> None:
+    logger = app.state.logger
     worker_id = get_local_worker_id()
     worker_name = get_local_worker_name()
     payload = {
@@ -2650,8 +2739,17 @@ def run_remote_worker_loop(app: FastAPI, stop_event: threading.Event, coordinato
                             },
                         },
                     ).raise_for_status()
-        except Exception:
-            pass
+        except Exception as error:
+            if not stop_event.is_set():
+                write_application_log(
+                    logger,
+                    logging.WARNING,
+                    "remote_worker_poll_failed",
+                    coordinator_url=coordinator_url,
+                    worker_id=worker_id,
+                    worker_name=worker_name,
+                    error=str(error),
+                )
 
         stop_event.wait(REMOTE_WORKER_POLL_INTERVAL_SECONDS)
 def get_automation_or_404(connection: DatabaseConnection, automation_id: str) -> DatabaseRow:
@@ -2675,7 +2773,9 @@ def list_automation_steps(connection: DatabaseConnection, automation_id: str) ->
     rows = fetch_all(
         connection,
         """
-        SELECT step_id, automation_id, position, step_type, name, config_json, created_at, updated_at
+        SELECT step_id, automation_id, position, step_type, name, config_json,
+               on_true_step_id, on_false_step_id, is_merge_target,
+               created_at, updated_at
         FROM automation_steps
         WHERE automation_id = ?
         ORDER BY position ASC
@@ -2708,9 +2808,12 @@ def replace_automation_steps(
                 step_type,
                 name,
                 config_json,
+                on_true_step_id,
+                on_false_step_id,
+                is_merge_target,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 step_id,
@@ -2719,6 +2822,9 @@ def replace_automation_steps(
                 step.type,
                 step.name,
                 json.dumps(step.config.model_dump()),
+                step.on_true_step_id,
+                step.on_false_step_id,
+                1 if step.is_merge_target else 0,
                 timestamp,
                 timestamp,
             ),
@@ -2970,7 +3076,20 @@ def execute_automation_definition(
     run_status = "completed"
     error_summary: str | None = None
 
-    for index, step in enumerate(automation.steps):
+    step_index_by_id: dict[str, int] = {step.id: i for i, step in enumerate(automation.steps) if step.id}
+    executed_step_ids: set[str] = set()
+    current_index = 0
+    execution_order = 0
+
+    while current_index < len(automation.steps):
+        step = automation.steps[current_index]
+        step_id_key = step.id or step.name
+        # Prevent infinite loops from circular branch references
+        if step_id_key in executed_step_ids:
+            break
+        executed_step_ids.add(step_id_key)
+        execution_order += 1
+
         runtime_step_id = f"step_{uuid4().hex}"
         step_inputs = step.config.tool_inputs if step.type == "tool" else None
         create_automation_run_step(
@@ -2979,7 +3098,7 @@ def execute_automation_definition(
             run_id=run_id,
             step_name=step.name,
             status_value="running",
-            request_summary=f"{step.type} step #{index + 1}",
+            request_summary=f"{step.type} step #{execution_order}",
             started_at=utc_now_iso(),
             inputs_json=step_inputs,
         )
@@ -2992,7 +3111,7 @@ def execute_automation_definition(
                 context=context,
                 root_dir=root_dir,
             )
-            context["steps"][step.id or step.name] = result.output
+            context["steps"][step_id_key] = result.output
             finalize_automation_run_step(
                 connection,
                 step_id=runtime_step_id,
@@ -3001,12 +3120,21 @@ def execute_automation_definition(
                 detail=result.detail,
                 finished_at=utc_now_iso(),
             )
-            if step.type == "condition" and result.output is False and step.config.stop_on_false:
-                break
+            # Determine next step, respecting branch edges on condition steps
+            next_index: int | None = None
+            if step.type == "condition":
+                if result.output is True and step.on_true_step_id:
+                    next_index = step_index_by_id.get(step.on_true_step_id)
+                elif result.output is False:
+                    if step.on_false_step_id:
+                        next_index = step_index_by_id.get(step.on_false_step_id)
+                    elif step.config.stop_on_false:
+                        break
             if result.status != "completed":
                 run_status = "failed"
                 error_summary = result.response_summary or f"Step '{step.name}' failed."
                 break
+            current_index = next_index if next_index is not None else current_index + 1
         except Exception as error:
             run_status = "failed"
             error_summary = str(error)

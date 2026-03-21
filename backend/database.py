@@ -276,6 +276,9 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "scripts", "last_validated_at", "TEXT")
     _ensure_column(connection, "automations", "last_run_at", "TEXT")
     _ensure_column(connection, "automations", "next_run_at", "TEXT")
+    _ensure_column(connection, "automation_steps", "on_true_step_id", "TEXT")
+    _ensure_column(connection, "automation_steps", "on_false_step_id", "TEXT")
+    _ensure_column(connection, "automation_steps", "is_merge_target", "INTEGER NOT NULL DEFAULT 0")
     connection.execute(
         """
         UPDATE outgoing_scheduled_apis
