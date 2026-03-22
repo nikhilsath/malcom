@@ -1,3 +1,5 @@
+import { requestJson as fetchJson } from "./request.js";
+
 const toolsElements = {
   grid: document.getElementById("tools-grid"),
   selectedCount: document.getElementById("selected-tools-count"),
@@ -41,34 +43,11 @@ const emitToolsDirectoryUpdated = () => {
   window.dispatchEvent(new CustomEvent("malcom:tools-directory-updated"));
 };
 
-const getBaseUrl = () => {
-  if (window.location.protocol === "file:" || window.location.origin === "null") {
-    return "http://localhost:8000";
-  }
-
-  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-    return "";
-  }
-
-  return window.location.origin;
-};
-
 const setFormFeedback = (message, tone = "") => {
   toolsElements.feedback.textContent = message;
   toolsElements.feedback.className = tone
     ? `api-form-feedback api-form-feedback--${tone}`
     : "api-form-feedback";
-};
-
-const fetchJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, options);
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.detail || "Tool request failed.");
-  }
-
-  return payload;
 };
 
 const getActiveTool = () => toolsCatalog.find((tool) => tool.id === activeToolId) || null;

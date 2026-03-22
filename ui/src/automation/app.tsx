@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
 import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
@@ -28,9 +29,6 @@ declare global {
     INBOUND_APIS?: { id: string; name: string }[];
     SCRIPTS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
-    Malcom?: {
-      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
-    };
   }
 }
 
@@ -171,13 +169,6 @@ const emptyDetail = (): AutomationDetail => ({
   next_run_at: null,
   steps: []
 });
-
-const requestJson = (path: string, options?: RequestInit) => {
-  if (!window.Malcom?.requestJson) {
-    throw new Error("Malcom request helper is unavailable.");
-  }
-  return window.Malcom.requestJson(path, options);
-};
 
 const formatDateTime = (value?: string | null) => {
   if (!value) {
