@@ -67,6 +67,36 @@ Every development-oriented response must include:
 - expected behavior
 - verification steps
 
+This requirement applies only when the user asked for implementation, debugging, code changes, behavior changes, or verification of changed behavior.
+It does not apply to direct questions, policy edits, meta-instructions, or requests for brief answers unless the user also asked for development workflow detail.
+
+### Response Scope And Instruction Fidelity {#response-scope-and-instruction-fidelity}
+
+Agents must answer only the user's requested task and must not add adjacent rationale, implementation ideas, process guidance, summaries, or explanatory context unless the user explicitly asks for them.
+
+Rules:
+
+1. Do not add unprompted explainer text.
+   - If the user asks for a direct answer, give the direct answer only.
+   - Do not append extra "why," "how," "best practice," or "also consider" guidance unless requested.
+2. Do not expand scope.
+   - Do not perform, propose, or narrate extra work beyond the user's request.
+   - Do not infer that a broader workflow is desired unless the user clearly asked for it.
+3. Follow the latest user instruction literally when it conflicts with default helpfulness behavior.
+   - If the user says to be brief, be brief.
+   - If the user asks for only one thing, do not include additional sections.
+4. Default to minimal output.
+   - Prefer the shortest complete response that satisfies the request.
+   - Do not add summaries, next steps, testing instructions, verification steps, or notes unless requested or required by a higher-priority instruction that applies to the current task.
+5. Ask before elaborating.
+   - If extra context might help, ask a short permission question instead of including it automatically.
+6. Do not restate obvious instructions.
+   - Avoid repeating constraints the user already gave unless needed to resolve ambiguity.
+7. When the user is correcting agent behavior, address only the correction.
+   - Do not continue the previous workflow.
+   - Do not defend prior behavior.
+   - Do not add implementation side effects.
+
 ### Maintenance Sync Rule {#maintenance-sync-rule}
 
 When updating policy, agents must update all of the following in the same change when applicable:
@@ -100,6 +130,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
+| Update agent response policy or instruction-following rules | `AGENTS.md` | `Required Output For Development Work`, `Response Scope And Instruction Fidelity`, `Rules Matrix`, machine index block | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
 
@@ -115,14 +146,17 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
 | R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
-| R-TEST-001 | Development work responses include test instructions, expected behavior, and verification steps | All implementation responses |
+| R-TEST-001 | Development work responses include test instructions, expected behavior, and verification steps, but only for implementation-oriented tasks | All implementation responses |
+| R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
+| R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
+| R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for default local validation and `scripts/test-full.sh` for smoke plus browser coverage | Testing workflow changes |
 | R-TEST-003 | Keep internal API smoke coverage in `tests/api_smoke_registry.py` aligned with every served `/api/v1/**` route and `/health` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 7,
+  "version": 8,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -183,6 +217,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry.py"],
       "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
+    },
+    "response_policy_update": {
+      "edit": ["AGENTS.md"],
+      "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#rules-matrix", "MACHINE_INDEX_START"],
+      "verify": ["policy text matches response behavior expectations"]
     }
   },
   "forbidden_paths": [
@@ -190,11 +229,14 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "ui/node_modules/**",
     "node_modules/**"
   ],
-  "response_requirements": [
-    "testing_instructions",
-    "expected_behavior",
-    "verification_steps"
-  ]
+  "response_requirements": {
+    "implementation_tasks_only": [
+      "testing_instructions",
+      "expected_behavior",
+      "verification_steps"
+    ],
+    "general_rule": "For non-implementation requests, respond with only the directly requested content unless the user asks for more detail."
+  }
 }
 MACHINE_INDEX_END -->
 
