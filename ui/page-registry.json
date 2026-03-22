@@ -1,0 +1,152 @@
+{
+  "pages": [
+    {
+      "routePath": "/dashboard/home.html",
+      "sourceHtmlPath": "dashboard/home.html",
+      "serveMode": "served",
+      "legacyAliases": ["/", "/index.html", "/dashboard", "/dashboard/", "/dashboard/overview.html"]
+    },
+    {
+      "routePath": "/dashboard/devices.html",
+      "sourceHtmlPath": "dashboard/home.html",
+      "serveMode": "redirect",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/devices"
+    },
+    {
+      "routePath": "/dashboard/logs.html",
+      "sourceHtmlPath": "dashboard/home.html",
+      "serveMode": "redirect",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/logs"
+    },
+    {
+      "routePath": "/dashboard/queue.html",
+      "sourceHtmlPath": "dashboard/home.html",
+      "serveMode": "redirect",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/queue"
+    },
+    {
+      "routePath": "/settings/workspace.html",
+      "sourceHtmlPath": "settings/workspace.html",
+      "serveMode": "served",
+      "legacyAliases": ["/settings", "/settings/", "/settings.html", "/settings/general.html"]
+    },
+    {
+      "routePath": "/settings/logging.html",
+      "sourceHtmlPath": "settings/logging.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/settings/notifications.html",
+      "sourceHtmlPath": "settings/notifications.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/settings/access.html",
+      "sourceHtmlPath": "settings/access.html",
+      "serveMode": "served",
+      "legacyAliases": ["/settings/security.html"]
+    },
+    {
+      "routePath": "/settings/connectors.html",
+      "sourceHtmlPath": "settings/connectors.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/settings/data.html",
+      "sourceHtmlPath": "settings/data.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/automations/overview.html",
+      "sourceHtmlPath": "automations/overview.html",
+      "serveMode": "served",
+      "legacyAliases": ["/automations", "/automations/"]
+    },
+    {
+      "routePath": "/automations/library.html",
+      "sourceHtmlPath": "automations/library.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/automations/builder.html",
+      "sourceHtmlPath": "automations/builder.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/automations/data.html",
+      "sourceHtmlPath": "automations/data.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/apis/registry.html",
+      "sourceHtmlPath": "apis/registry.html",
+      "serveMode": "served",
+      "legacyAliases": ["/apis", "/apis/", "/apis.html", "/apis/overview.html"]
+    },
+    {
+      "routePath": "/apis/incoming.html",
+      "sourceHtmlPath": "apis/incoming.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/apis/outgoing.html",
+      "sourceHtmlPath": "apis/outgoing.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/apis/webhooks.html",
+      "sourceHtmlPath": "apis/webhooks.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/apis/automation.html",
+      "sourceHtmlPath": "apis/automation.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/tools/catalog.html",
+      "sourceHtmlPath": "tools/catalog.html",
+      "serveMode": "served",
+      "legacyAliases": ["/tools", "/tools/", "/tools.html", "/tools/overview.html"]
+    },
+    {
+      "routePath": "/tools/coqui-tts.html",
+      "sourceHtmlPath": "tools/coqui-tts.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/tools/llm-deepl.html",
+      "sourceHtmlPath": "tools/llm-deepl.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/tools/smtp.html",
+      "sourceHtmlPath": "tools/smtp.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/tools/convert-audio.html",
+      "sourceHtmlPath": "tools/convert-audio.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/tools/image-magic.html",
+      "sourceHtmlPath": "tools/image-magic.html",
+      "serveMode": "served"
+    },
+    {
+      "routePath": "/scripts.html",
+      "sourceHtmlPath": "scripts.html",
+      "serveMode": "served",
+      "legacyAliases": ["/scripts", "/scripts/"]
+    },
+    {
+      "routePath": "/scripts/library.html",
+      "sourceHtmlPath": "scripts/library.html",
+      "serveMode": "served"
+    }
+  ]
+}
