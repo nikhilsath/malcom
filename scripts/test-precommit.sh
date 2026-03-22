@@ -12,6 +12,7 @@ if ./.venv/bin/python -c "import pytest_cov" >/dev/null 2>&1; then
 fi
 
 ./.venv/bin/pytest "${BACKEND_ARGS[@]}"
+node scripts/check-ui-page-entry-modules.mjs
 
 cd "$ROOT_DIR/ui"
 npm test
