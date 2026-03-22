@@ -15,7 +15,6 @@ from backend.services.helpers import (
     build_local_llm_stream,
     build_smtp_email_message,
     encode_sse_event,
-    execute_convert_audio_tool_step,
     execute_coqui_tts_tool_step,
     execute_image_magic_conversion_request,
     execute_image_magic_tool_step,

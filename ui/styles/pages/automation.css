@@ -120,13 +120,6 @@
   background: var(--panel);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.overview-automation-row:hover {
-  border-color: var(--primary-soft);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
 }
 
 .overview-automation-row__name {
@@ -542,18 +535,6 @@
   text-align: left;
   cursor: pointer;
   font: inherit;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.automation-trigger-option:hover {
-  border-color: var(--primary-soft);
-  box-shadow: var(--primary-shadow-sm);
-  transform: translateY(-1px);
-}
-
-.automation-trigger-option:focus-visible {
-  outline: 3px solid var(--primary-focus);
-  outline-offset: 2px;
 }
 
 .automation-trigger-option--selected {
@@ -741,14 +722,6 @@
   background: #ffffff;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.automation-library-card:hover,
-.automation-run-card:hover {
-  border-color: var(--primary-soft);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
 }
 
 .automation-library-card--selected,

@@ -40,6 +40,39 @@
   background: var(--bg);
 }
 
+.tool-card,
+.api-entry-card,
+.apis-outgoing-list__row,
+.overview-automation-row,
+.automation-library-card,
+.automation-run-card,
+.script-library-item,
+.automation-trigger-option {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tool-card:hover,
+.api-entry-card:hover,
+.apis-outgoing-list__row:hover,
+.overview-automation-row:hover,
+.automation-library-card:hover,
+.automation-run-card:hover,
+.script-library-item:hover,
+.automation-trigger-option:hover {
+  border-color: var(--primary-soft);
+  box-shadow: var(--primary-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.tool-card:focus-visible,
+.api-entry-card:focus-visible,
+.apis-outgoing-list__row:focus-visible,
+.script-library-item:focus-visible,
+.automation-trigger-option:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
 .stacked-card-layout {
   display: flex;
   flex-direction: column;

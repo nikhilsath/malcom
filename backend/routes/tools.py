@@ -149,13 +149,36 @@ def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> Coqui
     return build_coqui_tts_tool_response(connection, root_dir=get_root_dir(request))
 
 
-@router.patch("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse)
-def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> ImageMagicToolResponse:
+@router.patch("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse | ToolMetadataResponse)
+def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> ImageMagicToolResponse | ToolMetadataResponse:
     connection = get_connection(request)
     changes = payload.model_dump(exclude_unset=True)
 
     if not changes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No Image Magic tool changes provided.")
+
+    metadata_only = (
+        ("name" in changes or "description" in changes)
+        and "enabled" not in changes
+        and "target_worker_id" not in changes
+        and "command" not in changes
+    )
+
+    if metadata_only:
+        try:
+            updated = update_tool_metadata(
+                get_root_dir(request),
+                connection,
+                "image-magic",
+                name=changes.get("name"),
+                description=changes.get("description"),
+            )
+        except FileNotFoundError as error:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tool not found.") from error
+        except ValueError as error:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+        return ToolMetadataResponse(**updated)
 
     next_config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
     if "enabled" in changes:

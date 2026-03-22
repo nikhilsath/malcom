@@ -158,6 +158,8 @@ class ImageMagicToolUpdate(BaseModel):
     enabled: bool | None = None
     target_worker_id: str | None = Field(default=None, max_length=120)
     command: str | None = Field(default=None, min_length=1, max_length=500)
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 class ImageMagicExecuteRequest(BaseModel):

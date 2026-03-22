@@ -29,8 +29,18 @@ declare global {
     INBOUND_APIS?: { id: string; name: string }[];
     SCRIPTS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
+    Malcom?: {
+      requestJson?: (path: string, options?: RequestInit) => Promise<unknown>;
+    };
   }
 }
+
+const requestJsonCompat = async <T = unknown>(path: string, options?: RequestInit): Promise<T> => {
+  if (typeof window !== "undefined" && typeof window.Malcom?.requestJson === "function") {
+    return (await window.Malcom.requestJson(path, options)) as T;
+  }
+  return (await requestJson(path, options)) as T;
+};
 
 type Automation = {
   id: string;
@@ -593,8 +603,8 @@ export const AutomationApp = () => {
 
   const loadBuilderSupportData = async () => {
     const [settings, inbound] = await Promise.all([
-      requestJson("/api/v1/settings") as Promise<{ connectors?: { records?: ConnectorRecord[] } }>,
-      requestJson("/api/v1/inbound") as Promise<Array<{ id: string; name: string }>>
+      requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
+      requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound")
     ]);
     setConnectors(settings.connectors?.records || []);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
@@ -618,7 +628,7 @@ export const AutomationApp = () => {
   };
 
   const selectAutomation = async (automationId: string) => {
-    const detail = await requestJson(`/api/v1/automations/${automationId}`);
+    const detail = await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${automationId}`);
 
     startTransition(() => {
       setCurrentAutomation(sanitizeAutomationDetail(detail));
@@ -630,7 +640,7 @@ export const AutomationApp = () => {
   };
 
   const loadAutomations = async (nextSelectedId?: string) => {
-    const list = (await requestJson("/api/v1/automations")) as Automation[];
+    const list = await requestJsonCompat<Automation[]>("/api/v1/automations");
     setAutomations(list);
     const matchingCurrentId = list.some((automation) => automation.id === currentAutomation.id) ? currentAutomation.id : "";
     const targetId = nextSelectedId || matchingCurrentId || list[0]?.id;
@@ -650,8 +660,8 @@ export const AutomationApp = () => {
     Promise.all([
       loadBuilderSupportData(),
       isNewDraft
-        ? requestJson("/api/v1/automations").then((list: unknown) => {
-          setAutomations(list as Automation[]);
+        ? requestJsonCompat<Automation[]>("/api/v1/automations").then((list) => {
+          setAutomations(list);
           applyNewAutomationDraft({ updateUrl: false });
         })
         : loadAutomations(urlId)
@@ -708,8 +718,8 @@ export const AutomationApp = () => {
     };
 
     const response = currentAutomation.id
-      ? await requestJson(`/api/v1/automations/${currentAutomation.id}`, { method: "PATCH", body: JSON.stringify(payload) })
-      : await requestJson("/api/v1/automations", { method: "POST", body: JSON.stringify(payload) });
+      ? await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${currentAutomation.id}`, { method: "PATCH", body: JSON.stringify(payload) })
+      : await requestJsonCompat<AutomationDetail>("/api/v1/automations", { method: "POST", body: JSON.stringify(payload) });
 
     setFeedback(currentAutomation.id ? "Automation updated." : "Automation created.");
     setFeedbackTone("success");
@@ -733,7 +743,7 @@ export const AutomationApp = () => {
       return;
     }
 
-    const response = await requestJson(`/api/v1/automations/${currentAutomation.id}/validate`, { method: "POST" });
+    const response = await requestJsonCompat<{ valid: boolean; issues: string[] }>(`/api/v1/automations/${currentAutomation.id}/validate`, { method: "POST" });
     setFeedback(response.valid ? "Automation definition is valid." : response.issues.join(" "));
     setFeedbackTone(response.valid ? "success" : "error");
     setTestResults({ kind: "validation", valid: response.valid, issues: response.issues || [] });
@@ -745,11 +755,11 @@ export const AutomationApp = () => {
       setFeedbackTone("error");
       return;
     }
-    const run = (await requestJson(`/api/v1/automations/${currentAutomation.id}/execute`, { method: "POST" })) as AutomationRunDetail;
+    const run = await requestJsonCompat<AutomationRunDetail>(`/api/v1/automations/${currentAutomation.id}/execute`, { method: "POST" });
     setFeedback("Automation executed.");
     setFeedbackTone("success");
     setTestResults({ kind: "run", run });
-    const refreshed = await requestJson(`/api/v1/automations/${currentAutomation.id}`);
+    const refreshed = await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${currentAutomation.id}`);
     setCurrentAutomation((current) => ({
       ...sanitizeAutomationDetail(refreshed),
       steps: current.steps
@@ -761,7 +771,7 @@ export const AutomationApp = () => {
       applyNewAutomationDraft();
       return;
     }
-    await requestJson(`/api/v1/automations/${currentAutomation.id}`, { method: "DELETE" });
+    await requestJsonCompat(`/api/v1/automations/${currentAutomation.id}`, { method: "DELETE" });
     setDeleteDialogOpen(false);
     setFeedback("Automation deleted.");
     setFeedbackTone("success");

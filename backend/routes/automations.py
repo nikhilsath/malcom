@@ -170,6 +170,7 @@ def execute_automation(automation_id: str, request: Request) -> AutomationRunDet
         trigger_type="manual",
         payload=None,
         root_dir=get_root_dir(request),
+        database_url=request.app.state.database_url,
     )
 
 

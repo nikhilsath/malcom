@@ -26,7 +26,7 @@ from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Callable, Literal
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -79,6 +79,18 @@ from backend.services.network import (
     build_outgoing_request_headers,
     redact_outgoing_request_headers,
     execute_outgoing_test_delivery,
+)
+from backend.services.logging_service import (
+    configure_application_logger as configure_application_logger_core,
+    write_application_log as write_application_log_core,
+)
+from backend.services.automation_runs import (
+    assign_automation_run_worker as assign_automation_run_worker_core,
+    calculate_duration_ms as calculate_duration_ms_core,
+    create_automation_run as create_automation_run_core,
+    create_automation_run_step as create_automation_run_step_core,
+    finalize_automation_run as finalize_automation_run_core,
+    finalize_automation_run_step as finalize_automation_run_step_core,
 )
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
@@ -210,58 +222,8 @@ def ensure_built_ui(root_dir: Path) -> None:
             "Built UI assets are missing. Run './malcom' or 'npm run build' in 'ui/' before starting the backend. "
             f"Missing: {missing_display}"
         )
-def get_log_dir(root_dir: Path) -> Path:
-    return root_dir / "backend" / "data" / "logs"
-def get_log_file_path(root_dir: Path) -> Path:
-    return get_log_dir(root_dir) / DEFAULT_LOG_FILE_NAME
-def mb_to_bytes(size_mb: int) -> int:
-    return size_mb * 1024 * 1024
-def json_safe(value: Any) -> Any:
-    try:
-        json.dumps(value)
-        return value
-    except TypeError:
-        if isinstance(value, Path):
-            return str(value)
-        if isinstance(value, dict):
-            return {str(key): json_safe(item) for key, item in value.items()}
-        if isinstance(value, (list, tuple, set)):
-            return [json_safe(item) for item in value]
-        return str(value)
 def configure_application_logger(app: FastAPI, *, root_dir: Path, max_file_size_mb: int) -> logging.Logger:
-    log_dir = get_log_dir(root_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file_path = get_log_file_path(root_dir)
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    current_handler: RotatingFileHandler | None = getattr(app.state, "log_handler", None)
-    desired_max_bytes = mb_to_bytes(max_file_size_mb)
-    should_replace_handler = (
-        current_handler is None
-        or Path(current_handler.baseFilename) != log_file_path
-        or current_handler.maxBytes != desired_max_bytes
-    )
-
-    if should_replace_handler:
-        if current_handler is not None:
-            logger.removeHandler(current_handler)
-            current_handler.close()
-
-        handler = RotatingFileHandler(
-            log_file_path,
-            maxBytes=desired_max_bytes,
-            backupCount=DEFAULT_LOG_BACKUP_COUNT,
-            encoding="utf-8",
-        )
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-        logger.addHandler(handler)
-        app.state.log_handler = handler
-
-    app.state.log_file_path = str(log_file_path)
-    app.state.log_file_max_bytes = desired_max_bytes
-    return logger
+    return configure_application_logger_core(app, root_dir=root_dir, max_file_size_mb=max_file_size_mb)
 def get_application_logger(request: Request) -> logging.Logger:
     logger = getattr(request.app.state, "logger", None)
     if logger is None:
@@ -273,8 +235,7 @@ def get_application_logger(request: Request) -> logging.Logger:
         request.app.state.logger = logger
     return logger
 def write_application_log(logger: logging.Logger, level: int, event: str, **fields: Any) -> None:
-    payload = {"event": event, **{key: json_safe(value) for key, value in fields.items()}}
-    logger.log(level, json.dumps(payload, sort_keys=True))
+    write_application_log_core(logger, level, event, **fields)
 def get_built_ui_file(root_dir: Path, relative_path: str) -> Path:
     return get_ui_dist_dir(root_dir) / relative_path
 def hash_secret(secret: str) -> str:
@@ -2418,6 +2379,7 @@ def handle_smtp_message_automation_triggers(app: FastAPI, message: dict[str, Any
                     "received_at": message.get("received_at"),
                 },
                 root_dir=Path(app.state.root_dir),
+                database_url=app.state.database_url,
             )
     finally:
         connection.close()
@@ -2726,9 +2688,7 @@ def log_event(
         error_message=error_message,
     )
 def calculate_duration_ms(started_at: str, finished_at: str) -> int:
-    started = datetime.fromisoformat(started_at)
-    finished = datetime.fromisoformat(finished_at)
-    return max(int((finished - started).total_seconds() * 1000), 0)
+    return calculate_duration_ms_core(started_at, finished_at)
 def create_automation_run(
     connection: DatabaseConnection,
     *,
@@ -2740,24 +2700,16 @@ def create_automation_run(
     worker_name: str | None = None,
     started_at: str,
 ) -> None:
-    connection.execute(
-        """
-        INSERT INTO automation_runs (
-            run_id,
-            automation_id,
-            trigger_type,
-            status,
-            worker_id,
-            worker_name,
-            started_at,
-            finished_at,
-            duration_ms,
-            error_summary
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
-        """,
-        (run_id, automation_id, trigger_type, status_value, worker_id, worker_name, started_at),
+    create_automation_run_core(
+        connection,
+        run_id=run_id,
+        automation_id=automation_id,
+        trigger_type=trigger_type,
+        status_value=status_value,
+        worker_id=worker_id,
+        worker_name=worker_name,
+        started_at=started_at,
     )
-    connection.commit()
 def create_automation_run_step(
     connection: DatabaseConnection,
     *,
@@ -2769,26 +2721,16 @@ def create_automation_run_step(
     started_at: str,
     inputs_json: dict[str, Any] | None = None,
 ) -> None:
-    connection.execute(
-        """
-        INSERT INTO automation_run_steps (
-            step_id,
-            run_id,
-            step_name,
-            status,
-            request_summary,
-            response_summary,
-            started_at,
-            finished_at,
-            duration_ms,
-            detail_json,
-            inputs_json
-        ) VALUES (?, ?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, ?)
-        """,
-        (step_id, run_id, step_name, status_value, request_summary, started_at,
-         json.dumps(inputs_json) if inputs_json is not None else "{}"),
+    create_automation_run_step_core(
+        connection,
+        step_id=step_id,
+        run_id=run_id,
+        step_name=step_name,
+        status_value=status_value,
+        request_summary=request_summary,
+        started_at=started_at,
+        inputs_json=inputs_json,
     )
-    connection.commit()
 
 
 def finalize_automation_run_step(
@@ -2802,36 +2744,16 @@ def finalize_automation_run_step(
     response_body_json: Any | None = None,
     extracted_fields_json: dict[str, Any] | None = None,
 ) -> None:
-    step_row = fetch_one(connection, "SELECT started_at FROM automation_run_steps WHERE step_id = ?", (step_id,))
-
-    if step_row is None:
-        return
-
-    duration_ms = calculate_duration_ms(step_row["started_at"], finished_at)
-    connection.execute(
-        """
-        UPDATE automation_run_steps
-        SET status = ?,
-            response_summary = ?,
-            finished_at = ?,
-            duration_ms = ?,
-            detail_json = ?,
-            response_body_json = ?,
-            extracted_fields_json = ?
-        WHERE step_id = ?
-        """,
-        (
-            status_value,
-            response_summary,
-            finished_at,
-            duration_ms,
-            json.dumps(detail) if detail is not None else None,
-            json.dumps(response_body_json) if response_body_json is not None else None,
-            json.dumps(extracted_fields_json) if extracted_fields_json is not None else None,
-            step_id,
-        ),
+    finalize_automation_run_step_core(
+        connection,
+        step_id=step_id,
+        status_value=status_value,
+        response_summary=response_summary,
+        detail=detail,
+        finished_at=finished_at,
+        response_body_json=response_body_json,
+        extracted_fields_json=extracted_fields_json,
     )
-    connection.commit()
 def finalize_automation_run(
     connection: DatabaseConnection,
     *,
@@ -2840,24 +2762,13 @@ def finalize_automation_run(
     error_summary: str | None,
     finished_at: str,
 ) -> None:
-    run_row = fetch_one(connection, "SELECT started_at FROM automation_runs WHERE run_id = ?", (run_id,))
-
-    if run_row is None:
-        return
-
-    duration_ms = calculate_duration_ms(run_row["started_at"], finished_at)
-    connection.execute(
-        """
-        UPDATE automation_runs
-        SET status = ?,
-            finished_at = ?,
-            duration_ms = ?,
-            error_summary = ?
-        WHERE run_id = ?
-        """,
-        (status_value, finished_at, duration_ms, error_summary, run_id),
+    finalize_automation_run_core(
+        connection,
+        run_id=run_id,
+        status_value=status_value,
+        error_summary=error_summary,
+        finished_at=finished_at,
     )
-    connection.commit()
 def assign_automation_run_worker(
     connection: DatabaseConnection,
     *,
@@ -2865,15 +2776,7 @@ def assign_automation_run_worker(
     worker_id: str,
     worker_name: str,
 ) -> None:
-    connection.execute(
-        """
-        UPDATE automation_runs
-        SET worker_id = ?, worker_name = ?
-        WHERE run_id = ?
-        """,
-        (worker_id, worker_name, run_id),
-    )
-    connection.commit()
+    assign_automation_run_worker_core(connection, run_id=run_id, worker_id=worker_id, worker_name=worker_name)
 def register_runtime_worker(
     *,
     worker_id: str,
@@ -3363,6 +3266,7 @@ def _execute_outbound_request_delivery(
     step: AutomationStepDefinition,
     context: dict[str, Any],
     root_dir: Path,
+    delivery_executor: Callable[[OutgoingApiTestRequest], OutgoingApiTestResponse] | None = None,
 ) -> tuple[OutgoingApiTestResponse, Any | None, dict[str, Any]]:
     protection_secret = get_connector_protection_secret(root_dir=root_dir)
     destination_url, auth_type, auth_config = hydrate_outgoing_configuration_from_connector(
@@ -3373,7 +3277,8 @@ def _execute_outbound_request_delivery(
         auth_config=step.config.auth_config,
         protection_secret=protection_secret,
     )
-    delivery = execute_outgoing_test_delivery(
+    executor = delivery_executor or execute_outgoing_test_delivery
+    delivery = executor(
         OutgoingApiTestRequest(
             type="outgoing_scheduled",
             destination_url=destination_url,
@@ -3398,6 +3303,7 @@ def finalize_non_blocking_http_step(
     step: AutomationStepDefinition,
     context: dict[str, Any],
     root_dir: Path,
+    delivery_executor: Callable[[OutgoingApiTestRequest], OutgoingApiTestResponse] | None = None,
 ) -> None:
     connection = connect(database_url=database_url)
     logger = logging.getLogger(logger_name)
@@ -3407,6 +3313,7 @@ def finalize_non_blocking_http_step(
             step=step,
             context=context,
             root_dir=root_dir,
+            delivery_executor=delivery_executor,
         )
         detail = delivery.model_dump()
         detail["response_mode"] = "background"
@@ -3550,6 +3457,7 @@ def execute_automation_step(
     step: AutomationStepDefinition,
     context: dict[str, Any],
     root_dir: Path,
+    database_url: str | None = None,
 ) -> RuntimeExecutionResult:
     if step.type == "log":
         if step.config.log_table_id:
@@ -3565,13 +3473,14 @@ def execute_automation_step(
             thread = threading.Thread(
                 target=finalize_non_blocking_http_step,
                 kwargs={
-                    "database_url": get_database_url(),
+                    "database_url": database_url or get_database_url(),
                     "logger_name": logger.name,
                     "run_step_id": run_step_id,
                     "automation_id": automation_id,
                     "step": step.model_copy(deep=True),
                     "context": json.loads(json.dumps(context)),
                     "root_dir": root_dir,
+                    "delivery_executor": execute_outgoing_test_delivery,
                 },
                 daemon=True,
             )
@@ -3703,6 +3612,7 @@ def execute_automation_definition(
     trigger_type: str,
     payload: dict[str, Any] | None,
     root_dir: Path,
+    database_url: str | None = None,
 ) -> AutomationRunDetailResponse:
     automation = serialize_automation_detail(connection, automation_id)
     run_id = f"run_{uuid4().hex}"
@@ -3759,6 +3669,7 @@ def execute_automation_definition(
                 step=step,
                 context=context,
                 root_dir=root_dir,
+                database_url=database_url,
             )
             context["steps"][step.name] = result.output
             if step.id:
@@ -3906,6 +3817,7 @@ def run_scheduler_tick(app: FastAPI) -> None:
                 trigger_type="schedule",
                 payload=None,
                 root_dir=Path(app.state.root_dir),
+                database_url=app.state.database_url,
             )
 
     for row in fetch_all(connection, "SELECT id, next_run_at FROM outgoing_scheduled_apis WHERE enabled = 1 AND next_run_at IS NOT NULL"):

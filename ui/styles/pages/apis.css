@@ -31,18 +31,6 @@
   border-radius: var(--radius-md);
   background: var(--panel);
   text-align: left;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.api-entry-card:hover {
-  border-color: var(--primary-soft);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-.api-entry-card:focus-visible {
-  outline: 3px solid var(--primary-focus);
-  outline-offset: 2px;
 }
 
 .api-entry-card__title {
@@ -142,18 +130,6 @@
   border-radius: var(--radius-md);
   background: var(--panel);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.apis-outgoing-list__row:hover {
-  border-color: var(--primary-soft);
-  box-shadow: var(--primary-shadow-sm);
-  transform: translateY(-1px);
-}
-
-.apis-outgoing-list__row:focus-visible {
-  outline: 3px solid var(--primary-focus);
-  outline-offset: 2px;
 }
 
 .apis-outgoing-list__row--selected {

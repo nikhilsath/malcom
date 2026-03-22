@@ -746,6 +746,7 @@ async def receive_inbound_event(api_id: str, request: Request, response: Respons
             trigger_type="inbound_api",
             payload=payload if isinstance(payload, dict) else {"payload": payload},
             root_dir=get_root_dir(request),
+            database_url=request.app.state.database_url,
         )
 
     response.headers["X-Malcom-Event-Id"] = event_id

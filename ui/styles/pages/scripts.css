@@ -74,18 +74,6 @@
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.script-library-item:hover {
-  border-color: var(--primary-soft);
-  box-shadow: var(--primary-shadow-sm);
-  transform: translateY(-1px);
-}
-
-.script-library-item:focus-visible {
-  outline: 3px solid var(--primary-focus);
-  outline-offset: 2px;
 }
 
 .script-library-item--selected {

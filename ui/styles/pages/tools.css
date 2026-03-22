@@ -32,7 +32,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--panel);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .tool-card__header {
@@ -41,17 +40,6 @@
   justify-content: space-between;
   gap: var(--space-3);
   align-items: center;
-}
-
-.tool-card:hover {
-  border-color: var(--primary-soft);
-  box-shadow: var(--primary-shadow-sm);
-  transform: translateY(-1px);
-}
-
-.tool-card:focus-visible {
-  outline: 3px solid var(--primary-focus);
-  outline-offset: 2px;
 }
 
 .tool-card--selected {
