@@ -3,36 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, RedirectResponse
 
+from backend.page_registry import get_redirect_ui_routes, get_served_ui_pages
 from backend.services.support import ensure_built_ui, get_built_ui_file, get_root_dir
 
 router = APIRouter(include_in_schema=False)
-
-UI_HTML_ROUTES = {
-    "/settings/workspace.html": "settings/workspace.html",
-    "/settings/logging.html": "settings/logging.html",
-    "/settings/notifications.html": "settings/notifications.html",
-    "/settings/access.html": "settings/access.html",
-    "/settings/connectors.html": "settings/connectors.html",
-    "/settings/data.html": "settings/data.html",
-    "/automations/overview.html": "automations/overview.html",
-    "/automations/library.html": "automations/library.html",
-    "/automations/builder.html": "automations/builder.html",
-    "/automations/data.html": "automations/data.html",
-    "/apis/registry.html": "apis/registry.html",
-    "/apis/incoming.html": "apis/incoming.html",
-    "/apis/outgoing.html": "apis/outgoing.html",
-    "/apis/webhooks.html": "apis/webhooks.html",
-    "/apis/automation.html": "apis/automation.html",
-    "/tools/catalog.html": "tools/catalog.html",
-    "/tools/coqui-tts.html": "tools/coqui-tts.html",
-    "/tools/llm-deepl.html": "tools/llm-deepl.html",
-    "/tools/smtp.html": "tools/smtp.html",
-    "/tools/convert-audio.html": "tools/convert-audio.html",
-    "/tools/image-magic.html": "tools/image-magic.html",
-    "/scripts.html": "scripts.html",
-    "/scripts/library.html": "scripts/library.html",
-    "/dashboard/home.html": "dashboard/home.html",
-}
 
 
 def get_ui_html_response(relative_path: str, request: Request) -> FileResponse:
@@ -51,6 +25,13 @@ def build_ui_route(relative_path: str):
     return serve_ui_route
 
 
+def build_redirect_route(redirect_target: str):
+    def redirect_ui_route() -> RedirectResponse:
+        return RedirectResponse(url=redirect_target)
+
+    return redirect_ui_route
+
+
 @router.get("/favicon.ico")
 def serve_favicon(request: Request) -> FileResponse:
     root_dir = get_root_dir(request)
@@ -61,95 +42,18 @@ def serve_favicon(request: Request) -> FileResponse:
 
 
 def register_ui_routes(app: FastAPI) -> None:
-    for route_path, relative_path in UI_HTML_ROUTES.items():
+    for entry in get_served_ui_pages():
         app.add_api_route(
-            route_path,
-            build_ui_route(relative_path),
+            entry.route_path,
+            build_ui_route(entry.source_html_path),
             methods=["GET"],
             include_in_schema=False,
         )
 
-
-@router.get("/")
-@router.get("/index.html")
-def redirect_index_root() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html")
-
-
-@router.get("/dashboard")
-@router.get("/dashboard/")
-def redirect_dashboard_root() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html")
-
-
-@router.get("/settings")
-@router.get("/settings/")
-def redirect_settings_root() -> RedirectResponse:
-    return RedirectResponse(url="/settings/workspace.html")
-
-
-@router.get("/settings.html")
-@router.get("/settings/general.html")
-def redirect_settings_legacy_general() -> RedirectResponse:
-    return RedirectResponse(url="/settings/workspace.html")
-
-
-@router.get("/settings/security.html")
-def redirect_settings_legacy_security() -> RedirectResponse:
-    return RedirectResponse(url="/settings/access.html")
-
-
-@router.get("/dashboard/overview.html")
-def redirect_dashboard_overview() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html")
-
-
-@router.get("/dashboard/devices.html")
-def redirect_dashboard_devices() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html#/devices")
-
-
-@router.get("/dashboard/logs.html")
-def redirect_dashboard_logs() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html#/logs")
-
-
-@router.get("/dashboard/queue.html")
-def redirect_dashboard_queue() -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/home.html#/queue")
-
-
-@router.get("/automations")
-@router.get("/automations/")
-def redirect_automations_root() -> RedirectResponse:
-    return RedirectResponse(url="/automations/overview.html")
-
-
-@router.get("/apis")
-@router.get("/apis/")
-def redirect_apis_root() -> RedirectResponse:
-    return RedirectResponse(url="/apis/registry.html")
-
-
-@router.get("/apis.html")
-@router.get("/apis/overview.html")
-def redirect_apis_legacy_root() -> RedirectResponse:
-    return RedirectResponse(url="/apis/registry.html")
-
-
-@router.get("/tools")
-@router.get("/tools/")
-def redirect_tools_root() -> RedirectResponse:
-    return RedirectResponse(url="/tools/catalog.html")
-
-
-@router.get("/tools.html")
-@router.get("/tools/overview.html")
-def redirect_tools_legacy_root() -> RedirectResponse:
-    return RedirectResponse(url="/tools/catalog.html")
-
-
-@router.get("/scripts")
-@router.get("/scripts/")
-def redirect_scripts_root() -> RedirectResponse:
-    return RedirectResponse(url="/scripts.html")
+    for route_path, redirect_target in get_redirect_ui_routes():
+        app.add_api_route(
+            route_path,
+            build_redirect_route(redirect_target),
+            methods=["GET"],
+            include_in_schema=False,
+        )

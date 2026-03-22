@@ -4,9 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.page_registry import get_redirect_ui_routes, get_served_ui_pages
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -21,25 +23,13 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         (dist_dir / "assets").mkdir(parents=True, exist_ok=True)
         (self.root_dir / "media" / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
 
-        html_pages = {
-            "dashboard/home.html": "<html><body>Dashboard</body></html>",
-            "settings/workspace.html": "<html><body>Settings Workspace</body></html>",
-            "settings/access.html": "<html><body>Settings Access</body></html>",
-            "settings/connectors.html": "<html><body>Settings Connectors</body></html>",
-            "automations/overview.html": "<html><body>Automations Overview</body></html>",
-            "automations/library.html": "<html><body>Automations Library</body></html>",
-            "automations/builder.html": "<html><body>Automations Builder</body></html>",
-            "apis/registry.html": "<html><body>APIs Registry</body></html>",
-            "tools/catalog.html": "<html><body>Tools Catalog</body></html>",
-            "scripts.html": "<html><body>Scripts Redirect</body></html>",
-            "scripts/library.html": "<html><body>Script Library</body></html>",
-            "apis/automation.html": "<html><body>API Automation</body></html>",
-        }
-
-        for relative_path, content in html_pages.items():
-            destination = dist_dir / relative_path
+        for entry in get_served_ui_pages():
+            destination = dist_dir / entry.source_html_path
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(content, encoding="utf-8")
+            destination.write_text(
+                f"<html><body>{entry.route_path}</body></html>",
+                encoding="utf-8",
+            )
 
         setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
@@ -50,51 +40,37 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         self.tempdir.cleanup()
 
     def test_serves_registered_html_pages_for_canonical_routes(self) -> None:
-        for path in (
-            "/dashboard/home.html",
-            "/settings/workspace.html",
-            "/settings/access.html",
-            "/settings/connectors.html",
-            "/automations/overview.html",
-            "/automations/library.html",
-            "/automations/builder.html",
-            "/apis/registry.html",
-            "/tools/catalog.html",
-            "/scripts.html",
-            "/scripts/library.html",
-            "/apis/automation.html",
-        ):
-            response = self.client.get(path)
-            self.assertEqual(response.status_code, 200, path)
+        for entry in get_served_ui_pages():
+            response = self.client.get(entry.route_path)
+            self.assertEqual(response.status_code, 200, entry.route_path)
             self.assertIn("text/html", response.headers.get("content-type", ""))
 
-    def test_redirects_legacy_and_root_routes_to_canonical_paths(self) -> None:
-        redirect_expectations = {
-            "/": "/dashboard/home.html",
-            "/index.html": "/dashboard/home.html",
-            "/dashboard": "/dashboard/home.html",
-            "/dashboard/overview.html": "/dashboard/home.html",
-            "/dashboard/devices.html": "/dashboard/home.html#/devices",
-            "/dashboard/logs.html": "/dashboard/home.html#/logs",
-            "/dashboard/queue.html": "/dashboard/home.html#/queue",
-            "/settings": "/settings/workspace.html",
-            "/settings.html": "/settings/workspace.html",
-            "/settings/general.html": "/settings/workspace.html",
-            "/settings/security.html": "/settings/access.html",
-            "/automations": "/automations/overview.html",
-            "/apis": "/apis/registry.html",
-            "/apis.html": "/apis/registry.html",
-            "/apis/overview.html": "/apis/registry.html",
-            "/tools": "/tools/catalog.html",
-            "/tools.html": "/tools/catalog.html",
-            "/tools/overview.html": "/tools/catalog.html",
-            "/scripts": "/scripts.html",
+    def test_redirects_legacy_and_root_routes_from_registry(self) -> None:
+        for route_path, expected_location in get_redirect_ui_routes():
+            response = self.client.get(route_path, follow_redirects=False)
+            self.assertEqual(response.status_code, 307, route_path)
+            self.assertEqual(response.headers.get("location"), expected_location, route_path)
+
+    def test_registry_is_the_only_source_of_ui_page_routes(self) -> None:
+        expected_paths = {
+            entry.route_path for entry in get_served_ui_pages()
+        } | {route_path for route_path, _ in get_redirect_ui_routes()} | {"/favicon.ico"}
+
+        actual_paths = {
+            route.path
+            for route in app.routes
+            if isinstance(route, APIRoute)
+            and "GET" in route.methods
+            and not route.path.startswith("/api/")
+            and route.path not in {"/docs", "/openapi.json", "/redoc", "/health"}
         }
 
-        for path, expected_location in redirect_expectations.items():
-            response = self.client.get(path, follow_redirects=False)
-            self.assertEqual(response.status_code, 307, path)
-            self.assertEqual(response.headers.get("location"), expected_location, path)
+        self.assertEqual(actual_paths, expected_paths)
+
+    def test_registry_source_html_paths_match_real_ui_files(self) -> None:
+        repo_ui_dir = Path(__file__).resolve().parents[1] / "ui"
+        for entry in get_served_ui_pages():
+            self.assertTrue((repo_ui_dir / entry.source_html_path).exists(), entry.source_html_path)
 
     def test_serves_favicon_from_media_directory(self) -> None:
         response = self.client.get("/favicon.ico")
