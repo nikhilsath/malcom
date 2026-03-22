@@ -23,6 +23,7 @@ class ScriptSummaryResponse(BaseModel):
     name: str
     description: str
     language: Literal["python", "javascript"]
+    sample_input: str
     validation_status: Literal["valid", "invalid", "unknown"]
     validation_message: str | None = None
     last_validated_at: str | None = None
@@ -43,6 +44,7 @@ class ScriptCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
     language: Literal["python", "javascript"]
+    sample_input: str = Field(default="", max_length=20000)
     code: str = Field(min_length=1, max_length=200000)
 
 
@@ -50,6 +52,7 @@ class ScriptUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     language: Literal["python", "javascript"] | None = None
+    sample_input: str | None = Field(default=None, max_length=20000)
     code: str | None = Field(default=None, min_length=1, max_length=200000)
 
 

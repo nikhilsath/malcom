@@ -42,7 +42,9 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["connectors"]["records"], [])
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
-        self.assertIn("google_gmail", provider_ids)
+        # Google is handled by a separate UI card, not in the generic provider catalog
+        self.assertNotIn("google", provider_ids)
+        self.assertIn("github", provider_ids)
 
     def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -159,7 +161,7 @@ class SettingsApiTestCase(unittest.TestCase):
                                 "client_id": "calendar-client-id",
                                 "client_secret_input": "calendar-client-secret",
                                 "access_token_input": "calendar-access-token",
-                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_calendar/oauth/callback",
+                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                             },
                         }
                     ]
@@ -170,13 +172,15 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         record = body["connectors"]["records"][0]
-        self.assertEqual(record["provider"], "google_calendar")
+        self.assertEqual(record["provider"], "google")
         self.assertIsNotNone(record["auth_config"]["client_secret_masked"])
         self.assertIsNotNone(record["auth_config"]["access_token_masked"])
         self.assertNotIn("calendar-client-secret", json.dumps(body))
         self.assertNotIn("calendar-access-token", json.dumps(body))
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
-        self.assertIn("google_gmail", provider_ids)
+        # Google is handled by a separate UI card, not in the generic provider catalog
+        self.assertNotIn("google", provider_ids)
+        self.assertIn("github", provider_ids)
 
         connection = connect(database_url=self.database_url)
         try:
@@ -213,7 +217,7 @@ class SettingsApiTestCase(unittest.TestCase):
                             "auth_config": {
                                 "client_id": "calendar-client-id",
                                 "client_secret_input": "calendar-client-secret",
-                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_calendar/oauth/callback",
+                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                             },
                         }
                     ]
@@ -256,7 +260,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertNotIn("calendar-client-secret", json.dumps(response.json()))
 
     def test_oauth_callback_rejects_invalid_state(self) -> None:
-        response = self.client.get("/api/v1/connectors/google_calendar/oauth/callback?state=invalid&code=demo")
+        response = self.client.get("/api/v1/connectors/google/oauth/callback?state=invalid&code=demo")
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Invalid OAuth state.")

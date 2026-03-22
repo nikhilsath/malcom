@@ -110,10 +110,19 @@ CONNECTOR_PROTECTION_VERSION = "enc_v1"
 CONNECTOR_NONCE_BYTES = 16
 CONNECTOR_SIGNATURE_BYTES = 32
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
-SUPPORTED_CONNECTOR_PROVIDERS = {
+LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS = {
     "google_calendar",
     "google_gmail",
     "google_sheets",
+}
+CONNECTOR_PROVIDER_CANONICAL_MAP = {
+    "google_calendar": "google",
+    "google_gmail": "google",
+    "google_sheets": "google",
+}
+SUPPORTED_CONNECTOR_PROVIDERS = {
+    "google",
+    *LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS,
     "github",
     "slack",
     "notion",
@@ -338,34 +347,14 @@ def mask_connector_secret(value: str | None) -> str | None:
     return f"{value[:4]}••••{value[-4:]}"
 DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
     {
-        "id": "google_calendar",
-        "name": "Google Calendar",
-        "description": "Read and write calendar events with OAuth 2.0.",
-        "category": "calendar",
+        "id": "google",
+        "name": "Google",
+        "description": "Use one Google connector and choose the exact OAuth scopes needed for this workflow.",
+        "category": "suite",
         "auth_types": ["oauth2"],
-        "default_scopes": ["https://www.googleapis.com/auth/calendar"],
-        "docs_url": "https://developers.google.com/workspace/calendar/api/guides/overview",
-        "base_url": "https://www.googleapis.com/calendar/v3",
-    },
-    {
-        "id": "google_gmail",
-        "name": "Gmail",
-        "description": "Send email using the Gmail API over the shared Google OAuth stack.",
-        "category": "email",
-        "auth_types": ["oauth2"],
-        "default_scopes": ["https://www.googleapis.com/auth/gmail.send"],
-        "docs_url": "https://developers.google.com/workspace/gmail/api/guides",
-        "base_url": "https://gmail.googleapis.com/gmail/v1",
-    },
-    {
-        "id": "google_sheets",
-        "name": "Google Sheets",
-        "description": "Work with spreadsheet data using the shared Google auth stack.",
-        "category": "documents",
-        "auth_types": ["oauth2"],
-        "default_scopes": ["https://www.googleapis.com/auth/spreadsheets"],
-        "docs_url": "https://developers.google.com/workspace/sheets/api/guides/concepts",
-        "base_url": "https://sheets.googleapis.com/v4",
+        "default_scopes": [],
+        "docs_url": "https://developers.google.com/identity/protocols/oauth2/scopes",
+        "base_url": "https://www.googleapis.com",
     },
     {
         "id": "github",
@@ -678,7 +667,26 @@ def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, A
     return payload
 def _clone_connector_catalog_defaults() -> list[dict[str, Any]]:
     return json.loads(json.dumps(DEFAULT_CONNECTOR_CATALOG))
+
+
+def canonicalize_connector_provider(provider: str | None) -> str | None:
+    if not provider:
+        return provider
+    return CONNECTOR_PROVIDER_CANONICAL_MAP.get(provider, provider)
+
+
+def _get_default_connector_preset(provider: str) -> dict[str, Any] | None:
+    canonical_provider = canonicalize_connector_provider(provider)
+    return next((item for item in DEFAULT_CONNECTOR_CATALOG if item["id"] == canonical_provider), None)
+
+
 def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
+    canonical_id = canonicalize_connector_provider(row.get("id"))
+    if canonical_id == "google":
+        google_preset = _get_default_connector_preset("google")
+        if google_preset is not None:
+            return dict(google_preset)
+
     try:
         auth_types = json.loads(row.get("auth_types_json") or "[]")
     except json.JSONDecodeError:
@@ -690,7 +698,7 @@ def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
         default_scopes = []
 
     return {
-        "id": row["id"],
+        "id": canonical_id or row["id"],
         "name": row["name"],
         "description": row["description"],
         "category": row["category"],
@@ -701,7 +709,8 @@ def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
     }
 def build_connector_catalog(connection: DatabaseConnection | None = None) -> list[dict[str, Any]]:
     if connection is None:
-        return _clone_connector_catalog_defaults()
+        # Return defaults excluding Google (which has its own UI component)
+        return [p for p in _clone_connector_catalog_defaults() if p["id"] != "google"]
 
     rows = fetch_all(
         connection,
@@ -713,11 +722,26 @@ def build_connector_catalog(connection: DatabaseConnection | None = None) -> lis
         """,
     )
     if not rows:
-        return _clone_connector_catalog_defaults()
-    return [_row_to_connector_preset(row) for row in rows]
+        return [p for p in _clone_connector_catalog_defaults() if p["id"] != "google"]
+
+    deduped_catalog: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for row in rows:
+        preset = _row_to_connector_preset(row)
+        preset_id = preset["id"]
+        # Skip Google provider (it has its own dedicated UI card)
+        if preset_id == "google":
+            continue
+        if preset_id in seen_ids:
+            continue
+        seen_ids.add(preset_id)
+        deduped_catalog.append(preset)
+    return deduped_catalog
 def get_connector_preset(provider: str, *, connection: DatabaseConnection | None = None) -> dict[str, Any] | None:
+    canonical_provider = canonicalize_connector_provider(provider)
+
     if connection is None:
-        return next((item for item in DEFAULT_CONNECTOR_CATALOG if item["id"] == provider), None)
+        return _get_default_connector_preset(canonical_provider or provider)
 
     row = fetch_one(
         connection,
@@ -726,10 +750,10 @@ def get_connector_preset(provider: str, *, connection: DatabaseConnection | None
         FROM integration_presets
         WHERE integration_type = 'connector_provider' AND id = ?
         """,
-        (provider,),
+        (canonical_provider,),
     )
     if row is None:
-        return None
+        return _get_default_connector_preset(canonical_provider or provider)
     return _row_to_connector_preset(row)
 def extract_connector_secret_map(auth_config: dict[str, Any], protection_secret: str) -> dict[str, str]:
     protected_values = auth_config.get("protected_secrets") or {}
@@ -797,7 +821,7 @@ def normalize_connector_record_for_storage(
     protection_secret: str,
     timestamp: str,
 ) -> dict[str, Any]:
-    provider = record.get("provider") or ((existing_record or {}).get("provider"))
+    provider = canonicalize_connector_provider(record.get("provider") or ((existing_record or {}).get("provider")))
     preset = get_connector_preset(provider, connection=connection) if provider else None
     if provider == "generic_http":
         preset = None
@@ -987,7 +1011,7 @@ def build_connector_oauth_authorization_url(
     state: str,
     code_challenge: str,
 ) -> str:
-    if provider.startswith("google_"):
+    if provider == "google" or provider.startswith("google_"):
         base_url = "https://accounts.google.com/o/oauth2/v2/auth"
         query = {
             "client_id": client_id,

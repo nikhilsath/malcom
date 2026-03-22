@@ -99,14 +99,14 @@ def create_connector_record(context: SmokeContext, *, auth_type: str = "bearer")
 
 def start_google_oauth(context: SmokeContext) -> dict[str, Any]:
     response = context.client.post(
-        "/api/v1/connectors/google_calendar/oauth/start",
+        "/api/v1/connectors/google/oauth/start",
         json={
-            "connector_id": "google-calendar-primary",
-            "name": "Google Calendar",
-            "redirect_uri": "http://localhost:8000/api/v1/connectors/google_calendar/oauth/callback",
+            "connector_id": "google-primary",
+            "name": "Google",
+            "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
             "owner": "Workspace",
-            "client_id": "calendar-client-id",
-            "client_secret_input": "calendar-client-secret",
+            "client_id": "google-client-id",
+            "client_secret_input": "google-client-secret",
         },
     )
     response.raise_for_status()

@@ -22,7 +22,7 @@ def list_scripts(request: Request) -> list[ScriptSummaryResponse]:
     rows = fetch_all(
         get_connection(request),
         """
-        SELECT id, name, description, language, validation_status, validation_message, last_validated_at, created_at, updated_at
+        SELECT id, name, description, language, sample_input, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
         ORDER BY updated_at DESC, lower(name) ASC
         """,
@@ -35,7 +35,7 @@ def get_script(script_id: str, request: Request) -> ScriptResponse:
     row = fetch_one(
         get_connection(request),
         """
-        SELECT id, name, description, language, code, validation_status, validation_message, last_validated_at, created_at, updated_at
+        SELECT id, name, description, language, sample_input, code, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
         WHERE id = ?
         """,
@@ -62,15 +62,16 @@ def create_script(payload: ScriptCreate, request: Request) -> ScriptResponse:
     connection.execute(
         """
         INSERT INTO scripts (
-            id, name, description, language, code, validation_status, validation_message, last_validated_at, created_at, updated_at
+            id, name, description, language, sample_input, code, validation_status, validation_message, last_validated_at, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             script_id,
             payload.name.strip(),
             payload.description.strip(),
             payload.language,
+            payload.sample_input,
             payload.code,
             validation_status,
             validation_message,
@@ -83,7 +84,7 @@ def create_script(payload: ScriptCreate, request: Request) -> ScriptResponse:
     row = fetch_one(
         connection,
         """
-        SELECT id, name, description, language, code, validation_status, validation_message, last_validated_at, created_at, updated_at
+        SELECT id, name, description, language, sample_input, code, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
         WHERE id = ?
         """,
@@ -98,7 +99,7 @@ def update_script(script_id: str, payload: ScriptUpdate, request: Request) -> Sc
     existing_row = fetch_one(
         connection,
         """
-        SELECT id, name, description, language, code, validation_status, validation_message, last_validated_at, created_at, updated_at
+        SELECT id, name, description, language, sample_input, code, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
         WHERE id = ?
         """,
@@ -114,6 +115,7 @@ def update_script(script_id: str, payload: ScriptUpdate, request: Request) -> Sc
     next_name = (changes.get("name") if "name" in changes else existing_row["name"]).strip()
     next_description = (changes.get("description") if "description" in changes else existing_row["description"]).strip()
     next_language = changes.get("language", existing_row["language"])
+    next_sample_input = changes.get("sample_input", existing_row["sample_input"])
     next_code = changes.get("code", existing_row["code"])
 
     validation_result = validate_script_payload(next_language, next_code, root_dir=get_root_dir(request))
@@ -128,13 +130,14 @@ def update_script(script_id: str, payload: ScriptUpdate, request: Request) -> Sc
     connection.execute(
         """
         UPDATE scripts
-        SET name = ?, description = ?, language = ?, code = ?, validation_status = ?, validation_message = ?, last_validated_at = ?, updated_at = ?
+        SET name = ?, description = ?, language = ?, sample_input = ?, code = ?, validation_status = ?, validation_message = ?, last_validated_at = ?, updated_at = ?
         WHERE id = ?
         """,
         (
             next_name,
             next_description,
             next_language,
+            next_sample_input,
             next_code,
             validation_status,
             validation_message,
@@ -147,7 +150,7 @@ def update_script(script_id: str, payload: ScriptUpdate, request: Request) -> Sc
     saved_row = fetch_one(
         connection,
         """
-        SELECT id, name, description, language, code, validation_status, validation_message, last_validated_at, created_at, updated_at
+        SELECT id, name, description, language, sample_input, code, validation_status, validation_message, last_validated_at, created_at, updated_at
         FROM scripts
         WHERE id = ?
         """,

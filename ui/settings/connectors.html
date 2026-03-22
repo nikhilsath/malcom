@@ -64,12 +64,36 @@
                 </div>
             </section>
 
+            <section id="settings-connectors-google-section" class="card settings-section">
+                <div id="settings-connectors-google-header" class="settings-section__header">
+                    <p id="settings-connectors-google-eyebrow" class="section-header__eyebrow">Authentication</p>
+                    <div class="title-row">
+                        <h3 id="settings-connectors-google-title" class="settings-card__title">Google account</h3>
+                        <button type="button" id="settings-connectors-google-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-description">i</button>
+                    </div>
+                    <p id="settings-connectors-google-description" class="settings-card__description" hidden>Connect your Google account to enable access to Gmail, Google Calendar, Google Sheets, and other Google services across Malcom.</p>
+                </div>
+                <div id="settings-connectors-google-content" class="settings-card-content">
+                    <div id="settings-connectors-google-status" class="google-connector-status">
+                        <p id="settings-connectors-google-status-label" class="google-connector-status-label">Status:</p>
+                        <p id="settings-connectors-google-status-value" class="google-connector-status-value">Not connected</p>
+                    </div>
+                    <div id="settings-connectors-google-actions" class="google-connector-actions">
+                        <button type="button" id="settings-connectors-google-connect-button" class="button button--primary primary-action-button">
+                            <span id="settings-connectors-google-button-content">Connect with Google</span>
+                        </button>
+                        <button type="button" id="settings-connectors-google-disconnect-button" class="button button--secondary secondary-action-button" hidden>Disconnect</button>
+                    </div>
+                    <div id="settings-connectors-google-feedback" class="api-form-feedback" aria-live="polite"></div>
+                </div>
+            </section>
+
             <section id="settings-connectors-workspace-section" class="card settings-section">
                 <div id="settings-connectors-workspace-header" class="section-header api-panel-header">
                     <div id="settings-connectors-workspace-copy" class="section-header__copy api-panel-header-copy">
                         <p id="settings-connectors-workspace-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Registry</p>
                         <div class="title-row">
-                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Saved connectors</h3>
+                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Other connectors</h3>
                             <button type="button" id="settings-connectors-workspace-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-workspace-description">i</button>
                         </div>
                         <p id="settings-connectors-workspace-description" class="section-header__description" hidden>Select a connector to edit metadata, rotate auth, or test the saved configuration.</p>
@@ -241,7 +265,7 @@
                             </label>
                             <label id="settings-connectors-scopes-field" class="api-form-field api-form-field--full">
                                 <span id="settings-connectors-scopes-label" class="api-form-label">Scopes</span>
-                                <input id="settings-connectors-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="scope.one, scope.two">
+                                <input id="settings-connectors-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="Leave empty or enter comma-separated scopes">
                             </label>
                             <label id="settings-connectors-client-id-field" class="api-form-field">
                                 <span id="settings-connectors-client-id-label" class="api-form-label">Client ID</span>
@@ -255,6 +279,7 @@
                                 <span id="settings-connectors-redirect-uri-label" class="api-form-label">Redirect URI</span>
                                 <input id="settings-connectors-redirect-uri-input" class="api-form-input" type="url" maxlength="2000">
                             </label>
+                            <p id="settings-connectors-google-oauth-note" class="section-header__description api-form-field--full">Google OAuth requires a valid Client ID and an authorized Redirect URI configured in Google Cloud.</p>
                             <label id="settings-connectors-username-field" class="api-form-field">
                                 <span id="settings-connectors-username-label" class="api-form-label">Username</span>
                                 <input id="settings-connectors-username-input" class="api-form-input" type="text" maxlength="120">
@@ -292,7 +317,6 @@
                             <button type="submit" id="settings-connectors-save-button" class="button button--primary primary-action-button">Save connector</button>
                             <button type="button" id="settings-connectors-test-button" class="button button--secondary secondary-action-button">Test connector</button>
                             <button type="button" id="settings-connectors-oauth-start-button" class="button button--secondary secondary-action-button">Start OAuth</button>
-                            <button type="button" id="settings-connectors-oauth-complete-button" class="button button--secondary secondary-action-button">Complete OAuth</button>
                             <button type="button" id="settings-connectors-refresh-button" class="button button--secondary secondary-action-button">Refresh token</button>
                             <button type="button" id="settings-connectors-revoke-button" class="button button--secondary secondary-action-button">Revoke connector</button>
                         </div>

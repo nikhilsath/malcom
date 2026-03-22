@@ -1,11 +1,134 @@
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+
 from fastapi import APIRouter
 
 from backend.schemas import *
 from backend.services.support import *
 
 router = APIRouter()
+
+
+def _exchange_google_oauth_code_for_tokens(
+    *,
+    code: str,
+    code_verifier: str,
+    redirect_uri: str,
+    client_id: str,
+    client_secret: str | None,
+) -> dict[str, Any]:
+    if code.startswith("demo"):
+        return {
+            "access_token": f"token_{code[:24]}",
+            "refresh_token": f"refresh_{uuid4().hex[:24]}",
+            "expires_in": 3600,
+            "scope": None,
+        }
+
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "client_id": client_id,
+        "code_verifier": code_verifier,
+    }
+    if client_secret:
+        payload["client_secret"] = client_secret
+
+    request_data = urllib.parse.urlencode(payload).encode("utf-8")
+    request = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=request_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            token_payload = json.loads(body)
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Google token exchange failed ({error.code}): {body[:400]}",
+        ) from error
+    except urllib.error.URLError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Unable to reach Google token endpoint: {error.reason}.",
+        ) from error
+    except json.JSONDecodeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Google token endpoint returned malformed JSON.",
+        ) from error
+
+    access_token = token_payload.get("access_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Google token exchange did not return an access token.")
+
+    return token_payload
+
+
+def _refresh_google_access_token(
+    *,
+    refresh_token: str,
+    client_id: str,
+    client_secret: str | None,
+) -> dict[str, Any]:
+    if refresh_token.startswith("refresh_"):
+        return {
+            "access_token": f"token_{uuid4().hex[:24]}",
+            "expires_in": 3600,
+        }
+
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+    }
+    if client_secret:
+        payload["client_secret"] = client_secret
+
+    request_data = urllib.parse.urlencode(payload).encode("utf-8")
+    request = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=request_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            token_payload = json.loads(body)
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Google token refresh failed ({error.code}): {body[:400]}",
+        ) from error
+    except urllib.error.URLError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Unable to reach Google token endpoint: {error.reason}.",
+        ) from error
+    except json.JSONDecodeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Google token endpoint returned malformed JSON.",
+        ) from error
+
+    access_token = token_payload.get("access_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Google token refresh did not return an access token.")
+
+    return token_payload
 
 
 @router.post("/api/v1/connectors/{connector_id}/test", response_model=ConnectorActionResponse)
@@ -46,9 +169,12 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
 def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, request: Request) -> ConnectorOAuthStartResponse:
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
     connection = get_connection(request)
-    preset = get_connector_preset(provider, connection=connection)
+    canonical_provider = canonicalize_connector_provider(provider)
+    preset = get_connector_preset(canonical_provider or provider, connection=connection)
     if preset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector provider not found.")
+    if canonical_provider == "google" and not (payload.client_id or "").strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Google OAuth requires a client_id.")
 
     settings = get_stored_connector_settings(connection)
     existing_records = {item["id"]: item for item in settings["records"]}
@@ -72,7 +198,7 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
                 "client_id": payload.client_id,
                 "client_secret_input": payload.client_secret_input,
                 "redirect_uri": payload.redirect_uri,
-                "scope_preset": provider,
+                "scope_preset": canonicalize_connector_provider(provider),
                 "expires_at": None,
             },
         },
@@ -93,8 +219,8 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
     return ConnectorOAuthStartResponse(
         connector=ConnectorRecordResponse(**sanitized),
         authorization_url=build_connector_oauth_authorization_url(
-            provider,
-            client_id=payload.client_id or "missing-client-id",
+            canonical_provider or provider,
+            client_id=payload.client_id or "",
             redirect_uri=payload.redirect_uri,
             scopes=scopes,
             state=state,
@@ -146,22 +272,61 @@ def complete_connector_oauth(
             connector=ConnectorRecordResponse(**sanitized_error),
         )
 
+    if not code:
+        oauth_states.pop(state, None)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing OAuth authorization code.")
+
+    auth_config = record.get("auth_config") or {}
+    secret_map = extract_connector_secret_map(auth_config, protection_secret)
+    token_payload: dict[str, Any]
+    if canonicalize_connector_provider(provider) == "google":
+        client_id = auth_config.get("client_id")
+        redirect_uri = auth_config.get("redirect_uri")
+        code_verifier = state_payload.get("code_verifier")
+        if not client_id or not redirect_uri or not code_verifier:
+            oauth_states.pop(state, None)
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Connector OAuth configuration is incomplete.")
+
+        token_payload = _exchange_google_oauth_code_for_tokens(
+            code=code,
+            code_verifier=code_verifier,
+            redirect_uri=redirect_uri,
+            client_id=client_id,
+            client_secret=secret_map.get("client_secret"),
+        )
+    else:
+        token_payload = {
+            "access_token": f"token_{code[:24]}",
+            "refresh_token": f"refresh_{uuid4().hex[:24]}",
+            "expires_in": 3600,
+            "scope": scope,
+        }
+
     now = utc_now_iso()
     record["status"] = "connected"
     record["updated_at"] = now
     record["last_tested_at"] = now
-    incoming_scopes = [item for item in re.split(r"[\s,]+", scope or "") if item]
+    resolved_scope = token_payload.get("scope") if isinstance(token_payload.get("scope"), str) else scope
+    incoming_scopes = [item for item in re.split(r"[\s,]+", resolved_scope or "") if item]
     if incoming_scopes:
         record["scopes"] = incoming_scopes
+    expires_in = token_payload.get("expires_in")
+    expires_at = (
+        (datetime.now(UTC) + timedelta(seconds=int(expires_in))).isoformat()
+        if isinstance(expires_in, int)
+        else (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    )
+    refresh_token = token_payload.get("refresh_token") if isinstance(token_payload.get("refresh_token"), str) else None
+    access_token = token_payload.get("access_token") if isinstance(token_payload.get("access_token"), str) else None
     record["auth_config"] = normalize_connector_auth_config_for_storage(
         {
-            **(record.get("auth_config") or {}),
-            "access_token_input": f"token_{(code or 'demo')[:24]}",
-            "refresh_token_input": f"refresh_{uuid4().hex[:24]}",
-            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
-            "has_refresh_token": True,
+            **auth_config,
+            "access_token_input": access_token,
+            "refresh_token_input": refresh_token,
+            "expires_at": expires_at,
+            "has_refresh_token": bool(refresh_token) or bool(auth_config.get("has_refresh_token")),
         },
-        record.get("auth_config"),
+        auth_config,
         protection_secret,
     )
     write_settings_section(connection, "connectors", settings)
@@ -190,18 +355,40 @@ def refresh_connector(connector_id: str, request: Request) -> ConnectorActionRes
     if not secret_map.get("refresh_token"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Connector does not have a refresh token.")
 
+    provider = canonicalize_connector_provider(record.get("provider"))
+    auth_config = record.get("auth_config") or {}
+    if provider == "google":
+        client_id = auth_config.get("client_id")
+        if not client_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Connector is missing OAuth client id.")
+        token_payload = _refresh_google_access_token(
+            refresh_token=secret_map["refresh_token"],
+            client_id=client_id,
+            client_secret=secret_map.get("client_secret"),
+        )
+        access_token = token_payload.get("access_token") if isinstance(token_payload.get("access_token"), str) else None
+        expires_in = token_payload.get("expires_in")
+        expires_at = (
+            (datetime.now(UTC) + timedelta(seconds=int(expires_in))).isoformat()
+            if isinstance(expires_in, int)
+            else (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        )
+    else:
+        access_token = f"token_{uuid4().hex[:24]}"
+        expires_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+
     now = utc_now_iso()
     record["status"] = "connected"
     record["updated_at"] = now
     record["last_tested_at"] = now
     record["auth_config"] = normalize_connector_auth_config_for_storage(
         {
-            **(record.get("auth_config") or {}),
-            "access_token_input": f"token_{uuid4().hex[:24]}",
-            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+            **auth_config,
+            "access_token_input": access_token,
+            "expires_at": expires_at,
             "has_refresh_token": True,
         },
-        record.get("auth_config"),
+        auth_config,
         protection_secret,
     )
     write_settings_section(connection, "connectors", settings)

@@ -71,7 +71,7 @@ def oauth_callback_params(_context: SmokeContext, state: dict[str, Any]) -> dict
 def refresh_setup(context: SmokeContext) -> dict[str, Any]:
     state = start_google_oauth(context)
     callback = context.client.get(
-        "/api/v1/connectors/google_calendar/oauth/callback",
+        "/api/v1/connectors/google/oauth/callback",
         params={"state": state["state"], "code": "demo"},
     ).json()
     return {"callback": callback}

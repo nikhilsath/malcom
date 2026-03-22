@@ -13,7 +13,6 @@ const toolsElements = {
   nameInput: document.getElementById("tool-detail-name-input"),
   descriptionInput: document.getElementById("tool-detail-description-input"),
   feedback: document.getElementById("tool-detail-form-feedback"),
-  saveButton: document.getElementById("tool-detail-save-button"),
   configLink: document.getElementById("tool-detail-config-link"),
   detailModal: document.getElementById("tool-detail-modal"),
   modalCloseButtons: Array.from(document.querySelectorAll("[data-modal-close='tool-detail-modal']")),
@@ -166,11 +165,11 @@ const loadTools = async () => {
   render();
 };
 
-toolsElements.form?.addEventListener("submit", async (event) => {
-  event.preventDefault();
+const saveTool = async ({ andClose = false } = {}) => {
   const activeTool = getActiveTool();
 
   if (!activeTool || savingTool) {
+    if (andClose) closeDetailModal();
     return;
   }
 
@@ -183,8 +182,6 @@ toolsElements.form?.addEventListener("submit", async (event) => {
   }
 
   savingTool = true;
-  toolsElements.saveButton.disabled = true;
-  toolsElements.saveButton.textContent = "Saving...";
   setFormFeedback("");
 
   try {
@@ -203,27 +200,30 @@ toolsElements.form?.addEventListener("submit", async (event) => {
     toolsCatalog = toolsCatalog.map((tool) => (tool.id === payload.id ? payload : tool));
     render();
     emitToolsDirectoryUpdated();
-    setFormFeedback("Tool details saved.", "success");
+    if (andClose) {
+      closeDetailModal();
+    } else {
+      setFormFeedback("Tool details saved.", "success");
+    }
   } catch (error) {
     setFormFeedback(error instanceof Error ? error.message : "Unable to save tool changes.", "error");
   } finally {
     savingTool = false;
-    toolsElements.saveButton.disabled = false;
-    toolsElements.saveButton.textContent = "Save tool";
   }
-});
+};
 
 toolsElements.enabledInput?.addEventListener("change", () => {
   syncEnabledCopy(toolsElements.enabledInput.checked);
+  saveTool();
 });
 
 toolsElements.modalCloseButtons.forEach((button) => {
-  button.addEventListener("click", closeDetailModal);
+  button.addEventListener("click", () => saveTool({ andClose: true }));
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && toolsElements.detailModal?.classList.contains("modal--open")) {
-    closeDetailModal();
+    saveTool({ andClose: true });
   }
 });
 

@@ -71,6 +71,7 @@ class AutomationStepConfig(BaseModel):
     wait_for_response: bool = True
     response_mappings: list[dict[str, str]] | None = None
     script_id: str | None = Field(default=None, max_length=120)
+    script_input_template: str | None = Field(default=None, max_length=20000)
     tool_id: str | None = Field(default=None, max_length=120)
     tool_inputs: dict[str, str] | None = None
     tool_text: str | None = Field(default=None, max_length=20000)

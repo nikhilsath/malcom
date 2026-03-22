@@ -243,8 +243,8 @@ class ApiResourcesTestCase(unittest.TestCase):
                     "records": [
                         {
                             "id": "gmail-primary",
-                            "provider": "google_gmail",
-                            "name": "Gmail",
+                            "provider": "google",
+                            "name": "Google",
                             "status": "connected",
                             "auth_type": "oauth2",
                             "scopes": ["https://www.googleapis.com/auth/gmail.send"],
@@ -254,7 +254,7 @@ class ApiResourcesTestCase(unittest.TestCase):
                                 "client_id": "gmail-client-id",
                                 "access_token_input": "gmail-access-token",
                                 "refresh_token_input": "gmail-refresh-token",
-                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_gmail/oauth/callback",
+                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                                 "has_refresh_token": True,
                             },
                         }
