@@ -17,8 +17,8 @@ from .helpers import (
     parse_template_json,
     render_template_string,
     replace_automation_steps,
-    validate_automation_definition,
 )
+from .validation import validate_automation_definition
 from .runtime_workers import (
     LOCAL_WORKER_POLL_INTERVAL_SECONDS,
     REMOTE_WORKER_POLL_INTERVAL_SECONDS,
