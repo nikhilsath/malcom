@@ -33,7 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from backend.schemas import *
-from backend.database import connect, fetch_all, fetch_one, initialize
+from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize
 import httpx
 from pydantic import Field, ValidationError
 from backend.runtime import (
@@ -501,6 +501,8 @@ def row_to_run(row: DatabaseRow) -> dict[str, Any]:
     }
 def row_to_run_step(row: DatabaseRow) -> dict[str, Any]:
     detail_json = row["detail_json"]
+    response_body_json = row["response_body_json"] if "response_body_json" in row.keys() else None
+    extracted_fields_json = row["extracted_fields_json"] if "extracted_fields_json" in row.keys() else None
     return {
         "step_id": row["step_id"],
         "run_id": row["run_id"],
@@ -512,6 +514,8 @@ def row_to_run_step(row: DatabaseRow) -> dict[str, Any]:
         "finished_at": row["finished_at"],
         "duration_ms": row["duration_ms"],
         "detail_json": json.loads(detail_json) if detail_json else None,
+        "response_body_json": json.loads(response_body_json) if response_body_json else None,
+        "extracted_fields_json": json.loads(extracted_fields_json) if extracted_fields_json else None,
     }
 def row_to_automation_summary(row: DatabaseRow) -> dict[str, Any]:
     return {
@@ -2847,6 +2851,8 @@ def create_automation_run_step(
          json.dumps(inputs_json) if inputs_json is not None else "{}"),
     )
     connection.commit()
+
+
 def finalize_automation_run_step(
     connection: DatabaseConnection,
     *,
@@ -2855,6 +2861,8 @@ def finalize_automation_run_step(
     response_summary: str | None,
     detail: dict[str, Any] | None,
     finished_at: str,
+    response_body_json: Any | None = None,
+    extracted_fields_json: dict[str, Any] | None = None,
 ) -> None:
     step_row = fetch_one(connection, "SELECT started_at FROM automation_run_steps WHERE step_id = ?", (step_id,))
 
@@ -2869,7 +2877,9 @@ def finalize_automation_run_step(
             response_summary = ?,
             finished_at = ?,
             duration_ms = ?,
-            detail_json = ?
+            detail_json = ?,
+            response_body_json = ?,
+            extracted_fields_json = ?
         WHERE step_id = ?
         """,
         (
@@ -2878,6 +2888,8 @@ def finalize_automation_run_step(
             finished_at,
             duration_ms,
             json.dumps(detail) if detail is not None else None,
+            json.dumps(response_body_json) if response_body_json is not None else None,
+            json.dumps(extracted_fields_json) if extracted_fields_json is not None else None,
             step_id,
         ),
     )
@@ -3281,6 +3293,71 @@ def render_template_string(template: str | None, context: dict[str, Any]) -> str
         return str(current if current is not None else "")
 
     return re.sub(r"\{\{\s*([^}]+)\s*\}\}", replace, raw)
+
+
+_JSON_PATH_SEGMENT_RE = re.compile(r"([^[.\]]+)|\[(\d+)\]")
+
+
+def normalize_response_mapping_key(path: str) -> str:
+    candidate = re.sub(r"[^a-zA-Z0-9_]+", "_", path.strip()).strip("_").lower()
+    if not candidate:
+        return "value"
+    if candidate[0].isdigit():
+        candidate = f"field_{candidate}"
+    return candidate
+
+
+def parse_json_path_segments(path: str) -> list[str | int]:
+    segments: list[str | int] = []
+    for match in _JSON_PATH_SEGMENT_RE.finditer(path.strip()):
+        key_segment, index_segment = match.groups()
+        if key_segment is not None:
+            segments.append(key_segment)
+        elif index_segment is not None:
+            segments.append(int(index_segment))
+    return segments
+
+
+def resolve_json_path(payload: Any, path: str) -> Any:
+    current = payload
+    segments = parse_json_path_segments(path)
+    if not segments:
+        raise KeyError("JSON path is empty.")
+    for segment in segments:
+        if isinstance(segment, int):
+            if not isinstance(current, list) or segment >= len(current):
+                raise KeyError(path)
+            current = current[segment]
+            continue
+        if not isinstance(current, dict) or segment not in current:
+            raise KeyError(path)
+        current = current[segment]
+    return current
+
+
+def extract_response_fields(response_body_json: Any, response_mappings: list[dict[str, str]] | None) -> dict[str, Any]:
+    extracted: dict[str, Any] = {}
+    if response_body_json is None:
+        return extracted
+    for mapping in response_mappings or []:
+        path = str(mapping.get("path", "")).strip()
+        if not path:
+            continue
+        key = str(mapping.get("key", "")).strip() or normalize_response_mapping_key(path)
+        try:
+            extracted[key] = resolve_json_path(response_body_json, path)
+        except KeyError:
+            extracted[key] = None
+    return extracted
+
+
+def try_parse_json_response_body(response_body: str | None) -> Any | None:
+    if not response_body:
+        return None
+    try:
+        return json.loads(response_body)
+    except json.JSONDecodeError:
+        return None
 def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
     rendered = render_template_string(template or "{}", context)
     parsed = json.loads(rendered)
@@ -3340,6 +3417,101 @@ def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, roo
         detail={"script_id": script_row["id"]},
         output=json.loads(completed.stdout or "null"),
     )
+
+
+def _execute_outbound_request_delivery(
+    connection: DatabaseConnection,
+    *,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    root_dir: Path,
+) -> tuple[OutgoingApiTestResponse, Any | None, dict[str, Any]]:
+    protection_secret = get_connector_protection_secret(root_dir=root_dir)
+    destination_url, auth_type, auth_config = hydrate_outgoing_configuration_from_connector(
+        connection,
+        connector_id=step.config.connector_id,
+        destination_url=render_template_string(step.config.destination_url, context),
+        auth_type=step.config.auth_type or "none",
+        auth_config=step.config.auth_config,
+        protection_secret=protection_secret,
+    )
+    delivery = execute_outgoing_test_delivery(
+        OutgoingApiTestRequest(
+            type="outgoing_scheduled",
+            destination_url=destination_url,
+            http_method=step.config.http_method or "POST",
+            auth_type=auth_type,
+            auth_config=auth_config,
+            payload_template=parse_template_json(step.config.payload_template, context),
+            connector_id=step.config.connector_id,
+        )
+    )
+    response_body_json = try_parse_json_response_body(delivery.response_body)
+    extracted_fields = extract_response_fields(response_body_json, step.config.response_mappings)
+    return delivery, response_body_json, extracted_fields
+
+
+def finalize_non_blocking_http_step(
+    *,
+    database_url: str,
+    logger_name: str,
+    run_step_id: str,
+    automation_id: str,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    root_dir: Path,
+) -> None:
+    connection = connect(database_url=database_url)
+    logger = logging.getLogger(logger_name)
+    try:
+        delivery, response_body_json, extracted_fields = _execute_outbound_request_delivery(
+            connection,
+            step=step,
+            context=context,
+            root_dir=root_dir,
+        )
+        detail = delivery.model_dump()
+        detail["response_mode"] = "background"
+        detail["response_mappings"] = step.config.response_mappings or []
+        finalize_automation_run_step(
+            connection,
+            step_id=run_step_id,
+            status_value="completed" if delivery.ok else "failed",
+            response_summary=f"{delivery.status_code} {delivery.destination_url}",
+            detail=detail,
+            response_body_json=response_body_json,
+            extracted_fields_json=extracted_fields,
+            finished_at=utc_now_iso(),
+        )
+        write_application_log(
+            logger,
+            logging.INFO if delivery.ok else logging.WARNING,
+            "automation_http_step_background_completed",
+            automation_id=automation_id,
+            step_name=step.name,
+            run_step_id=run_step_id,
+            status_code=delivery.status_code,
+        )
+    except Exception as error:
+        finalize_automation_run_step(
+            connection,
+            step_id=run_step_id,
+            status_value="failed",
+            response_summary=str(error),
+            detail={"error": str(error), "response_mode": "background"},
+            finished_at=utc_now_iso(),
+        )
+        write_application_log(
+            logger,
+            logging.WARNING,
+            "automation_http_step_background_failed",
+            automation_id=automation_id,
+            step_name=step.name,
+            run_step_id=run_step_id,
+            error=str(error),
+        )
+    finally:
+        connection.close()
 
 
 _LOG_DB_PG_TYPE_MAP: dict[str, str] = {
@@ -3436,6 +3608,7 @@ def execute_automation_step(
     logger: logging.Logger,
     *,
     automation_id: str,
+    run_step_id: str | None = None,
     step: AutomationStepDefinition,
     context: dict[str, Any],
     root_dir: Path,
@@ -3448,31 +3621,47 @@ def execute_automation_step(
         return RuntimeExecutionResult(status="completed", response_summary=message, detail={"message": message}, output=message)
 
     if step.type == "outbound_request":
-        protection_secret = get_connector_protection_secret(root_dir=root_dir)
-        destination_url, auth_type, auth_config = hydrate_outgoing_configuration_from_connector(
-            connection,
-            connector_id=step.config.connector_id,
-            destination_url=render_template_string(step.config.destination_url, context),
-            auth_type=step.config.auth_type or "none",
-            auth_config=step.config.auth_config,
-            protection_secret=protection_secret,
-        )
-        delivery = execute_outgoing_test_delivery(
-            OutgoingApiTestRequest(
-                type="outgoing_scheduled",
-                destination_url=destination_url,
-                http_method=step.config.http_method or "POST",
-                auth_type=auth_type,
-                auth_config=auth_config,
-                payload_template=parse_template_json(step.config.payload_template, context),
-                connector_id=step.config.connector_id,
+        if not step.config.wait_for_response:
+            if not run_step_id:
+                raise RuntimeError("Non-blocking HTTP steps require a runtime step identifier.")
+            thread = threading.Thread(
+                target=finalize_non_blocking_http_step,
+                kwargs={
+                    "database_url": get_database_url(),
+                    "logger_name": logger.name,
+                    "run_step_id": run_step_id,
+                    "automation_id": automation_id,
+                    "step": step.model_copy(deep=True),
+                    "context": json.loads(json.dumps(context)),
+                    "root_dir": root_dir,
+                },
+                daemon=True,
             )
+            thread.start()
+            return RuntimeExecutionResult(
+                status="completed",
+                response_summary="Request sent in background mode.",
+                detail={"response_mode": "background", "response_mappings": step.config.response_mappings or []},
+                output={},
+            )
+
+        delivery, response_body_json, extracted_fields = _execute_outbound_request_delivery(
+            connection,
+            step=step,
+            context=context,
+            root_dir=root_dir,
         )
+        output_payload = delivery.model_dump()
+        output_payload.update(extracted_fields)
+        output_payload["extracted_fields"] = extracted_fields
+        output_payload["response_body_json"] = response_body_json
+        detail = dict(output_payload)
+        detail["response_mode"] = "blocking"
         return RuntimeExecutionResult(
             status="completed" if delivery.ok else "failed",
             response_summary=f"{delivery.status_code} {delivery.destination_url}",
-            detail=delivery.model_dump(),
-            output=delivery.model_dump(),
+            detail=detail,
+            output=output_payload,
         )
 
     if step.type == "script":
@@ -3550,7 +3739,19 @@ def fetch_run_detail(connection: DatabaseConnection, run_id: str) -> AutomationR
     step_rows = fetch_all(
         connection,
         """
-        SELECT step_id, run_id, step_name, status, request_summary, response_summary, started_at, finished_at, duration_ms, detail_json
+        SELECT
+            step_id,
+            run_id,
+            step_name,
+            status,
+            request_summary,
+            response_summary,
+            started_at,
+            finished_at,
+            duration_ms,
+            detail_json,
+            response_body_json,
+            extracted_fields_json
         FROM automation_run_steps
         WHERE run_id = ?
         ORDER BY started_at ASC
@@ -3618,17 +3819,22 @@ def execute_automation_definition(
                 connection,
                 logger,
                 automation_id=automation_id,
+                run_step_id=runtime_step_id,
                 step=step,
                 context=context,
                 root_dir=root_dir,
             )
-            context["steps"][step_id_key] = result.output
+            context["steps"][step.name] = result.output
+            if step.id:
+                context["steps"][step.id] = result.output
             finalize_automation_run_step(
                 connection,
                 step_id=runtime_step_id,
                 status_value=result.status,
                 response_summary=result.response_summary,
                 detail=result.detail,
+                response_body_json=result.detail.get("response_body_json") if result.detail else None,
+                extracted_fields_json=result.detail.get("extracted_fields") if result.detail else None,
                 finished_at=utc_now_iso(),
             )
             # Determine next step, respecting branch edges on condition steps

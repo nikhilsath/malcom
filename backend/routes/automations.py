@@ -280,7 +280,9 @@ def get_automation_run(run_id: str, request: Request) -> AutomationRunDetailResp
             started_at,
             finished_at,
             duration_ms,
-            detail_json
+            detail_json,
+            response_body_json,
+            extracted_fields_json
         FROM automation_run_steps
         WHERE run_id = ?
         ORDER BY started_at ASC
