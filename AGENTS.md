@@ -121,7 +121,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
 | Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
-| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `ui/settings/connectors.html`, `ui/scripts/connectors.js`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
+| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/connectors.js`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
 | Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/connectors.js` | `backend/routes/connectors.py`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
@@ -138,8 +138,10 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
-| R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
+| R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
+| R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
+| R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
@@ -160,7 +162,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 10,
+  "version": 11,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -171,6 +173,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
     "connector_registry": ["backend/routes/connectors.py", "backend/schemas/settings.py", "ui/settings/connectors.html", "ui/scripts/connectors.js"],
+    "connector_activity_catalog": ["backend/services/connector_activities.py", "backend/schemas/automation.py", "backend/routes/connectors.py", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
     "outgoing_http_requests": ["backend/routes/apis.py", "backend/schemas/apis.py", "ui/apis/outgoing.html", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
@@ -188,9 +191,9 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "verify": ["tests/"]
     },
     "connector_backed_remote_api_change": {
-      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
-      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "automation_http_step_reuse", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
-      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector"]
+      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
+      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
+      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector"]
     },
     "new_ui_page": {
       "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py"],
@@ -318,15 +321,24 @@ Use one integration model per responsibility. Do not blur remote API access, HTT
 
 - Connectors store reusable provider credentials, auth state, scopes, and base URLs for remote services and HTTP APIs.
 - Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, Slack, or similar SaaS APIs.
-- Connector records live in workspace settings and are reused by outgoing APIs and automation HTTP steps.
+- Connector records live in workspace settings and are reused by outgoing APIs, connector workflow activities, and automation HTTP steps.
 - Google connector setup must start from the Connect provider control in `ui/settings/connectors.html` and continue in the connector details modal.
 - Do not collect Google OAuth Client ID or Client secret with browser `prompt()` dialogs.
+
+### Connector Workflow Activities {#connector-boundary-activities}
+
+- Connector workflow activities are provider-aware, prebuilt actions exposed inside the automation builder from saved connectors.
+- New connector providers must define supported activities, required scopes, input schema, output schema, and execution mappings as part of the same implementation.
+- The automation builder must filter activities by the selected connector provider and show missing required scopes before runtime.
+- Use the connector activity system for common provider actions such as Gmail, Calendar, Sheets, GitHub issues, pull requests, repository lookups, or similar API-backed operations.
+- Keep activity definitions modular and backend-driven; do not hardcode provider activity catalogs into random UI files.
 
 ### Outgoing APIs And Automation HTTP Steps {#connector-boundary-http}
 
 - Outgoing APIs and automation HTTP steps are the request-definition layer.
 - They own the actual destination URL, HTTP method, payload template, cadence, and request execution behavior.
 - They may reuse a connector for auth and base URL defaults when calling a remote API.
+- Generic HTTP steps remain available for raw API usage and custom endpoints that are not covered by a prebuilt connector activity.
 
 ### Tools {#connector-boundary-tools}
 
@@ -338,9 +350,11 @@ Use one integration model per responsibility. Do not blur remote API access, HTT
 
 When deciding where a new integration belongs, agents must:
 
-1. use connectors plus outgoing APIs or automation HTTP steps for remote SaaS/API integrations, OAuth credentials, provider presets, and reusable auth/base URL state
+1. use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps for remote SaaS/API integrations, OAuth credentials, provider presets, reusable auth/base URL state, and provider-aware builder actions
 2. use the tool catalog only for locally executed binaries, managed runtimes, worker-bound services, or other non-HTTP machine capabilities
-3. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request
+3. when adding a connector provider, also decide whether it needs prebuilt workflow activities and define them in the connector activity system when appropriate
+4. keep generic HTTP steps available for raw/custom API usage instead of overfitting every remote action into the activity catalog
+5. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request or connector activity
 
 ---
 

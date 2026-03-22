@@ -35,6 +35,12 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         setup=connector_setup,
         response_assert=assert_json_response,
     ),
+    list_case(
+        "connectors-activity-catalog",
+        "GET",
+        "/api/v1/connectors/activity-catalog",
+        response_assert=assert_json_response,
+    ),
     action_case(
         "connectors-oauth-start",
         "POST",

@@ -70,6 +70,8 @@ class AutomationStepConfig(BaseModel):
     payload_template: str | None = Field(default=None, max_length=10000)
     wait_for_response: bool = True
     response_mappings: list[dict[str, str]] | None = None
+    activity_id: str | None = Field(default=None, max_length=120)
+    activity_inputs: dict[str, Any] | None = None
     script_id: str | None = Field(default=None, max_length=120)
     script_input_template: str | None = Field(default=None, max_length=20000)
     tool_id: str | None = Field(default=None, max_length=120)
@@ -90,7 +92,7 @@ class AutomationStepConfig(BaseModel):
 
 class AutomationStepDefinition(BaseModel):
     id: str | None = Field(default=None, max_length=120)
-    type: Literal["log", "outbound_request", "script", "tool", "condition", "llm_chat"]
+    type: Literal["log", "outbound_request", "connector_activity", "script", "tool", "condition", "llm_chat"]
     name: str = Field(min_length=1, max_length=120)
     config: AutomationStepConfig = Field(default_factory=AutomationStepConfig)
     on_true_step_id: str | None = Field(default=None, max_length=120)
@@ -137,6 +139,28 @@ class AutomationUpdate(BaseModel):
 class AutomationValidationResponse(BaseModel):
     valid: bool
     issues: list[str]
+
+
+class ConnectorActivitySchemaField(BaseModel):
+    key: str
+    label: str
+    type: str
+    required: bool = False
+    default: Any | None = None
+    help_text: str | None = None
+    placeholder: str | None = None
+    options: list[str] | None = None
+
+
+class ConnectorActivityDefinitionResponse(BaseModel):
+    provider_id: str
+    activity_id: str
+    label: str
+    description: str
+    required_scopes: list[str]
+    input_schema: list[ConnectorActivitySchemaField]
+    output_schema: list[ConnectorActivitySchemaField]
+    execution: dict[str, Any]
 
 
 class RuntimeStatusResponse(BaseModel):
@@ -228,6 +252,8 @@ __all__ = [
     "AutomationTriggerConfig",
     "AutomationUpdate",
     "AutomationValidationResponse",
+    "ConnectorActivityDefinitionResponse",
+    "ConnectorActivitySchemaField",
     "LogDbColumnDefinition",
     "LogDbColumnResponse",
     "LogDbRowsResponse",

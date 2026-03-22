@@ -2,7 +2,7 @@
 // Imported by app.tsx and all step-modal components.
 
 export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
-export type StepType = "log" | "outbound_request" | "script" | "tool" | "condition" | "llm_chat";
+export type StepType = "log" | "outbound_request" | "connector_activity" | "script" | "tool" | "condition" | "llm_chat";
 
 declare global {
   interface Window {
@@ -58,6 +58,28 @@ export type ConnectorRecord = {
   updated_at?: string;
 };
 
+export type ConnectorActivitySchemaField = {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  default?: unknown;
+  help_text?: string | null;
+  placeholder?: string | null;
+  options?: string[] | null;
+};
+
+export type ConnectorActivityDefinition = {
+  provider_id: string;
+  activity_id: string;
+  label: string;
+  description: string;
+  required_scopes: string[];
+  input_schema: ConnectorActivitySchemaField[];
+  output_schema: ConnectorActivitySchemaField[];
+  execution: Record<string, unknown>;
+};
+
 export type LogDbTableOption = {
   id: string;
   name: string;
@@ -101,6 +123,8 @@ export type AutomationStep = {
     payload_template?: string;
     wait_for_response?: boolean;
     response_mappings?: Array<{ key: string; path: string }>;
+    activity_id?: string;
+    activity_inputs?: Record<string, string | number>;
     script_id?: string;
     script_input_template?: string;
     tool_id?: string;
@@ -119,6 +143,7 @@ export type AutomationStep = {
 export const stepTypeOptions: Array<{ value: StepType; label: string; description: string }> = [
   { value: "log", label: "Log", description: "Write a row to a managed database table." },
   { value: "outbound_request", label: "HTTP request", description: "Send an HTTP request to a remote endpoint." },
+  { value: "connector_activity", label: "Connector activity", description: "Run a provider-aware prebuilt connector action." },
   { value: "script", label: "Script", description: "Run a stored script from the script library." },
   { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
   { value: "condition", label: "Condition", description: "Evaluate a guard expression and optionally halt the workflow." },
@@ -138,6 +163,15 @@ export const stepTemplates: Record<StepType, AutomationStep> = {
       payload_template: "{\"automation_id\":\"{{automation.id}}\"}",
       wait_for_response: true,
       response_mappings: []
+    }
+  },
+  connector_activity: {
+    type: "connector_activity",
+    name: "Connector activity",
+    config: {
+      connector_id: "",
+      activity_id: "",
+      activity_inputs: {}
     }
   },
   script: { type: "script", name: "Script step", config: { script_id: "", script_input_template: "" } },
