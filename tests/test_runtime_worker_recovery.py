@@ -13,7 +13,7 @@ from backend.runtime import (
     utc_now,
     utc_now_iso,
 )
-from backend.services.helpers import run_remote_worker_loop
+from backend.services.runtime_workers import run_remote_worker_loop
 
 
 class RuntimeEventBusRecoveryTestCase(unittest.TestCase):
@@ -92,12 +92,12 @@ class RemoteWorkerLoopRecoveryTestCase(unittest.TestCase):
         failing_client.post.side_effect = RuntimeError("coordinator unreachable")
 
         with (
-            mock.patch("backend.services.helpers.get_local_worker_id", return_value="worker_remote_01"),
-            mock.patch("backend.services.helpers.get_local_worker_name", return_value="Remote Worker"),
-            mock.patch("backend.services.helpers.get_runtime_hostname", return_value="remote-worker.local"),
-            mock.patch("backend.services.helpers.get_local_worker_address", return_value="10.0.0.20"),
-            mock.patch("backend.services.helpers.httpx.Client", return_value=failing_client),
-            mock.patch("backend.services.helpers.write_application_log") as write_application_log,
+            mock.patch("backend.services.runtime_workers.get_local_worker_id", return_value="worker_remote_01"),
+            mock.patch("backend.services.runtime_workers.get_local_worker_name", return_value="Remote Worker"),
+            mock.patch("backend.services.runtime_workers.get_runtime_hostname", return_value="remote-worker.local"),
+            mock.patch("backend.services.runtime_workers.get_local_worker_address", return_value="10.0.0.20"),
+            mock.patch("backend.services.runtime_workers.httpx.Client", return_value=failing_client),
+            mock.patch("backend.services.runtime_workers.write_application_log") as write_application_log,
         ):
             run_remote_worker_loop(app, stop_event, "http://coordinator.test")
 
