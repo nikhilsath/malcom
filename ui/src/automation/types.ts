@@ -8,7 +8,6 @@ declare global {
   interface Window {
     TOOLS_MANIFEST?: ToolManifestEntry[];
     INBOUND_APIS?: { id: string; name: string }[];
-    SCRIPTS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
     Malcom?: {
       requestJson?: (path: string, options?: RequestInit) => Promise<any>;
@@ -50,8 +49,13 @@ export type ConnectorRecord = {
   id: string;
   provider: string;
   name: string;
+  status: string;
   auth_type: string;
+  scopes?: string[];
+  owner?: string | null;
   base_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type LogDbTableOption = {
@@ -73,6 +77,14 @@ export type InboundApiOption = {
   name: string;
 };
 
+export type ScriptLibraryItem = {
+  id: string;
+  name: string;
+  description: string;
+  language: "python" | "javascript";
+  sample_input: string;
+};
+
 export type AutomationStep = {
   id?: string;
   type: StepType;
@@ -90,6 +102,7 @@ export type AutomationStep = {
     wait_for_response?: boolean;
     response_mappings?: Array<{ key: string; path: string }>;
     script_id?: string;
+    script_input_template?: string;
     tool_id?: string;
     tool_inputs?: Record<string, string>;
     expression?: string;
@@ -127,7 +140,7 @@ export const stepTemplates: Record<StepType, AutomationStep> = {
       response_mappings: []
     }
   },
-  script: { type: "script", name: "Script step", config: { script_id: "" } },
+  script: { type: "script", name: "Script step", config: { script_id: "", script_input_template: "" } },
   tool: { type: "tool", name: "Tool step", config: { tool_id: "" } },
   condition: { type: "condition", name: "Guard condition", config: { expression: "true", stop_on_false: true } },
   llm_chat: {

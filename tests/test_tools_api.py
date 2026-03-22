@@ -391,34 +391,67 @@ class ToolMetadataApiTestCase(unittest.TestCase):
             "/api/v1/tools/image-magic",
             json={
                 "enabled": True,
-                "target_worker_id": "worker-local-test-host",
+                "target_worker_id": "worker-remote-test-host",
                 "command": "magick",
             },
         )
         self.assertEqual(update_response.status_code, 200)
         body = update_response.json()
         self.assertTrue(body["config"]["enabled"])
-        self.assertEqual(body["config"]["target_worker_id"], "worker-local-test-host")
+        self.assertEqual(body["config"]["target_worker_id"], "worker-remote-test-host")
         self.assertEqual(body["config"]["command"], "magick")
 
+    def test_rejects_image_magic_enable_when_command_is_missing(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.verify_local_command_ready",
+            side_effect=RuntimeError("Image Magic command is not executable on this host: missing-magick"),
+        ):
+            response = self.client.patch(
+                "/api/v1/tools/image-magic",
+                json={
+                    "enabled": True,
+                    "command": "missing-magick",
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "Image Magic command is not executable on this host: missing-magick")
+
+    def test_allows_image_magic_enable_when_command_is_available(self) -> None:
+        with mock.patch("backend.routes.tools.verify_local_command_ready", return_value=["magick"]) as probe_command:
+            response = self.client.patch(
+                "/api/v1/tools/image-magic",
+                json={
+                    "enabled": True,
+                    "command": "magick",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["config"]["enabled"])
+        probe_command.assert_called_once()
+        self.assertEqual(probe_command.call_args.args[0], "magick")
+
     def test_executes_image_magic_with_mocked_runtime(self) -> None:
-        self.client.patch(
-            "/api/v1/tools/image-magic",
-            json={
-                "enabled": True,
-                "command": "magick",
-            },
-        )
+        with mock.patch("backend.routes.tools.verify_local_command_ready", return_value=["magick"]):
+            self.client.patch(
+                "/api/v1/tools/image-magic",
+                json={
+                    "enabled": True,
+                    "command": "magick",
+                },
+            )
 
         with mock.patch(
             "backend.routes.tools.execute_image_magic_conversion_request",
             return_value={"output_file_path": "backend/data/generated/image-magic/output.png", "stdout": "ok"},
-        ):
+        ) as execute_conversion:
             response = self.client.post(
                 "/api/v1/tools/image-magic/execute",
                 json={
                     "input_file": "input.jpg",
                     "output_format": "png",
+                    "resize": "1024x768",
                 },
             )
 
@@ -426,6 +459,9 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         body = response.json()
         self.assertTrue(body["ok"])
         self.assertTrue(body["output_file_path"].endswith("output.png"))
+        execute_conversion.assert_called_once()
+        call_payload = execute_conversion.call_args.args[0]
+        self.assertEqual(call_payload.resize, "1024x768")
 
     def test_updates_tool_metadata_via_generic_patch_endpoint(self) -> None:
         response = self.client.patch(

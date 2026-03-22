@@ -165,6 +165,7 @@ class ImageMagicToolUpdate(BaseModel):
 class ImageMagicExecuteRequest(BaseModel):
     input_file: str = Field(min_length=1, max_length=2000)
     output_format: str = Field(min_length=1, max_length=20)
+    resize: str | None = Field(default=None, max_length=255)
     output_filename: str | None = Field(default=None, max_length=255)
 
 

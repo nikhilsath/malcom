@@ -15,10 +15,10 @@
         <div class="content-shell">
             <div class="page-header section-header--page" id="scripts-library-header">
                 <div class="title-row">
-                    <h2 class="page-title section-header__title--page" id="page-title">Script Library</h2>
-                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                    <h2 class="page-title section-header__title--page" id="scripts-library-page-title">Script Library</h2>
+                    <button type="button" id="scripts-library-page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="scripts-library-page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Manage reusable scripts.</p>
+                <p class="page-description section-header__description--page" id="scripts-library-page-description" hidden>Manage reusable scripts.</p>
             </div>
             <section id="scripts-library-content" class="card script-workspace">
                 <div id="scripts-library-copy" class="section-header script-library-header">
@@ -126,11 +126,16 @@
                                 <textarea id="scripts-library-description-input" class="api-form-textarea" name="description" rows="3" maxlength="500"></textarea>
                             </label>
 
+                            <label id="scripts-library-sample-input-field" class="api-form-field api-form-field--full">
+                                <span id="scripts-library-sample-input-label" class="api-form-label">Sample input</span>
+                                <textarea id="scripts-library-sample-input-input" class="api-form-textarea" name="sample_input" rows="6" maxlength="20000" placeholder='{"text":"alpha,beta,gamma"}'></textarea>
+                            </label>
+
                             <div id="scripts-library-editor-field" class="api-form-field api-form-field--full script-editor-field">
                                 <div id="scripts-library-editor-toolbar" class="script-editor-toolbar">
                                     <div id="scripts-library-editor-toolbar-copy" class="script-editor-toolbar-copy">
                                         <span id="scripts-library-editor-toolbar-label" class="api-form-label">Source code</span>
-                                        <span id="scripts-library-editor-toolbar-help" class="script-editor-toolbar-help">Language controls highlighting and validation.</span>
+                                        <span id="scripts-library-editor-toolbar-help" class="script-editor-toolbar-help">Use run(context, script_input) or assign result directly.</span>
                                     </div>
                                     <button type="button" id="scripts-library-validate-button" class="button button--secondary secondary-action-button">Validate</button>
                                 </div>

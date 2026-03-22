@@ -15,11 +15,20 @@ import {
   Position,
   Handle
 } from "@xyflow/react";
-import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManifestEntry, InboundApiOption } from "./types";
+import type {
+  TriggerType,
+  StepType,
+  AutomationStep,
+  ConnectorRecord,
+  ToolManifestEntry,
+  InboundApiOption,
+  ScriptLibraryItem
+} from "./types";
 import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
+import { ScriptStepForm } from "./step-modals/script-step-form";
 import { ToolStepFields } from "./tool-step-fields";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 
@@ -27,7 +36,6 @@ declare global {
   interface Window {
     TOOLS_MANIFEST?: ToolManifestEntry[];
     INBOUND_APIS?: { id: string; name: string }[];
-    SCRIPTS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
     Malcom?: {
       requestJson?: (path: string, options?: RequestInit) => Promise<unknown>;
@@ -251,7 +259,7 @@ const isInboundApiSelectionMissing = (automation: AutomationDetail, inboundApis:
   return !inboundApis.some((option) => option.id === inboundApiId);
 };
 
-const getStepSummary = (step: AutomationStep) => {
+const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[]) => {
   if (step.type === "log") {
     if (step.config.log_table_id) {
       const colCount = Object.keys(step.config.log_column_mappings || {}).length;
@@ -263,7 +271,11 @@ const getStepSummary = (step: AutomationStep) => {
     return step.config.destination_url || step.config.connector_id || "Send a request to a remote endpoint.";
   }
   if (step.type === "script") {
-    return step.config.script_id ? `Execute script ${step.config.script_id}` : "Select a script to run.";
+    if (!step.config.script_id) {
+      return "Select a script to run.";
+    }
+    const selectedScript = scripts.find((script) => script.id === step.config.script_id);
+    return selectedScript ? `Execute ${selectedScript.name}` : `Execute script ${step.config.script_id}`;
   }
   if (step.type === "tool") {
     if (step.config.tool_id) {
@@ -321,6 +333,9 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
           issues.push(`Step ${index + 1} requires a numeric 'Relay Port' for SMTP.`);
         }
       }
+    }
+    if (step.type === "script" && !step.config.script_id) {
+      issues.push(`Step ${index + 1} requires a script selection.`);
     }
   });
   return issues;
@@ -425,32 +440,37 @@ const FlowSelect = <T extends string>({
   placeholder: string;
   options: Array<{ value: T; label: string }>;
   onValueChange: (value: T) => void;
-}) => (
-  <Select.Root value={value} onValueChange={(nextValue) => onValueChange(String(nextValue) as T)}>
-    <Select.Trigger id={rootId} className="automation-select-trigger" aria-labelledby={labelId}>
-      <Select.Value placeholder={placeholder} />
-      <Select.Icon className="automation-select-trigger__icon">▾</Select.Icon>
-    </Select.Trigger>
-    <Select.Portal>
-      <Select.Positioner className="automation-select-positioner">
-        <Select.Popup className="automation-select-popup">
-          <Select.List className="automation-select-list">
-            {options.map((option) => (
-              <Select.Item
-                key={option.value}
-                id={`${rootId}-option-${option.value}`}
-                className="automation-select-item"
-                value={option.value}
-              >
-                <Select.ItemText>{option.label}</Select.ItemText>
-              </Select.Item>
-            ))}
-          </Select.List>
-        </Select.Popup>
-      </Select.Positioner>
-    </Select.Portal>
-  </Select.Root>
-);
+}) => {
+  const popupId = `${rootId}-popup`;
+  const listId = `${rootId}-list`;
+
+  return (
+    <Select.Root value={value} onValueChange={(nextValue) => onValueChange(String(nextValue) as T)}>
+      <Select.Trigger id={rootId} className="automation-select-trigger" aria-labelledby={labelId} aria-controls={listId}>
+        <Select.Value placeholder={placeholder} />
+        <Select.Icon className="automation-select-trigger__icon">▾</Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Positioner className="automation-select-positioner">
+          <Select.Popup id={popupId} className="automation-select-popup">
+            <Select.List id={listId} className="automation-select-list" aria-labelledby={labelId}>
+              {options.map((option) => (
+                <Select.Item
+                  key={option.value}
+                  id={`${rootId}-option-${option.value}`}
+                  className="automation-select-item"
+                  value={option.value}
+                >
+                  <Select.ItemText>{option.label}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.List>
+          </Select.Popup>
+        </Select.Positioner>
+      </Select.Portal>
+    </Select.Root>
+  );
+};
 
 const getNodeMenuLabel = (nodeId: string, steps: AutomationStep[]) => {
   if (nodeId === "trigger-node") {
@@ -466,6 +486,7 @@ export const AutomationApp = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [inboundApis, setInboundApis] = useState<InboundApiOption[]>([]);
+  const [scripts, setScripts] = useState<ScriptLibraryItem[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -602,12 +623,14 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const [settings, inbound] = await Promise.all([
+    const [settings, inbound, scriptItems] = await Promise.all([
       requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
-      requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound")
+      requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
+      requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts")
     ]);
     setConnectors(settings.connectors?.records || []);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
+    setScripts(scriptItems);
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
@@ -827,7 +850,7 @@ export const AutomationApp = () => {
           kind: "step",
           label: step.name,
           subtitle: `${index + 1}. ${getStepTypeLabel(step.type)}`,
-          summary: getStepSummary(step),
+          summary: getStepSummary(step, scripts),
           accent: stepAccentByType[step.type],
           selected: selectedNodeId === `step-node-${step.id}`,
           isMergeTarget: Boolean(step.is_merge_target),
@@ -855,7 +878,7 @@ export const AutomationApp = () => {
     });
 
     return nodes;
-  }, [currentAutomation, selectedNodeId, inboundApis]);
+  }, [currentAutomation, selectedNodeId, inboundApis, scripts]);
 
   const flowEdges = useMemo(() => {
     const orderedNodeIds = [
@@ -947,15 +970,12 @@ export const AutomationApp = () => {
         ) : null}
 
         {step.type === "script" ? (
-          <label id="automations-step-script-id-field" className="automation-field automation-field--full">
-            <span id="automations-step-script-id-label" className="automation-field__label">Script id</span>
-            <input
-              id="automations-step-script-id-input"
-              className="automation-input"
-              value={step.config.script_id || ""}
-              onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, script_id: event.target.value } }))}
-            />
-          </label>
+          <ScriptStepForm
+            draft={step}
+            scripts={scripts}
+            onChange={(updated) => updateDrawerStep(() => updated)}
+            idPrefix="automations-step"
+          />
         ) : null}
 
         {step.type === "tool" ? (
@@ -1369,7 +1389,12 @@ export const AutomationApp = () => {
       <Dialog.Root open={editorDrawer !== null} onOpenChange={(open) => { if (!open) closeEditorDrawer(); }}>
         <Dialog.Portal>
           <Dialog.Backdrop id="automations-editor-drawer-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
-          <Dialog.Popup id="automations-editor-drawer" className="automation-side-drawer automation-side-drawer--editor">
+          <Dialog.Popup
+            id="automations-editor-drawer"
+            className="automation-side-drawer automation-side-drawer--editor"
+            aria-labelledby="automations-editor-drawer-title"
+            aria-describedby="automations-editor-drawer-description"
+          >
             <div id="automations-editor-drawer-header" className="automation-side-drawer__header">
               <div id="automations-editor-drawer-copy" className="automation-panel__copy">
                 <Dialog.Title id="automations-editor-drawer-title" className="automation-dialog__title">
@@ -1410,7 +1435,12 @@ export const AutomationApp = () => {
       <Dialog.Root open={testResults !== null} onOpenChange={(open) => { if (!open) setTestResults(null); }}>
         <Dialog.Portal>
           <Dialog.Backdrop id="automations-test-results-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
-          <Dialog.Popup id="automations-test-results-drawer" className="automation-side-drawer automation-side-drawer--results">
+          <Dialog.Popup
+            id="automations-test-results-drawer"
+            className="automation-side-drawer automation-side-drawer--results"
+            aria-labelledby="automations-test-results-title"
+            aria-describedby="automations-test-results-description"
+          >
             <div id="automations-test-results-header" className="automation-side-drawer__header">
               <div id="automations-test-results-copy" className="automation-panel__copy">
                 <Dialog.Title id="automations-test-results-title" className="automation-dialog__title">
@@ -1520,7 +1550,7 @@ export const AutomationApp = () => {
         }}
         connectors={connectors}
         toolsManifest={window.TOOLS_MANIFEST || []}
-        scripts={window.SCRIPTS}
+        scripts={scripts}
       />
 
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

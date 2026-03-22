@@ -4,7 +4,8 @@ import type {
   StepType,
   AutomationStep,
   ConnectorRecord,
-  ToolManifestEntry
+  ToolManifestEntry,
+  ScriptLibraryItem
 } from "./types";
 import { stepTypeOptions, cloneStepTemplate, getDefaultStepName } from "./types";
 import { LogStepForm } from "./step-modals/log-step-form";
@@ -20,7 +21,7 @@ type Props = {
   onAdd: (step: AutomationStep) => void;
   connectors: ConnectorRecord[];
   toolsManifest: ToolManifestEntry[];
-  scripts?: Array<{ id: string; name: string }>;
+  scripts?: ScriptLibraryItem[];
 };
 
 export const AddStepModal = ({
@@ -78,11 +79,19 @@ export const AddStepModal = ({
     }
   };
 
+  const popupTitleId = pickedType ? "add-step-modal-detail-title" : "add-step-modal-type-title";
+  const popupDescriptionId = pickedType ? "add-step-modal-detail-description" : "add-step-modal-type-description";
+
   return (
     <Dialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) handleClose(); }}>
       <Dialog.Portal>
         <Dialog.Backdrop id="add-step-modal-backdrop" className="automation-dialog-backdrop" />
-        <Dialog.Popup className="automation-dialog automation-dialog--wide">
+        <Dialog.Popup
+          id="add-step-modal"
+          className="automation-dialog automation-dialog--wide"
+          aria-labelledby={popupTitleId}
+          aria-describedby={popupDescriptionId}
+        >
           <div id="add-step-modal-dismiss-row" className="automation-dialog__dismiss-row">
             <Dialog.Close
               id="add-step-modal-close-icon"
@@ -96,6 +105,12 @@ export const AddStepModal = ({
           {/* ── Page 1: type picker ── */}
           {!pickedType ? (
             <>
+              <Dialog.Title id="add-step-modal-type-title" className="sr-only">
+                Add a workflow step
+              </Dialog.Title>
+              <Dialog.Description id="add-step-modal-type-description" className="sr-only">
+                Pick a step type to continue.
+              </Dialog.Description>
               <div id="add-step-type-grid" className="add-step-type-grid">
                 {stepTypeOptions.map((opt) => (
                   <button

@@ -15,6 +15,11 @@ const emptyColumn = (): LogDbColumnDef => ({
   default_value: "",
 });
 
+const toIdToken = (value: string, fallback: string): string => {
+  const token = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return token || fallback;
+};
+
 export const LogStepForm = ({ draft, onChange }: Props) => {
   const [mode, setMode] = useState<"existing" | "new">(
     draft.config.log_table_id ? "existing" : "new"
@@ -220,20 +225,22 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                   {" "}— use {"{{variable}}"} templates
                 </span>
               </span>
-              {selectedTable.columns.map((col) => (
+              {selectedTable.columns.map((col, columnIndex) => {
+                const columnToken = toIdToken(col.column_name, `column-${columnIndex + 1}`);
+                return (
                 <label
                   key={col.column_name}
-                  id={`log-step-mapping-${col.column_name}-field`}
+                  id={`log-step-mapping-column-${columnToken}-field`}
                   className="automation-field automation-field--full log-step-mapping-row"
                 >
-                  <span id={`log-step-mapping-${col.column_name}-label`} className="log-step-mapping-col-name">
+                  <span id={`log-step-mapping-column-${columnToken}-label`} className="log-step-mapping-col-name">
                     {col.column_name}
-                    <em id={`log-step-mapping-${col.column_name}-type`} className="log-step-mapping-col-type">
+                    <em id={`log-step-mapping-column-${columnToken}-type`} className="log-step-mapping-col-type">
                       {" "}({col.data_type})
                     </em>
                   </span>
                   <input
-                    id={`log-step-mapping-${col.column_name}-input`}
+                    id={`log-step-mapping-column-${columnToken}-input`}
                     type="text"
                     className="automation-input"
                     placeholder={`{{steps.prev.output}} or literal`}
@@ -241,7 +248,8 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                     onChange={(e) => handleMappingChange(col.column_name, e.target.value)}
                   />
                 </label>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -285,10 +293,12 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
 
           <div id="log-step-columns-section" className="log-step-columns-section">
             <span id="log-step-columns-label" className="automation-field__label">Columns</span>
-            {newColumns.map((col, index) => (
-              <div key={index} id={`log-step-col-${index}`} className="log-step-column-row">
+            {newColumns.map((col, index) => {
+              const columnToken = toIdToken(col.column_name, `new-column-${index + 1}`);
+              return (
+              <div key={index} id={`log-step-column-${columnToken}-row`} className="log-step-column-row">
                 <input
-                  id={`log-step-col-${index}-name`}
+                  id={`log-step-column-${columnToken}-name`}
                   type="text"
                   className="automation-input log-step-column-row__name"
                   placeholder="column_name"
@@ -296,7 +306,7 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                   onChange={(e) => updateColumn(index, "column_name", e.target.value)}
                 />
                 <select
-                  id={`log-step-col-${index}-type`}
+                  id={`log-step-column-${columnToken}-type`}
                   className="automation-native-select log-step-column-row__type"
                   value={col.data_type}
                   onChange={(e) => updateColumn(index, "data_type", e.target.value)}
@@ -305,9 +315,9 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
-                <label id={`log-step-col-${index}-nullable-label`} className="log-step-column-row__nullable">
+                <label id={`log-step-column-${columnToken}-nullable-label`} className="log-step-column-row__nullable">
                   <input
-                    id={`log-step-col-${index}-nullable`}
+                    id={`log-step-column-${columnToken}-nullable`}
                     type="checkbox"
                     checked={col.nullable}
                     onChange={(e) => updateColumn(index, "nullable", e.target.checked)}
@@ -315,7 +325,7 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                   nullable
                 </label>
                 <input
-                  id={`log-step-col-${index}-default`}
+                  id={`log-step-column-${columnToken}-default`}
                   type="text"
                   className="automation-input log-step-column-row__default"
                   placeholder="default (optional)"
@@ -324,7 +334,7 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                 />
                 {newColumns.length > 1 && (
                   <button
-                    id={`log-step-col-${index}-remove`}
+                    id={`log-step-column-${columnToken}-remove`}
                     type="button"
                     className="log-step-column-row__remove"
                     aria-label={`Remove column ${index + 1}`}
@@ -334,7 +344,8 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
             <button
               id="log-step-add-column"
               type="button"

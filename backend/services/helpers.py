@@ -11,6 +11,8 @@ import platform
 import re
 import secrets
 import shlex
+import inspect
+import shutil
 import smtplib
 import socket
 import ssl
@@ -59,6 +61,7 @@ from backend.services.scripts import (
     build_script_validation_issue,
     row_to_script_response,
     row_to_script_summary,
+    seed_default_scripts,
     validate_javascript_script,
     validate_python_script,
     validate_script_payload,
@@ -600,6 +603,7 @@ def seed_default_settings(connection: DatabaseConnection) -> None:
     now = utc_now_iso()
 
     seed_integration_presets(connection, timestamp=now)
+    seed_default_scripts(connection, timestamp=now)
 
     for key, value in get_default_settings().items():
         connection.execute(
@@ -709,8 +713,7 @@ def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
     }
 def build_connector_catalog(connection: DatabaseConnection | None = None) -> list[dict[str, Any]]:
     if connection is None:
-        # Return defaults excluding Google (which has its own UI component)
-        return [p for p in _clone_connector_catalog_defaults() if p["id"] != "google"]
+        return _clone_connector_catalog_defaults()
 
     rows = fetch_all(
         connection,
@@ -722,16 +725,13 @@ def build_connector_catalog(connection: DatabaseConnection | None = None) -> lis
         """,
     )
     if not rows:
-        return [p for p in _clone_connector_catalog_defaults() if p["id"] != "google"]
+        return _clone_connector_catalog_defaults()
 
     deduped_catalog: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     for row in rows:
         preset = _row_to_connector_preset(row)
         preset_id = preset["id"]
-        # Skip Google provider (it has its own dedicated UI card)
-        if preset_id == "google":
-            continue
         if preset_id in seen_ids:
             continue
         seen_ids.add(preset_id)
@@ -1346,6 +1346,27 @@ def _get_tool_input(step: AutomationStepDefinition, key: str, context: dict[str,
         raw = getattr(step.config, legacy_attr, None)
     return render_template_string(raw, context).strip() if raw else ""
 
+def verify_local_command_ready(command: str, *, working_dir: Path | None = None, tool_name: str = "Command") -> list[str]:
+    command_parts = shlex.split(str(command or "").strip())
+    if not command_parts:
+        raise RuntimeError(f"{tool_name} command is invalid.")
+
+    executable = command_parts[0]
+    executable_path = Path(executable).expanduser()
+    has_explicit_path = executable_path.is_absolute() or any(separator in executable for separator in ("/", "\\"))
+
+    if has_explicit_path:
+        if not executable_path.is_absolute() and working_dir is not None:
+            executable_path = (working_dir / executable_path).resolve()
+        if not executable_path.exists() or not os.access(executable_path, os.X_OK):
+            raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
+        return command_parts
+
+    if shutil.which(executable) is None:
+        raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
+
+    return command_parts
+
 
 def execute_coqui_tts_tool_step(
     connection: DatabaseConnection,
@@ -1575,10 +1596,12 @@ def execute_image_magic_conversion_request(
     if not input_path.exists():
         raise RuntimeError(f"Image Magic input file was not found: {input_path}")
 
-    command_parts = shlex.split(command)
-    if not command_parts:
-        raise RuntimeError("Image Magic command is invalid.")
-    image_command = [*command_parts, str(input_path), str(output_path)]
+    command_parts = verify_local_command_ready(command, working_dir=root_dir, tool_name="Image Magic")
+    image_command = [*command_parts, str(input_path)]
+    resize_value = str(payload.resize or "").strip()
+    if resize_value:
+        image_command.extend(["-resize", resize_value])
+    image_command.append(str(output_path))
 
     try:
         completed = subprocess.run(
@@ -1625,6 +1648,7 @@ def execute_image_magic_tool_step(
 
     input_file = _get_tool_input(step, "input_file", context)
     output_format = _get_tool_input(step, "output_format", context)
+    resize = _get_tool_input(step, "resize", context) or None
     output_filename = _get_tool_input(step, "output_filename", context) or None
     retries_override = _get_tool_input(step, "max_retries", context)
 
@@ -1656,6 +1680,7 @@ def execute_image_magic_tool_step(
                         "input_file": input_file,
                         "output_format": output_format,
                         "output_filename": output_filename,
+                        "resize": resize,
                     },
                     timeout=120.0,
                 )
@@ -1669,6 +1694,7 @@ def execute_image_magic_tool_step(
                     "execution_mode": "remote",
                     "target_worker_id": worker.worker_id,
                     "target_worker_name": worker.name,
+                    "resize": resize,
                     "attempt": attempt,
                     "attempts_total": attempts_total,
                     **outputs,
@@ -1685,6 +1711,7 @@ def execute_image_magic_tool_step(
                     input_file=input_file,
                     output_format=output_format,
                     output_filename=output_filename,
+                    resize=resize,
                 ),
                 root_dir=root_dir,
                 command=config["command"],
@@ -1697,6 +1724,7 @@ def execute_image_magic_tool_step(
                 "execution_mode": "local",
                 "worker_id": worker_id,
                 "worker_name": worker_name,
+                "resize": resize,
                 "attempt": attempt,
                 "attempts_total": attempts_total,
                 "stdout": execution.get("stdout") or None,
@@ -3223,23 +3251,122 @@ def try_parse_json_response_body(response_body: str | None) -> Any | None:
         return json.loads(response_body)
     except json.JSONDecodeError:
         return None
+
+
+def parse_optional_structured_input(value: str | None) -> Any:
+    if value is None:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return ""
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        return value
+
+
 def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
     rendered = render_template_string(template or "{}", context)
     parsed = json.loads(rendered)
     return json.dumps(parsed)
-def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, root_dir: Path) -> RuntimeExecutionResult:
+
+
+SAFE_PYTHON_SCRIPT_BUILTINS: dict[str, Any] = {
+    "abs": abs,
+    "all": all,
+    "any": any,
+    "bool": bool,
+    "dict": dict,
+    "enumerate": enumerate,
+    "float": float,
+    "int": int,
+    "isinstance": isinstance,
+    "len": len,
+    "list": list,
+    "max": max,
+    "min": min,
+    "range": range,
+    "round": round,
+    "set": set,
+    "sorted": sorted,
+    "str": str,
+    "sum": sum,
+    "tuple": tuple,
+    "zip": zip,
+}
+
+
+def _build_script_runtime_context(
+    context: dict[str, Any],
+    *,
+    script_input_template: str | None = None,
+) -> tuple[dict[str, Any], str]:
+    rendered_script_input = render_template_string(script_input_template, context) if script_input_template else ""
+    runtime_context = dict(context)
+    runtime_context["script_input_raw"] = rendered_script_input
+    runtime_context["script_input"] = parse_optional_structured_input(rendered_script_input)
+    return runtime_context, rendered_script_input
+
+
+def _invoke_python_script_run(run_callable: Any, runtime_context: dict[str, Any]) -> Any:
+    payload = runtime_context.get("payload")
+    script_input = runtime_context.get("script_input")
+    try:
+        parameters = list(inspect.signature(run_callable).parameters.values())
+    except (TypeError, ValueError):
+        return run_callable(runtime_context, script_input)
+
+    positional_parameters = [
+        parameter
+        for parameter in parameters
+        if parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    has_varargs = any(parameter.kind == inspect.Parameter.VAR_POSITIONAL for parameter in parameters)
+
+    if has_varargs or len(positional_parameters) >= 2:
+        return run_callable(runtime_context, script_input)
+    if len(positional_parameters) == 1:
+        parameter_name = positional_parameters[0].name.lower()
+        if "payload" in parameter_name:
+            return run_callable(payload)
+        return run_callable(runtime_context)
+    return run_callable()
+
+
+def execute_script_step(
+    script_row: DatabaseRow,
+    context: dict[str, Any],
+    *,
+    root_dir: Path,
+    script_input_template: str | None = None,
+) -> RuntimeExecutionResult:
+    runtime_context, rendered_script_input = _build_script_runtime_context(
+        context,
+        script_input_template=script_input_template,
+    )
     if script_row["language"] == "python":
+        script_globals = {
+            "__builtins__": SAFE_PYTHON_SCRIPT_BUILTINS,
+            "json": json,
+            "re": re,
+        }
         local_scope = {
-            "context": context,
-            "payload": context.get("payload"),
-            "steps": context.get("steps", {}),
+            "context": runtime_context,
+            "payload": runtime_context.get("payload"),
+            "steps": runtime_context.get("steps", {}),
+            "script_input": runtime_context.get("script_input"),
+            "script_input_raw": runtime_context.get("script_input_raw"),
             "result": None,
         }
-        exec(script_row["code"], {"__builtins__": {}}, local_scope)
+        exec(script_row["code"], script_globals, local_scope)
+        if callable(local_scope.get("run")):
+            run_result = _invoke_python_script_run(local_scope["run"], runtime_context)
+            if run_result is not None:
+                local_scope["result"] = run_result
         return RuntimeExecutionResult(
             status="completed",
             response_summary="Python script executed.",
-            detail={"script_id": script_row["id"]},
+            detail={"script_id": script_row["id"], "script_input_raw": rendered_script_input},
             output=local_scope.get("result"),
         )
 
@@ -3252,18 +3379,38 @@ def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, roo
         delete=False,
     ) as temporary_file:
         temporary_file.write(
+            "(async () => {\n"
             "const context = JSON.parse(process.argv[2]);\n"
+            "const scriptInputRaw = process.argv[3] ?? \"\";\n"
+            "let scriptInput = scriptInputRaw;\n"
+            "try {\n"
+            "  scriptInput = scriptInputRaw ? JSON.parse(scriptInputRaw) : \"\";\n"
+            "} catch {\n"
+            "  scriptInput = scriptInputRaw;\n"
+            "}\n"
+            "context.script_input_raw = scriptInputRaw;\n"
+            "context.script_input = scriptInput;\n"
             "const payload = context.payload;\n"
             "const steps = context.steps || {};\n"
             "let result = null;\n"
             f"{script_row['code']}\n"
+            "if (typeof run === 'function') {\n"
+            "  const executed = await run(context, scriptInput);\n"
+            "  if (executed !== undefined) {\n"
+            "    result = executed;\n"
+            "  }\n"
+            "}\n"
             "process.stdout.write(JSON.stringify(result ?? null));\n"
+            "})().catch((error) => {\n"
+            "  console.error(error?.stack || error?.message || String(error));\n"
+            "  process.exit(1);\n"
+            "});\n"
         )
         temporary_path = Path(temporary_file.name)
 
     try:
         completed = subprocess.run(
-            ["node", temporary_path.name, json.dumps(context)],
+            ["node", temporary_path.name, json.dumps(runtime_context), rendered_script_input],
             cwd=get_ui_dir(root_dir),
             capture_output=True,
             text=True,
@@ -3279,7 +3426,7 @@ def execute_script_step(script_row: DatabaseRow, context: dict[str, Any], *, roo
     return RuntimeExecutionResult(
         status="completed",
         response_summary="JavaScript script executed.",
-        detail={"script_id": script_row["id"]},
+        detail={"script_id": script_row["id"], "script_input_raw": rendered_script_input},
         output=json.loads(completed.stdout or "null"),
     )
 
@@ -3539,7 +3686,12 @@ def execute_automation_step(
         script_row = fetch_one(connection, "SELECT * FROM scripts WHERE id = ?", (step.config.script_id,))
         if script_row is None:
             raise RuntimeError(f"Script '{step.config.script_id}' was not found.")
-        return execute_script_step(script_row, context, root_dir=root_dir)
+        return execute_script_step(
+            script_row,
+            context,
+            root_dir=root_dir,
+            script_input_template=step.config.script_input_template,
+        )
 
     if step.type == "llm_chat":
         messages: list[dict[str, str]] = []
@@ -3673,7 +3825,20 @@ def execute_automation_definition(
         execution_order += 1
 
         runtime_step_id = f"step_{uuid4().hex}"
-        step_inputs = step.config.tool_inputs if step.type == "tool" else None
+        if step.type == "tool":
+            step_inputs = step.config.tool_inputs
+        elif step.type == "script":
+            runtime_context, rendered_script_input = _build_script_runtime_context(
+                context,
+                script_input_template=step.config.script_input_template,
+            )
+            step_inputs = {
+                "script_id": step.config.script_id or "",
+                "script_input_raw": rendered_script_input,
+                "script_input": runtime_context.get("script_input"),
+            }
+        else:
+            step_inputs = None
         create_automation_run_step(
             connection,
             step_id=runtime_step_id,

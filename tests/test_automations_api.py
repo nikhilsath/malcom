@@ -288,6 +288,62 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual(refreshed_run["steps"][0]["extracted_fields_json"]["status_value"], "queued")
         self.assertEqual(refreshed_run["steps"][0]["response_body_json"]["status"], "queued")
 
+    def test_script_step_receives_rendered_input_template(self) -> None:
+        script_response = self.client.post(
+            "/api/v1/scripts",
+            json={
+                "name": "Delimiter transform",
+                "description": "Uses a rendered script input payload.",
+                "language": "python",
+                "sample_input": "{\"text\":\"alpha,beta\",\"from\":\",\",\"to\":\"|\"}",
+                "code": (
+                    "def run(context, script_input=None):\n"
+                    "    parts = str(script_input.get('text', '')).split(script_input.get('from', ','))\n"
+                    "    return {\n"
+                    "        'text': script_input.get('to', '|').join(part.strip() for part in parts),\n"
+                    "        'source': context.get('automation', {}).get('name'),\n"
+                    "    }\n"
+                ),
+            },
+        )
+        self.assertEqual(script_response.status_code, 201)
+        script_id = script_response.json()["id"]
+
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Script input automation",
+                "description": "Renders script input before execution.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "script",
+                        "name": "Transform text",
+                        "config": {
+                            "script_id": script_id,
+                            "script_input_template": "{\"text\":\"alpha,beta,gamma\",\"from\":\",\",\"to\":\"|\"}",
+                        },
+                    },
+                    {
+                        "type": "log",
+                        "name": "Log transformed text",
+                        "config": {"message": "{{steps.Transform text.text}} from {{steps.Transform text.source}}"},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+
+        execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(run["steps"][0]["response_summary"], "Python script executed.")
+        self.assertIn("alpha|beta|gamma from Script input automation", run["steps"][1]["response_summary"])
+
     def test_inbound_triggered_automation_requires_existing_inbound_api(self) -> None:
         create_response = self.client.post(
             "/api/v1/automations",

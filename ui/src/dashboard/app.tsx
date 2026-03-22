@@ -192,12 +192,12 @@ const DashboardLayout = () => {
             <div className="page-header__inner">
               <div className="page-header__content">
                 <div className="title-row">
-                  <h2 className="page-title section-header__title--page" id="page-title">
+                  <h2 className="page-title section-header__title--page" id="dashboard-page-title">
                     {routeHandle?.title || "Dashboard"}
                   </h2>
-                  <button type="button" id="page-info-badge" className="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                  <button type="button" id="dashboard-page-info-badge" className="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="dashboard-page-description">i</button>
                 </div>
-                <p className="page-description section-header__description--page" id="page-description" hidden>
+                <p className="page-description section-header__description--page" id="dashboard-page-description" hidden>
                   {routeHandle?.description || "Operational dashboard"}
                 </p>
               </div>

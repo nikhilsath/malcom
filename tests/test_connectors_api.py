@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -134,19 +135,67 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(refresh_body["connector"]["status"], "connected")
 
     def test_google_oauth_start_requires_client_id(self) -> None:
-        response = self.client.post(
-            "/api/v1/connectors/google/oauth/start",
-            json={
-                "connector_id": "google-missing-client",
-                "name": "Google Missing Client",
-                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
-                "owner": "Workspace",
-                "client_id": "",
-            },
-        )
+        with patch.dict("os.environ", {"MALCOM_GOOGLE_OAUTH_CLIENT_ID": ""}, clear=False):
+            response = self.client.post(
+                "/api/v1/connectors/google/oauth/start",
+                json={
+                    "connector_id": "google-missing-client",
+                    "name": "Google Missing Client",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                    "owner": "Workspace",
+                    "client_id": "",
+                },
+            )
 
         self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["detail"], "Google OAuth requires a client_id.")
+        self.assertEqual(
+            response.json()["detail"],
+            "Google OAuth client_id is required. Configure connector client_id, or set MALCOM_GOOGLE_OAUTH_CLIENT_ID.",
+        )
+
+    def test_google_oauth_start_uses_environment_client_id(self) -> None:
+        with patch.dict("os.environ", {"MALCOM_GOOGLE_OAUTH_CLIENT_ID": "google-env-client-id"}, clear=False):
+            response = self.client.post(
+                "/api/v1/connectors/google/oauth/start",
+                json={
+                    "connector_id": "google-env-client",
+                    "name": "Google Env Client",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                    "owner": "Workspace",
+                    "client_id": "",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["connector"]["auth_config"]["client_id"], "google-env-client-id")
+        self.assertIn("client_id=google-env-client-id", body["authorization_url"])
+
+    def test_google_oauth_ui_callback_redirects_to_connectors_page(self) -> None:
+        start_response = self.client.post(
+            "/api/v1/connectors/google/oauth/start",
+            json={
+                "connector_id": "google-ui-callback",
+                "name": "Google UI Callback",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                "owner": "Workspace",
+                "client_id": "google-client-id",
+                "client_secret_input": "google-client-secret",
+            },
+        )
+        self.assertEqual(start_response.status_code, 200)
+        start_body = start_response.json()
+
+        callback_response = self.client.get(
+            f"/api/v1/connectors/google/oauth/callback/ui?state={start_body['state']}&code=demo",
+            follow_redirects=False,
+        )
+
+        self.assertEqual(callback_response.status_code, 303)
+        location = callback_response.headers.get("location", "")
+        self.assertTrue(location.startswith("/settings/connectors.html?"))
+        self.assertIn("oauth_status=success", location)
+        self.assertIn("connector_id=google-ui-callback", location)
 
     def test_legacy_google_provider_aliases_resolve_to_unified_google(self) -> None:
         start_response = self.client.post(

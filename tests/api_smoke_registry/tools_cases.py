@@ -20,6 +20,11 @@ def invoke_image_magic_execute(case, context, state):
         return default_invoke(case, context, state)
 
 
+def invoke_image_magic_patch(case, context, state):
+    with mock.patch("backend.routes.tools.verify_local_command_ready", return_value=["magick"]):
+        return default_invoke(case, context, state)
+
+
 TOOLS_CASES: tuple[RouteSmokeCase, ...] = (
     list_case("tools-smtp-get", "GET", "/api/v1/tools/smtp", response_assert=assert_json_response),
     list_case("tools-local-llm-get", "GET", "/api/v1/tools/llm-deepl/local-llm", response_assert=assert_json_response),
@@ -90,6 +95,7 @@ TOOLS_CASES: tuple[RouteSmokeCase, ...] = (
         None,
         {"enabled": True, "target_worker_id": None, "command": "magick"},
         response_assert=assert_json_response,
+        invoke=invoke_image_magic_patch,
     ),
     action_case(
         "tools-smtp-start",
@@ -150,7 +156,7 @@ TOOLS_CASES: tuple[RouteSmokeCase, ...] = (
         "/api/v1/tools/image-magic/execute",
         200,
         setup=configure_image_magic_tool,
-        payload={"input_file": "input.jpg", "output_format": "png"},
+        payload={"input_file": "input.jpg", "output_format": "png", "resize": "800x600"},
         response_assert=assert_json_response,
         invoke=invoke_image_magic_execute,
     ),

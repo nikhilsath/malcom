@@ -164,6 +164,14 @@ Examples:
 
 Connectors are reused by outgoing APIs and automation HTTP request steps. They are not the same thing as Tools.
 
+Google connector onboarding rule:
+
+* start Google connector setup from the **Connect provider** action on the Connectors page
+* complete credential entry inside the connector details modal (Client ID, Client secret, Redirect URI)
+* do not collect OAuth credentials with browser popup prompts
+* follow Google OAuth best practices: configure OAuth consent screen, use OAuth 2.0 Web application credentials, and register the exact redirect URI shown by Malcom
+* reference docs: https://developers.google.com/identity/protocols/oauth2/web-server
+
 ### 6. Storage
 
 PostgreSQL database used for:

@@ -14,6 +14,7 @@ All agents working on this project MUST read and follow the rules in:
 3. Extend existing sources of truth; do not create parallel ones
 4. Include testing/verification in every response
 5. Schema changes go in `backend/database.py`, not in the database file itself
+6. Google connector onboarding must start from the `Connect provider` control and must not use browser `prompt()` dialogs for OAuth credentials
 
 For the full ruleset, **open AGENTS.md and read it in full before starting work.**
 

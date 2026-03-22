@@ -292,8 +292,8 @@ const renderSideNav = async () => {
   }
 
   const activeItem = sectionConfig.items.find((item) => item.id === activeItemId);
-  const pageTitle = document.getElementById("page-title");
-  const pageDescription = document.getElementById("page-description");
+  const pageTitle = document.getElementById("page-title") || document.querySelector(".page-title");
+  const pageDescription = document.getElementById("page-description") || document.querySelector(".page-description");
 
   if (pageTitle && activeItem?.pageTitle) {
     pageTitle.textContent = activeItem.pageTitle;

@@ -122,6 +122,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
 | Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `ui/settings/connectors.html`, `ui/scripts/connectors.js`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
+| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/connectors.js` | `backend/routes/connectors.py`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
@@ -138,6 +139,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
+| R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
@@ -158,7 +160,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 9,
+  "version": 10,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -187,7 +189,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     },
     "connector_backed_remote_api_change": {
       "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
-      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "automation_http_step_reuse", "remote_api_not_tool_catalog"],
+      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "automation_http_step_reuse", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
       "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector"]
     },
     "new_ui_page": {
@@ -317,6 +319,8 @@ Use one integration model per responsibility. Do not blur remote API access, HTT
 - Connectors store reusable provider credentials, auth state, scopes, and base URLs for remote services and HTTP APIs.
 - Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, Slack, or similar SaaS APIs.
 - Connector records live in workspace settings and are reused by outgoing APIs and automation HTTP steps.
+- Google connector setup must start from the Connect provider control in `ui/settings/connectors.html` and continue in the connector details modal.
+- Do not collect Google OAuth Client ID or Client secret with browser `prompt()` dialogs.
 
 ### Outgoing APIs And Automation HTTP Steps {#connector-boundary-http}
 

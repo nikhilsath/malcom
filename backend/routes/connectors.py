@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 
 from backend.schemas import *
 from backend.services.support import *
@@ -173,11 +175,35 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
     preset = get_connector_preset(canonical_provider or provider, connection=connection)
     if preset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector provider not found.")
-    if canonical_provider == "google" and not (payload.client_id or "").strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Google OAuth requires a client_id.")
 
     settings = get_stored_connector_settings(connection)
     existing_records = {item["id"]: item for item in settings["records"]}
+    existing_record = existing_records.get(payload.connector_id) or {}
+    existing_auth_config = existing_record.get("auth_config") if isinstance(existing_record.get("auth_config"), dict) else {}
+
+    resolved_client_id = (payload.client_id or existing_auth_config.get("client_id") or "").strip()
+    resolved_client_secret_input = payload.client_secret_input
+
+    if canonical_provider == "google":
+        if not resolved_client_id:
+            resolved_client_id = (os.getenv("MALCOM_GOOGLE_OAUTH_CLIENT_ID") or "").strip()
+        if not resolved_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "Google OAuth client_id is required. Configure connector client_id, "
+                    "or set MALCOM_GOOGLE_OAUTH_CLIENT_ID."
+                ),
+            )
+
+        if not (resolved_client_secret_input or "").strip():
+            existing_secret_map = extract_connector_secret_map(existing_auth_config, protection_secret)
+            has_stored_secret = bool((existing_secret_map.get("client_secret") or "").strip())
+            if not has_stored_secret:
+                env_secret = (os.getenv("MALCOM_GOOGLE_OAUTH_CLIENT_SECRET") or "").strip()
+                if env_secret:
+                    resolved_client_secret_input = env_secret
+
     now = utc_now_iso()
     state = secrets.token_urlsafe(24)
     verifier = secrets.token_urlsafe(48)
@@ -195,14 +221,14 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
             "base_url": preset.get("base_url"),
             "docs_url": preset.get("docs_url"),
             "auth_config": {
-                "client_id": payload.client_id,
-                "client_secret_input": payload.client_secret_input,
+                "client_id": resolved_client_id or payload.client_id,
+                "client_secret_input": resolved_client_secret_input,
                 "redirect_uri": payload.redirect_uri,
                 "scope_preset": canonicalize_connector_provider(provider),
                 "expires_at": None,
             },
         },
-        existing_record=existing_records.get(payload.connector_id),
+        existing_record=existing_record,
         connection=connection,
         protection_secret=protection_secret,
         timestamp=now,
@@ -220,7 +246,7 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
         connector=ConnectorRecordResponse(**sanitized),
         authorization_url=build_connector_oauth_authorization_url(
             canonical_provider or provider,
-            client_id=payload.client_id or "",
+            client_id=resolved_client_id or payload.client_id or "",
             redirect_uri=payload.redirect_uri,
             scopes=scopes,
             state=state,
@@ -337,6 +363,38 @@ def complete_connector_oauth(
         message="Connector authorized successfully.",
         connector=ConnectorRecordResponse(**sanitized),
     )
+
+
+@router.get("/api/v1/connectors/{provider}/oauth/callback/ui")
+def complete_connector_oauth_for_ui(
+    provider: str,
+    state: str,
+    request: Request,
+    code: str | None = None,
+    error: str | None = None,
+    scope: str | None = None,
+) -> RedirectResponse:
+    query: dict[str, str] = {}
+
+    try:
+        callback_result = complete_connector_oauth(
+            provider=provider,
+            state=state,
+            request=request,
+            code=code,
+            error=error,
+            scope=scope,
+        )
+        query["oauth_status"] = "success" if callback_result.ok else "warning"
+        query["oauth_message"] = callback_result.message
+        query["connector_id"] = callback_result.connector.id
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, str) else "OAuth authorization failed."
+        query["oauth_status"] = "error"
+        query["oauth_message"] = detail
+
+    target = f"/settings/connectors.html?{urllib.parse.urlencode(query)}"
+    return RedirectResponse(url=target, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/api/v1/connectors/{connector_id}/refresh", response_model=ConnectorActionResponse)

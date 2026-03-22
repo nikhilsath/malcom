@@ -1,4 +1,5 @@
 import { createElementMap } from "../format-utils.js";
+import { normalizeRequestError } from "../request.js";
 
 const imageMagicElements = createElementMap({
   statusValue: "tools-image-magic-status-value",
@@ -151,7 +152,11 @@ imageMagicElements.form?.addEventListener("submit", async (event) => {
     applyToolState(refreshed);
     setFeedback("Settings saved.", "success");
   } catch (error) {
-    setFeedback(error instanceof Error ? error.message : "Unable to save settings.", "error");
+    const normalizedError = normalizeRequestError(error, "Unable to save settings.");
+    const feedbackMessage = normalizedError.status === 422 && (imageMagicElements.enabledInput?.checked ?? false)
+      ? `${normalizedError.message} Install ImageMagick on this host or update the command before enabling the tool.`
+      : normalizedError.message;
+    setFeedback(feedbackMessage, "error");
   } finally {
     pendingSave = false;
     if (imageMagicElements.saveButton) {

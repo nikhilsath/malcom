@@ -42,8 +42,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["connectors"]["records"], [])
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
-        # Google is handled by a separate UI card, not in the generic provider catalog
-        self.assertNotIn("google", provider_ids)
+        self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
 
     def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
@@ -178,8 +177,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertNotIn("calendar-client-secret", json.dumps(body))
         self.assertNotIn("calendar-access-token", json.dumps(body))
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
-        # Google is handled by a separate UI card, not in the generic provider catalog
-        self.assertNotIn("google", provider_ids)
+        self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
 
         connection = connect(database_url=self.database_url)

@@ -64,7 +64,7 @@
                 </div>
             </section>
 
-            <section id="settings-connectors-google-section" class="card settings-section">
+            <section id="settings-connectors-google-section" class="card settings-section" hidden>
                 <div id="settings-connectors-google-header" class="settings-section__header">
                     <p id="settings-connectors-google-eyebrow" class="section-header__eyebrow">Authentication</p>
                     <div class="title-row">
@@ -79,12 +79,27 @@
                         <p id="settings-connectors-google-status-value" class="google-connector-status-value">Not connected</p>
                     </div>
                     <div id="settings-connectors-google-actions" class="google-connector-actions">
-                        <button type="button" id="settings-connectors-google-connect-button" class="button button--primary primary-action-button">
-                            <span id="settings-connectors-google-button-content">Connect with Google</span>
-                        </button>
+                        <p id="settings-connectors-google-connect-hint" class="section-header__description">Start Google onboarding by clicking Connect provider in Other connectors.</p>
                         <button type="button" id="settings-connectors-google-disconnect-button" class="button button--secondary secondary-action-button" hidden>Disconnect</button>
                     </div>
                     <div id="settings-connectors-google-feedback" class="api-form-feedback" aria-live="polite"></div>
+                    <div id="settings-connectors-google-setup-guide">
+                        <div class="title-row">
+                            <h4 id="settings-connectors-google-setup-title" class="settings-option-card__title">Setup Instructions</h4>
+                            <button type="button" id="settings-connectors-google-setup-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-setup-description">i</button>
+                        </div>
+                        <p id="settings-connectors-google-setup-description" class="section-header__description" hidden>
+                            <strong>Before connecting:</strong> Create a Google Cloud project, configure an OAuth 2.0 Web application, and add this redirect URI to authorized domains. 
+                            <ol style="margin: 0.5em 0; padding-left: 1.5em; font-size: 0.95em;">
+                                <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud Console → APIs & Services → Credentials</a></li>
+                                <li>Click "Create Credentials" → "OAuth 2.0 Client ID" (type: Web application)</li>
+                                <li>Under "Authorized redirect URIs" add: <code style="background: rgba(255,255,255,0.1); padding: 0.2em 0.4em; border-radius: 3px;">http://127.0.0.1:8000/api/v1/connectors/google/oauth/callback</code></li>
+                                <li>Copy your Client ID and Client Secret below and click "Authorize"</li>
+                                <li>If your app is unverified, add test users on the "OAuth consent screen" tab</li>
+                            </ol>
+                            See <a href="https://developers.google.com/identity/protocols/oauth2/web-server" target="_blank" rel="noopener noreferrer">Google OAuth 2.0 documentation</a> for more.
+                        </p>
+                    </div>
                 </div>
             </section>
 
@@ -279,7 +294,13 @@
                                 <span id="settings-connectors-redirect-uri-label" class="api-form-label">Redirect URI</span>
                                 <input id="settings-connectors-redirect-uri-input" class="api-form-input" type="url" maxlength="2000">
                             </label>
-                            <p id="settings-connectors-google-oauth-note" class="section-header__description api-form-field--full">Google OAuth requires a valid Client ID and an authorized Redirect URI configured in Google Cloud.</p>
+                            <div id="settings-connectors-google-oauth-guidance" class="api-form-field api-form-field--full">
+                                <div class="title-row">
+                                    <span id="settings-connectors-google-oauth-guidance-label" class="api-form-label">Google OAuth setup</span>
+                                    <button type="button" id="settings-connectors-google-oauth-guidance-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-oauth-note">i</button>
+                                </div>
+                                <p id="settings-connectors-google-oauth-note" class="section-header__description" hidden>Use Google OAuth 2.0 Web application credentials. Enter Client ID and Client secret, and ensure this connector's Redirect URI is registered under Authorized redirect URIs in Google Cloud.</p>
+                            </div>
                             <label id="settings-connectors-username-field" class="api-form-field">
                                 <span id="settings-connectors-username-label" class="api-form-label">Username</span>
                                 <input id="settings-connectors-username-input" class="api-form-input" type="text" maxlength="120">

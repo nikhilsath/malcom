@@ -180,7 +180,8 @@ def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> I
 
         return ToolMetadataResponse(**updated)
 
-    next_config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    current_config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    next_config = dict(current_config)
     if "enabled" in changes:
         next_config["enabled"] = bool(changes["enabled"])
     if "target_worker_id" in changes:
@@ -189,6 +190,25 @@ def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> I
         next_config["command"] = str(changes["command"] or "").strip()
 
     normalized_config = normalize_image_magic_tool_config(next_config)
+
+    enabling_on_local_host = (
+        normalized_config["enabled"]
+        and (not current_config["enabled"] or "command" in changes)
+        and (
+            not normalized_config.get("target_worker_id")
+            or normalized_config.get("target_worker_id") == get_local_worker_id()
+        )
+    )
+    if enabling_on_local_host:
+        try:
+            verify_local_command_ready(
+                normalized_config["command"],
+                working_dir=get_root_dir(request),
+                tool_name="Image Magic",
+            )
+        except RuntimeError as error:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
     save_image_magic_tool_config(connection, normalized_config)
     sync_managed_tool_enabled_state(request, "image-magic", normalized_config["enabled"])
     return build_image_magic_tool_response(connection)
@@ -334,6 +354,18 @@ def patch_tool_directory(tool_id: str, payload: ToolDirectoryUpdate, request: Re
             if tool_id == "image-magic":
                 config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
                 config["enabled"] = bool(changes["enabled"])
+                if config["enabled"] and (
+                    not config.get("target_worker_id")
+                    or config.get("target_worker_id") == get_local_worker_id()
+                ):
+                    try:
+                        verify_local_command_ready(
+                            config["command"],
+                            working_dir=get_root_dir(request),
+                            tool_name="Image Magic",
+                        )
+                    except RuntimeError as error:
+                        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
                 save_image_magic_tool_config(connection, config)
             set_tool_enabled(
                 get_root_dir(request),

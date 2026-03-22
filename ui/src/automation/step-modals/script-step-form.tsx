@@ -1,56 +1,73 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import type { AutomationStep } from "../types";
-
-type ScriptOption = { id: string; name: string };
+import { requestJson } from "../../lib/request";
+import type { AutomationStep, ScriptLibraryItem } from "../types";
 
 type Props = {
   draft: AutomationStep;
-  scripts?: ScriptOption[];
+  scripts?: ScriptLibraryItem[];
   onChange: (step: AutomationStep) => void;
+  idPrefix?: string;
+  allowCreate?: boolean;
 };
 
 type ScriptLanguage = "python" | "javascript";
 
 const defaultTemplates: Record<ScriptLanguage, string> = {
   python: [
-    "def run(context):",
+    "def run(context, script_input=None):",
     "    payload = context.get('payload', {})",
-    "    return payload",
+    "    return script_input or payload",
     ""
   ].join("\n"),
   javascript: [
-    "export function run(context) {",
+    "function run(context, scriptInput) {",
     "  const payload = context?.payload ?? {};",
-    "  return payload;",
+    "  return scriptInput || payload;",
     "}",
     ""
   ].join("\n")
 };
 
-type ScriptRecord = {
-  id: string;
-  name: string;
+const requestJsonCompat = async <T,>(path: string, options?: RequestInit): Promise<T> => {
+  if (typeof window !== "undefined" && typeof window.Malcom?.requestJson === "function") {
+    return (await window.Malcom.requestJson(path, options)) as T;
+  }
+  return (await requestJson(path, options)) as T;
 };
 
-const sortScripts = (items: ScriptRecord[]) =>
+const sortScripts = (items: ScriptLibraryItem[]) =>
   [...items].sort((a, b) => a.name.localeCompare(b.name));
 
-export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
-  const [availableScripts, setAvailableScripts] = useState<ScriptRecord[]>(() => sortScripts(scripts || []));
+export const ScriptStepForm = ({
+  draft,
+  scripts,
+  onChange,
+  idPrefix = "add-step",
+  allowCreate = true
+}: Props) => {
+  const [availableScripts, setAvailableScripts] = useState<ScriptLibraryItem[]>(() => sortScripts(scripts || []));
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newLanguage, setNewLanguage] = useState<ScriptLanguage>("python");
+  const [newSampleInput, setNewSampleInput] = useState("");
   const [newCode, setNewCode] = useState(defaultTemplates.python);
+
+  useEffect(() => {
+    setAvailableScripts(sortScripts(scripts || []));
+  }, [scripts]);
 
   const hasScripts = availableScripts.length > 0;
   const selectedScriptId = draft.config.script_id || "";
+  const selectedScript = availableScripts.find((script) => script.id === selectedScriptId) || null;
 
   const languageHelpText = useMemo(
-    () => (newLanguage === "python" ? "Use a run(context) function." : "Use an exported run(context) function."),
+    () => (newLanguage === "python"
+      ? "Use run(context, script_input) or assign result directly."
+      : "Use run(context, scriptInput) or assign result directly."),
     [newLanguage]
   );
 
@@ -58,8 +75,21 @@ export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
     setNewName("");
     setNewDescription("");
     setNewLanguage("python");
+    setNewSampleInput("");
     setNewCode(defaultTemplates.python);
     setCreateError(null);
+  };
+
+  const applyScriptSelection = (scriptId: string) => {
+    const nextScript = availableScripts.find((script) => script.id === scriptId) || null;
+    onChange({
+      ...draft,
+      config: {
+        ...draft.config,
+        script_id: scriptId,
+        script_input_template: draft.config.script_input_template || nextScript?.sample_input || ""
+      }
+    });
   };
 
   const handleLanguageChange = (value: ScriptLanguage) => {
@@ -86,31 +116,31 @@ export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
     setCreateError(null);
     setSaving(true);
     try {
-      const response = await fetch("/api/v1/scripts", {
+      const created = await requestJsonCompat<ScriptLibraryItem>("/api/v1/scripts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           description,
           language: newLanguage,
+          sample_input: newSampleInput,
           code
         })
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        setCreateError(data.detail || "Unable to create script.");
-        setSaving(false);
-        return;
-      }
-
-      const created = await response.json();
-      const nextScripts = sortScripts([...availableScripts, { id: created.id, name: created.name }]);
+      const nextScripts = sortScripts([...availableScripts, created]);
       setAvailableScripts(nextScripts);
-      onChange({ ...draft, config: { ...draft.config, script_id: created.id } });
+      onChange({
+        ...draft,
+        config: {
+          ...draft.config,
+          script_id: created.id,
+          script_input_template: draft.config.script_input_template || created.sample_input || ""
+        }
+      });
       setCreateModalOpen(false);
       resetCreateForm();
-    } catch {
-      setCreateError("Unexpected error creating script.");
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Unable to create script.");
     } finally {
       setSaving(false);
     }
@@ -119,48 +149,91 @@ export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
   return (
     <>
       <label
-        id="add-step-script-id-field"
+        id={`${idPrefix}-script-id-field`}
         className="automation-field automation-field--full automation-field--inline-label"
       >
-        <span id="add-step-script-id-label" className="automation-field__label">Script</span>
-        <div id="add-step-script-id-controls" className="add-step-script-controls">
+        <span id={`${idPrefix}-script-id-label`} className="automation-field__label">Script</span>
+        <div id={`${idPrefix}-script-id-controls`} className="add-step-script-controls">
           <select
-            id="add-step-script-id-input"
+            id={`${idPrefix}-script-id-input`}
             className="automation-native-select"
+            aria-labelledby={`${idPrefix}-script-id-label`}
             value={selectedScriptId}
-            onChange={(e) =>
-              onChange({ ...draft, config: { ...draft.config, script_id: e.target.value } })
-            }
+            onChange={(event) => applyScriptSelection(event.target.value)}
           >
-            <option value="">{hasScripts ? "Select a script…" : "No scripts available"}</option>
+            <option value="">{hasScripts ? "Select a script..." : "No scripts available"}</option>
             {availableScripts.map((script) => (
               <option key={script.id} value={script.id}>{script.name}</option>
             ))}
           </select>
-          <button
-            id="add-step-script-create-button"
-            type="button"
-            className="button button--secondary add-step-script-create-button"
-            onClick={() => {
-              resetCreateForm();
-              setCreateModalOpen(true);
-            }}
-          >
-            Create new script
-          </button>
+          {allowCreate ? (
+            <button
+              id={`${idPrefix}-script-create-button`}
+              type="button"
+              className="button button--secondary add-step-script-create-button"
+              onClick={() => {
+                resetCreateForm();
+                setCreateModalOpen(true);
+              }}
+            >
+              Create new script
+            </button>
+          ) : null}
         </div>
+      </label>
+
+      {selectedScript ? (
+        <div id={`${idPrefix}-script-selected-meta`} className="automation-switch-field__description">
+          {selectedScript.description || `Selected ${selectedScript.language} script.`}
+        </div>
+      ) : null}
+
+      <label id={`${idPrefix}-script-input-field`} className="automation-field automation-field--full">
+        <span id={`${idPrefix}-script-input-label`} className="automation-field__label">Script input</span>
+        <textarea
+          id={`${idPrefix}-script-input-input`}
+          className="automation-textarea automation-textarea--code"
+          aria-labelledby={`${idPrefix}-script-input-label`}
+          rows={8}
+          placeholder={selectedScript?.sample_input || "{\"text\":\"{{payload.text}}\"}"}
+          value={draft.config.script_input_template || ""}
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              config: { ...draft.config, script_input_template: event.target.value }
+            })
+          }
+        />
+        <span id={`${idPrefix}-script-input-hint`} className="automation-field__hint">
+          Provide plain text or JSON. JSON is parsed before the script runs.
+        </span>
+        {selectedScript?.sample_input ? (
+          <button
+            id={`${idPrefix}-script-input-sample-button`}
+            type="button"
+            className="button button--secondary"
+            onClick={() =>
+              onChange({
+                ...draft,
+                config: { ...draft.config, script_input_template: selectedScript.sample_input }
+              })
+            }
+          >
+            Use sample input
+          </button>
+        ) : null}
       </label>
 
       <Dialog.Root open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <Dialog.Portal>
           <Dialog.Backdrop
-            id="add-step-script-create-backdrop"
+            id={`${idPrefix}-script-create-backdrop`}
             className="automation-dialog-backdrop"
           />
-          <Dialog.Popup id="add-step-script-create-modal" className="automation-dialog automation-dialog--wide">
-            <div id="add-step-script-create-dismiss-row" className="automation-dialog__dismiss-row">
+          <Dialog.Popup id={`${idPrefix}-script-create-modal`} className="automation-dialog automation-dialog--wide">
+            <div id={`${idPrefix}-script-create-dismiss-row`} className="automation-dialog__dismiss-row">
               <Dialog.Close
-                id="add-step-script-create-close-icon"
+                id={`${idPrefix}-script-create-close-icon`}
                 className="modal__close-icon-button automation-dialog__close-button"
                 aria-label="Close create script dialog"
               >
@@ -168,73 +241,85 @@ export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
               </Dialog.Close>
             </div>
 
-            <Dialog.Title id="add-step-script-create-title" className="automation-dialog__title">
+            <Dialog.Title id={`${idPrefix}-script-create-title`} className="automation-dialog__title">
               Create script
             </Dialog.Title>
-            <Dialog.Description id="add-step-script-create-description" className="automation-dialog__description">
-              Write a script and save it to the library for this step.
+            <Dialog.Description id={`${idPrefix}-script-create-description`} className="automation-dialog__description">
+              Save a reusable script and its sample input for later workflow steps.
             </Dialog.Description>
 
-            <div id="add-step-script-create-form" className="automation-form automation-form--modal">
-              <label id="add-step-script-create-name-field" className="automation-field automation-field--full">
-                <span id="add-step-script-create-name-label" className="automation-field__label">Name</span>
+            <div id={`${idPrefix}-script-create-form`} className="automation-form automation-form--modal">
+              <label id={`${idPrefix}-script-create-name-field`} className="automation-field automation-field--full">
+                <span id={`${idPrefix}-script-create-name-label`} className="automation-field__label">Name</span>
                 <input
-                  id="add-step-script-create-name-input"
+                  id={`${idPrefix}-script-create-name-input`}
                   className="automation-input"
                   value={newName}
                   placeholder="Script name"
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(event) => setNewName(event.target.value)}
                 />
               </label>
 
-              <label id="add-step-script-create-language-field" className="automation-field automation-field--full">
-                <span id="add-step-script-create-language-label" className="automation-field__label">Language</span>
+              <label id={`${idPrefix}-script-create-language-field`} className="automation-field automation-field--full">
+                <span id={`${idPrefix}-script-create-language-label`} className="automation-field__label">Language</span>
                 <select
-                  id="add-step-script-create-language-input"
+                  id={`${idPrefix}-script-create-language-input`}
                   className="automation-native-select"
                   value={newLanguage}
-                  onChange={(e) => handleLanguageChange(e.target.value as ScriptLanguage)}
+                  onChange={(event) => handleLanguageChange(event.target.value as ScriptLanguage)}
                 >
                   <option value="python">Python</option>
                   <option value="javascript">JavaScript</option>
                 </select>
               </label>
 
-              <label id="add-step-script-create-description-field" className="automation-field automation-field--full">
-                <span id="add-step-script-create-description-label" className="automation-field__label">Description (optional)</span>
+              <label id={`${idPrefix}-script-create-description-field`} className="automation-field automation-field--full">
+                <span id={`${idPrefix}-script-create-description-label`} className="automation-field__label">Description (optional)</span>
                 <input
-                  id="add-step-script-create-description-input"
+                  id={`${idPrefix}-script-create-description-input`}
                   className="automation-input"
                   value={newDescription}
                   placeholder="What this script does"
-                  onChange={(e) => setNewDescription(e.target.value)}
+                  onChange={(event) => setNewDescription(event.target.value)}
                 />
               </label>
 
-              <label id="add-step-script-create-code-field" className="automation-field automation-field--full">
-                <span id="add-step-script-create-code-label" className="automation-field__label">Code</span>
+              <label id={`${idPrefix}-script-create-sample-input-field`} className="automation-field automation-field--full">
+                <span id={`${idPrefix}-script-create-sample-input-label`} className="automation-field__label">Sample input (optional)</span>
                 <textarea
-                  id="add-step-script-create-code-input"
+                  id={`${idPrefix}-script-create-sample-input-input`}
+                  className="automation-textarea automation-textarea--code"
+                  value={newSampleInput}
+                  rows={6}
+                  placeholder={"{\"text\":\"alpha,beta,gamma\"}"}
+                  onChange={(event) => setNewSampleInput(event.target.value)}
+                />
+              </label>
+
+              <label id={`${idPrefix}-script-create-code-field`} className="automation-field automation-field--full">
+                <span id={`${idPrefix}-script-create-code-label`} className="automation-field__label">Code</span>
+                <textarea
+                  id={`${idPrefix}-script-create-code-input`}
                   className="automation-textarea automation-textarea--code automation-code-input"
                   value={newCode}
                   rows={12}
-                  onChange={(e) => setNewCode(e.target.value)}
+                  onChange={(event) => setNewCode(event.target.value)}
                 />
-                <span id="add-step-script-create-code-hint" className="automation-field__hint">
+                <span id={`${idPrefix}-script-create-code-hint`} className="automation-field__hint">
                   {languageHelpText}
                 </span>
               </label>
 
               {createError ? (
-                <p id="add-step-script-create-error" className="automation-field__hint" role="alert">
+                <p id={`${idPrefix}-script-create-error`} className="automation-field__hint" role="alert">
                   {createError}
                 </p>
               ) : null}
             </div>
 
-            <div id="add-step-script-create-actions" className="automation-dialog__actions">
+            <div id={`${idPrefix}-script-create-actions`} className="automation-dialog__actions">
               <button
-                id="add-step-script-create-cancel"
+                id={`${idPrefix}-script-create-cancel`}
                 type="button"
                 className="button button--secondary"
                 onClick={() => setCreateModalOpen(false)}
@@ -242,7 +327,7 @@ export const ScriptStepForm = ({ draft, scripts, onChange }: Props) => {
                 Cancel
               </button>
               <button
-                id="add-step-script-create-submit"
+                id={`${idPrefix}-script-create-submit`}
                 type="button"
                 className="primary-action-button"
                 disabled={saving}

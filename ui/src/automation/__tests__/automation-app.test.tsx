@@ -93,6 +93,23 @@ const dailyIngest = {
   ]
 } as const;
 
+const scriptLibraryItems = [
+  {
+    id: "script-change-delimiter",
+    name: "Change Delimiter",
+    description: "Split text on one delimiter and join it with another.",
+    language: "python",
+    sample_input: "{\n  \"text\": \"alpha,beta,gamma\",\n  \"from\": \",\",\n  \"to\": \"|\"\n}"
+  },
+  {
+    id: "script-extract-regex",
+    name: "Extract With Regex",
+    description: "Search text with a regex and return matches.",
+    language: "python",
+    sample_input: "{\n  \"text\": \"Invoice INV-1042\",\n  \"pattern\": \"INV-(\\\\d+)\",\n  \"group\": 1\n}"
+  }
+];
+
 const renderAutomationApp = (options?: {
   initialAutomation?: Partial<typeof dailyIngest> & {
     trigger_config?: Record<string, unknown>;
@@ -146,6 +163,10 @@ const renderAutomationApp = (options?: {
 
     if (path === "/api/v1/inbound") {
       return inboundApis;
+    }
+
+    if (path === "/api/v1/scripts") {
+      return scriptLibraryItems;
     }
 
     if (path === "/api/v1/automations") {
@@ -491,6 +512,41 @@ describe("AutomationApp", () => {
       expect(patchRequest).toBeDefined();
       expect(patchRequest?.body?.trigger_config).toEqual({ schedule_time: "13:07" });
     });
+  });
+
+  it("loads script options and applies sample input in the step drawer", async () => {
+    const { container } = renderAutomationApp({
+      initialAutomation: {
+        steps: [
+          {
+            id: "step-script",
+            type: "script",
+            name: "Transform feed",
+            config: {
+              script_id: "script-change-delimiter",
+              script_input_template: ""
+            }
+          }
+        ]
+      }
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector("#automation-canvas-node-step-step-script-title")).toHaveTextContent("Transform feed");
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-step-node-step-script") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-step-step-script-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    const scriptSelect = await screen.findByLabelText("Script");
+    expect(scriptSelect).toHaveValue("script-change-delimiter");
+
+    fireEvent.click(screen.getByRole("button", { name: "Use sample input" }));
+
+    const scriptInput = screen.getByLabelText("Script input") as HTMLTextAreaElement;
+    expect(scriptInput.value).toContain("\"from\": \",\"");
+    expect(scriptInput.value).toContain("\"to\": \"|\"");
   });
 
   it("allows SMTP triggers without filters and persists recipient-only filters", async () => {

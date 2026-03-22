@@ -73,6 +73,12 @@ export const toolsManifest = Object.freeze([
         "required": false
       },
       {
+        "key": "resize",
+        "label": "Resize",
+        "type": "string",
+        "required": false
+      },
+      {
         "key": "max_retries",
         "label": "Max Retries Override",
         "type": "number",

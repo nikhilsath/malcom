@@ -45,7 +45,7 @@ const connectorElements = createElementMap({
   // Google connector card
   googleSection: "settings-connectors-google-section",
   googleStatusValue: "settings-connectors-google-status-value",
-  googleConnectButton: "settings-connectors-google-connect-button",
+  googleConnectHint: "settings-connectors-google-connect-hint",
   googleDisconnectButton: "settings-connectors-google-disconnect-button",
   googleFeedback: "settings-connectors-google-feedback"
 });
@@ -56,6 +56,14 @@ const connectorState = {
   pendingOauth: {},
   detailReturnFocusElement: null
 };
+
+const GOOGLE_RECOMMENDED_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/spreadsheets.readonly"
+];
+
+const OAUTH_QUERY_KEYS = ["oauth_status", "oauth_message", "connector_id"];
 
 const getStore = () => window.MalcomLogStore;
 
@@ -81,6 +89,11 @@ const getSelectedConnector = () => connectorState.settings?.connectors?.records?
 const isGoogleConnector = (record) => {
   const provider = (record?.provider || "").toString().trim().toLowerCase();
   return provider === "google" || provider.startsWith("google_");
+};
+
+const canonicalizeProvider = (provider) => {
+  const normalized = (provider || "").toString().trim().toLowerCase();
+  return normalized.startsWith("google_") ? "google" : normalized;
 };
 
 const setFieldVisibility = (fieldId, visible) => {
@@ -111,9 +124,9 @@ const applyProviderFieldVisibility = (record) => {
   setFieldVisibility("settings-connectors-header-name-field", !google);
   setFieldVisibility("settings-connectors-header-value-field", !google);
 
-  const googleOauthNote = document.getElementById("settings-connectors-google-oauth-note");
-  if (googleOauthNote) {
-    googleOauthNote.hidden = !google;
+  const googleOauthGuidance = document.getElementById("settings-connectors-google-oauth-guidance");
+  if (googleOauthGuidance) {
+    googleOauthGuidance.hidden = !google;
   }
 
   if (connectorElements.testButton) {
@@ -130,10 +143,22 @@ const applyProviderFieldVisibility = (record) => {
   }
   if (connectorElements.oauthStartButton) {
     connectorElements.oauthStartButton.hidden = !google;
+    connectorElements.oauthStartButton.textContent = google ? "Continue with Google" : "Start OAuth";
   }
 };
 
 const getProviderPreset = (providerId) => connectorState.settings?.connectors?.catalog?.find((item) => item.id === providerId) || null;
+
+const getDefaultScopesForProvider = (providerId, preset = null) => {
+  const presetScopes = preset?.default_scopes || [];
+  if (presetScopes.length > 0) {
+    return [...presetScopes];
+  }
+  if (providerId === "google") {
+    return [...GOOGLE_RECOMMENDED_SCOPES];
+  }
+  return [];
+};
 
 const openModal = () => {
   if (!connectorElements.modal) {
@@ -183,30 +208,38 @@ const closeModal = () => {
   }
 };
 
-const buildDefaultConnectorRecord = (preset) => ({
-  id: slugifyConnectorId(`${preset.id}-${preset.name}`),
-  provider: preset.id,
-  name: preset.name,
-  status: "draft",
-  auth_type: preset.auth_types[0] || "bearer",
-  scopes: [...(preset.default_scopes || [])],
-  base_url: preset.base_url || "",
-  owner: "Workspace",
-  docs_url: preset.docs_url,
-  credential_ref: `connector/${slugifyConnectorId(`${preset.id}-${preset.name}`)}`,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  last_tested_at: null,
-  auth_config: {
-    client_id: "",
-    username: "",
-    header_name: "",
-    scope_preset: preset.id,
-    redirect_uri: `${window.location.origin}/api/v1/connectors/${preset.id}/oauth/callback`,
-    expires_at: null,
-    has_refresh_token: false
-  }
-});
+const buildDefaultConnectorRecord = (preset) => {
+  const connectorId = preset.id === "google" ? "google" : slugifyConnectorId(`${preset.id}-${preset.name}`);
+  const defaultScopes = getDefaultScopesForProvider(preset.id, preset);
+  const redirectPath = preset.id === "google"
+    ? `/api/v1/connectors/${preset.id}/oauth/callback/ui`
+    : `/api/v1/connectors/${preset.id}/oauth/callback`;
+
+  return {
+    id: connectorId,
+    provider: preset.id,
+    name: preset.name,
+    status: "draft",
+    auth_type: preset.auth_types[0] || "bearer",
+    scopes: defaultScopes,
+    base_url: preset.base_url || "",
+    owner: "Workspace",
+    docs_url: preset.docs_url,
+    credential_ref: `connector/${connectorId}`,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_tested_at: null,
+    auth_config: {
+      client_id: "",
+      username: "",
+      header_name: "",
+      scope_preset: preset.id,
+      redirect_uri: `${window.location.origin}${redirectPath}`,
+      expires_at: null,
+      has_refresh_token: false
+    }
+  };
+};
 
 const renderSummary = () => {
   const records = connectorState.settings?.connectors?.records || [];
@@ -364,23 +397,123 @@ const renderPolicy = () => {
   connectorElements.policyVisibilityInput.value = policy.credential_visibility;
 };
 
+const startConnectorOauth = async (record, { clientSecretInput = "", closeDetailOnRedirect = false } = {}) => {
+  if (!record) {
+    setFeedback("Choose a connector to authorize.", "error");
+    return;
+  }
+
+  const provider = canonicalizeProvider(record.provider);
+  const fallbackRedirectPath = provider === "google"
+    ? `/api/v1/connectors/${provider}/oauth/callback/ui`
+    : `/api/v1/connectors/${provider}/oauth/callback`;
+  const redirectUri = (record.auth_config?.redirect_uri || `${window.location.origin}${fallbackRedirectPath}`).trim();
+
+  if (provider === "google") {
+    const clientId = (record.auth_config?.client_id || "").trim();
+    if (!clientId) {
+      setFeedback("Google OAuth requires a Client ID. Enter it in the Client ID field.", "error");
+      connectorElements.clientIdInput?.focus();
+      return;
+    }
+    try {
+      const parsedRedirectUri = new URL(redirectUri);
+      if (!["http:", "https:"].includes(parsedRedirectUri.protocol)) {
+        throw new Error("Invalid redirect URI protocol");
+      }
+    } catch {
+      setFeedback("Google OAuth requires a valid Redirect URI (http or https).", "error");
+      return;
+    }
+  }
+
+  const response = await requestJson(`/api/v1/connectors/${provider}/oauth/start`, {
+    method: "POST",
+    body: JSON.stringify({
+      connector_id: record.id,
+      name: record.name,
+      redirect_uri: redirectUri,
+      owner: record.owner || "Workspace",
+      scopes: (record.scopes || []).length > 0
+        ? record.scopes
+        : getDefaultScopesForProvider(provider),
+      client_id: (record.auth_config?.client_id || "").trim(),
+      client_secret_input: clientSecretInput
+    })
+  });
+
+  connectorState.pendingOauth[record.id] = response;
+  const nextSettings = await getStore().ready();
+  connectorState.settings = nextSettings;
+  connectorState.selectedConnectorId = record.id;
+  renderAll();
+  if (closeDetailOnRedirect) {
+    closeDetailModal({ restoreFocus: false });
+  }
+  setFeedback(`Redirecting to ${titleCase(provider)} login...`, "success");
+  window.location.assign(response.authorization_url);
+};
+
+const ensureGoogleConnectorRecord = async () => {
+  const existingGoogle = getGoogleConnector();
+  if (existingGoogle) {
+    return existingGoogle;
+  }
+
+  const preset = getProviderPreset("google");
+  if (!preset) {
+    return null;
+  }
+
+  const nextSettings = cloneValue(connectorState.settings);
+  const nextRecord = buildDefaultConnectorRecord(preset);
+  nextSettings.connectors.records = [nextRecord, ...nextSettings.connectors.records];
+  const response = await getStore().updateAppSettings(nextSettings);
+  connectorState.settings = response;
+  return getGoogleConnector();
+};
+
 const renderModalProviders = () => {
   if (!connectorElements.modalProviderGrid) {
     return;
   }
 
-  const catalog = (connectorState.settings?.connectors?.catalog || []).filter((p) => p.id !== "google");
+  const catalog = connectorState.settings?.connectors?.catalog || [];
   connectorElements.modalProviderGrid.innerHTML = catalog.map((preset) => `
     <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-entry-card" data-provider-id="${preset.id}">
       <span id="settings-connectors-provider-option-title-${preset.id}" class="api-entry-card__title">${preset.name}</span>
-      <span id="settings-connectors-provider-option-description-${preset.id}" class="api-entry-card__description">${preset.description}</span>
+      <span id="settings-connectors-provider-option-description-${preset.id}" class="api-entry-card__description">${preset.id === "google" ? "Continue with Google to connect your workspace." : preset.description}</span>
     </button>
   `).join("");
 
   connectorElements.modalProviderGrid.querySelectorAll("[data-provider-id]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const preset = getProviderPreset(button.getAttribute("data-provider-id"));
       if (!preset) {
+        return;
+      }
+
+      if (preset.id === "google") {
+        try {
+          closeModal();
+          const googleRecord = await ensureGoogleConnectorRecord();
+          if (!googleRecord) {
+            setFeedback("Google preset is unavailable in this workspace.", "error");
+            return;
+          }
+          connectorState.selectedConnectorId = googleRecord.id;
+          connectorState.detailReturnFocusElement = connectorElements.createButton;
+          renderAll();
+          openDetailModal();
+          if ((googleRecord.auth_config?.client_id || "").trim()) {
+            connectorElements.oauthStartButton?.focus();
+          } else {
+            connectorElements.clientIdInput?.focus();
+          }
+          setFeedback("Google connector draft ready. Review the OAuth fields, then click Authorize.", "success");
+        } catch (error) {
+          setFeedback(normalizeRequestError(error).message, "error");
+        }
         return;
       }
 
@@ -394,7 +527,7 @@ const renderModalProviders = () => {
       closeModal();
       renderAll();
       openDetailModal();
-      setFeedback(`Prepared ${preset.name} connector draft. Save it to persist the record.`, "success");
+      setFeedback(`Prepared ${preset.name} connector draft. Add credentials and save to persist the record.`, "success");
     });
   });
 };
@@ -468,8 +601,8 @@ const renderGoogleCard = () => {
   if (connector?.status === "connected") {
     connectorElements.googleStatusValue.textContent = "Connected";
     connectorElements.googleStatusValue.className = "google-connector-status-value google-connector-status-value--connected";
-    if (connectorElements.googleConnectButton) {
-      connectorElements.googleConnectButton.hidden = true;
+    if (connectorElements.googleConnectHint) {
+      connectorElements.googleConnectHint.hidden = true;
     }
     if (connectorElements.googleDisconnectButton) {
       connectorElements.googleDisconnectButton.hidden = false;
@@ -477,8 +610,8 @@ const renderGoogleCard = () => {
   } else {
     connectorElements.googleStatusValue.textContent = "Not connected";
     connectorElements.googleStatusValue.className = "google-connector-status-value";
-    if (connectorElements.googleConnectButton) {
-      connectorElements.googleConnectButton.hidden = false;
+    if (connectorElements.googleConnectHint) {
+      connectorElements.googleConnectHint.hidden = false;
     }
     if (connectorElements.googleDisconnectButton) {
       connectorElements.googleDisconnectButton.hidden = true;
@@ -498,68 +631,6 @@ const setGoogleFeedback = (message, tone = "") => {
 };
 
 const bindGoogleEvents = () => {
-  connectorElements.googleConnectButton?.addEventListener("click", async () => {
-    try {
-      let connector = getGoogleConnector();
-      if (!connector) {
-        const nextSettings = cloneValue(connectorState.settings);
-        const newConnector = buildDefaultConnectorRecord({
-          id: "google",
-          name: "Google",
-          auth_types: ["oauth2"],
-          default_scopes: [],
-          base_url: "https://www.googleapis.com",
-          docs_url: "https://developers.google.com/apis"
-        });
-        nextSettings.connectors.records.push(newConnector);
-        const response = await getStore().updateAppSettings(nextSettings);
-        connectorState.settings = response;
-        connector = getGoogleConnector();
-      }
-
-      if (!connector) {
-        setGoogleFeedback("Failed to create Google connector.", "error");
-        return;
-      }
-
-      const clientId = prompt("Enter your Google OAuth Client ID (from Google Cloud Console):");
-      if (!clientId) {
-        setGoogleFeedback("Google OAuth cancelled.", "warning");
-        return;
-      }
-
-      const nextSettings = cloneValue(connectorState.settings);
-      const idx = nextSettings.connectors.records.findIndex((r) => r.id === connector.id);
-      if (idx >= 0) {
-        nextSettings.connectors.records[idx].auth_config.client_id = clientId.trim();
-      }
-      const response = await getStore().updateAppSettings(nextSettings);
-      connectorState.settings = response;
-      renderGoogleCard();
-
-      setGoogleFeedback("Redirecting to Google login...", "success");
-      try {
-        const oauthResponse = await requestJson(`/api/v1/connectors/google/oauth/start`, {
-          method: "POST",
-          body: JSON.stringify({
-            connector_id: connector.id,
-            name: connector.name,
-            redirect_uri: `${window.location.origin}/api/v1/connectors/google/oauth/callback`,
-            owner: "Workspace",
-            scopes: connector.scopes || [],
-            client_id: clientId.trim(),
-            client_secret_input: prompt("Enter your Google OAuth Client Secret (from Google Cloud Console):") || ""
-          })
-        });
-        window.location.assign(oauthResponse.authorization_url);
-      } catch (error) {
-        setGoogleFeedback(normalizeRequestError(error).message, "error");
-      }
-    } catch (error) {
-      setGoogleFeedback(normalizeRequestError(error).message, "error");
-    }
-  });
-
   connectorElements.googleDisconnectButton?.addEventListener("click", async () => {
     try {
       const connector = getGoogleConnector();
@@ -579,7 +650,7 @@ const bindGoogleEvents = () => {
         nextSettings.connectors.records[idx].auth_config = {
           client_id: "",
           client_secret_input: "",
-          redirect_uri: `${window.location.origin}/api/v1/connectors/google/oauth/callback`,
+          redirect_uri: `${window.location.origin}/api/v1/connectors/google/oauth/callback/ui`,
           expires_at: null,
           has_refresh_token: false,
           clear_credentials: true
@@ -663,49 +734,28 @@ const bindFormEvents = () => {
       return;
     }
 
+    // Capture secret before saveConnectorSettings calls renderAll which clears the input
+    const clientSecretInput = connectorElements.clientSecretInput?.value || "";
+
+    if (isGoogleConnector(selected)) {
+      const clientId = connectorElements.clientIdInput?.value.trim() || "";
+      if (!clientId) {
+        setFeedback("Google OAuth requires a Client ID. Enter it in the Client ID field.", "error");
+        connectorElements.clientIdInput?.focus();
+        return;
+      }
+    }
+
     try {
       const saved = await saveConnectorSettings("Connector draft saved.");
       if (!saved) {
         return;
       }
 
-      const clientId = connectorElements.clientIdInput.value.trim();
-      const redirectUri = connectorElements.redirectUriInput.value.trim() || saved.auth_config?.redirect_uri || "";
-      if (saved.provider === "google") {
-        if (!clientId) {
-          setFeedback("Google OAuth requires Client ID before starting authorization.", "error");
-          return;
-        }
-        try {
-          const parsedRedirectUri = new URL(redirectUri);
-          if (!["http:", "https:"].includes(parsedRedirectUri.protocol)) {
-            throw new Error("Invalid redirect URI protocol");
-          }
-        } catch {
-          setFeedback("Google OAuth requires a valid Redirect URI (http or https).", "error");
-          return;
-        }
-      }
-
-      const response = await requestJson(`/api/v1/connectors/${saved.provider}/oauth/start`, {
-        method: "POST",
-        body: JSON.stringify({
-          connector_id: saved.id,
-          name: saved.name,
-          redirect_uri: redirectUri,
-          owner: saved.owner,
-          scopes: saved.scopes || [],
-          client_id: clientId,
-          client_secret_input: connectorElements.clientSecretInput.value
-        })
+      await startConnectorOauth(saved, {
+        clientSecretInput,
+        closeDetailOnRedirect: true
       });
-      connectorState.pendingOauth[saved.id] = response;
-      const nextSettings = await getStore().ready();
-      connectorState.settings = nextSettings;
-      connectorState.selectedConnectorId = saved.id;
-      renderAll();
-      setFeedback("Redirecting to Google login...", "success");
-      window.location.assign(response.authorization_url);
     } catch (error) {
       setFeedback(normalizeRequestError(error).message, "error");
     }
@@ -776,6 +826,41 @@ const bindFormEvents = () => {
   });
 };
 
+const handleOauthQueryState = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const oauthStatus = params.get("oauth_status");
+  const oauthMessage = params.get("oauth_message");
+  const connectorId = params.get("connector_id");
+
+  if (oauthStatus && oauthMessage) {
+    const tone = oauthStatus === "success" ? "success" : oauthStatus === "warning" ? "warning" : "error";
+    setFeedback(oauthMessage, tone);
+  }
+
+  if (connectorId) {
+    // Reload settings from backend to get the updated connector status
+    try {
+      connectorState.settings = await getStore().ready();
+    } catch {
+      connectorState.settings = getStore().getAppSettings();
+    }
+    
+    const selected = connectorState.settings?.connectors?.records?.find((record) => record.id === connectorId) || null;
+    if (selected) {
+      connectorState.selectedConnectorId = selected.id;
+      renderAll();
+      openDetailModal();
+    }
+  }
+
+  if (OAUTH_QUERY_KEYS.some((key) => params.has(key))) {
+    OAUTH_QUERY_KEYS.forEach((key) => params.delete(key));
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }
+};
+
 const initConnectorsPage = async () => {
   if (!connectorElements.tableBody || !connectorElements.form) {
     return;
@@ -794,6 +879,7 @@ const initConnectorsPage = async () => {
 
   connectorState.selectedConnectorId = null;
   renderAll();
+  await handleOauthQueryState();
 };
 
 initConnectorsPage();

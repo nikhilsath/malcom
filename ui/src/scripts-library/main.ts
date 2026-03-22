@@ -15,6 +15,7 @@ type ScriptSummary = {
   name: string;
   description: string;
   language: ScriptLanguage;
+  sample_input: string;
   validation_status: ValidationStatus;
   validation_message: string | null;
   last_validated_at: string | null;
@@ -52,6 +53,7 @@ const scriptElements = {
   nameInput: document.getElementById("scripts-library-name-input") as HTMLInputElement | null,
   descriptionInput: document.getElementById("scripts-library-description-input") as HTMLTextAreaElement | null,
   languageInput: document.getElementById("scripts-library-language-input") as HTMLSelectElement | null,
+  sampleInputInput: document.getElementById("scripts-library-sample-input-input") as HTMLTextAreaElement | null,
   editorHost: document.getElementById("scripts-library-editor"),
   validateButton: document.getElementById("scripts-library-validate-button") as HTMLButtonElement | null,
   validationFeedback: document.getElementById("scripts-library-validation-feedback"),
@@ -92,15 +94,15 @@ const languageCompartment = new Compartment();
 
 const defaultTemplates: Record<ScriptLanguage, string> = {
   python: [
-    "def run(context):",
+    "def run(context, script_input=None):",
     "    payload = context.get('payload', {})",
-    "    return payload",
+    "    return script_input or payload",
     ""
   ].join("\n"),
   javascript: [
-    "export function run(context) {",
+    "function run(context, scriptInput) {",
     "  const payload = context?.payload ?? {};",
-    "  return payload;",
+    "  return scriptInput || payload;",
     "}",
     ""
   ].join("\n")
@@ -334,6 +336,9 @@ const resetForm = (language: ScriptLanguage = "python") => {
   if (scriptElements.languageInput) {
     scriptElements.languageInput.value = language;
   }
+  if (scriptElements.sampleInputInput) {
+    scriptElements.sampleInputInput.value = "";
+  }
   setEditorLanguage(language);
   setEditorCode(defaultTemplates[language]);
   setValidationChip("unknown", "Not validated");
@@ -355,6 +360,9 @@ const applyScriptToForm = (script: ScriptRecord) => {
   }
   if (scriptElements.languageInput) {
     scriptElements.languageInput.value = script.language;
+  }
+  if (scriptElements.sampleInputInput) {
+    scriptElements.sampleInputInput.value = script.sample_input || "";
   }
   setEditorLanguage(script.language);
   setEditorCode(script.code);
@@ -380,11 +388,6 @@ const loadScripts = async () => {
   scriptState.scripts = scripts;
   updateSummary();
   renderScriptList();
-
-  if (!scriptState.selectedScriptId && scripts.length > 0) {
-    await loadScript(scripts[0].id);
-    return;
-  }
 
   if (scripts.length === 0) {
     resetForm("python");
@@ -442,6 +445,7 @@ const handleSave = async (event: SubmitEvent) => {
   const name = scriptElements.nameInput?.value.trim() || "";
   const description = scriptElements.descriptionInput?.value.trim() || "";
   const language = (scriptElements.languageInput?.value || "python") as ScriptLanguage;
+  const sampleInput = scriptElements.sampleInputInput?.value || "";
   const code = getEditorCode();
   const scriptId = scriptElements.scriptIdInput?.value || "";
 
@@ -467,6 +471,7 @@ const handleSave = async (event: SubmitEvent) => {
         name,
         description,
         language,
+        sample_input: sampleInput,
         code
       })
     });

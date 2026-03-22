@@ -31,6 +31,7 @@ class ScriptsApiTestCase(unittest.TestCase):
                 "name": "Normalize Payload",
                 "description": "Normalizes nested event fields.",
                 "language": "python",
+                "sample_input": "{\"text\":\"alpha,beta\"}",
                 "code": "def run(payload):\n    return payload\n",
             },
         )
@@ -38,31 +39,37 @@ class ScriptsApiTestCase(unittest.TestCase):
         self.assertEqual(create_response.status_code, 201)
         created_body = create_response.json()
         self.assertEqual(created_body["language"], "python")
+        self.assertEqual(created_body["sample_input"], "{\"text\":\"alpha,beta\"}")
         self.assertEqual(created_body["validation_status"], "valid")
         self.assertIsNotNone(created_body["last_validated_at"])
 
         list_response = self.client.get("/api/v1/scripts")
         self.assertEqual(list_response.status_code, 200)
         list_body = list_response.json()
-        self.assertEqual(len(list_body), 1)
-        self.assertEqual(list_body[0]["id"], created_body["id"])
-        self.assertEqual(list_body[0]["name"], "Normalize Payload")
+        self.assertGreaterEqual(len(list_body), 4)
+        self.assertIn("Change Delimiter", {item["name"] for item in list_body})
+        created_summary = next(item for item in list_body if item["id"] == created_body["id"])
+        self.assertEqual(created_summary["name"], "Normalize Payload")
+        self.assertEqual(created_summary["sample_input"], "{\"text\":\"alpha,beta\"}")
 
         detail_response = self.client.get(f"/api/v1/scripts/{created_body['id']}")
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.json()["id"], created_body["id"])
+        self.assertEqual(detail_response.json()["sample_input"], "{\"text\":\"alpha,beta\"}")
         self.assertIn("def run", detail_response.json()["code"])
 
         update_response = self.client.patch(
             f"/api/v1/scripts/{created_body['id']}",
             json={
                 "language": "python",
+                "sample_input": "{\"text\":\"alpha|beta\",\"from\":\"|\",\"to\":\",\"}",
                 "code": "def run(payload):\n    payload['normalized'] = True\n    return payload\n",
             },
         )
         self.assertEqual(update_response.status_code, 200)
         updated_body = update_response.json()
         self.assertEqual(updated_body["validation_status"], "valid")
+        self.assertEqual(updated_body["sample_input"], "{\"text\":\"alpha|beta\",\"from\":\"|\",\"to\":\",\"}")
         self.assertIn("normalized", updated_body["code"])
 
     def test_rejects_invalid_python_script_save(self) -> None:
@@ -72,6 +79,7 @@ class ScriptsApiTestCase(unittest.TestCase):
                 "name": "Broken Python",
                 "description": "",
                 "language": "python",
+                "sample_input": "",
                 "code": "def run(:\n    pass\n",
             },
         )

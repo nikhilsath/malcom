@@ -180,12 +180,43 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
           onChange={(e) => updateConfig({ ...draft.config, connector_id: e.target.value })}
         >
           <option value="">None</option>
-          {connectors.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
+          {connectors.map((c) => {
+            const statusLabel = c.status ? `[${c.status}]` : "";
+            const ownerLabel = c.owner ? ` (${c.owner})` : "";
+            const displayLabel = `${c.name}${ownerLabel} ${statusLabel}`;
+            return (
+              <option key={c.id} value={c.id}>{displayLabel}</option>
+            );
+          })}
         </select>
       </label>
 
+      {draft.config.connector_id && connectors.some((c) => c.id === draft.config.connector_id) && (
+        <div id={`${idPrefix}-connector-info`} className="automation-field automation-field--full">
+          {(() => {
+            const selectedConnector = connectors.find((c) => c.id === draft.config.connector_id);
+            if (!selectedConnector) return null;
+            return (
+              <div id={`${idPrefix}-connector-scopes-info`} className="automation-field automation-field__info">
+                <div id={`${idPrefix}-scopes-label`} className="automation-field__label">Available APIs/Scopes</div>
+                {selectedConnector.scopes && selectedConnector.scopes.length > 0 ? (
+                  <ul id={`${idPrefix}-scopes-list`} className="automation-scopes-list">
+                    {selectedConnector.scopes.map((scope) => (
+                      <li key={scope} id={`${idPrefix}-scope-${scope.replace(/\//g, "-").replace(/\./g, "-")}`} className="automation-scopes-list__item">
+                        {scope}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p id={`${idPrefix}-no-scopes-message`} className="automation-field__help-text">
+                    No scopes authorized yet. Authorize this connector first.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
       <label id={`${idPrefix}-url-field`} className="automation-field automation-field--full automation-field--inline-label">
         <span id={`${idPrefix}-url-label`} className="automation-field__label">Destination URL</span>
         <input

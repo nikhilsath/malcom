@@ -71,6 +71,7 @@ DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
                 "options": ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif"],
             },
             {"key": "output_filename", "label": "Output Filename", "type": "string", "required": False},
+            {"key": "resize", "label": "Resize", "type": "string", "required": False},
             {"key": "max_retries", "label": "Max Retries Override", "type": "number", "required": False},
         ],
         "outputs": [
