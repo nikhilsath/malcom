@@ -4,7 +4,13 @@
       "routePath": "/dashboard/home.html",
       "sourceHtmlPath": "dashboard/home.html",
       "serveMode": "served",
-      "legacyAliases": ["/", "/index.html", "/dashboard", "/dashboard/", "/dashboard/overview.html"]
+      "legacyAliases": [
+        "/",
+        "/index.html",
+        "/dashboard",
+        "/dashboard/",
+        "/dashboard/overview.html"
+      ]
     },
     {
       "routePath": "/dashboard/devices.html",
@@ -31,7 +37,12 @@
       "routePath": "/settings/workspace.html",
       "sourceHtmlPath": "settings/workspace.html",
       "serveMode": "served",
-      "legacyAliases": ["/settings", "/settings/", "/settings.html", "/settings/general.html"]
+      "legacyAliases": [
+        "/settings",
+        "/settings/",
+        "/settings.html",
+        "/settings/general.html"
+      ]
     },
     {
       "routePath": "/settings/logging.html",
@@ -47,7 +58,9 @@
       "routePath": "/settings/access.html",
       "sourceHtmlPath": "settings/access.html",
       "serveMode": "served",
-      "legacyAliases": ["/settings/security.html"]
+      "legacyAliases": [
+        "/settings/security.html"
+      ]
     },
     {
       "routePath": "/settings/connectors.html",
@@ -63,7 +76,10 @@
       "routePath": "/automations/overview.html",
       "sourceHtmlPath": "automations/overview.html",
       "serveMode": "served",
-      "legacyAliases": ["/automations", "/automations/"]
+      "legacyAliases": [
+        "/automations",
+        "/automations/"
+      ]
     },
     {
       "routePath": "/automations/library.html",
@@ -84,7 +100,12 @@
       "routePath": "/apis/registry.html",
       "sourceHtmlPath": "apis/registry.html",
       "serveMode": "served",
-      "legacyAliases": ["/apis", "/apis/", "/apis.html", "/apis/overview.html"]
+      "legacyAliases": [
+        "/apis",
+        "/apis/",
+        "/apis.html",
+        "/apis/overview.html"
+      ]
     },
     {
       "routePath": "/apis/incoming.html",
@@ -110,7 +131,12 @@
       "routePath": "/tools/catalog.html",
       "sourceHtmlPath": "tools/catalog.html",
       "serveMode": "served",
-      "legacyAliases": ["/tools", "/tools/", "/tools.html", "/tools/overview.html"]
+      "legacyAliases": [
+        "/tools",
+        "/tools/",
+        "/tools.html",
+        "/tools/overview.html"
+      ]
     },
     {
       "routePath": "/tools/coqui-tts.html",
@@ -128,11 +154,6 @@
       "serveMode": "served"
     },
     {
-      "routePath": "/tools/convert-audio.html",
-      "sourceHtmlPath": "tools/convert-audio.html",
-      "serveMode": "served"
-    },
-    {
       "routePath": "/tools/image-magic.html",
       "sourceHtmlPath": "tools/image-magic.html",
       "serveMode": "served"
@@ -141,7 +162,10 @@
       "routePath": "/scripts.html",
       "sourceHtmlPath": "scripts.html",
       "serveMode": "served",
-      "legacyAliases": ["/scripts", "/scripts/"]
+      "legacyAliases": [
+        "/scripts",
+        "/scripts/"
+      ]
     },
     {
       "routePath": "/scripts/library.html",

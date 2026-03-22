@@ -1539,68 +1539,6 @@ def execute_smtp_tool_step(
         detail={"tool_id": "smtp", **outputs},
         output=outputs,
     )
-def execute_convert_audio_tool_step(
-    step: AutomationStepDefinition,
-    context: dict[str, Any],
-    *,
-    root_dir: Path,
-) -> RuntimeExecutionResult:
-    input_file = _get_tool_input(step, "input_file", context)
-    if not input_file:
-        raise RuntimeError("Convert Audio steps require an 'input_file' input.")
-
-    output_format = _get_tool_input(step, "output_format", context) or "mp3"
-    valid_formats = {"mp3", "wav", "ogg", "flac", "aac", "m4a"}
-    if output_format not in valid_formats:
-        raise RuntimeError(f"Convert Audio output_format must be one of: {', '.join(sorted(valid_formats))}.")
-
-    input_path = Path(input_file)
-    if not input_path.is_absolute():
-        input_path = root_dir / input_file
-
-    output_directory = input_path.parent
-    requested_filename = _get_tool_input(step, "output_filename", context)
-    safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"{input_path.stem}-converted"
-    if "." not in safe_filename:
-        safe_filename = f"{safe_filename}.{output_format}"
-    output_path = output_directory / safe_filename
-
-    command = ["ffmpeg", "-i", str(input_path), "-y", str(output_path)]
-
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=str(root_dir),
-        )
-    except FileNotFoundError as error:
-        raise RuntimeError("ffmpeg was not found. Install ffmpeg to use Convert Audio.") from error
-    except subprocess.CalledProcessError as error:
-        stderr = (error.stderr or "").strip()
-        stdout = (error.stdout or "").strip()
-        detail = stderr or stdout or "Unknown ffmpeg failure."
-        raise RuntimeError(f"Audio conversion failed: {detail}") from error
-
-    outputs = {
-        "output_file_path": str(output_path),
-    }
-    detail = {
-        "tool_id": "convert-audio",
-        "input_file": str(input_path),
-        "output_format": output_format,
-        "stdout": (completed.stdout or "").strip() or None,
-        **outputs,
-    }
-    return RuntimeExecutionResult(
-        status="completed",
-        response_summary=f"Converted audio to {output_path.name}.",
-        detail=detail,
-        output=outputs,
-    )
-
-
 def _resolve_worker_base_url(address: str) -> str:
     value = str(address or "").strip()
     if not value:
@@ -3716,8 +3654,6 @@ def execute_automation_step(
             return execute_llm_deepl_tool_step(connection, step, context)
         if tool_row["id"] == "smtp":
             return execute_smtp_tool_step(step, context)
-        if tool_row["id"] == "convert-audio":
-            return execute_convert_audio_tool_step(step, context, root_dir=root_dir)
         if tool_row["id"] == "image-magic":
             return execute_image_magic_tool_step(connection, step, context, root_dir=root_dir)
 

@@ -81,12 +81,6 @@ def validate_automation_definition(
                 relay_port_raw = str(inputs.get("relay_port") or "").strip()
                 if relay_port_raw and not relay_port_raw.isdigit():
                     issues.append(f"Step {index} requires input 'relay_port' to be a valid integer for smtp steps.")
-            if step.config.tool_id == "convert-audio":
-                inputs = step.config.tool_inputs or {}
-                if not inputs.get("input_file"):
-                    issues.append(f"Step {index} requires input 'input_file' for convert-audio steps.")
-                if not inputs.get("output_format"):
-                    issues.append(f"Step {index} requires input 'output_format' for convert-audio steps.")
             if step.config.tool_id == "image-magic":
                 inputs = step.config.tool_inputs or {}
                 if not inputs.get("input_file"):

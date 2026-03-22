@@ -24,11 +24,6 @@ const emitToolsDirectoryUpdated = () => {
 };
 
 const setupGuidance = {
-  "convert-audio": [
-    "Confirm which input and output formats the worker supports before enabling production automations.",
-    "Document any codec or bitrate expectations in the description so downstream steps stay predictable.",
-    "Open the tool folder and keep transformation scripts or binaries colocated with the tool registration metadata."
-  ],
   "convert-video": [
     "Decide whether this tool will prioritize archival quality or delivery-ready compression before enabling it.",
     "Capture required container, resolution, and codec expectations in the metadata description.",
