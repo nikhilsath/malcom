@@ -127,6 +127,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
 | Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
 | Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or collapse states that leave empty layout space |
+| Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | shared modal utilities/patterns, `ui/styles/pages/**`, related tests | auto-open detail panes on load or permanent empty inline detail columns |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
@@ -142,6 +143,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
 | R-UI-003 | Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges | UI copy and page layout changes |
 | R-UI-004 | Collapsible sections use a compact full-width top-strip collapse control with `+`/`-` indicator, persistent visibility, `aria-expanded` + `aria-controls` wiring, and true layout collapse (`display: none`) for hidden content | UI collapsible controls |
+| R-UI-005 | Selection-driven list/detail pages keep record details hidden until explicit selection, use shared modal detail flows by default, and allow inline detail panes only for documented operational exceptions | List/detail UI behavior |
 | R-TOOL-001 | Tool registration flows through backend catalog + DB sync | Tool lifecycle changes |
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
@@ -156,7 +158,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 8,
+  "version": 9,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -173,6 +175,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
     "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"],
     "ui_collapsible_controls": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
+    "ui_selection_detail_modals": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/scripts/navigation.js"],
     "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh"],
     "api_smoke_registry": ["tests/api_smoke_registry.py"],
     "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/"]
@@ -200,6 +203,11 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
       "check": ["aria_expanded", "aria_controls", "hidden", "stable_ids", "top_strip_toggle", "display_none_layout_collapse"],
       "verify": ["toggle_click", "toggle_keyboard", "indicator_plus_minus", "collapsed_body_not_in_layout"]
+    },
+    "ui_selection_detail_modal_change": {
+      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
+      "check": ["default_state_has_no_open_details", "no_reserved_empty_detail_space", "shared_modal_usage", "keyboard_access", "focus_management", "inline_exception_documented"],
+      "verify": ["selection_opens_modal", "initial_load_has_no_details", "focus_returns_to_trigger", "inline_detail_exception_reason_present_when_used"]
     },
     "tool_change": {
       "edit": [
@@ -493,6 +501,25 @@ When adding or changing UI pages that use the shell, agents must:
 5. avoid duplicating nav labels or hrefs inside individual pages
 
 Agents must not hardcode new topnav or sidenav markup into page HTML when the shared shell applies.
+
+### Selection-Driven Detail View Policy {#selection-driven-detail-view-policy}
+
+When a page presents a directory, list, or table of selectable records, keep record details hidden in the default state and reveal them on demand in a shared modal after explicit selection, unless a documented operational reason requires an inline detail pane.
+
+Rules:
+
+1. Do not auto-open, auto-select, or auto-populate a detail view during initial page load.
+2. Do not reserve persistent layout space for an empty detail pane before the user selects a record.
+3. Use the shared modal pattern for inspect, edit, and detail flows launched from row, card, or list selection.
+4. Preserve keyboard access for selection triggers and manage focus correctly when opening and closing the modal.
+5. Inline detail panes are exceptions and must be justified by a continuous monitoring, side-by-side comparison, or similarly documented workflow need.
+6. When an inline exception is approved, keep the justification near the implementation notes or policy-relevant page guidance so future changes do not normalize the exception.
+
+Agents must not:
+
+- show record details by default before the user selects a record
+- leave a permanently empty detail column or panel visible in the default state
+- replace the shared modal flow with a custom non-modal detail reveal pattern unless the inline exception is documented
 
 ### UI Requirements {#ui-requirements}
 
