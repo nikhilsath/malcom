@@ -38,13 +38,16 @@ const connectorElements = createElementMap({
   policyApprovalInput: "settings-connectors-policy-approval-input",
   policyVisibilityInput: "settings-connectors-policy-visibility-input",
   modal: "settings-connectors-modal",
-  modalProviderGrid: "settings-connectors-modal-provider-grid"
+  modalProviderGrid: "settings-connectors-modal-provider-grid",
+  detailModal: "settings-connectors-detail-modal",
+  detailTitle: "settings-connectors-detail-title"
 });
 
 const connectorState = {
   settings: null,
   selectedConnectorId: null,
-  pendingOauth: {}
+  pendingOauth: {},
+  detailReturnFocusElement: null
 };
 
 const requestJson = (path, options) => {
@@ -87,6 +90,32 @@ const openModal = () => {
   document.body.classList.add("modal-open");
 };
 
+const openDetailModal = () => {
+  if (!connectorElements.detailModal || !getSelectedConnector()) {
+    return;
+  }
+
+  connectorElements.detailModal.classList.add("modal--open");
+  connectorElements.detailModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+};
+
+const closeDetailModal = ({ restoreFocus = true } = {}) => {
+  if (!connectorElements.detailModal) {
+    return;
+  }
+
+  connectorElements.detailModal.classList.remove("modal--open");
+  connectorElements.detailModal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal.modal--open")) {
+    document.body.classList.remove("modal-open");
+  }
+
+  if (restoreFocus && connectorState.detailReturnFocusElement instanceof HTMLElement) {
+    connectorState.detailReturnFocusElement.focus();
+  }
+};
+
 const closeModal = () => {
   if (!connectorElements.modal) {
     return;
@@ -94,7 +123,9 @@ const closeModal = () => {
 
   connectorElements.modal.classList.remove("modal--open");
   connectorElements.modal.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
+  if (!document.querySelector(".modal.modal--open")) {
+    document.body.classList.remove("modal-open");
+  }
 };
 
 const buildDefaultConnectorRecord = (preset) => ({
@@ -173,15 +204,18 @@ const renderDirectory = () => {
       <td id="settings-connectors-row-auth-${record.id}" class="api-directory-cell">${titleCase(record.auth_type)}</td>
       <td id="settings-connectors-row-owner-${record.id}" class="api-directory-cell">${record.owner || "Workspace"}</td>
     `;
-    row.addEventListener("click", () => {
+    row.setAttribute("aria-haspopup", "dialog");
+    const handleSelect = () => {
       connectorState.selectedConnectorId = record.id;
+      connectorState.detailReturnFocusElement = row;
       renderAll();
-    });
+      openDetailModal();
+    };
+    row.addEventListener("click", handleSelect);
     row.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        connectorState.selectedConnectorId = record.id;
-        renderAll();
+        handleSelect();
       }
     });
     connectorElements.tableBody.appendChild(row);
@@ -222,12 +256,21 @@ const renderDetail = () => {
 
   if (!record) {
     connectorElements.form?.reset();
+    if (connectorElements.authTypeInput) {
+      connectorElements.authTypeInput.innerHTML = "";
+    }
+    if (connectorElements.detailTitle) {
+      connectorElements.detailTitle.textContent = "Choose a connector";
+    }
     if (connectorElements.credentialSummary) {
       connectorElements.credentialSummary.textContent = "Select a connector to edit its settings.";
     }
     return;
   }
 
+  if (connectorElements.detailTitle) {
+    connectorElements.detailTitle.textContent = record.name || "Connector details";
+  }
   renderAuthTypeOptions(record);
   connectorElements.nameInput.value = record.name || "";
   connectorElements.providerInput.value = titleCase(record.provider);
@@ -293,6 +336,7 @@ const renderModalProviders = () => {
       connectorState.selectedConnectorId = nextRecord.id;
       closeModal();
       renderAll();
+      openDetailModal();
       setFeedback(`Prepared ${preset.name} connector draft. Save it to persist the record.`, "success");
     });
   });
@@ -359,6 +403,18 @@ const bindModalEvents = () => {
   document.querySelectorAll("[data-modal-close=\"settings-connectors-modal\"]").forEach((element) => {
     element.addEventListener("click", closeModal);
   });
+  document.querySelectorAll("[data-modal-close=\"settings-connectors-detail-modal\"]").forEach((element) => {
+    element.addEventListener("click", () => closeDetailModal());
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (connectorElements.detailModal?.classList.contains("modal--open")) {
+        closeDetailModal();
+      } else if (connectorElements.modal?.classList.contains("modal--open")) {
+        closeModal();
+      }
+    }
+  });
 };
 
 const bindFormEvents = () => {
@@ -396,6 +452,7 @@ const bindFormEvents = () => {
       connectorState.settings = nextSettings;
       connectorState.selectedConnectorId = response.connector.id;
       renderAll();
+      openDetailModal();
       setFeedback(response.message, response.ok ? "success" : "warning");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error), "error");
@@ -432,6 +489,7 @@ const bindFormEvents = () => {
       connectorState.settings = nextSettings;
       connectorState.selectedConnectorId = saved.id;
       renderAll();
+      openDetailModal();
       setFeedback(`OAuth started. Use Complete OAuth to simulate the callback. Auth URL: ${response.authorization_url}`, "success");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error), "error");
@@ -455,6 +513,7 @@ const bindFormEvents = () => {
       connectorState.settings = nextSettings;
       connectorState.selectedConnectorId = response.connector.id;
       renderAll();
+      openDetailModal();
       setFeedback(response.message, response.ok ? "success" : "warning");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error), "error");
@@ -474,6 +533,7 @@ const bindFormEvents = () => {
       connectorState.settings = nextSettings;
       connectorState.selectedConnectorId = response.connector.id;
       renderAll();
+      openDetailModal();
       setFeedback(response.message, "success");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error), "error");
@@ -509,6 +569,7 @@ const bindFormEvents = () => {
       connectorState.settings = response;
       connectorState.selectedConnectorId = selected.id;
       renderAll();
+      openDetailModal();
       setFeedback("Connector revoked and stored credentials cleared.", "success");
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error), "error");
@@ -539,7 +600,7 @@ const initConnectorsPage = async () => {
     setFeedback("Using fallback settings because the database is unavailable.", "warning");
   }
 
-  connectorState.selectedConnectorId = connectorState.settings.connectors.records[0]?.id || null;
+  connectorState.selectedConnectorId = null;
   renderAll();
 };
 
