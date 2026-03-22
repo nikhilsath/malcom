@@ -163,11 +163,20 @@ class LogDbTableCreate(BaseModel):
     name: str = Field(min_length=1, max_length=63)
     description: str = Field(default="", max_length=500)
     columns: list[LogDbColumnDefinition] = Field(min_length=1, max_length=50)
+    rows: list[dict[str, Any]] = Field(default_factory=list, max_length=5000)
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         return _validate_db_identifier(v)
+
+    @field_validator("rows")
+    @classmethod
+    def validate_rows(cls, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError("Each imported row must be an object keyed by column name.")
+        return rows
 
 
 class LogDbColumnResponse(BaseModel):

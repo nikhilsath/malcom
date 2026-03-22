@@ -47,6 +47,16 @@ def _data_table_name(table_name: str) -> str:
     return f"log_data_{table_name}"
 
 
+def _serialize_import_value(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float, str)):
+        return value
+    return str(value)
+
+
 def _list_data_table_columns(connection, data_table: str) -> list[str]:
     rows = fetch_all(
         connection,
@@ -181,13 +191,38 @@ def create_log_table(payload: LogDbTableCreate, request: Request) -> LogDbTableD
             )
         )
 
+    defined_column_names = {col.column_name for col in payload.columns}
+    imported_row_count = 0
+    for row in payload.rows:
+        unexpected_columns = [column_name for column_name in row if column_name not in defined_column_names]
+        if unexpected_columns:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "Imported rows contain unknown columns: "
+                    + ", ".join(sorted(unexpected_columns))
+                    + "."
+                ),
+            )
+
+        row_id = f"logrow_{uuid4().hex[:12]}"
+        inserted_at = utc_now_iso()
+        row_column_names = ["row_id", "automation_id", "inserted_at", *row.keys()]
+        row_values = [row_id, "dataset_import", inserted_at, *(_serialize_import_value(value) for value in row.values())]
+        placeholders = ", ".join(["?"] * len(row_values))
+        connection.execute(
+            f"INSERT INTO {data_table} ({', '.join(row_column_names)}) VALUES ({placeholders})",
+            row_values,
+        )
+        imported_row_count += 1
+
     connection.commit()
 
     return LogDbTableDetail(
         id=table_id,
         name=payload.name,
         description=payload.description,
-        row_count=0,
+        row_count=imported_row_count,
         created_at=now,
         updated_at=now,
         columns=col_responses,

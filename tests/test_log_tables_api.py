@@ -92,6 +92,51 @@ class LogTablesApiTestCase(unittest.TestCase):
         resp = self.client.post("/api/v1/log-tables", json=bad_payload)
         self.assertIn(resp.status_code, (422, 400))
 
+    def test_create_log_table_with_imported_rows_persists_initial_dataset(self) -> None:
+        payload = {
+            "name": "imported_people",
+            "description": "Imported for reuse.",
+            "columns": [
+                {"column_name": "email", "data_type": "text", "nullable": True},
+                {"column_name": "company", "data_type": "text", "nullable": True},
+            ],
+            "rows": [
+                {"email": "ada@example.com", "company": "Analytical Engines"},
+                {"email": "grace@example.com", "company": "Compiler Labs"},
+            ],
+        }
+        resp = self.client.post("/api/v1/log-tables", json=payload)
+        self.assertEqual(resp.status_code, 201, resp.text)
+        created = resp.json()
+        self.assertEqual(created["row_count"], 2)
+
+        rows_resp = self.client.get(f"/api/v1/log-tables/{created['id']}/rows")
+        self.assertEqual(rows_resp.status_code, 200, rows_resp.text)
+        rows_data = rows_resp.json()
+        self.assertEqual(rows_data["total"], 2)
+        values = {(row["email"], row["company"], row["automation_id"]) for row in rows_data["rows"]}
+        self.assertEqual(
+            values,
+            {
+                ("ada@example.com", "Analytical Engines", "dataset_import"),
+                ("grace@example.com", "Compiler Labs", "dataset_import"),
+            },
+        )
+
+    def test_create_log_table_rejects_import_rows_with_unknown_columns(self) -> None:
+        payload = {
+            "name": "bad_import",
+            "description": "",
+            "columns": [
+                {"column_name": "email", "data_type": "text", "nullable": True},
+            ],
+            "rows": [
+                {"email": "ok@example.com", "extra": "unexpected"},
+            ],
+        }
+        resp = self.client.post("/api/v1/log-tables", json=payload)
+        self.assertEqual(resp.status_code, 422, resp.text)
+
     # ── Detail ────────────────────────────────────────────────────────────────
 
     def test_get_log_table_returns_detail(self) -> None:
