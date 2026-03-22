@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
 
 type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
@@ -30,21 +31,6 @@ type ToolEntry = {
   description: string;
   enabled: boolean;
   page_href: string;
-};
-
-declare global {
-  interface Window {
-    Malcom?: {
-      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
-    };
-  }
-}
-
-const requestJson = (path: string, options?: RequestInit) => {
-  if (!window.Malcom?.requestJson) {
-    throw new Error("Malcom request helper is unavailable.");
-  }
-  return window.Malcom.requestJson(path, options);
 };
 
 const triggerLabels: Record<TriggerType, string> = {
@@ -87,7 +73,7 @@ export const AutomationOverviewApp = () => {
         setRuntimeStatus(status as RuntimeStatus);
         setTools(toolList as ToolEntry[]);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load data.");
+        setError(normalizeRequestError(err, "Failed to load data.").message);
       } finally {
         setLoading(false);
       }

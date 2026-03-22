@@ -1,57 +1,26 @@
-(function () {
-  const getBaseUrl = () => {
-    if (window.location.protocol === "file:" || window.location.origin === "null") {
-      return "http://localhost:8000";
-    }
+import { normalizeRequestError, requestJson, resolveBaseUrl } from "./request.js";
 
-    if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-      return "";
-    }
+window.Malcom = window.Malcom || {};
 
-    return window.location.origin;
-  };
+if (!window.Malcom.getBaseUrl) {
+  window.Malcom.getBaseUrl = resolveBaseUrl;
+}
 
-  const parseErrorMessage = async (response) => {
+if (!window.Malcom.normalizeError) {
+  window.Malcom.normalizeError = normalizeRequestError;
+}
+
+if (!window.Malcom.parseErrorMessage) {
+  window.Malcom.parseErrorMessage = async (response) => {
     try {
-      const data = await response.json();
-      return data.detail || data.message || "Request failed.";
+      const payload = await response.json();
+      return normalizeRequestError(payload).message;
     } catch {
       return "Request failed.";
     }
   };
+}
 
-  const requestJson = async (path, options = {}) => {
-    const response = await fetch(`${getBaseUrl()}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      },
-      ...options
-    });
-
-    if (!response.ok) {
-      const message = await parseErrorMessage(response);
-      throw new Error(message);
-    }
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    return response.json();
-  };
-
-  window.Malcom = window.Malcom || {};
-
-  if (!window.Malcom.getBaseUrl) {
-    window.Malcom.getBaseUrl = getBaseUrl;
-  }
-
-  if (!window.Malcom.parseErrorMessage) {
-    window.Malcom.parseErrorMessage = parseErrorMessage;
-  }
-
-  if (!window.Malcom.requestJson) {
-    window.Malcom.requestJson = requestJson;
-  }
-})();
+if (!window.Malcom.requestJson) {
+  window.Malcom.requestJson = requestJson;
+}

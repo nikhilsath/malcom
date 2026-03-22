@@ -1,3 +1,5 @@
+import { normalizeRequestError, requestJson as fetchJson, resolveRequestUrl } from "./request.js";
+
 const localLlmElements = {
   title: document.getElementById("tools-local-llm-title"),
   description: document.getElementById("tools-local-llm-description"),
@@ -39,18 +41,6 @@ let chatMessages = [];
 let chatPreviousResponseId = null;
 let chatSending = false;
 
-const getBaseUrl = () => {
-  if (window.location.protocol === "file:" || window.location.origin === "null") {
-    return "http://localhost:8000";
-  }
-
-  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-    return "";
-  }
-
-  return window.location.origin;
-};
-
 const setFeedback = (message, tone = "") => {
   localLlmElements.feedback.textContent = message;
   localLlmElements.feedback.className = tone
@@ -63,17 +53,6 @@ const setChatFeedback = (message, tone = "") => {
   localLlmElements.chatFeedback.className = tone
     ? `api-form-feedback api-form-feedback--${tone}`
     : "api-form-feedback";
-};
-
-const fetchJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, options);
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.detail || "Local LLM request failed.");
-  }
-
-  return payload;
 };
 
 const getPresetMap = () => {
@@ -294,7 +273,7 @@ localLlmElements.form?.addEventListener("submit", async (event) => {
     window.dispatchEvent(new CustomEvent("malcom:tools-directory-updated"));
     setFeedback("Local LLM configuration saved.", "success");
   } catch (error) {
-    setFeedback(error instanceof Error ? error.message : "Unable to save Local LLM configuration.", "error");
+    setFeedback(normalizeRequestError(error, "Unable to save Local LLM configuration.").message, "error");
   } finally {
     saving = false;
     localLlmElements.saveButton.disabled = false;
@@ -303,7 +282,7 @@ localLlmElements.form?.addEventListener("submit", async (event) => {
 });
 
 loadTool().catch((error) => {
-  setFeedback(error instanceof Error ? error.message : "Unable to load Local LLM configuration.", "error");
+  setFeedback(normalizeRequestError(error, "Unable to load Local LLM configuration.").message, "error");
 });
 
 localLlmElements.chatClearButton?.addEventListener("click", () => {
@@ -346,7 +325,7 @@ localLlmElements.chatForm?.addEventListener("submit", async (event) => {
   localLlmElements.chatUserInput.value = "";
 
   try {
-    const response = await fetch(`${getBaseUrl()}/api/v1/tools/llm-deepl/chat/stream`, {
+    const response = await fetch(resolveRequestUrl("/api/v1/tools/llm-deepl/chat/stream"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -386,10 +365,10 @@ localLlmElements.chatForm?.addEventListener("submit", async (event) => {
   } catch (error) {
     chatMessages[chatMessages.length - 1] = {
       role: "assistant",
-      content: error instanceof Error ? error.message : "Unable to reach the Local LLM endpoint."
+      content: normalizeRequestError(error, "Unable to reach the Local LLM endpoint.").message
     };
     renderChatTranscript();
-    setChatFeedback(error instanceof Error ? error.message : "Unable to reach the Local LLM endpoint.", "error");
+    setChatFeedback(normalizeRequestError(error, "Unable to reach the Local LLM endpoint.").message, "error");
   } finally {
     chatSending = false;
     localLlmElements.chatSendButton.disabled = false;

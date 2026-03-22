@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { normalizeRequestError, requestJson } from "../../lib/request";
 import type { AutomationStep, ConnectorRecord } from "../types";
 
 type Props = {
@@ -14,13 +15,6 @@ type JsonMapping = {
 };
 
 const httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
-
-const requestJson = (path: string, options?: RequestInit) => {
-  if (!window.Malcom?.requestJson) {
-    throw new Error("Malcom request helper is unavailable.");
-  }
-  return window.Malcom.requestJson(path, options);
-};
 
 const normalizeFieldKey = (path: string) => {
   const normalized = path.replace(/[^a-zA-Z0-9_]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase();
@@ -155,7 +149,7 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
       setSampleResponse(parsed);
     } catch (error) {
       setSampleResponse(null);
-      setSampleError(error instanceof Error ? error.message : "Unable to load a sample response.");
+      setSampleError(normalizeRequestError(error, "Unable to load a sample response.").message);
     } finally {
       setSampleLoading(false);
     }

@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useState } from "react";
+import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
 
 type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
@@ -22,21 +23,6 @@ type RuntimeStatus = {
   last_tick_finished_at: string | null;
   last_error: string | null;
   job_count: number;
-};
-
-declare global {
-  interface Window {
-    Malcom?: {
-      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
-    };
-  }
-}
-
-const requestJson = (path: string, options?: RequestInit) => {
-  if (!window.Malcom?.requestJson) {
-    throw new Error("Malcom request helper is unavailable.");
-  }
-  return window.Malcom.requestJson(path, options);
 };
 
 const triggerLabels: Record<TriggerType, string> = {
@@ -84,7 +70,7 @@ export const AutomationLibraryApp = () => {
         setAutomations(automationList as Automation[]);
         setRuntimeStatus(status as RuntimeStatus);
       } catch (nextError: unknown) {
-        setError(nextError instanceof Error ? nextError.message : "Failed to load automations.");
+        setError(normalizeRequestError(nextError, "Failed to load automations.").message);
       } finally {
         setLoading(false);
       }

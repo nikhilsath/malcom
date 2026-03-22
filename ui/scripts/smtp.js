@@ -1,4 +1,5 @@
 import { formatDateTime, formatSize, createElementMap } from "./format-utils.js";
+import { normalizeRequestError, requestJson as fetchJson } from "./request.js";
 
 const smtpElements = createElementMap({
   form: "tools-smtp-form",
@@ -81,18 +82,6 @@ const smtpState = {
   highlightedMessageId: null
 };
 
-const getBaseUrl = () => {
-  if (window.location.protocol === "file:" || window.location.origin === "null") {
-    return "http://localhost:8000";
-  }
-
-  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-    return "";
-  }
-
-  return window.location.origin;
-};
-
 const setFeedback = (element, message, tone = "") => {
   if (!element) {
     return;
@@ -144,17 +133,6 @@ const getUiState = (data) => {
     isRemoteAssignment: status === "assigned",
     isLocalListening: status === "running" && Boolean(data?.runtime?.listening_host) && data?.runtime?.listening_port !== null
   };
-};
-
-const fetchJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, options);
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.detail || "SMTP request failed.");
-  }
-
-  return payload;
 };
 
 const renderMachineOptions = (data) => {
@@ -534,7 +512,7 @@ const copyText = async (text, successMessage) => {
     await navigator.clipboard.writeText(text);
     setFeedback(smtpElements.outboundFeedback, successMessage, "success");
   } catch (error) {
-    setFeedback(smtpElements.outboundFeedback, error instanceof Error ? error.message : "Unable to copy value.", "error");
+    setFeedback(smtpElements.outboundFeedback, normalizeRequestError(error, "Unable to copy value.").message, "error");
   }
 };
 
@@ -565,7 +543,7 @@ smtpElements.form?.addEventListener("submit", async (event) => {
     await saveSmtpConfig();
     setFeedback(smtpElements.feedback, "SMTP assignment saved.", "success");
   } catch (error) {
-    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to save SMTP assignment.", "error");
+    setFeedback(smtpElements.feedback, normalizeRequestError(error, "Unable to save SMTP assignment.").message, "error");
   } finally {
     setBusyState(false);
     if (smtpState.tool) {
@@ -586,7 +564,7 @@ smtpElements.startButton?.addEventListener("click", async () => {
     await startSmtpServer();
     setFeedback(smtpElements.feedback, "SMTP server started.", "success");
   } catch (error) {
-    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to start SMTP server.", "error");
+    setFeedback(smtpElements.feedback, normalizeRequestError(error, "Unable to start SMTP server.").message, "error");
   } finally {
     setBusyState(false);
     if (smtpState.tool) {
@@ -607,7 +585,7 @@ smtpElements.stopButton?.addEventListener("click", async () => {
     await stopSmtpServer();
     setFeedback(smtpElements.feedback, "SMTP server stopped.", "success");
   } catch (error) {
-    setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to stop SMTP server.", "error");
+    setFeedback(smtpElements.feedback, normalizeRequestError(error, "Unable to stop SMTP server.").message, "error");
   } finally {
     setBusyState(false);
     if (smtpState.tool) {
@@ -679,7 +657,7 @@ smtpElements.testForm?.addEventListener("submit", async (event) => {
       action: "smtp_test_send_failed",
       message: "Failed to send a local SMTP test message."
     });
-    setFeedback(smtpElements.testFeedback, error instanceof Error ? error.message : "Unable to send test email.", "error");
+    setFeedback(smtpElements.testFeedback, normalizeRequestError(error, "Unable to send test email.").message, "error");
   } finally {
     setBusyState(false);
     if (smtpState.tool) {
@@ -729,7 +707,7 @@ smtpElements.relayForm?.addEventListener("submit", async (event) => {
       action: "smtp_relay_send_failed",
       message: "Failed to send an external relay email."
     });
-    setFeedback(smtpElements.relayFeedback, error instanceof Error ? error.message : "Unable to send relay email.", "error");
+    setFeedback(smtpElements.relayFeedback, normalizeRequestError(error, "Unable to send relay email.").message, "error");
   } finally {
     setBusyState(false);
     if (smtpState.tool) {
@@ -789,7 +767,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 refreshState().catch((error) => {
-  setFeedback(smtpElements.feedback, error instanceof Error ? error.message : "Unable to load SMTP tool.", "error");
+  setFeedback(smtpElements.feedback, normalizeRequestError(error, "Unable to load SMTP tool.").message, "error");
 });
 
 scheduleRefresh();

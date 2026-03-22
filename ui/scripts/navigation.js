@@ -1,4 +1,5 @@
 import { getSectionConfig, resolveShellHref, shellBrand, topNavItems } from "./shell-config.js";
+import { requestJson } from "./request.js";
 
 const createElement = (tagName, attributes = {}, textContent = "") => {
   const element = document.createElement(tagName);
@@ -24,29 +25,6 @@ const createElement = (tagName, attributes = {}, textContent = "") => {
 };
 
 const getShellPathPrefix = () => document.body?.dataset.shellPathPrefix || "";
-
-const getBaseUrl = () => {
-  if (window.location.protocol === "file:" || window.location.origin === "null") {
-    return "http://localhost:8000";
-  }
-
-  if (window.location.origin === "http://localhost:8000" || window.location.origin === "http://127.0.0.1:8000") {
-    return "";
-  }
-
-  return window.location.origin;
-};
-
-const fetchJson = async (path, options = {}) => {
-  const response = await fetch(`${getBaseUrl()}${path}`, options);
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(payload.detail || "Navigation request failed.");
-  }
-
-  return payload;
-};
 
 const getDashboardHashRoute = () => {
   const currentHash = window.location.hash || "";
@@ -96,7 +74,7 @@ const getToolItemsWithEnabledState = async () => {
   }
 
   const [catalogItem, ...manifestToolItems] = sectionConfig.items;
-  const toolsDirectory = await fetchJson("/api/v1/tools");
+  const toolsDirectory = await requestJson("/api/v1/tools");
   const enabledToolIds = new Set(
     toolsDirectory
       .filter((tool) => tool.enabled)

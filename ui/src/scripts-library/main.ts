@@ -5,6 +5,7 @@ import { indentWithTab } from "@codemirror/commands";
 import { bracketMatching, foldGutter, indentOnInput, syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
+import { normalizeRequestError, requestJson } from "../lib/request";
 
 type ScriptLanguage = "python" | "javascript";
 type ValidationStatus = "valid" | "invalid" | "unknown";
@@ -319,37 +320,6 @@ const renderScriptList = () => {
   });
 };
 
-const getRequestErrorMessage = async (response: Response) => {
-  const fallbackMessage = `Request failed with status ${response.status}.`;
-
-  try {
-    const payload = await response.json();
-    if (typeof payload?.detail === "string") {
-      return payload.detail;
-    }
-    if (payload?.detail?.issues?.length) {
-      return payload.detail.issues
-        .map((issue: ValidationIssue) => {
-          const location = issue.line ? `Line ${issue.line}${issue.column ? `, column ${issue.column}` : ""}: ` : "";
-          return `${location}${issue.message}`;
-        })
-        .join(" ");
-    }
-  } catch {
-    return fallbackMessage;
-  }
-
-  return fallbackMessage;
-};
-
-const requestJson = async <T>(input: RequestInfo, init?: RequestInit) => {
-  const response = await fetch(input, init);
-  if (!response.ok) {
-    throw new Error(await getRequestErrorMessage(response));
-  }
-  return response.json() as Promise<T>;
-};
-
 const resetForm = (language: ScriptLanguage = "python") => {
   scriptState.selectedScriptId = null;
   if (scriptElements.scriptIdInput) {
@@ -506,7 +476,7 @@ const handleSave = async (event: SubmitEvent) => {
     setFeedback(scriptElements.formFeedback, "Script saved to the library.", "success");
     emitScriptLog(scriptId ? "script_updated" : "script_created", `Saved ${languageLabels[language]} script ${savedScript.name}.`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save script.";
+    const message = normalizeRequestError(error, "Unable to save script.").message;
     setValidationChip("invalid", "Needs fixes");
     setFeedback(scriptElements.formFeedback, message, "error");
     emitScriptLog("script_save_failed", message, "error");
@@ -553,7 +523,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 void loadScripts().catch((error) => {
-  const message = error instanceof Error ? error.message : "Unable to load scripts.";
+  const message = normalizeRequestError(error, "Unable to load scripts.").message;
   setAlert(message, "error");
   setFeedback(scriptElements.formFeedback, message, "error");
   emitScriptLog("script_load_failed", message, "error");

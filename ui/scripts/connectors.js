@@ -1,4 +1,5 @@
 import { formatDateTime, createElementMap } from "./format-utils.js";
+import { normalizeRequestError, requestJson } from "./request.js";
 
 const connectorElements = createElementMap({
   feedback: "settings-connectors-feedback",
@@ -48,13 +49,6 @@ const connectorState = {
   selectedConnectorId: null,
   pendingOauth: {},
   detailReturnFocusElement: null
-};
-
-const requestJson = (path, options) => {
-  if (!window.Malcom?.requestJson) {
-    throw new Error("Malcom request helper is unavailable.");
-  }
-  return window.Malcom.requestJson(path, options);
 };
 
 const getStore = () => window.MalcomLogStore;
@@ -424,7 +418,7 @@ const bindFormEvents = () => {
     try {
       await saveConnectorSettings();
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -434,7 +428,7 @@ const bindFormEvents = () => {
     try {
       await saveConnectorSettings("Connector policy saved.");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -455,7 +449,7 @@ const bindFormEvents = () => {
       openDetailModal();
       setFeedback(response.message, response.ok ? "success" : "warning");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -492,7 +486,7 @@ const bindFormEvents = () => {
       openDetailModal();
       setFeedback(`OAuth started. Use Complete OAuth to simulate the callback. Auth URL: ${response.authorization_url}`, "success");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -516,7 +510,7 @@ const bindFormEvents = () => {
       openDetailModal();
       setFeedback(response.message, response.ok ? "success" : "warning");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -536,7 +530,7 @@ const bindFormEvents = () => {
       openDetailModal();
       setFeedback(response.message, "success");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
@@ -572,7 +566,7 @@ const bindFormEvents = () => {
       openDetailModal();
       setFeedback("Connector revoked and stored credentials cleared.", "success");
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error), "error");
+      setFeedback(normalizeRequestError(error).message, "error");
     }
   });
 
