@@ -254,7 +254,8 @@ Expanded validation:
 
 This adds:
 
-* route-level API smoke coverage through `tests/test_api_smoke_matrix.py`, backed by `tests/api_smoke_registry.py`
+* route-level API smoke coverage via `pytest tests/test_api_smoke_matrix.py -m smoke`
+* smoke case definitions sourced from `tests/api_smoke_registry.py`
 * browser smoke coverage through Playwright in `ui/e2e/`
 * the informational external probe report from `scripts/test-external-probes.py`
 
@@ -447,9 +448,9 @@ Expanded validation:
 
 Notes:
 
-* backend tests run with `pytest`
+* backend tests run with `pytest`, not `unittest`
 * `scripts/test-precommit.sh` runs backend `pytest`, frontend `npm test`, and frontend `npm run build`
-* `scripts/test-full.sh` runs the precommit checks, then `tests/test_api_smoke_matrix.py` for route smoke coverage, the external probe report, and Playwright smoke coverage
+* `scripts/test-full.sh` runs the precommit checks, then executes `tests/test_api_smoke_matrix.py` as the smoke test entrypoint, using `tests/api_smoke_registry.py` as the smoke case registry, before the external probe report and Playwright smoke coverage
 
 ## Adding A New Tool
 
