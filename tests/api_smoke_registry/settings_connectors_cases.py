@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+from .builders import action_case, list_case, patch_case
+from .core import RouteSmokeCase, assert_json_response
+from .resolvers import connector_setup, oauth_callback_params, oauth_start_setup, refresh_setup
+
+SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
+    list_case("settings-get", "GET", "/api/v1/settings", response_assert=assert_json_response),
+    patch_case(
+        "settings-patch",
+        "/api/v1/settings",
+        "/api/v1/settings",
+        None,
+        {"general": {"environment": "live", "timezone": "utc"}},
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "connectors-test",
+        "POST",
+        "/api/v1/connectors/github-primary/test",
+        200,
+        route_path="/api/v1/connectors/{connector_id}/test",
+        setup=connector_setup,
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "connectors-oauth-start",
+        "POST",
+        "/api/v1/connectors/google_calendar/oauth/start",
+        200,
+        route_path="/api/v1/connectors/{provider}/oauth/start",
+        payload={
+            "connector_id": "google-calendar-primary",
+            "name": "Google Calendar",
+            "redirect_uri": "http://localhost:8000/api/v1/connectors/google_calendar/oauth/callback",
+            "owner": "Workspace",
+            "client_id": "calendar-client-id",
+            "client_secret_input": "calendar-client-secret",
+        },
+        response_assert=assert_json_response,
+    ),
+    list_case(
+        "connectors-oauth-callback",
+        "GET",
+        "/api/v1/connectors/google_calendar/oauth/callback",
+        route_path="/api/v1/connectors/{provider}/oauth/callback",
+        setup=oauth_start_setup,
+        params=oauth_callback_params,
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "connectors-refresh",
+        "POST",
+        "/api/v1/connectors/google-calendar-primary/refresh",
+        200,
+        route_path="/api/v1/connectors/{connector_id}/refresh",
+        setup=refresh_setup,
+        response_assert=assert_json_response,
+    ),
+)
