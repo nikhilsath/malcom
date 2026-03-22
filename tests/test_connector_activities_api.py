@@ -34,7 +34,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         activity_ids = {(item["provider_id"], item["activity_id"]) for item in body}
-        self.assertIn(("google", "gmail_unread_count"), activity_ids)
+        self.assertIn(("google", "gmail_list_messages"), activity_ids)
         self.assertIn(("google", "calendar_upcoming_events"), activity_ids)
         self.assertIn(("github", "list_open_pull_requests"), activity_ids)
         self.assertIn(("github", "repo_details"), activity_ids)
@@ -58,7 +58,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
             "/api/v1/automations",
             json={
                 "name": "Unread email automation",
-                "description": "Check unread email count.",
+                "description": "Check unread emails.",
                 "enabled": True,
                 "trigger_type": "manual",
                 "trigger_config": {},
@@ -68,7 +68,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
                         "name": "Unread mail",
                         "config": {
                             "connector_id": "google-primary",
-                            "activity_id": "gmail_unread_count",
+                            "activity_id": "gmail_send_email",
                             "activity_inputs": {},
                         },
                     }
@@ -138,7 +138,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(body["steps"][0]["detail_json"]["activity_output"]["repository"], "openai/malcom")
         execute_mock.assert_called_once()
 
-    def test_google_gmail_activity_executes_and_normalizes_output(self) -> None:
+    def test_google_gmail_list_activity_executes_and_normalizes_output(self) -> None:
         self.save_connector(
             {
                 "id": "google-primary",
@@ -146,7 +146,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
                 "name": "Google",
                 "status": "connected",
                 "auth_type": "oauth2",
-                "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+                "scopes": ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"],
                 "base_url": "https://www.googleapis.com",
                 "owner": "Workspace",
                 "auth_config": {"access_token_input": "google-access-token"},
@@ -157,16 +157,16 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         output = execute_connector_activity(
             connection,
             connector_id="google-primary",
-            activity_id="gmail_unread_count",
-            inputs={},
+            activity_id="gmail_list_messages",
+            inputs={"max_results": 2},
             root_dir=Path(app.state.root_dir),
-            request_executor=lambda url, method, headers: (200, {"messagesUnread": 7, "threadsUnread": 3}),
+            request_executor=lambda url, method, headers: (200, {"messages": [{"id": "m1"}, {"id": "m2"}], "nextPageToken": "next"}),
         )
 
         self.assertEqual(output["provider"], "google")
-        self.assertEqual(output["activity"], "gmail_unread_count")
-        self.assertEqual(output["unread_count"], 7)
-        self.assertEqual(output["threads"], 3)
+        self.assertEqual(output["activity"], "gmail_list_messages")
+        self.assertEqual(output["count"], 2)
+        self.assertEqual(output["messages"][0]["id"], "m1")
 
     def test_github_repo_details_activity_executes_and_normalizes_output(self) -> None:
         self.save_connector(
@@ -206,6 +206,49 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(output["repository"], "openai/malcom")
         self.assertEqual(output["default_branch"], "main")
         self.assertEqual(output["stars"], 42)
+
+    def test_google_sheets_update_range_requires_json_payload(self) -> None:
+        self.save_connector(
+            {
+                "id": "google-sheets",
+                "provider": "google",
+                "name": "Google",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/spreadsheets"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "google-access-token"},
+            }
+        )
+
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Sheets update automation",
+                "description": "Update a range.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "connector_activity",
+                        "name": "Update sheet",
+                        "config": {
+                            "connector_id": "google-sheets",
+                            "activity_id": "sheets_update_range",
+                            "activity_inputs": {
+                                "spreadsheet_id": "sheet123",
+                                "range": "Sheet1!A1:B2",
+                                "values_payload": "not-json"
+                            },
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("invalid JSON", response.json()["detail"])
 
 
 if __name__ == "__main__":

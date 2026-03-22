@@ -141,7 +141,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
-| R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
+| R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
@@ -192,7 +192,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     },
     "connector_backed_remote_api_change": {
       "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
-      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
+      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "workflow_builder_exposes_explicit_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
       "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector"]
     },
     "new_ui_page": {
@@ -330,6 +330,7 @@ Use one integration model per responsibility. Do not blur remote API access, HTT
 - Connector workflow activities are provider-aware, prebuilt actions exposed inside the automation builder from saved connectors.
 - New connector providers must define supported activities, required scopes, input schema, output schema, and execution mappings as part of the same implementation.
 - The automation builder must filter activities by the selected connector provider and show missing required scopes before runtime.
+- Connector workflow actions must be exposed in the workflow builder as explicit, selectable UI actions with action-specific inputs, validation, and expected outputs; do not leave provider capabilities hidden behind generic config blobs.
 - Use the connector activity system for common provider actions such as Gmail, Calendar, Sheets, GitHub issues, pull requests, repository lookups, or similar API-backed operations.
 - Keep activity definitions modular and backend-driven; do not hardcode provider activity catalogs into random UI files.
 

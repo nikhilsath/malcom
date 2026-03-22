@@ -67,11 +67,14 @@ export type ConnectorActivitySchemaField = {
   help_text?: string | null;
   placeholder?: string | null;
   options?: string[] | null;
+  value_hint?: string | null;
 };
 
 export type ConnectorActivityDefinition = {
   provider_id: string;
   activity_id: string;
+  service: string;
+  operation_type: string;
   label: string;
   description: string;
   required_scopes: string[];
@@ -124,7 +127,7 @@ export type AutomationStep = {
     wait_for_response?: boolean;
     response_mappings?: Array<{ key: string; path: string }>;
     activity_id?: string;
-    activity_inputs?: Record<string, string | number>;
+    activity_inputs?: Record<string, string | number | boolean>;
     script_id?: string;
     script_input_template?: string;
     tool_id?: string;

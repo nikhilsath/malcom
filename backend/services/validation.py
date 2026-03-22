@@ -81,6 +81,14 @@ def validate_automation_definition(
                         missing_scopes = get_missing_connector_activity_scopes(connector_record, activity_definition)
                         if missing_scopes:
                             issues.append(f"Step {index}: connector is missing required scopes: {', '.join(missing_scopes)}.")
+                        try:
+                            from backend.services.connector_activities import _resolve_inputs
+
+                            _resolve_inputs(activity_definition.get("input_schema", []), step.config.activity_inputs or {})
+                        except json.JSONDecodeError as error:
+                            issues.append(f"Step {index}: connector activity input contains invalid JSON: {error.msg}.")
+                        except RuntimeError as error:
+                            issues.append(f"Step {index}: {error}.")
         if step.type == "script" and not step.config.script_id:
             issues.append(f"Step {index} requires config.script_id for script steps.")
         if step.type == "tool":
