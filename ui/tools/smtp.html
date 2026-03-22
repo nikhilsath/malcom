@@ -208,59 +208,6 @@
                             <div id="tools-smtp-mailbox-list" class="smtp-mailbox-list" aria-live="polite"></div>
                         </section>
 
-                        <section id="tools-smtp-message-panel" class="card smtp-console-card smtp-message-panel">
-                            <div id="tools-smtp-message-header" class="section-header smtp-panel__header">
-                                <div id="tools-smtp-message-copy" class="section-header__copy">
-                                    <p id="tools-smtp-message-eyebrow" class="section-header__eyebrow">Message detail</p>
-                                    <div class="title-row">
-                                        <h3 id="tools-smtp-message-title" class="section-header__title">Selected email</h3>
-                                        <button type="button" id="tools-smtp-message-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-message-description">i</button>
-                                    </div>
-                                    <p id="tools-smtp-message-description" class="section-header__description" hidden>Select a message to inspect body and raw content.</p>
-                                </div>
-                            </div>
-
-                            <div id="tools-smtp-message-empty" class="api-system-alert">Select a message from the mailbox list.</div>
-                            <div id="tools-smtp-message-detail" class="smtp-message-detail" hidden>
-                                <div id="tools-smtp-message-meta" class="smtp-message-detail__meta">
-                                    <div id="tools-smtp-message-meta-subject-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-subject-label" class="resource-card__meta-label">Subject</span>
-                                        <span id="tools-smtp-message-meta-subject-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                    <div id="tools-smtp-message-meta-from-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-from-label" class="resource-card__meta-label">From</span>
-                                        <span id="tools-smtp-message-meta-from-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                    <div id="tools-smtp-message-meta-to-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-to-label" class="resource-card__meta-label">To</span>
-                                        <span id="tools-smtp-message-meta-to-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                    <div id="tools-smtp-message-meta-time-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-time-label" class="resource-card__meta-label">Received</span>
-                                        <span id="tools-smtp-message-meta-time-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                    <div id="tools-smtp-message-meta-peer-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-peer-label" class="resource-card__meta-label">Peer</span>
-                                        <span id="tools-smtp-message-meta-peer-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                    <div id="tools-smtp-message-meta-size-group" class="resource-card__meta-item">
-                                        <span id="tools-smtp-message-meta-size-label" class="resource-card__meta-label">Size</span>
-                                        <span id="tools-smtp-message-meta-size-value" class="resource-card__meta-value">Unknown</span>
-                                    </div>
-                                </div>
-                                <section id="tools-smtp-message-body-section" class="smtp-message-detail__section">
-                                    <h4 id="tools-smtp-message-body-title" class="smtp-message-detail__section-title">Message body</h4>
-                                    <pre id="tools-smtp-message-body-value" class="api-code-block smtp-message-detail__code"></pre>
-                                </section>
-                                <section id="tools-smtp-message-raw-section" class="smtp-message-detail__section">
-                                    <div id="tools-smtp-message-raw-header" class="smtp-message-detail__section-header">
-                                        <h4 id="tools-smtp-message-raw-title" class="smtp-message-detail__section-title">Raw SMTP content</h4>
-                                        <button type="button" id="tools-smtp-copy-raw-message-button" class="button button--secondary secondary-action-button">Copy raw message</button>
-                                    </div>
-                                    <pre id="tools-smtp-message-raw-value" class="api-code-block smtp-message-detail__code"></pre>
-                                </section>
-                            </div>
-                        </section>
                     </section>
                 </div>
 
@@ -293,6 +240,70 @@
             </section>
         </div>
     </main>
+
+    <div id="tools-smtp-message-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="tools-smtp-message-title" aria-describedby="tools-smtp-message-description">
+        <div id="tools-smtp-message-modal-backdrop" class="modal__backdrop" data-modal-close="tools-smtp-message-modal"></div>
+        <div id="tools-smtp-message-modal-dialog" class="modal__dialog modal__dialog--form smtp-modal-dialog--wide">
+            <div id="tools-smtp-message-modal-content" class="modal__content">
+                <section id="tools-smtp-message-panel" class="modal__panel smtp-message-panel" aria-live="polite">
+                    <div id="tools-smtp-message-header" class="section-header modal__header smtp-panel__header">
+                        <div id="tools-smtp-message-copy" class="section-header__copy modal__header-copy">
+                            <p id="tools-smtp-message-eyebrow" class="section-header__eyebrow modal__eyebrow">Message detail</p>
+                            <div class="title-row">
+                                <h3 id="tools-smtp-message-title" class="section-header__title modal__title">Selected email</h3>
+                                <button type="button" id="tools-smtp-message-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-smtp-message-description">i</button>
+                            </div>
+                            <p id="tools-smtp-message-description" class="section-header__description modal__description" hidden>Inspect the selected mailbox message, copy raw content, and review message body details.</p>
+                        </div>
+                        <button type="button" id="tools-smtp-message-modal-close" class="modal__close-icon-button" data-modal-close="tools-smtp-message-modal" aria-label="Close message detail modal">×</button>
+                    </div>
+
+                    <div id="tools-smtp-message-modal-body" class="modal__body modal__body--form">
+                        <div id="tools-smtp-message-empty" class="api-system-alert">Select a message from the mailbox list.</div>
+                        <div id="tools-smtp-message-detail" class="smtp-message-detail" hidden>
+                            <div id="tools-smtp-message-meta" class="smtp-message-detail__meta">
+                                <div id="tools-smtp-message-meta-subject-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-subject-label" class="resource-card__meta-label">Subject</span>
+                                    <span id="tools-smtp-message-meta-subject-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                                <div id="tools-smtp-message-meta-from-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-from-label" class="resource-card__meta-label">From</span>
+                                    <span id="tools-smtp-message-meta-from-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                                <div id="tools-smtp-message-meta-to-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-to-label" class="resource-card__meta-label">To</span>
+                                    <span id="tools-smtp-message-meta-to-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                                <div id="tools-smtp-message-meta-time-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-time-label" class="resource-card__meta-label">Received</span>
+                                    <span id="tools-smtp-message-meta-time-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                                <div id="tools-smtp-message-meta-peer-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-peer-label" class="resource-card__meta-label">Peer</span>
+                                    <span id="tools-smtp-message-meta-peer-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                                <div id="tools-smtp-message-meta-size-group" class="resource-card__meta-item">
+                                    <span id="tools-smtp-message-meta-size-label" class="resource-card__meta-label">Size</span>
+                                    <span id="tools-smtp-message-meta-size-value" class="resource-card__meta-value">Unknown</span>
+                                </div>
+                            </div>
+                            <section id="tools-smtp-message-body-section" class="smtp-message-detail__section">
+                                <h4 id="tools-smtp-message-body-title" class="smtp-message-detail__section-title">Message body</h4>
+                                <pre id="tools-smtp-message-body-value" class="api-code-block smtp-message-detail__code"></pre>
+                            </section>
+                            <section id="tools-smtp-message-raw-section" class="smtp-message-detail__section">
+                                <div id="tools-smtp-message-raw-header" class="smtp-message-detail__section-header">
+                                    <h4 id="tools-smtp-message-raw-title" class="smtp-message-detail__section-title">Raw SMTP content</h4>
+                                    <button type="button" id="tools-smtp-copy-raw-message-button" class="button button--secondary secondary-action-button">Copy raw message</button>
+                                </div>
+                                <pre id="tools-smtp-message-raw-value" class="api-code-block smtp-message-detail__code"></pre>
+                            </section>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <div id="tools-smtp-test-modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="tools-smtp-test-modal-title" aria-describedby="tools-smtp-test-modal-description">
         <div id="tools-smtp-test-modal-backdrop" class="modal__backdrop" data-modal-close="tools-smtp-test-modal"></div>

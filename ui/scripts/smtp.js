@@ -36,6 +36,7 @@ const smtpElements = createElementMap({
   openRelayModalButton: "tools-smtp-open-relay-modal-button",
   mailboxEmpty: "tools-smtp-mailbox-empty",
   mailboxList: "tools-smtp-mailbox-list",
+  messageModal: "tools-smtp-message-modal",
   messageEmpty: "tools-smtp-message-empty",
   messageDetail: "tools-smtp-message-detail",
   messageSubjectValue: "tools-smtp-message-meta-subject-value",
@@ -78,7 +79,8 @@ const smtpState = {
   pendingRequest: false,
   refreshTimer: null,
   selectedMessageId: null,
-  highlightedMessageId: null
+  highlightedMessageId: null,
+  messageModalReturnFocusId: null
 };
 
 const getBaseUrl = () => {
@@ -353,6 +355,27 @@ const toggleModal = (modal, shouldOpen) => {
   document.body.classList.toggle("modal-open", Boolean(document.querySelector(".modal.modal--open")));
 };
 
+const openMessageModal = (triggerElement = null) => {
+  if (!smtpElements.messageModal || !smtpState.selectedMessageId) {
+    return;
+  }
+
+  smtpState.messageModalReturnFocusId = triggerElement instanceof HTMLElement ? triggerElement.id : null;
+  toggleModal(smtpElements.messageModal, true);
+};
+
+const closeMessageModal = () => {
+  if (!smtpElements.messageModal) {
+    return;
+  }
+
+  toggleModal(smtpElements.messageModal, false);
+
+  if (smtpState.messageModalReturnFocusId) {
+    document.getElementById(smtpState.messageModalReturnFocusId)?.focus();
+  }
+};
+
 const readFormPayload = () => {
   const bindHost = smtpElements.bindHostInput.value.trim();
   const portValue = Number.parseInt(smtpElements.portInput.value, 10);
@@ -625,6 +648,7 @@ smtpElements.mailboxList?.addEventListener("click", (event) => {
   smtpState.selectedMessageId = trigger.dataset.messageId || null;
   smtpState.highlightedMessageId = smtpState.highlightedMessageId === smtpState.selectedMessageId ? null : smtpState.highlightedMessageId;
   renderMailboxList(smtpState.tool);
+  openMessageModal(trigger);
 });
 
 smtpElements.openTestModalButton?.addEventListener("click", () => {
@@ -767,6 +791,9 @@ document.addEventListener("click", (event) => {
   }
 
   const modalId = closeTarget.dataset.modalClose;
+  if (modalId === "tools-smtp-message-modal") {
+    closeMessageModal();
+  }
   if (modalId === "tools-smtp-test-modal") {
     toggleModal(smtpElements.testModal, false);
   }
@@ -780,6 +807,10 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (smtpElements.messageModal?.classList.contains("modal--open")) {
+    closeMessageModal();
+    return;
+  }
   if (smtpElements.testModal?.classList.contains("modal--open")) {
     toggleModal(smtpElements.testModal, false);
   }
