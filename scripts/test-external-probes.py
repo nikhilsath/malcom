@@ -80,13 +80,6 @@ TOOL_PROBES: dict[str, dict[str, Any]] = {
         "credentials": ["local CLI installed"],
         "notes": "This is a local CLI/runtime check rather than an external HTTP probe.",
     },
-    "convert-audio": {
-        "probe_type": "local_runtime",
-        "probe_candidate": "ffmpeg -version",
-        "confidence": "high",
-        "credentials": ["ffmpeg installed"],
-        "notes": "This tool is local-only; use the runtime command as the smoke probe.",
-    },
 }
 
 

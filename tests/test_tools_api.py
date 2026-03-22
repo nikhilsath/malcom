@@ -30,19 +30,19 @@ class ToolMetadataApiTestCase(unittest.TestCase):
 
     def test_updates_tool_db_override_and_manifest(self) -> None:
         response = self.client.patch(
-            "/api/v1/tools/convert-audio/directory",
+            "/api/v1/tools/image-magic/directory",
             json={
-                "name": "Convert - Audio Pro",
-                "description": "Convert and normalize audio files for downstream processing.",
+                "name": "Image Magic Pro",
+                "description": "Convert and transform image files for downstream processing.",
             },
         )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual(body["name"], "Convert - Audio Pro")
+        self.assertEqual(body["name"], "Image Magic Pro")
         self.assertEqual(
             body["description"],
-            "Convert and normalize audio files for downstream processing.",
+            "Convert and transform image files for downstream processing.",
         )
 
         connection = connect(database_url=self.database_url)
@@ -54,37 +54,37 @@ class ToolMetadataApiTestCase(unittest.TestCase):
                 FROM tools
                 WHERE id = ?
                 """,
-                ("convert-audio",),
+                ("image-magic",),
             )
         finally:
             connection.close()
 
         self.assertIsNotNone(saved_row)
-        self.assertEqual(saved_row["source_name"], "Convert - Audio")
-        self.assertEqual(saved_row["name_override"], "Convert - Audio Pro")
+        self.assertEqual(saved_row["source_name"], "Image Magic")
+        self.assertEqual(saved_row["name_override"], "Image Magic Pro")
         self.assertEqual(
             saved_row["description_override"],
-            "Convert and normalize audio files for downstream processing.",
+            "Convert and transform image files for downstream processing.",
         )
 
         manifest_source = (self.root_dir / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
-        self.assertIn("Convert - Audio Pro", manifest_source)
-        self.assertIn("Convert and normalize audio files for downstream processing.", manifest_source)
-        self.assertIn("tools/convert-audio.html", manifest_source)
+        self.assertIn("Image Magic Pro", manifest_source)
+        self.assertIn("Convert and transform image files for downstream processing.", manifest_source)
+        self.assertIn("tools/image-magic.html", manifest_source)
 
     def test_lists_tool_directory_entries_with_page_and_enabled_state(self) -> None:
         response = self.client.get("/api/v1/tools")
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        convert_audio = next((item for item in body if item["id"] == "convert-audio"), None)
-        self.assertIsNotNone(convert_audio)
-        self.assertEqual(convert_audio["page_href"], "/tools/convert-audio.html")
-        self.assertFalse(convert_audio["enabled"])
+        image_magic = next((item for item in body if item["id"] == "image-magic"), None)
+        self.assertIsNotNone(image_magic)
+        self.assertEqual(image_magic["page_href"], "/tools/image-magic.html")
+        self.assertFalse(image_magic["enabled"])
 
     def test_updates_enabled_state_in_directory_endpoint(self) -> None:
         response = self.client.patch(
-            "/api/v1/tools/convert-audio/directory",
+            "/api/v1/tools/image-magic/directory",
             json={"enabled": True},
         )
 
@@ -100,7 +100,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
                 FROM tools
                 WHERE id = ?
                 """,
-                ("convert-audio",),
+                ("image-magic",),
             )
         finally:
             connection.close()
@@ -109,13 +109,13 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(saved_row["enabled"], 1)
 
     def test_rejects_empty_updates(self) -> None:
-        response = self.client.patch("/api/v1/tools/convert-audio/directory", json={})
+        response = self.client.patch("/api/v1/tools/image-magic/directory", json={})
         self.assertEqual(response.status_code, 400)
 
     def test_can_boot_without_built_ui_when_bypass_enabled(self) -> None:
         response = self.client.patch(
-            "/api/v1/tools/convert-audio/directory",
-            json={"name": "Convert - Audio Runtime"},
+            "/api/v1/tools/image-magic/directory",
+            json={"name": "Image Magic Runtime"},
         )
         self.assertEqual(response.status_code, 200)
 
@@ -429,20 +429,20 @@ class ToolMetadataApiTestCase(unittest.TestCase):
 
     def test_updates_tool_metadata_via_generic_patch_endpoint(self) -> None:
         response = self.client.patch(
-            "/api/v1/tools/convert-audio",
+            "/api/v1/tools/image-magic",
             json={
-                "name": "Convert - Audio Runtime",
+                "name": "Image Magic Runtime",
                 "description": "Updated through the generic metadata route.",
             },
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["id"], "convert-audio")
-        self.assertEqual(response.json()["name"], "Convert - Audio Runtime")
+        self.assertEqual(response.json()["id"], "image-magic")
+        self.assertEqual(response.json()["name"], "Image Magic Runtime")
         self.assertEqual(response.json()["description"], "Updated through the generic metadata route.")
 
         manifest_source = (self.root_dir / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
-        self.assertIn("Convert - Audio Runtime", manifest_source)
+        self.assertIn("Image Magic Runtime", manifest_source)
 
 
 if __name__ == "__main__":
