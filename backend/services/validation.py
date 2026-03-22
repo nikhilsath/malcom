@@ -31,8 +31,6 @@ def validate_automation_definition(
         issues.append("Scheduled automations require trigger_config.schedule_time.")
     if trigger_type == "inbound_api" and not trigger_config.inbound_api_id:
         issues.append("Inbound API automations require trigger_config.inbound_api_id.")
-    if trigger_type == "smtp_email" and not trigger_config.smtp_subject:
-        issues.append("SMTP email automations require trigger_config.smtp_subject.")
     if require_steps and not steps:
         issues.append("Automations require at least one step.")
 
@@ -80,6 +78,9 @@ def validate_automation_definition(
                 for required_key in ("relay_host", "relay_port", "from_address", "to", "subject", "body"):
                     if not inputs.get(required_key):
                         issues.append(f"Step {index} requires input '{required_key}' for smtp steps.")
+                relay_port_raw = str(inputs.get("relay_port") or "").strip()
+                if relay_port_raw and not relay_port_raw.isdigit():
+                    issues.append(f"Step {index} requires input 'relay_port' to be a valid integer for smtp steps.")
             if step.config.tool_id == "convert-audio":
                 inputs = step.config.tool_inputs or {}
                 if not inputs.get("input_file"):

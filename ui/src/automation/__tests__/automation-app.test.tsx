@@ -238,6 +238,29 @@ const renderAutomationApp = (options?: {
     throw new Error(`Unhandled request ${method} ${path}`);
   });
 
+  window.TOOLS_MANIFEST = [
+    {
+      id: "smtp",
+      name: "SMTP",
+      description: "Send email",
+      pageHref: "tools/smtp.html",
+      inputs: [
+        { key: "relay_host", label: "Relay Host", type: "string", required: true },
+        { key: "relay_port", label: "Relay Port", type: "number", required: true },
+        { key: "relay_security", label: "Security", type: "select", required: false, options: ["none", "starttls", "tls"] },
+        { key: "relay_username", label: "Username", type: "string", required: false },
+        { key: "relay_password", label: "Password", type: "string", required: false },
+        { key: "from_address", label: "From Address", type: "string", required: true },
+        { key: "to", label: "To", type: "string", required: true },
+        { key: "subject", label: "Subject", type: "string", required: true },
+        { key: "body", label: "Body", type: "text", required: true }
+      ],
+      outputs: [
+        { key: "status", label: "Status", type: "string" },
+        { key: "message", label: "Message", type: "string" }
+      ]
+    }
+  ];
   window.Malcom = { requestJson };
   const renderResult = render(<AutomationApp />);
 
@@ -468,6 +491,94 @@ describe("AutomationApp", () => {
       expect(patchRequest).toBeDefined();
       expect(patchRequest?.body?.trigger_config).toEqual({ schedule_time: "13:07" });
     });
+  });
+
+  it("allows SMTP triggers without filters and persists recipient-only filters", async () => {
+    const { requestLog } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-trigger-node") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-trigger-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-type-option-smtp_email") as HTMLElement);
+    expect(screen.getByText("Leave both filters blank to trigger on any inbound email. Matching is exact for now.")).toBeInTheDocument();
+
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
+      expect(patchRequest?.body?.trigger_type).toBe("smtp_email");
+      expect(patchRequest?.body?.trigger_config).toEqual({});
+    });
+
+    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-smtp-recipient-input") as HTMLElement, {
+      target: { value: "alerts@example.com" }
+    });
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      const patchRequests = requestLog.filter((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
+      expect(patchRequests.at(-1)?.body?.trigger_config).toEqual({ smtp_recipient_email: "alerts@example.com" });
+    });
+  });
+
+  it("renders SMTP tool step fields and blocks invalid relay ports before save", async () => {
+    const { requestLog } = renderAutomationApp({
+      initialAutomation: {
+        steps: [
+          {
+            id: "step-smtp",
+            type: "tool",
+            name: "Send email",
+            config: {
+              tool_id: "smtp",
+              tool_inputs: {
+                relay_host: "smtp.example.com",
+                relay_port: "abc",
+                relay_security: "starttls",
+                relay_username: "mailer",
+                relay_password: "secret",
+                from_address: "{{payload.mail_from}}",
+                to: "alerts@example.com",
+                subject: "{{payload.subject}}",
+                body: "{{payload.body}}"
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-step-node-step-smtp") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-step-step-smtp-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+    });
+
+    expect(document.querySelector("#automations-step-tool-input-relay_host-input")).toHaveValue("smtp.example.com");
+    expect(document.querySelector("#automations-step-tool-input-relay_password-input")).toHaveAttribute("type", "password");
+    expect(screen.getByText(/Supports template variables in From, To, Subject, and Body/)).toBeInTheDocument();
+
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      expect(screen.getByText("Step 1 requires a numeric 'Relay Port' for SMTP.")).toBeInTheDocument();
+    });
+    expect(requestLog.some((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH")).toBe(false);
   });
 
   it("shows run results in the on-demand test drawer", async () => {

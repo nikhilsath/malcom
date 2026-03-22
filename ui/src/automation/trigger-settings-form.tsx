@@ -310,23 +310,28 @@ export const TriggerSettingsForm = ({
       {value.trigger_type === "smtp_email" ? (
         <>
           <label id={id("trigger-smtp-subject-field")} className="automation-field automation-field--full">
-            <span id={id("trigger-smtp-subject-label")} className="automation-field__label">Email subject</span>
+            <span id={id("trigger-smtp-subject-label")} className="automation-field__label">Subject match</span>
             <input
               id={id("trigger-smtp-subject-input")}
               className="automation-input"
               value={value.trigger_config.smtp_subject || ""}
               onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, smtp_subject: event.target.value } })}
+              placeholder="Optional exact subject"
             />
           </label>
           <label id={id("trigger-smtp-recipient-field")} className="automation-field automation-field--full">
-            <span id={id("trigger-smtp-recipient-label")} className="automation-field__label">Recipient filter</span>
+            <span id={id("trigger-smtp-recipient-label")} className="automation-field__label">Recipient match</span>
             <input
               id={id("trigger-smtp-recipient-input")}
               className="automation-input"
               value={value.trigger_config.smtp_recipient_email || ""}
               onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, smtp_recipient_email: event.target.value } })}
+              placeholder="Optional exact recipient"
             />
           </label>
+          <span id={id("trigger-smtp-help")} className="automation-switch-field__description">
+            Leave both filters blank to trigger on any inbound email. Matching is exact for now.
+          </span>
         </>
       ) : null}
     </div>
