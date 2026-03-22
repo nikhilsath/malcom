@@ -19,6 +19,7 @@ import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStep
 import { AddStepModal } from "./add-step-modal";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
+import { ToolStepFields } from "./tool-step-fields";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 
 declare global {
@@ -222,7 +223,18 @@ const getTriggerSummary = (automation: AutomationDetail, inboundApis: InboundApi
     return `Watches inbound API ${matchedInboundApi?.name || automation.trigger_config.inbound_api_id}`;
   }
   if (automation.trigger_type === "smtp_email") {
-    return automation.trigger_config.smtp_subject ? `Matches subject ${automation.trigger_config.smtp_subject}` : "Provide the inbound subject filter.";
+    const smtpSubject = automation.trigger_config.smtp_subject?.trim();
+    const smtpRecipient = automation.trigger_config.smtp_recipient_email?.trim();
+    if (smtpSubject && smtpRecipient) {
+      return `Matches subject ${smtpSubject} to ${smtpRecipient}`;
+    }
+    if (smtpSubject) {
+      return `Matches subject ${smtpSubject}`;
+    }
+    if (smtpRecipient) {
+      return `Matches recipient ${smtpRecipient}`;
+    }
+    return "Runs for any inbound email.";
   }
   return "Runs on operator demand.";
 };
@@ -282,9 +294,6 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
   if (isInboundApiSelectionMissing(automation, inboundApis)) {
     issues.push("Selected inbound API is unavailable. Choose a currently configured inbound API.");
   }
-  if (automation.trigger_type === "smtp_email" && !automation.trigger_config.smtp_subject) {
-    issues.push("Email subject is required for SMTP-triggered automations.");
-  }
   if (automation.steps.length === 0) {
     issues.push("At least one step is required.");
   }
@@ -306,6 +315,9 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
           if (field.required && !toolInputs[field.key]?.trim()) {
             issues.push(`Step ${index + 1} requires '${field.label}' for ${manifest.name}.`);
           }
+        }
+        if (manifest.id === "smtp" && toolInputs.relay_port?.trim() && !/^\d+$/.test(toolInputs.relay_port.trim())) {
+          issues.push(`Step ${index + 1} requires a numeric 'Relay Port' for SMTP.`);
         }
       }
     }
@@ -946,83 +958,12 @@ export const AutomationApp = () => {
         ) : null}
 
         {step.type === "tool" ? (
-          <>
-            <label id="automations-step-tool-id-field" className="automation-field automation-field--full">
-              <span id="automations-step-tool-id-label" className="automation-field__label">Tool</span>
-              <select
-                id="automations-step-tool-id-select"
-                className="automation-input"
-                value={step.config.tool_id || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({
-                  ...currentStep,
-                  config: { ...currentStep.config, tool_id: event.target.value, tool_inputs: {} }
-                }))}
-              >
-                <option value="">Select a tool...</option>
-                {(window.TOOLS_MANIFEST || []).map((tool) => (
-                  <option key={tool.id} value={tool.id}>{tool.name}</option>
-                ))}
-              </select>
-            </label>
-
-            {(() => {
-              const toolManifest = (window.TOOLS_MANIFEST || []).find((tool) => tool.id === step.config.tool_id);
-              if (!toolManifest || toolManifest.inputs.length === 0) return null;
-              const toolInputs = step.config.tool_inputs || {};
-              const updateInput = (key: string, value: string) =>
-                updateDrawerStep((currentStep) => ({
-                  ...currentStep,
-                  config: {
-                    ...currentStep.config,
-                    tool_inputs: { ...(currentStep.config.tool_inputs || {}), [key]: value }
-                  }
-                }));
-              return (
-                <>
-                  {toolManifest.inputs.map((field) => {
-                    const fieldId = `automations-step-tool-input-${field.key}`;
-                    const isFullWidth = field.type === "text";
-                    return (
-                      <label key={field.key} id={`${fieldId}-field`} className={`automation-field${isFullWidth ? " automation-field--full" : ""}`}>
-                        <span id={`${fieldId}-label`} className="automation-field__label">
-                          {field.label}{field.required ? " *" : ""}
-                        </span>
-                        {field.type === "text" ? (
-                          <textarea
-                            id={`${fieldId}-input`}
-                            className="automation-textarea"
-                            rows={4}
-                            value={toolInputs[field.key] || ""}
-                            onChange={(event) => updateInput(field.key, event.target.value)}
-                          />
-                        ) : field.type === "select" ? (
-                          <select
-                            id={`${fieldId}-input`}
-                            className="automation-input"
-                            value={toolInputs[field.key] || ""}
-                            onChange={(event) => updateInput(field.key, event.target.value)}
-                          >
-                            <option value="">Select...</option>
-                            {(field.options || []).map((option) => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            id={`${fieldId}-input`}
-                            className="automation-input"
-                            type={field.type === "number" ? "number" : "text"}
-                            value={toolInputs[field.key] || ""}
-                            onChange={(event) => updateInput(field.key, event.target.value)}
-                          />
-                        )}
-                      </label>
-                    );
-                  })}
-                </>
-              );
-            })()}
-          </>
+          <ToolStepFields
+            idPrefix="automations-step"
+            step={step}
+            toolsManifest={window.TOOLS_MANIFEST || []}
+            onChange={(updatedStep) => updateDrawerStep(() => updatedStep)}
+          />
         ) : null}
 
         {step.type === "condition" ? (

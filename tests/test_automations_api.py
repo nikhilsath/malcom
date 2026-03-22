@@ -441,6 +441,107 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["trigger_type"], "smtp_email")
 
+    def test_smtp_email_trigger_allows_blank_filters_and_exposes_payload_fields(self) -> None:
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "SMTP catch-all automation",
+                "description": "Runs for any inbound email.",
+                "enabled": True,
+                "trigger_type": "smtp_email",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Email payload log",
+                        "config": {
+                            "message": "Subject={{payload.subject}} From={{payload.mail_from}} To={{payload.recipients}} At={{payload.received_at}} Raw={{payload.smtp.subject}}",
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+        validate_response = self.client.post(f"/api/v1/automations/{automation['id']}/validate")
+        self.assertEqual(validate_response.status_code, 200)
+        self.assertTrue(validate_response.json()["valid"])
+
+        local_worker_id = get_local_worker_id()
+        patch_response = self.client.patch(
+            "/api/v1/tools/smtp",
+            json={
+                "enabled": True,
+                "target_worker_id": local_worker_id,
+                "bind_host": "127.0.0.1",
+                "port": 0,
+                "recipient_email": "recipient@example.com",
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+
+        start_response = self.client.post("/api/v1/tools/smtp/start")
+        self.assertEqual(start_response.status_code, 200)
+        started_payload = start_response.json()
+        if started_payload["runtime"]["status"] == "error" and "Operation not permitted" in (started_payload["runtime"]["last_error"] or ""):
+            self.skipTest("SMTP listener binding is not permitted in the current sandbox.")
+
+        listening_port = started_payload["runtime"]["listening_port"]
+        self.assertIsInstance(listening_port, int)
+
+        with smtplib.SMTP("127.0.0.1", listening_port, timeout=3) as client:
+            client.sendmail(
+                "sender@example.com",
+                ["recipient@example.com"],
+                "Subject: Catch all\r\n\r\ninvoice body",
+            )
+
+        sleep(0.1)
+        runs_response = self.client.get(f"/api/v1/automations/{automation['id']}/runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(len(runs), 1)
+
+        run_detail = self.client.get(f"/api/v1/runs/{runs[0]['run_id']}")
+        self.assertEqual(run_detail.status_code, 200)
+        step_detail = run_detail.json()["steps"][0]
+        self.assertIn("Subject=Catch all", step_detail["response_summary"])
+        self.assertIn("From=sender@example.com", step_detail["response_summary"])
+        self.assertIn("To=['recipient@example.com']", step_detail["response_summary"])
+        self.assertIn("Raw=Catch all", step_detail["response_summary"])
+
+    def test_smtp_tool_step_rejects_non_numeric_relay_port(self) -> None:
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "SMTP send validation",
+                "description": "Reject invalid SMTP tool config.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "tool",
+                        "name": "Send email",
+                        "config": {
+                            "tool_id": "smtp",
+                            "tool_inputs": {
+                                "relay_host": "smtp.example.com",
+                                "relay_port": "abc",
+                                "relay_security": "starttls",
+                                "from_address": "bot@example.com",
+                                "to": "user@example.com",
+                                "subject": "Hello",
+                                "body": "World",
+                            },
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("relay_port", response.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()
