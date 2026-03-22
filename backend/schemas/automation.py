@@ -32,6 +32,8 @@ class AutomationRunStepResponse(BaseModel):
     finished_at: str | None
     duration_ms: int | None
     detail_json: dict[str, Any] | None
+    response_body_json: Any | None = None
+    extracted_fields_json: dict[str, Any] | None = None
 
 
 class AutomationRunResponse(BaseModel):
@@ -66,6 +68,8 @@ class AutomationStepConfig(BaseModel):
     auth_config: OutgoingAuthConfig | None = None
     connector_id: str | None = Field(default=None, max_length=120)
     payload_template: str | None = Field(default=None, max_length=10000)
+    wait_for_response: bool = True
+    response_mappings: list[dict[str, str]] | None = None
     script_id: str | None = Field(default=None, max_length=120)
     tool_id: str | None = Field(default=None, max_length=120)
     tool_inputs: dict[str, str] | None = None

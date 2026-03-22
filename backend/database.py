@@ -171,7 +171,10 @@ CREATE TABLE IF NOT EXISTS automation_run_steps (
     started_at TEXT NOT NULL,
     finished_at TEXT,
     duration_ms INTEGER,
-    detail_json TEXT
+    detail_json TEXT,
+    response_body_json TEXT,
+    extracted_fields_json TEXT,
+    inputs_json TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS scripts (
@@ -303,6 +306,8 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "tools", "inputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "tools", "outputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "automation_run_steps", "inputs_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "automation_run_steps", "response_body_json", "TEXT")
+    _ensure_column(connection, "automation_run_steps", "extracted_fields_json", "TEXT")
     _ensure_column(connection, "automation_runs", "worker_id", "TEXT")
     _ensure_column(connection, "automation_runs", "worker_name", "TEXT")
     _ensure_column(connection, "scripts", "validation_status", "TEXT NOT NULL DEFAULT 'unknown'")

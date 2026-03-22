@@ -126,7 +126,9 @@ def complete_worker_trigger(payload: WorkerCompletionRequest, request: Request) 
             started_at,
             finished_at,
             duration_ms,
-            detail_json
+            detail_json,
+            response_body_json,
+            extracted_fields_json
         FROM automation_run_steps
         WHERE run_id = ?
         ORDER BY started_at ASC

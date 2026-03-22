@@ -205,9 +205,28 @@ const renderAutomationApp = (options?: {
             started_at: "2026-03-15T09:00:00.000Z",
             finished_at: "2026-03-15T09:00:01.000Z",
             duration_ms: 1000,
-            detail_json: null
+            detail_json: null,
+            response_body_json: null,
+            extracted_fields_json: null
           }
         ]
+      };
+    }
+
+    if (path === "/api/v1/apis/test-delivery") {
+      return {
+        ok: true,
+        status_code: 200,
+        response_body: JSON.stringify({
+          data: {
+            guides: {
+              count: 4,
+              items: [{ title: "Welcome" }]
+            }
+          }
+        }),
+        sent_headers: { "Content-Type": "application/json" },
+        destination_url: "https://example.com/ingest"
       };
     }
 
@@ -293,6 +312,34 @@ describe("AutomationApp", () => {
       expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
       expect(document.querySelector("#log-step-form-root")).toBeInTheDocument();
     });
+  });
+
+  it("adds HTTP response mappings from a sample JSON response", async () => {
+    const { requestLog } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-step-node-step-http") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-step-step-http-actions-button") as HTMLElement);
+    await waitFor(() => {
+      expect(document.querySelector("#automations-node-menu")).toBeInTheDocument();
+    });
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    const loadSampleButton = await screen.findByRole("button", { name: "Load sample response" });
+    fireEvent.click(loadSampleButton);
+
+    await waitFor(() => {
+      expect(requestLog.some((entry) => entry.path === "/api/v1/apis/test-delivery")).toBe(true);
+    });
+
+    const countNodeButton = await screen.findByRole("button", { name: /count/i });
+    fireEvent.click(countNodeButton);
+
+    expect(await screen.findByDisplayValue("count")).toBeInTheDocument();
+    expect(screen.getByText("data.guides.count")).toBeInTheDocument();
   });
 
   it("supports the node context menu shortcut on desktop", async () => {

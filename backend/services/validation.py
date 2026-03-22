@@ -56,6 +56,13 @@ def validate_automation_definition(
                     json.loads(step.config.payload_template)
                 except json.JSONDecodeError as error:
                     issues.append(f"Step {index} has invalid JSON payload_template: {error.msg}.")
+            for mapping_index, mapping in enumerate(step.config.response_mappings or [], start=1):
+                key = str(mapping.get("key", "")).strip()
+                path = str(mapping.get("path", "")).strip()
+                if not key:
+                    issues.append(f"Step {index} response mapping {mapping_index} requires a key.")
+                if not path:
+                    issues.append(f"Step {index} response mapping {mapping_index} requires a JSON path.")
         if step.type == "script" and not step.config.script_id:
             issues.append(f"Step {index} requires config.script_id for script steps.")
         if step.type == "tool":

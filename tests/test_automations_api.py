@@ -3,12 +3,14 @@ from __future__ import annotations
 import smtplib
 import tempfile
 import unittest
+from time import sleep
 from pathlib import Path
 from unittest import mock
 
 from fastapi.testclient import TestClient
 
 from backend.main import LocalLlmChatResponse, app, get_local_worker_id
+from backend.schemas import OutgoingApiTestResponse
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -162,6 +164,129 @@ class AutomationsApiTestCase(unittest.TestCase):
         runs = runs_response.json()
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["trigger_type"], "inbound_api")
+
+    def test_http_step_extracts_json_fields_for_downstream_steps(self) -> None:
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "HTTP extraction",
+                "description": "Extracts guide counts.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Fetch guide stats",
+                        "config": {
+                            "destination_url": "https://example.com/guides",
+                            "http_method": "GET",
+                            "payload_template": "{}",
+                            "wait_for_response": True,
+                            "response_mappings": [
+                                {"key": "guide_count", "path": "data.guides.count"},
+                                {"key": "first_title", "path": "data.guides.items[0].title"},
+                            ],
+                        },
+                    },
+                    {
+                        "type": "log",
+                        "name": "Log extracted guide count",
+                        "config": {"message": "Guides: {{steps.Fetch guide stats.guide_count}} / {{steps.Fetch guide stats.first_title}}"},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+
+        with mock.patch(
+            "backend.services.helpers.execute_outgoing_test_delivery",
+            return_value=OutgoingApiTestResponse(
+                ok=True,
+                status_code=200,
+                response_body='{"data":{"guides":{"count":4,"items":[{"title":"Welcome"}]}}}',
+                sent_headers={"Content-Type": "application/json"},
+                destination_url="https://example.com/guides",
+            ),
+        ):
+            execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+        self.assertEqual(run["status"], "completed")
+        http_step = run["steps"][0]
+        self.assertEqual(http_step["extracted_fields_json"]["guide_count"], 4)
+        self.assertEqual(http_step["extracted_fields_json"]["first_title"], "Welcome")
+        self.assertEqual(http_step["response_body_json"]["data"]["guides"]["count"], 4)
+        log_step = run["steps"][1]
+        self.assertIn("Guides: 4 / Welcome", log_step["response_summary"])
+
+    def test_http_step_can_continue_without_waiting_for_response(self) -> None:
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "HTTP background",
+                "description": "Continues while logging later.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Send background request",
+                        "config": {
+                            "destination_url": "https://example.com/async",
+                            "http_method": "POST",
+                            "payload_template": "{}",
+                            "wait_for_response": False,
+                            "response_mappings": [{"key": "status_value", "path": "status"}],
+                        },
+                    },
+                    {
+                        "type": "log",
+                        "name": "Continue immediately",
+                        "config": {"message": "continued"},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+        automation = automation_response.json()
+
+        with mock.patch(
+            "backend.services.helpers.execute_outgoing_test_delivery",
+            side_effect=lambda payload: (
+                sleep(0.05),
+                OutgoingApiTestResponse(
+                    ok=True,
+                    status_code=202,
+                    response_body='{"status":"queued"}',
+                    sent_headers={"Content-Type": "application/json"},
+                    destination_url=payload.destination_url,
+                ),
+            )[1],
+        ):
+            execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(run["steps"][0]["response_summary"], "Request sent in background mode.")
+        self.assertEqual(run["steps"][1]["step_name"], "Continue immediately")
+
+        for _ in range(20):
+            run_detail_response = self.client.get(f"/api/v1/runs/{run['run_id']}")
+            self.assertEqual(run_detail_response.status_code, 200)
+            refreshed_run = run_detail_response.json()
+            if refreshed_run["steps"][0]["extracted_fields_json"]:
+                break
+            sleep(0.05)
+        else:
+            self.fail("Background HTTP step did not store extracted fields in time.")
+
+        self.assertEqual(refreshed_run["steps"][0]["extracted_fields_json"]["status_value"], "queued")
+        self.assertEqual(refreshed_run["steps"][0]["response_body_json"]["status"], "queued")
 
     def test_inbound_triggered_automation_requires_existing_inbound_api(self) -> None:
         create_response = self.client.post(

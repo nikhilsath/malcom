@@ -1006,6 +1006,106 @@
   gap: 4px;
 }
 
+.automation-run-step-card__details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.automation-run-step-card__details-summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+.automation-run-step-card__code {
+  margin: 0;
+  padding: 0 12px 12px;
+  overflow-x: auto;
+  font-size: 0.825rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.automation-inline-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automation-inline-checkbox__label {
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.automation-http-mapping-panel,
+.automation-http-json-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.automation-http-mapping-panel__actions,
+.automation-http-json-panel__header {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-http-mapping-table-wrapper {
+  overflow-x: auto;
+}
+
+.automation-http-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.automation-http-mapping-table th,
+.automation-http-mapping-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.automation-http-mapping-table__path {
+  white-space: nowrap;
+}
+
+.automation-json-tree {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 16px;
+  list-style: none;
+}
+
+.automation-json-tree__item {
+  display: grid;
+  gap: 6px;
+}
+
+.automation-json-tree__select {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  text-align: left;
+}
+
+.automation-json-tree__path {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+}
+
+.automation-json-tree__value {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
 .automation-dialog-backdrop {
   position: fixed;
   inset: 0;

@@ -4,6 +4,18 @@
 export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
 export type StepType = "log" | "outbound_request" | "script" | "tool" | "condition" | "llm_chat";
 
+declare global {
+  interface Window {
+    TOOLS_MANIFEST?: ToolManifestEntry[];
+    INBOUND_APIS?: { id: string; name: string }[];
+    SCRIPTS?: { id: string; name: string }[];
+    CONNECTORS?: { id: string; name: string }[];
+    Malcom?: {
+      requestJson?: (path: string, options?: RequestInit) => Promise<any>;
+    };
+  }
+}
+
 export const triggerTypeOptions: Array<{ value: TriggerType; label: string }> = [
   { value: "manual", label: "Manual" },
   { value: "schedule", label: "Schedule" },
@@ -75,6 +87,8 @@ export type AutomationStep = {
     auth_type?: string;
     connector_id?: string;
     payload_template?: string;
+    wait_for_response?: boolean;
+    response_mappings?: Array<{ key: string; path: string }>;
     script_id?: string;
     tool_id?: string;
     tool_inputs?: Record<string, string>;
@@ -108,7 +122,9 @@ export const stepTemplates: Record<StepType, AutomationStep> = {
       http_method: "POST",
       auth_type: "none",
       connector_id: "",
-      payload_template: "{\"automation_id\":\"{{automation.id}}\"}"
+      payload_template: "{\"automation_id\":\"{{automation.id}}\"}",
+      wait_for_response: true,
+      response_mappings: []
     }
   },
   script: { type: "script", name: "Script step", config: { script_id: "" } },

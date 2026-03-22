@@ -18,6 +18,7 @@ import type { TriggerType, StepType, AutomationStep, ConnectorRecord, ToolManife
 import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
 import { LogStepForm } from "./step-modals/log-step-form";
+import { HttpStepForm } from "./step-modals/http-step-form";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 
 declare global {
@@ -80,6 +81,8 @@ type AutomationRunDetail = AutomationRun & {
     finished_at: string | null;
     duration_ms: number | null;
     detail_json: Record<string, unknown> | null;
+    response_body_json: unknown | null;
+    extracted_fields_json: Record<string, unknown> | null;
   }>;
 };
 
@@ -922,58 +925,12 @@ export const AutomationApp = () => {
         ) : null}
 
         {step.type === "outbound_request" ? (
-          <>
-            <div id="automations-step-http-method-field" className="automation-field automation-field--full">
-              <span id="automations-step-http-method-label" className="automation-field__label">HTTP method</span>
-              <FlowSelect
-                rootId="automations-step-http-method-input"
-                labelId="automations-step-http-method-label"
-                value={(step.config.http_method || "POST") as "GET" | "POST" | "PUT" | "PATCH" | "DELETE"}
-                placeholder="Choose a method"
-                options={[
-                  { value: "GET", label: "GET" },
-                  { value: "POST", label: "POST" },
-                  { value: "PUT", label: "PUT" },
-                  { value: "PATCH", label: "PATCH" },
-                  { value: "DELETE", label: "DELETE" }
-                ]}
-                onValueChange={(nextValue) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, http_method: nextValue } }))}
-              />
-            </div>
-            <label id="automations-step-http-connector-field" className="automation-field automation-field--full">
-              <span id="automations-step-http-connector-label" className="automation-field__label">Saved connector</span>
-              <select
-                id="automations-step-http-connector-input"
-                className="automation-native-select"
-                value={step.config.connector_id || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, connector_id: event.target.value } }))}
-              >
-                <option value="">None</option>
-                {connectors.map((connector) => (
-                  <option key={connector.id} value={connector.id}>{connector.name}</option>
-                ))}
-              </select>
-            </label>
-            <label id="automations-step-http-url-field" className="automation-field automation-field--full">
-              <span id="automations-step-http-url-label" className="automation-field__label">Destination URL</span>
-              <input
-                id="automations-step-http-url-input"
-                className="automation-input"
-                value={step.config.destination_url || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, destination_url: event.target.value } }))}
-              />
-            </label>
-            <label id="automations-step-http-payload-field" className="automation-field automation-field--full">
-              <span id="automations-step-http-payload-label" className="automation-field__label">Payload template</span>
-              <textarea
-                id="automations-step-http-payload-input"
-                className="automation-textarea automation-textarea--code"
-                rows={6}
-                value={step.config.payload_template || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, payload_template: event.target.value } }))}
-              />
-            </label>
-          </>
+          <HttpStepForm
+            draft={step}
+            connectors={connectors}
+            onChange={(updated) => updateDrawerStep(() => updated)}
+            idPrefix="automations-step-http"
+          />
         ) : null}
 
         {step.type === "script" ? (
@@ -1582,6 +1539,26 @@ export const AutomationApp = () => {
                         </div>
                         <p id={`automations-run-step-request-${step.step_id}`} className="automation-run-step-card__text">{step.request_summary || "No request summary recorded."}</p>
                         <p id={`automations-run-step-response-${step.step_id}`} className="automation-run-step-card__text">{step.response_summary || "No response summary recorded."}</p>
+                        {step.extracted_fields_json && Object.keys(step.extracted_fields_json).length > 0 ? (
+                          <details id={`automations-run-step-extracted-${step.step_id}`} className="automation-run-step-card__details">
+                            <summary id={`automations-run-step-extracted-summary-${step.step_id}`} className="automation-run-step-card__details-summary">
+                              Extracted values
+                            </summary>
+                            <pre id={`automations-run-step-extracted-body-${step.step_id}`} className="automation-run-step-card__code">
+                              {JSON.stringify(step.extracted_fields_json, null, 2)}
+                            </pre>
+                          </details>
+                        ) : null}
+                        {step.response_body_json ? (
+                          <details id={`automations-run-step-response-body-${step.step_id}`} className="automation-run-step-card__details">
+                            <summary id={`automations-run-step-response-body-summary-${step.step_id}`} className="automation-run-step-card__details-summary">
+                              Full JSON response
+                            </summary>
+                            <pre id={`automations-run-step-response-body-code-${step.step_id}`} className="automation-run-step-card__code">
+                              {JSON.stringify(step.response_body_json, null, 2)}
+                            </pre>
+                          </details>
+                        ) : null}
                       </article>
                     ))}
                   </div>
