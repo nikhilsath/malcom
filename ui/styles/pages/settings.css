@@ -61,8 +61,15 @@
 }
 
 .settings-connectors-layout {
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-connectors-detail-modal-dialog {
+  --modal-max-inline-size: 64rem;
+}
+
+.settings-connectors-detail-panel {
+  width: min(64rem, calc(100vw - (var(--modal-viewport-padding) * 2)));
 }
 
 .settings-connectors-summary-value {
