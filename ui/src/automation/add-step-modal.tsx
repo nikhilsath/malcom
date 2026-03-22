@@ -4,12 +4,14 @@ import type {
   StepType,
   AutomationStep,
   ConnectorRecord,
+  ConnectorActivityDefinition,
   ToolManifestEntry,
   ScriptLibraryItem
 } from "./types";
 import { stepTypeOptions, cloneStepTemplate, getDefaultStepName } from "./types";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
+import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step-form";
 import { ScriptStepForm } from "./step-modals/script-step-form";
 import { ToolStepForm } from "./step-modals/tool-step-form";
 import { ConditionStepForm } from "./step-modals/condition-step-form";
@@ -20,6 +22,7 @@ type Props = {
   onClose: () => void;
   onAdd: (step: AutomationStep) => void;
   connectors: ConnectorRecord[];
+  activityCatalog: ConnectorActivityDefinition[];
   toolsManifest: ToolManifestEntry[];
   scripts?: ScriptLibraryItem[];
 };
@@ -29,6 +32,7 @@ export const AddStepModal = ({
   onClose,
   onAdd,
   connectors,
+  activityCatalog,
   toolsManifest,
   scripts
 }: Props) => {
@@ -68,6 +72,8 @@ export const AddStepModal = ({
         return <LogStepForm draft={draft} onChange={setDraft} />;
       case "outbound_request":
         return <HttpStepForm draft={draft} connectors={connectors} onChange={setDraft} />;
+      case "connector_activity":
+        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} onChange={setDraft} />;
       case "script":
         return <ScriptStepForm draft={draft} scripts={scripts} onChange={setDraft} />;
       case "tool":

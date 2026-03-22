@@ -116,6 +116,7 @@ const renderAutomationApp = (options?: {
     steps?: Array<Record<string, unknown>>;
   };
   inboundApis?: Array<{ id: string; name: string }>;
+  connectors?: Array<Record<string, unknown>>;
 }) => {
   document.body.innerHTML = '<button id="automations-create-button" type="button">Create</button>';
   window.history.replaceState({}, "", "/automations/builder.html?id=automation-daily-ingest");
@@ -148,7 +149,7 @@ const renderAutomationApp = (options?: {
     if (path === "/api/v1/settings") {
       return {
         connectors: {
-          records: [
+          records: options?.connectors || [
             {
               id: "connector-main",
               provider: "http",
@@ -167,6 +168,31 @@ const renderAutomationApp = (options?: {
 
     if (path === "/api/v1/scripts") {
       return scriptLibraryItems;
+    }
+
+    if (path === "/api/v1/connectors/activity-catalog") {
+      return [
+        {
+          provider_id: "http",
+          activity_id: "custom_http",
+          label: "Custom HTTP",
+          description: "Not used in this test harness.",
+          required_scopes: [],
+          input_schema: [],
+          output_schema: [],
+          execution: {}
+        },
+        {
+          provider_id: "google",
+          activity_id: "gmail_unread_count",
+          label: "Gmail unread count",
+          description: "Return unread Gmail count.",
+          required_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          input_schema: [],
+          output_schema: [{ key: "unread_count", label: "Unread count", type: "integer" }],
+          execution: {}
+        }
+      ];
     }
 
     if (path === "/api/v1/automations") {

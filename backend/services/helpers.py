@@ -83,6 +83,7 @@ from backend.services.network import (
     redact_outgoing_request_headers,
     execute_outgoing_test_delivery,
 )
+from backend.services.connector_activities import execute_connector_activity
 from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
     write_application_log as write_application_log_core,
@@ -3680,6 +3681,26 @@ def execute_automation_step(
             response_summary=f"{delivery.status_code} {delivery.destination_url}",
             detail=detail,
             output=output_payload,
+        )
+
+    if step.type == "connector_activity":
+        activity_output = execute_connector_activity(
+            connection,
+            connector_id=step.config.connector_id or "",
+            activity_id=step.config.activity_id or "",
+            inputs=step.config.activity_inputs,
+            root_dir=root_dir,
+            context=context,
+        )
+        return RuntimeExecutionResult(
+            status="completed",
+            response_summary=f"Connector activity {step.config.activity_id} completed.",
+            detail={
+                "connector_id": step.config.connector_id,
+                "activity_id": step.config.activity_id,
+                "activity_output": activity_output,
+            },
+            output=activity_output,
         )
 
     if step.type == "script":

@@ -8,6 +8,7 @@ from fastapi import Request
 from .api_serialization import *
 from .automation_executor import *
 from .connector_manager import *
+from .connector_activities import *
 from .helpers import *
 from .network import *
 from .scripts import *

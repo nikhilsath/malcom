@@ -15,6 +15,11 @@ from backend.services.support import *
 router = APIRouter()
 
 
+@router.get("/api/v1/connectors/activity-catalog", response_model=list[ConnectorActivityDefinitionResponse])
+def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionResponse]:
+    return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog()]
+
+
 def _exchange_google_oauth_code_for_tokens(
     *,
     code: str,

@@ -20,6 +20,7 @@ import type {
   StepType,
   AutomationStep,
   ConnectorRecord,
+  ConnectorActivityDefinition,
   ToolManifestEntry,
   InboundApiOption,
   ScriptLibraryItem
@@ -28,6 +29,7 @@ import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStep
 import { AddStepModal } from "./add-step-modal";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
+import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step-form";
 import { ScriptStepForm } from "./step-modals/script-step-form";
 import { ToolStepFields } from "./tool-step-fields";
 import { TriggerSettingsForm } from "./trigger-settings-form";
@@ -109,7 +111,7 @@ type WorkflowNodeData = {
   label: string;
   subtitle: string;
   summary: string;
-  accent: "trigger" | "log" | "http" | "script" | "tool" | "condition" | "llm";
+  accent: "trigger" | "log" | "http" | "connector" | "script" | "tool" | "condition" | "llm";
   selected: boolean;
   isMergeTarget?: boolean;
   hasBranchEdges?: boolean;
@@ -160,6 +162,7 @@ const ZOOM_STEP_COUNT_THRESHOLD = 5;
 const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   log: "log",
   outbound_request: "http",
+  connector_activity: "connector",
   script: "script",
   tool: "tool",
   condition: "condition",
@@ -270,6 +273,9 @@ const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[]) => {
   if (step.type === "outbound_request") {
     return step.config.destination_url || step.config.connector_id || "Send a request to a remote endpoint.";
   }
+  if (step.type === "connector_activity") {
+    return step.config.activity_id ? `${step.config.connector_id || "Connector"} · ${step.config.activity_id}` : "Select a connector-backed activity.";
+  }
   if (step.type === "script") {
     if (!step.config.script_id) {
       return "Select a script to run.";
@@ -336,6 +342,14 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
     }
     if (step.type === "script" && !step.config.script_id) {
       issues.push(`Step ${index + 1} requires a script selection.`);
+    }
+    if (step.type === "connector_activity") {
+      if (!step.config.connector_id) {
+        issues.push(`Step ${index + 1} requires a saved connector.`);
+      }
+      if (!step.config.activity_id) {
+        issues.push(`Step ${index + 1} requires a prebuilt activity selection.`);
+      }
     }
   });
   return issues;
@@ -486,6 +500,7 @@ export const AutomationApp = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [inboundApis, setInboundApis] = useState<InboundApiOption[]>([]);
+  const [activityCatalog, setActivityCatalog] = useState<ConnectorActivityDefinition[]>([]);
   const [scripts, setScripts] = useState<ScriptLibraryItem[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
@@ -623,14 +638,16 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const [settings, inbound, scriptItems] = await Promise.all([
+    const [settings, inbound, scriptItems, activityItems] = await Promise.all([
       requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
       requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
-      requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts")
+      requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts"),
+      requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog")
     ]);
     setConnectors(settings.connectors?.records || []);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
     setScripts(scriptItems);
+    setActivityCatalog(activityItems);
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
@@ -966,6 +983,16 @@ export const AutomationApp = () => {
             connectors={connectors}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step-http"
+          />
+        ) : null}
+
+        {step.type === "connector_activity" ? (
+          <ConnectorActivityStepForm
+            draft={step}
+            connectors={connectors}
+            activityCatalog={activityCatalog}
+            onChange={(updated) => updateDrawerStep(() => updated)}
+            idPrefix="automations-step-connector-activity"
           />
         ) : null}
 
@@ -1549,6 +1576,7 @@ export const AutomationApp = () => {
           setAddStepModalOpen(false);
         }}
         connectors={connectors}
+        activityCatalog={activityCatalog}
         toolsManifest={window.TOOLS_MANIFEST || []}
         scripts={scripts}
       />

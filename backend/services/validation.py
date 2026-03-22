@@ -14,12 +14,15 @@ from backend.schemas import (
     OutgoingAuthConfig,
     ScheduledApiResourceUpdate,
 )
+from backend.services.connector_activities import get_connector_activity_definition, get_missing_connector_activity_scopes
+from backend.services.connectors import find_stored_connector_record
 
 
 def validate_automation_definition(
     payload: AutomationCreate | AutomationUpdate | AutomationDetailResponse,
     *,
     require_steps: bool = False,
+    connection: object | None = None,
 ) -> list[str]:
     issues: list[str] = []
     trigger_type = payload.trigger_type
@@ -61,6 +64,23 @@ def validate_automation_definition(
                     issues.append(f"Step {index} response mapping {mapping_index} requires a key.")
                 if not path:
                     issues.append(f"Step {index} response mapping {mapping_index} requires a JSON path.")
+        if step.type == "connector_activity":
+            if not step.config.connector_id:
+                issues.append(f"Step {index} requires config.connector_id for connector activity steps.")
+            if not step.config.activity_id:
+                issues.append(f"Step {index} requires config.activity_id for connector activity steps.")
+            elif step.config.connector_id and connection is not None:
+                connector_record = find_stored_connector_record(connection, step.config.connector_id)
+                if connector_record is None:
+                    issues.append(f"Step {index} references an unknown connector.")
+                else:
+                    activity_definition = get_connector_activity_definition(connector_record.get("provider") or "", step.config.activity_id)
+                    if activity_definition is None:
+                        issues.append(f"Step {index}: connector provider does not support activity '{step.config.activity_id}'.")
+                    else:
+                        missing_scopes = get_missing_connector_activity_scopes(connector_record, activity_definition)
+                        if missing_scopes:
+                            issues.append(f"Step {index}: connector is missing required scopes: {', '.join(missing_scopes)}.")
         if step.type == "script" and not step.config.script_id:
             issues.append(f"Step {index} requires config.script_id for script steps.")
         if step.type == "tool":

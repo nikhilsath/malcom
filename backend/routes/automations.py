@@ -44,11 +44,10 @@ def list_automations(request: Request) -> list[AutomationSummaryResponse]:
 
 @router.post("/api/v1/automations", response_model=AutomationDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_automation(payload: AutomationCreate, request: Request) -> AutomationDetailResponse:
-    issues = validate_automation_definition(payload, require_steps=True)
+    connection = get_connection(request)
+    issues = validate_automation_definition(payload, require_steps=True, connection=connection)
     if issues:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=" ".join(issues))
-
-    connection = get_connection(request)
     _ensure_inbound_trigger_reference_exists(connection, payload)
     now = utc_now_iso()
     automation_id = f"automation_{uuid4().hex[:10]}"
@@ -106,7 +105,7 @@ def update_automation(automation_id: str, payload: AutomationUpdate, request: Re
         trigger_config=payload.trigger_config if payload.trigger_config is not None else current.trigger_config,
         steps=payload.steps if payload.steps is not None else current.steps,
     )
-    issues = validate_automation_definition(next_payload, require_steps=True)
+    issues = validate_automation_definition(next_payload, require_steps=True, connection=connection)
     if issues:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=" ".join(issues))
     _ensure_inbound_trigger_reference_exists(connection, next_payload)
@@ -153,7 +152,7 @@ def validate_automation_endpoint(automation_id: str, request: Request) -> Automa
     connection = get_connection(request)
     automation = serialize_automation_detail(connection, automation_id)
     _ensure_inbound_trigger_reference_exists(connection, AutomationCreate(**automation.model_dump()))
-    issues = validate_automation_definition(automation, require_steps=True)
+    issues = validate_automation_definition(automation, require_steps=True, connection=connection)
     return AutomationValidationResponse(valid=not issues, issues=issues)
 
 
