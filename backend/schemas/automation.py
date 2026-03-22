@@ -150,11 +150,14 @@ class ConnectorActivitySchemaField(BaseModel):
     help_text: str | None = None
     placeholder: str | None = None
     options: list[str] | None = None
+    value_hint: str | None = None
 
 
 class ConnectorActivityDefinitionResponse(BaseModel):
     provider_id: str
     activity_id: str
+    service: str
+    operation_type: str
     label: str
     description: str
     required_scopes: list[str]

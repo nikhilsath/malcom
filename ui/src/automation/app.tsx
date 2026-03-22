@@ -262,7 +262,7 @@ const isInboundApiSelectionMissing = (automation: AutomationDetail, inboundApis:
   return !inboundApis.some((option) => option.id === inboundApiId);
 };
 
-const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[]) => {
+const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[], activityCatalog: ConnectorActivityDefinition[] = []) => {
   if (step.type === "log") {
     if (step.config.log_table_id) {
       const colCount = Object.keys(step.config.log_column_mappings || {}).length;
@@ -274,7 +274,8 @@ const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[]) => {
     return step.config.destination_url || step.config.connector_id || "Send a request to a remote endpoint.";
   }
   if (step.type === "connector_activity") {
-    return step.config.activity_id ? `${step.config.connector_id || "Connector"} · ${step.config.activity_id}` : "Select a connector-backed activity.";
+    const activity = activityCatalog.find((item) => item.activity_id === step.config.activity_id);
+    return step.config.activity_id ? `${step.config.connector_id || "Connector"} · ${activity?.label || step.config.activity_id}` : "Select a connector-backed activity.";
   }
   if (step.type === "script") {
     if (!step.config.script_id) {
@@ -299,7 +300,7 @@ const getStepSummary = (step: AutomationStep, scripts: ScriptLibraryItem[]) => {
   return step.config.model_identifier ? `Use model ${step.config.model_identifier}` : "Prompt an LLM with middleware context.";
 };
 
-const validateAutomationDefinition = (automation: AutomationDetail, inboundApis: InboundApiOption[]) => {
+const validateAutomationDefinition = (automation: AutomationDetail, inboundApis: InboundApiOption[], activityCatalog: ConnectorActivityDefinition[], connectors: ConnectorRecord[]) => {
   const issues: string[] = [];
   if (!automation.name.trim()) {
     issues.push("Name is required.");
@@ -347,8 +348,27 @@ const validateAutomationDefinition = (automation: AutomationDetail, inboundApis:
       if (!step.config.connector_id) {
         issues.push(`Step ${index + 1} requires a saved connector.`);
       }
+      const selectedConnector = connectors.find((connector) => connector.id === step.config.connector_id);
+      const selectedActivity = activityCatalog.find((activity) => activity.provider_id === (selectedConnector?.provider || "") && activity.activity_id === step.config.activity_id);
       if (!step.config.activity_id) {
         issues.push(`Step ${index + 1} requires a prebuilt activity selection.`);
+      } else if (!selectedActivity) {
+        issues.push(`Step ${index + 1} references an unavailable connector action.`);
+      } else {
+        for (const field of selectedActivity.input_schema) {
+          const value = step.config.activity_inputs?.[field.key];
+          const missing = value === undefined || value === null || (typeof value === "string" && !value.trim());
+          if (field.required && missing) {
+            issues.push(`Step ${index + 1} requires '${field.label}' for ${selectedActivity.label}.`);
+          }
+          if (field.type === "json" && typeof value === "string" && value.trim()) {
+            try {
+              JSON.parse(value);
+            } catch {
+              issues.push(`Step ${index + 1} has invalid JSON for '${field.label}'.`);
+            }
+          }
+        }
       }
     }
   });
@@ -741,7 +761,7 @@ export const AutomationApp = () => {
   }, [currentAutomation.steps, editorDrawer]);
 
   const saveAutomation = async () => {
-    const issues = validateAutomationDefinition(currentAutomation, inboundApis);
+    const issues = validateAutomationDefinition(currentAutomation, inboundApis, activityCatalog, connectors);
     if (issues.length > 0) {
       setFeedback(issues.join(" "));
       setFeedbackTone("error");
@@ -768,7 +788,7 @@ export const AutomationApp = () => {
   };
 
   const validateAutomation = async () => {
-    const localIssues = validateAutomationDefinition(currentAutomation, inboundApis);
+    const localIssues = validateAutomationDefinition(currentAutomation, inboundApis, activityCatalog, connectors);
     if (localIssues.length > 0) {
       setFeedback(localIssues.join(" "));
       setFeedbackTone("error");
@@ -867,7 +887,7 @@ export const AutomationApp = () => {
           kind: "step",
           label: step.name,
           subtitle: `${index + 1}. ${getStepTypeLabel(step.type)}`,
-          summary: getStepSummary(step, scripts),
+          summary: getStepSummary(step, scripts, activityCatalog),
           accent: stepAccentByType[step.type],
           selected: selectedNodeId === `step-node-${step.id}`,
           isMergeTarget: Boolean(step.is_merge_target),

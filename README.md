@@ -171,6 +171,7 @@ Google connector onboarding rule:
 * do not collect OAuth credentials with browser popup prompts
 * follow Google OAuth best practices: configure OAuth consent screen, use OAuth 2.0 Web application credentials, and register the exact redirect URI shown by Malcom
 * reference docs: https://developers.google.com/identity/protocols/oauth2/web-server
+* workflow builder connector actions: provider-aware connector activities should appear as explicit selectable actions with action-specific inputs/outputs in the automation builder UI; do not hide them behind generic connector config.
 
 ### 6. Storage
 

@@ -141,9 +141,9 @@ const renderAutomationApp = (options?: {
   };
 
   const requestLog: RequestLogEntry[] = [];
-  const requestJson = vi.fn(async (path: string, options?: RequestInit) => {
-    const method = options?.method || "GET";
-    const body = options?.body ? JSON.parse(String(options.body)) : null;
+  const requestJson = vi.fn(async (path: string, requestOptions?: RequestInit) => {
+    const method = requestOptions?.method || "GET";
+    const body = requestOptions?.body ? JSON.parse(String(requestOptions.body)) : null;
     requestLog.push({ path, method, body });
 
     if (path === "/api/v1/settings") {
@@ -175,6 +175,8 @@ const renderAutomationApp = (options?: {
         {
           provider_id: "http",
           activity_id: "custom_http",
+          service: "http",
+          operation_type: "read",
           label: "Custom HTTP",
           description: "Not used in this test harness.",
           required_scopes: [],
@@ -184,12 +186,48 @@ const renderAutomationApp = (options?: {
         },
         {
           provider_id: "google",
-          activity_id: "gmail_unread_count",
-          label: "Gmail unread count",
-          description: "Return unread Gmail count.",
+          activity_id: "gmail_list_messages",
+          service: "gmail",
+          operation_type: "read",
+          label: "List emails",
+          description: "List Gmail messages.",
           required_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-          input_schema: [],
-          output_schema: [{ key: "unread_count", label: "Unread count", type: "integer" }],
+          input_schema: [
+            { key: "max_results", label: "Max results", type: "integer", required: false, default: 25 }
+          ],
+          output_schema: [{ key: "messages", label: "Messages", type: "array" }],
+          execution: {}
+        },
+        {
+          provider_id: "google",
+          activity_id: "gmail_send_email",
+          service: "gmail",
+          operation_type: "write",
+          label: "Send email",
+          description: "Send Gmail message.",
+          required_scopes: ["https://www.googleapis.com/auth/gmail.send"],
+          input_schema: [
+            { key: "recipients", label: "Recipients", type: "string", required: true },
+            { key: "subject", label: "Subject", type: "string", required: true },
+            { key: "body", label: "Body", type: "textarea", required: true }
+          ],
+          output_schema: [{ key: "message_id", label: "Message ID", type: "string" }],
+          execution: {}
+        },
+        {
+          provider_id: "google",
+          activity_id: "sheets_update_range",
+          service: "sheets",
+          operation_type: "write",
+          label: "Update range",
+          description: "Write values into a sheet.",
+          required_scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+          input_schema: [
+            { key: "spreadsheet_id", label: "Spreadsheet ID", type: "string", required: true },
+            { key: "range", label: "A1 range", type: "string", required: true },
+            { key: "values_payload", label: "Values payload", type: "json", required: true }
+          ],
+          output_schema: [{ key: "updated_cells", label: "Updated cells", type: "integer" }],
           execution: {}
         }
       ];
@@ -319,6 +357,76 @@ beforeEach(() => {
 });
 
 describe("AutomationApp", () => {
+
+  it("shows grouped Google connector actions and dynamic inputs in the add-step modal", async () => {
+    renderAutomationApp({
+      connectors: [
+        {
+          id: "google-primary",
+          provider: "google",
+          name: "Google Workspace",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/spreadsheets"],
+          base_url: "https://www.googleapis.com"
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: /Connector activity/i }));
+    fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
+
+    expect((await screen.findAllByText("GMAIL")).length).toBeGreaterThan(0);
+    expect(screen.getByText("READ")).toBeInTheDocument();
+    expect(screen.getAllByText("WRITE").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /send email/i }));
+
+    expect(await screen.findByLabelText("Recipients")).toBeInTheDocument();
+    expect(screen.getByLabelText("Subject")).toBeInTheDocument();
+    expect(screen.getByLabelText("Body")).toBeInTheDocument();
+    expect(screen.getByText(/message_id/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /update range/i }));
+    expect(await screen.findByLabelText("Spreadsheet ID")).toBeInTheDocument();
+    expect(screen.getByLabelText("A1 range")).toBeInTheDocument();
+    expect(screen.getByLabelText("Values payload")).toBeInTheDocument();
+  });
+
+  it("validates required connector action inputs before save", async () => {
+    renderAutomationApp({
+      connectors: [
+        {
+          id: "google-primary",
+          provider: "google",
+          name: "Google Workspace",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.send"],
+          base_url: "https://www.googleapis.com"
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: /Connector activity/i }));
+    fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
+    fireEvent.click(screen.getByRole("button", { name: /send email/i }));
+    fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    expect(await screen.findByText(/requires 'Recipients' for Send email/i)).toBeInTheDocument();
+  });
+
   it("renders the workflow bar and focused canvas without the legacy inspector surfaces", async () => {
     const { container } = renderAutomationApp();
 
@@ -685,4 +793,6 @@ describe("AutomationApp", () => {
     expect(redirectHtml).toContain("../automations/library.html");
     expect(redirectHtml).toContain("window.location.replace");
   });
+
+
 });
