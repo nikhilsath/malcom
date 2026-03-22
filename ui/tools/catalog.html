@@ -67,12 +67,17 @@
                                 <input id="tool-detail-id-input" class="api-form-input" name="toolId" type="text" readonly>
                             </label>
 
-                            <label id="tool-detail-enabled-field" class="api-form-field">
-                                <span id="tool-detail-enabled-label" class="api-form-label">Availability</span>
-                                <select id="tool-detail-enabled-input" class="api-form-input" name="enabled" required>
-                                    <option id="tool-detail-enabled-option-on" value="true">Enabled</option>
-                                    <option id="tool-detail-enabled-option-off" value="false">Disabled</option>
-                                </select>
+                            <label id="tool-detail-enabled-field" class="api-form-field api-form-field--toggle tool-detail-switch-field">
+                                <span id="tool-detail-enabled-copy-group" class="tool-detail-switch-field__copy">
+                                    <span id="tool-detail-enabled-label" class="api-form-label">Availability</span>
+                                    <span id="tool-detail-enabled-copy" class="tool-detail-switch-field__description">Tool is enabled</span>
+                                </span>
+                                <span id="tool-detail-enabled-control" class="tool-detail-switch">
+                                    <input id="tool-detail-enabled-input" class="tool-detail-switch__input" name="enabled" type="checkbox">
+                                    <span id="tool-detail-enabled-track" class="tool-detail-switch__track" aria-hidden="true">
+                                        <span id="tool-detail-enabled-thumb" class="tool-detail-switch__thumb"></span>
+                                    </span>
+                                </span>
                             </label>
 
                             <label id="tool-detail-name-field" class="api-form-field api-form-field--full">

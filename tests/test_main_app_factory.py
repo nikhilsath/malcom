@@ -13,7 +13,9 @@ class MainAppFactoryTestCase(unittest.TestCase):
         self.assertIn("/api/v1/tools", paths)
         self.assertIn("/api/v1/inbound", paths)
         self.assertIn("/settings/workspace.html", paths)
+        self.assertIn("/favicon.ico", paths)
         self.assertIn("/assets", paths)
+        self.assertIn("/media", paths)
         self.assertIn("/scripts", paths)
 
 

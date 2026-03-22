@@ -7,6 +7,7 @@ const toolsElements = {
   form: document.getElementById("tool-detail-form"),
   idInput: document.getElementById("tool-detail-id-input"),
   enabledInput: document.getElementById("tool-detail-enabled-input"),
+  enabledCopy: document.getElementById("tool-detail-enabled-copy"),
   nameInput: document.getElementById("tool-detail-name-input"),
   descriptionInput: document.getElementById("tool-detail-description-input"),
   feedback: document.getElementById("tool-detail-form-feedback"),
@@ -72,6 +73,13 @@ const fetchJson = async (path, options = {}) => {
 
 const getActiveTool = () => toolsCatalog.find((tool) => tool.id === activeToolId) || null;
 
+const syncEnabledCopy = (enabled) => {
+  if (!toolsElements.enabledCopy) {
+    return;
+  }
+  toolsElements.enabledCopy.textContent = enabled ? "Tool is enabled" : "Tool is disabled";
+};
+
 const updateHeaderSummary = () => {
   toolsElements.selectedCount.textContent = `${toolsCatalog.length} loaded`;
   const activeTool = getActiveTool();
@@ -136,7 +144,8 @@ const renderDetail = () => {
     toolsElements.detailTitle.textContent = "Choose a tool";
     toolsElements.detailDescription.textContent = "Tool metadata and enablement are managed here.";
     toolsElements.idInput.value = "";
-    toolsElements.enabledInput.value = "false";
+    toolsElements.enabledInput.checked = false;
+    syncEnabledCopy(false);
     toolsElements.nameInput.value = "";
     toolsElements.descriptionInput.value = "";
     toolsElements.configLink.href = "../tools/catalog.html";
@@ -149,7 +158,8 @@ const renderDetail = () => {
   toolsElements.detailTitle.textContent = activeTool.name;
   toolsElements.detailDescription.textContent = activeTool.description;
   toolsElements.idInput.value = activeTool.id;
-  toolsElements.enabledInput.value = String(Boolean(activeTool.enabled));
+  toolsElements.enabledInput.checked = Boolean(activeTool.enabled);
+  syncEnabledCopy(Boolean(activeTool.enabled));
   toolsElements.nameInput.value = activeTool.name;
   toolsElements.descriptionInput.value = activeTool.description;
   toolsElements.configLink.href = `..${activeTool.page_href}`;
@@ -207,7 +217,7 @@ toolsElements.form?.addEventListener("submit", async (event) => {
       body: JSON.stringify({
         name: nextName,
         description: nextDescription,
-        enabled: toolsElements.enabledInput.value === "true"
+        enabled: toolsElements.enabledInput.checked
       })
     });
 
@@ -222,6 +232,10 @@ toolsElements.form?.addEventListener("submit", async (event) => {
     toolsElements.saveButton.disabled = false;
     toolsElements.saveButton.textContent = "Save tool";
   }
+});
+
+toolsElements.enabledInput?.addEventListener("change", () => {
+  syncEnabledCopy(toolsElements.enabledInput.checked);
 });
 
 toolsElements.modalCloseButtons.forEach((button) => {

@@ -82,6 +82,7 @@ const openModal = () => {
     return;
   }
 
+  connectorElements.modal.classList.add("modal--open");
   connectorElements.modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
 };
@@ -91,6 +92,7 @@ const closeModal = () => {
     return;
   }
 
+  connectorElements.modal.classList.remove("modal--open");
   connectorElements.modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
 };

@@ -91,6 +91,7 @@ REMOTE_WORKER_POLL_INTERVAL_SECONDS = 1.0
 SMTP_TOOL_SETTINGS_KEY = "smtp_tool"
 LOCAL_LLM_TOOL_SETTINGS_KEY = "local_llm_tool"
 COQUI_TTS_TOOL_SETTINGS_KEY = "coqui_tts_tool"
+IMAGE_MAGIC_TOOL_SETTINGS_KEY = "image_magic_tool"
 DatabaseConnection = Any
 DatabaseRow = dict[str, Any]
 CONNECTOR_PROTECTION_VERSION = "enc_v1"
@@ -99,6 +100,7 @@ CONNECTOR_SIGNATURE_BYTES = 32
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
 SUPPORTED_CONNECTOR_PROVIDERS = {
     "google_calendar",
+    "google_gmail",
     "google_sheets",
     "github",
     "slack",
@@ -143,6 +145,14 @@ DEFAULT_COQUI_TTS_TOOL_CONFIG = {
     "speaker": "",
     "language": "",
     "output_directory": "backend/data/generated/coqui-tts",
+}
+DEFAULT_IMAGE_MAGIC_TOOL_CONFIG = {
+    "enabled": False,
+    "target_worker_id": None,
+    "command": "magick",
+}
+DEFAULT_TOOL_RETRY_SETTINGS = {
+    "default_tool_retries": 2,
 }
 
 LOCAL_LLM_ENDPOINT_PRESETS: dict[str, dict[str, Any]] = {
@@ -375,6 +385,16 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "default_scopes": ["https://www.googleapis.com/auth/calendar"],
         "docs_url": "https://developers.google.com/workspace/calendar/api/guides/overview",
         "base_url": "https://www.googleapis.com/calendar/v3",
+    },
+    {
+        "id": "google_gmail",
+        "name": "Gmail",
+        "description": "Send email using the Gmail API over the shared Google OAuth stack.",
+        "category": "email",
+        "auth_types": ["oauth2"],
+        "default_scopes": ["https://www.googleapis.com/auth/gmail.send"],
+        "docs_url": "https://developers.google.com/workspace/gmail/api/guides",
+        "base_url": "https://gmail.googleapis.com/gmail/v1",
     },
     {
         "id": "google_sheets",
@@ -617,12 +637,15 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "export_window_utc": "02:00",
         "audit_retention_days": 365,
     },
+    "automation": DEFAULT_TOOL_RETRY_SETTINGS,
     "connectors": get_default_connector_settings(),
 }
 def get_default_settings() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
 def seed_default_settings(connection: DatabaseConnection) -> None:
     now = utc_now_iso()
+
+    seed_integration_presets(connection, timestamp=now)
 
     for key, value in get_default_settings().items():
         connection.execute(
@@ -635,6 +658,50 @@ def seed_default_settings(connection: DatabaseConnection) -> None:
         )
 
     connection.commit()
+def seed_integration_presets(connection: DatabaseConnection, *, timestamp: str | None = None) -> None:
+    now = timestamp or utc_now_iso()
+
+    for preset in DEFAULT_CONNECTOR_CATALOG:
+        connection.execute(
+            """
+            INSERT INTO integration_presets (
+                id,
+                integration_type,
+                name,
+                description,
+                category,
+                auth_types_json,
+                default_scopes_json,
+                docs_url,
+                base_url,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                integration_type = excluded.integration_type,
+                name = excluded.name,
+                description = excluded.description,
+                category = excluded.category,
+                auth_types_json = excluded.auth_types_json,
+                default_scopes_json = excluded.default_scopes_json,
+                docs_url = excluded.docs_url,
+                base_url = excluded.base_url,
+                updated_at = excluded.updated_at
+            """,
+            (
+                preset["id"],
+                "connector_provider",
+                preset["name"],
+                preset["description"],
+                preset["category"],
+                json.dumps(preset.get("auth_types", [])),
+                json.dumps(preset.get("default_scopes", [])),
+                preset.get("docs_url") or "",
+                preset.get("base_url") or "",
+                now,
+                now,
+            ),
+        )
 def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, Any]:
     defaults = get_default_connector_settings()["auth_policy"]
     payload = defaults | (value or {})
@@ -644,10 +711,61 @@ def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, A
         payload["credential_visibility"] = defaults["credential_visibility"]
     payload["reconnect_requires_approval"] = bool(payload.get("reconnect_requires_approval", defaults["reconnect_requires_approval"]))
     return payload
-def build_connector_catalog() -> list[dict[str, Any]]:
+def _clone_connector_catalog_defaults() -> list[dict[str, Any]]:
     return json.loads(json.dumps(DEFAULT_CONNECTOR_CATALOG))
-def get_connector_preset(provider: str) -> dict[str, Any] | None:
-    return next((item for item in DEFAULT_CONNECTOR_CATALOG if item["id"] == provider), None)
+def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
+    try:
+        auth_types = json.loads(row.get("auth_types_json") or "[]")
+    except json.JSONDecodeError:
+        auth_types = []
+
+    try:
+        default_scopes = json.loads(row.get("default_scopes_json") or "[]")
+    except json.JSONDecodeError:
+        default_scopes = []
+
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "category": row["category"],
+        "auth_types": [item for item in auth_types if isinstance(item, str)],
+        "default_scopes": [item for item in default_scopes if isinstance(item, str)],
+        "docs_url": row.get("docs_url") or "",
+        "base_url": row.get("base_url") or "",
+    }
+def build_connector_catalog(connection: DatabaseConnection | None = None) -> list[dict[str, Any]]:
+    if connection is None:
+        return _clone_connector_catalog_defaults()
+
+    rows = fetch_all(
+        connection,
+        """
+        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
+        FROM integration_presets
+        WHERE integration_type = 'connector_provider'
+        ORDER BY name ASC
+        """,
+    )
+    if not rows:
+        return _clone_connector_catalog_defaults()
+    return [_row_to_connector_preset(row) for row in rows]
+def get_connector_preset(provider: str, *, connection: DatabaseConnection | None = None) -> dict[str, Any] | None:
+    if connection is None:
+        return next((item for item in DEFAULT_CONNECTOR_CATALOG if item["id"] == provider), None)
+
+    row = fetch_one(
+        connection,
+        """
+        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
+        FROM integration_presets
+        WHERE integration_type = 'connector_provider' AND id = ?
+        """,
+        (provider,),
+    )
+    if row is None:
+        return None
+    return _row_to_connector_preset(row)
 def extract_connector_secret_map(auth_config: dict[str, Any], protection_secret: str) -> dict[str, str]:
     protected_values = auth_config.get("protected_secrets") or {}
     secret_map: dict[str, str] = {}
@@ -710,13 +828,17 @@ def normalize_connector_record_for_storage(
     record: dict[str, Any],
     *,
     existing_record: dict[str, Any] | None,
+    connection: DatabaseConnection | None = None,
     protection_secret: str,
     timestamp: str,
 ) -> dict[str, Any]:
     provider = record.get("provider") or ((existing_record or {}).get("provider"))
-    if provider not in SUPPORTED_CONNECTOR_PROVIDERS:
+    preset = get_connector_preset(provider, connection=connection) if provider else None
+    if provider == "generic_http":
+        preset = None
+    elif preset is None:
         provider = "generic_http"
-    preset = get_connector_preset(provider) or {
+    preset = preset or {
         "name": "Generic HTTP",
         "base_url": None,
         "docs_url": None,
@@ -765,6 +887,7 @@ def normalize_connector_settings_for_storage(
     value: dict[str, Any] | None,
     *,
     existing_settings: dict[str, Any] | None,
+    connection: DatabaseConnection | None = None,
     protection_secret: str,
 ) -> dict[str, Any]:
     defaults = get_default_connector_settings()
@@ -780,6 +903,7 @@ def normalize_connector_settings_for_storage(
         normalize_connector_record_for_storage(
             item,
             existing_record=existing_records.get(item.get("id")),
+            connection=connection,
             protection_secret=protection_secret,
             timestamp=now,
         )
@@ -788,15 +912,20 @@ def normalize_connector_settings_for_storage(
     ]
 
     return {
-        "catalog": build_connector_catalog(),
+        "catalog": build_connector_catalog(connection),
         "records": next_records,
         "auth_policy": normalize_connector_auth_policy(payload.get("auth_policy") or current_settings.get("auth_policy")),
     }
-def sanitize_connector_settings_for_response(value: dict[str, Any] | None, protection_secret: str) -> dict[str, Any]:
+def sanitize_connector_settings_for_response(
+    value: dict[str, Any] | None,
+    protection_secret: str,
+    *,
+    connection: DatabaseConnection | None = None,
+) -> dict[str, Any]:
     defaults = get_default_connector_settings()
     current = value or defaults
     return {
-        "catalog": build_connector_catalog(),
+        "catalog": build_connector_catalog(connection),
         "records": [
             sanitize_connector_record_for_response(item, protection_secret)
             for item in current.get("records", [])
@@ -807,10 +936,14 @@ def sanitize_connector_settings_for_response(value: dict[str, Any] | None, prote
 def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
     stored_value = read_stored_settings_section(connection, "connectors")
     if not isinstance(stored_value, dict):
-        return get_default_connector_settings()
+        return {
+            "catalog": build_connector_catalog(connection),
+            "records": [],
+            "auth_policy": normalize_connector_auth_policy(None),
+        }
 
     return {
-        "catalog": build_connector_catalog(),
+        "catalog": build_connector_catalog(connection),
         "records": [item for item in stored_value.get("records", []) if isinstance(item, dict)],
         "auth_policy": normalize_connector_auth_policy(stored_value.get("auth_policy")),
     }
@@ -952,6 +1085,7 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
         "notifications": NotificationSettings,
         "security": SecuritySettings,
         "data": DataSettings,
+        "automation": AutomationSettings,
         "connectors": ConnectorSettingsResponse,
     }
     schema = schema_map[section_key]
@@ -978,12 +1112,23 @@ def get_settings_payload(connection: DatabaseConnection, *, protection_secret: s
         except json.JSONDecodeError:
             continue
         if row["key"] == "connectors":
-            settings[row["key"]] = sanitize_connector_settings_for_response(stored_value, connector_secret)
+            settings[row["key"]] = sanitize_connector_settings_for_response(
+                stored_value,
+                connector_secret,
+                connection=connection,
+            )
         else:
             settings[row["key"]] = merge_settings_section(
                 settings[row["key"]],
                 stored_value,
             )
+
+    if "connectors" not in {row["key"] for row in rows}:
+        settings["connectors"] = sanitize_connector_settings_for_response(
+            settings["connectors"],
+            connector_secret,
+            connection=connection,
+        )
 
     for section_key in tuple(settings.keys()):
         settings[section_key] = normalize_settings_response_section(section_key, settings[section_key])
@@ -1141,6 +1286,67 @@ def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | 
         output_directory = str((root_dir / output_directory).resolve())
     normalized["output_directory"] = output_directory
     return normalized
+
+
+def get_default_image_magic_tool_config() -> dict[str, Any]:
+    return json.loads(json.dumps(DEFAULT_IMAGE_MAGIC_TOOL_CONFIG))
+
+
+def get_image_magic_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
+    config = get_default_image_magic_tool_config()
+    row = fetch_one(
+        connection,
+        """
+        SELECT value_json
+        FROM settings
+        WHERE key = ?
+        """,
+        (IMAGE_MAGIC_TOOL_SETTINGS_KEY,),
+    )
+    if row is None:
+        return config
+
+    stored_value = json.loads(row["value_json"])
+    if isinstance(stored_value, dict):
+        config.update(stored_value)
+    return config
+
+
+def save_image_magic_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
+    now = utc_now_iso()
+    connection.execute(
+        """
+        INSERT INTO settings (key, value_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+        """,
+        (IMAGE_MAGIC_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+    )
+    connection.commit()
+    return config
+
+
+def normalize_image_magic_tool_config(config: dict[str, Any]) -> dict[str, Any]:
+    normalized = get_default_image_magic_tool_config()
+    normalized.update(config or {})
+    normalized["enabled"] = bool(normalized.get("enabled"))
+    normalized["target_worker_id"] = str(normalized.get("target_worker_id") or "").strip() or None
+    normalized["command"] = str(normalized.get("command") or DEFAULT_IMAGE_MAGIC_TOOL_CONFIG["command"]).strip()
+    return normalized
+
+
+def get_default_tool_retries(connection: DatabaseConnection) -> int:
+    settings = get_settings_payload(connection)
+    automation_settings = settings.get("automation") or {}
+    try:
+        retries = int(automation_settings.get("default_tool_retries", DEFAULT_TOOL_RETRY_SETTINGS["default_tool_retries"]))
+    except (TypeError, ValueError):
+        retries = DEFAULT_TOOL_RETRY_SETTINGS["default_tool_retries"]
+    return max(0, min(10, retries))
+
+
 def sanitize_generated_audio_filename(value: str) -> str:
     filename = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-.")
     return filename or f"coqui-output-{uuid4().hex[:8]}"
@@ -1389,6 +1595,201 @@ def execute_convert_audio_tool_step(
         detail=detail,
         output=outputs,
     )
+
+
+def _resolve_worker_base_url(address: str) -> str:
+    value = str(address or "").strip()
+    if not value:
+        raise RuntimeError("Target worker address is missing.")
+    if value.startswith("http://") or value.startswith("https://"):
+        return value.rstrip("/")
+    if ":" in value:
+        return f"http://{value}".rstrip("/")
+    return f"http://{value}:8000"
+
+
+def _build_image_magic_output_path(
+    *,
+    input_file: str,
+    output_format: str,
+    output_filename: str | None,
+    root_dir: Path,
+) -> tuple[Path, Path]:
+    input_path = Path(input_file)
+    if not input_path.is_absolute():
+        input_path = root_dir / input_file
+
+    output_directory = input_path.parent
+    requested_filename = output_filename.strip() if output_filename else ""
+    safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"{input_path.stem}-converted"
+    if "." not in safe_filename:
+        safe_filename = f"{safe_filename}.{output_format}"
+
+    return input_path, output_directory / safe_filename
+
+
+def execute_image_magic_conversion_request(
+    payload: ImageMagicExecuteRequest,
+    *,
+    root_dir: Path,
+    command: str,
+) -> dict[str, str]:
+    output_format = str(payload.output_format or "").strip().lower()
+    valid_formats = {"png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif"}
+    if output_format not in valid_formats:
+        raise RuntimeError(f"Image Magic output_format must be one of: {', '.join(sorted(valid_formats))}.")
+
+    input_path, output_path = _build_image_magic_output_path(
+        input_file=payload.input_file,
+        output_format=output_format,
+        output_filename=payload.output_filename,
+        root_dir=root_dir,
+    )
+    if not input_path.exists():
+        raise RuntimeError(f"Image Magic input file was not found: {input_path}")
+
+    command_parts = shlex.split(command)
+    if not command_parts:
+        raise RuntimeError("Image Magic command is invalid.")
+    image_command = [*command_parts, str(input_path), str(output_path)]
+
+    try:
+        completed = subprocess.run(
+            image_command,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=str(root_dir),
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError(f"Image Magic command was not found: {command}") from error
+    except subprocess.CalledProcessError as error:
+        stderr = (error.stderr or "").strip()
+        stdout = (error.stdout or "").strip()
+        detail = stderr or stdout or "Unknown Image Magic failure."
+        raise RuntimeError(f"Image conversion failed: {detail}") from error
+
+    return {
+        "output_file_path": str(output_path),
+        "stdout": (completed.stdout or "").strip() or "",
+    }
+
+
+def _parse_tool_retry_count(raw_value: str, *, default_retries: int) -> int:
+    if not raw_value:
+        return default_retries
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return default_retries
+    return max(0, min(10, parsed))
+
+
+def execute_image_magic_tool_step(
+    connection: DatabaseConnection,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    *,
+    root_dir: Path,
+) -> RuntimeExecutionResult:
+    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    if not config["enabled"]:
+        raise RuntimeError("Tool 'image-magic' is disabled.")
+
+    input_file = _get_tool_input(step, "input_file", context)
+    output_format = _get_tool_input(step, "output_format", context)
+    output_filename = _get_tool_input(step, "output_filename", context) or None
+    retries_override = _get_tool_input(step, "max_retries", context)
+
+    if not input_file:
+        raise RuntimeError("Image Magic steps require an 'input_file' input.")
+    if not output_format:
+        raise RuntimeError("Image Magic steps require an 'output_format' input.")
+
+    default_retries = get_default_tool_retries(connection)
+    max_retries = _parse_tool_retry_count(retries_override, default_retries=default_retries)
+    attempts_total = max_retries + 1
+    last_error: RuntimeError | None = None
+
+    for attempt in range(1, attempts_total + 1):
+        try:
+            target_worker_id = config.get("target_worker_id")
+            worker_id = get_local_worker_id()
+            worker_name = get_local_worker_name()
+
+            if target_worker_id and target_worker_id != worker_id:
+                worker = next((item for item in runtime_event_bus.list_workers() if item.worker_id == target_worker_id), None)
+                if worker is None:
+                    raise RuntimeError(f"Target worker '{target_worker_id}' is not connected.")
+
+                base_url = _resolve_worker_base_url(worker.address)
+                response = httpx.post(
+                    f"{base_url}/api/v1/tools/image-magic/execute",
+                    json={
+                        "input_file": input_file,
+                        "output_format": output_format,
+                        "output_filename": output_filename,
+                    },
+                    timeout=120.0,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                outputs = {
+                    "output_file_path": str(payload.get("output_file_path") or ""),
+                }
+                detail = {
+                    "tool_id": "image-magic",
+                    "execution_mode": "remote",
+                    "target_worker_id": worker.worker_id,
+                    "target_worker_name": worker.name,
+                    "attempt": attempt,
+                    "attempts_total": attempts_total,
+                    **outputs,
+                }
+                return RuntimeExecutionResult(
+                    status="completed",
+                    response_summary=f"Converted image on {worker.name}.",
+                    detail=detail,
+                    output=outputs,
+                )
+
+            execution = execute_image_magic_conversion_request(
+                ImageMagicExecuteRequest(
+                    input_file=input_file,
+                    output_format=output_format,
+                    output_filename=output_filename,
+                ),
+                root_dir=root_dir,
+                command=config["command"],
+            )
+            outputs = {
+                "output_file_path": execution["output_file_path"],
+            }
+            detail = {
+                "tool_id": "image-magic",
+                "execution_mode": "local",
+                "worker_id": worker_id,
+                "worker_name": worker_name,
+                "attempt": attempt,
+                "attempts_total": attempts_total,
+                "stdout": execution.get("stdout") or None,
+                **outputs,
+            }
+            return RuntimeExecutionResult(
+                status="completed",
+                response_summary=f"Converted image to {Path(outputs['output_file_path']).name}.",
+                detail=detail,
+                output=outputs,
+            )
+        except (RuntimeError, httpx.HTTPError, ValueError) as error:
+            last_error = RuntimeError(str(error))
+            if attempt >= attempts_total:
+                break
+            time.sleep(min(1.0, 0.25 * attempt))
+
+    raise RuntimeError(f"Image Magic failed after {attempts_total} attempts: {last_error}")
+
+
 def build_local_llm_endpoint_url(config: dict[str, Any], endpoint_key: str) -> str:
     base_url = str(config.get("server_base_url") or "").strip().rstrip("/")
     endpoint_path = str((config.get("endpoints") or {}).get(endpoint_key) or "").strip()
@@ -2018,6 +2419,21 @@ def build_coqui_tts_tool_response(connection: DatabaseConnection, *, root_dir: P
             language=config["language"],
             output_directory=config["output_directory"],
         ),
+    )
+
+
+def build_image_magic_tool_response(connection: DatabaseConnection) -> ImageMagicToolResponse:
+    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    machines = list_runtime_machine_assignments()
+    return ImageMagicToolResponse(
+        tool_id="image-magic",
+        config=ImageMagicToolConfigResponse(
+            enabled=config["enabled"],
+            target_worker_id=config.get("target_worker_id"),
+            command=config["command"],
+            default_retries=get_default_tool_retries(connection),
+        ),
+        machines=[machine_assignment_to_response(machine) for machine in machines],
     )
 def handle_smtp_message_automation_triggers(app: FastAPI, message: dict[str, Any]) -> None:
     connection = connect(database_url=app.state.database_url)
@@ -3113,6 +3529,8 @@ def execute_automation_step(
             return execute_smtp_tool_step(step, context)
         if tool_row["id"] == "convert-audio":
             return execute_convert_audio_tool_step(step, context, root_dir=root_dir)
+        if tool_row["id"] == "image-magic":
+            return execute_image_magic_tool_step(connection, step, context, root_dir=root_dir)
 
         detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
         return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)

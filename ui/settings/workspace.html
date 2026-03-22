@@ -56,6 +56,16 @@
                                 <option id="settings-workspace-timezone-option-ops" value="ops">Ops control room time</option>
                             </select>
                         </article>
+                        <article id="settings-workspace-tool-retries-card" class="stat-card settings-option-card">
+                            <div id="settings-workspace-tool-retries-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-workspace-tool-retries-title" class="settings-option-card__title">Default tool retries</h4>
+                                    <button type="button" id="settings-workspace-tool-retries-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-workspace-tool-retries-description">i</button>
+                                </div>
+                                <p id="settings-workspace-tool-retries-description" class="settings-option-card__description" hidden>Sets how many retries automation tool steps attempt before failing the workflow.</p>
+                            </div>
+                            <input id="settings-workspace-tool-retries-input" class="api-form-input" type="number" min="0" max="10" step="1" value="2">
+                        </article>
                     </div>
                     <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
                     <div id="settings-actions" class="api-form-actions">

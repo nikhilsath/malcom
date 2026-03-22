@@ -38,8 +38,64 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["notifications"]["channel"], "slack")
         self.assertTrue(body["security"]["dual_approval_required"])
         self.assertEqual(body["data"]["audit_retention_days"], 365)
+        self.assertEqual(body["automation"]["default_tool_retries"], 2)
         self.assertEqual(body["connectors"]["records"], [])
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
+        provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
+        self.assertIn("google_gmail", provider_ids)
+
+    def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
+        connection = connect(database_url=self.database_url)
+        try:
+            now_value = "2026-03-20T00:00:00+00:00"
+            connection.execute(
+                """
+                INSERT INTO integration_presets (
+                    id,
+                    integration_type,
+                    name,
+                    description,
+                    category,
+                    auth_types_json,
+                    default_scopes_json,
+                    docs_url,
+                    base_url,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    description = excluded.description,
+                    category = excluded.category,
+                    auth_types_json = excluded.auth_types_json,
+                    default_scopes_json = excluded.default_scopes_json,
+                    docs_url = excluded.docs_url,
+                    base_url = excluded.base_url,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    "mailchimp",
+                    "connector_provider",
+                    "Mailchimp",
+                    "Sync campaigns and audiences.",
+                    "marketing",
+                    json.dumps(["bearer"]),
+                    json.dumps([]),
+                    "https://mailchimp.com/developer/marketing/api/",
+                    "https://us1.api.mailchimp.com/3.0",
+                    now_value,
+                    now_value,
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        response = self.client.get("/api/v1/settings")
+
+        self.assertEqual(response.status_code, 200)
+        provider_ids = {item["id"] for item in response.json()["connectors"]["catalog"]}
+        self.assertIn("mailchimp", provider_ids)
 
     def test_patch_settings_persists_updates_to_database(self) -> None:
         response = self.client.patch(
@@ -119,6 +175,8 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertIsNotNone(record["auth_config"]["access_token_masked"])
         self.assertNotIn("calendar-client-secret", json.dumps(body))
         self.assertNotIn("calendar-access-token", json.dumps(body))
+        provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
+        self.assertIn("google_gmail", provider_ids)
 
         connection = connect(database_url=self.database_url)
         try:

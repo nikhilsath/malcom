@@ -18,6 +18,7 @@ import {
 import { getSectionConfig } from "../../scripts/shell-config.js";
 import {
   AlertsPanel,
+  CollapsibleSection,
   DevicesTable,
   EmptyState,
   LogEntryDetailsModal,
@@ -224,7 +225,7 @@ const HomePage = () => {
 
   return (
     <div id="dashboard-overview-layout" className="stacked-card-layout">
-      <section id="dashboard-overview-health-card" className="card">
+      <CollapsibleSection id="dashboard-overview-health-card" label="Overall health">
         <div id="dashboard-overview-health-header" className="dashboard-health-strip">
           <div id="dashboard-overview-health-copy" className="dashboard-health-strip__copy">
             <p id="dashboard-overview-health-label" className="summary-card__label">
@@ -251,7 +252,7 @@ const HomePage = () => {
           <SummaryCard id="dashboard-overview-summary-queue-status" label="Queue status" value={queue.isPaused ? "Paused" : "Running"} />
           <SummaryCard id="dashboard-overview-summary-queue-pending" label="Queue pending" value={queue.pendingJobs} />
         </div>
-      </section>
+      </CollapsibleSection>
 
       <ServiceStatusStrip services={summary.services} />
       <AlertsPanel alerts={summary.alerts} />

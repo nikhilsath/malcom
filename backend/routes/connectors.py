@@ -44,18 +44,18 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
 
 @router.post("/api/v1/connectors/{provider}/oauth/start", response_model=ConnectorOAuthStartResponse)
 def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, request: Request) -> ConnectorOAuthStartResponse:
-    if provider not in SUPPORTED_CONNECTOR_PROVIDERS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector provider not found.")
-
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
     connection = get_connection(request)
+    preset = get_connector_preset(provider, connection=connection)
+    if preset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector provider not found.")
+
     settings = get_stored_connector_settings(connection)
     existing_records = {item["id"]: item for item in settings["records"]}
     now = utc_now_iso()
     state = secrets.token_urlsafe(24)
     verifier = secrets.token_urlsafe(48)
     challenge = build_pkce_code_challenge(verifier)
-    preset = get_connector_preset(provider) or {}
     scopes = payload.scopes or list(preset.get("default_scopes", []))
     next_record = normalize_connector_record_for_storage(
         {
@@ -77,6 +77,7 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
             },
         },
         existing_record=existing_records.get(payload.connector_id),
+        connection=connection,
         protection_secret=protection_secret,
         timestamp=now,
     )

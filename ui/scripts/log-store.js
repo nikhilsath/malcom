@@ -28,6 +28,9 @@ const malcomDefaultAppSettings = {
     export_window_utc: "02:00",
     audit_retention_days: 365
   },
+  automation: {
+    default_tool_retries: 2
+  },
   connectors: {
     catalog: [],
     records: [],
@@ -131,6 +134,10 @@ const normalizeAppSettings = (settings = {}) => ({
   data: {
     ...malcomDefaultAppSettings.data,
     ...(settings.data || {})
+  },
+  automation: {
+    ...malcomDefaultAppSettings.automation,
+    ...(settings.automation || {})
   },
   connectors: {
     ...cloneJsonValue(malcomDefaultAppSettings.connectors),

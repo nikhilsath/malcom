@@ -16,8 +16,10 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         self.root_dir = Path(self.tempdir.name)
         (self.root_dir / "tools").mkdir(parents=True, exist_ok=True)
         (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        (self.root_dir / "media").mkdir(parents=True, exist_ok=True)
         dist_dir = self.root_dir / "ui" / "dist"
         (dist_dir / "assets").mkdir(parents=True, exist_ok=True)
+        (self.root_dir / "media" / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
 
         html_pages = {
             "dashboard/home.html": "<html><body>Dashboard</body></html>",
@@ -32,9 +34,6 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "scripts.html": "<html><body>Scripts Redirect</body></html>",
             "scripts/library.html": "<html><body>Script Library</body></html>",
             "apis/automation.html": "<html><body>API Automation</body></html>",
-            "docs/search.html": "<html><body>Docs Search</body></html>",
-            "docs/browse.html": "<html><body>Docs Browse</body></html>",
-            "docs/create.html": "<html><body>Docs Create</body></html>",
         }
 
         for relative_path, content in html_pages.items():
@@ -64,9 +63,6 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "/scripts.html",
             "/scripts/library.html",
             "/apis/automation.html",
-            "/docs/search.html",
-            "/docs/browse.html",
-            "/docs/create.html",
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200, path)
@@ -93,14 +89,17 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
             "/tools.html": "/tools/catalog.html",
             "/tools/overview.html": "/tools/catalog.html",
             "/scripts": "/scripts.html",
-            "/docs": "/docs/search.html",
-            "/docs/": "/docs/search.html",
         }
 
         for path, expected_location in redirect_expectations.items():
             response = self.client.get(path, follow_redirects=False)
             self.assertEqual(response.status_code, 307, path)
             self.assertEqual(response.headers.get("location"), expected_location, path)
+
+    def test_serves_favicon_from_media_directory(self) -> None:
+        response = self.client.get("/favicon.ico")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(response.content), 0)
 
 
 if __name__ == "__main__":

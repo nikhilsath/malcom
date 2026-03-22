@@ -79,6 +79,12 @@ def validate_automation_definition(
                     issues.append(f"Step {index} requires input 'input_file' for convert-audio steps.")
                 if not inputs.get("output_format"):
                     issues.append(f"Step {index} requires input 'output_format' for convert-audio steps.")
+            if step.config.tool_id == "image-magic":
+                inputs = step.config.tool_inputs or {}
+                if not inputs.get("input_file"):
+                    issues.append(f"Step {index} requires input 'input_file' for image-magic steps.")
+                if not inputs.get("output_format"):
+                    issues.append(f"Step {index} requires input 'output_format' for image-magic steps.")
         if step.type == "condition" and not step.config.expression:
             issues.append(f"Step {index} requires config.expression for condition steps.")
         if step.type == "condition":

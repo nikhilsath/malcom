@@ -226,24 +226,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 13px;
+  height: 13px;
   padding: 0;
   border: 1px solid #c4b5fd;
   border-radius: 999px;
   background: #f5f3ff;
   color: #6d28d9;
-  font-size: 0.625rem;
+  font-size: 0.5rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  vertical-align: super;
 }
 
 .api-tooltip-toggle--compact {
-  width: 14px;
-  height: 14px;
-  font-size: 0.5625rem;
+  width: 11px;
+  height: 11px;
+  font-size: 0.4rem;
 }
 
 .info-badge:hover,
@@ -259,14 +260,25 @@
 
 .info-badge-content,
 .api-tooltip-content {
-  margin-top: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  display: none;
+}
+
+.info-badge-popover {
+  position: fixed;
+  z-index: 9999;
+  max-width: 260px;
+  padding: 10px 14px;
   border: 1px solid #ddd6fe;
   border-radius: var(--radius-sm);
   background: #faf5ff;
   color: #581c87;
   font-size: 0.75rem;
   line-height: 1.5;
+  box-shadow: 0 6px 20px rgba(109, 40, 217, 0.15);
+}
+
+.info-badge-popover[hidden] {
+  display: none;
 }
 
 .badge,

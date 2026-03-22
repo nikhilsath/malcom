@@ -31,6 +31,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
         changes["connectors"] = normalize_connector_settings_for_storage(
             changes["connectors"],
             existing_settings=get_stored_connector_settings(connection),
+            connection=connection,
             protection_secret=protection_secret,
         )
 

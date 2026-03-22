@@ -133,7 +133,7 @@ const INSERT_Y = 214;
 const STEP_Y = 304;
 const STEP_GAP = 228;
 // Zoom gate: height of the canvas surface element (matches CSS .automation-canvas-surface--full)
-const CANVAS_SURFACE_HEIGHT = 980;
+const CANVAS_SURFACE_HEIGHT = 720;
 // Zoom is also enabled when step count reaches this threshold regardless of overflow
 const ZOOM_STEP_COUNT_THRESHOLD = 5;
 
@@ -323,48 +323,57 @@ const sanitizeAutomationDetail = (detail: AutomationDetail): AutomationDetail =>
   steps: detail.steps.map(normalizeStep)
 });
 
-const FlowAutomationNode = ({ id, data }: NodeProps<Node<WorkflowNodeData>>) => (
-  <div
-    id={data.canvasNodeId}
-    className={`automation-node automation-node--${data.kind} automation-node--accent-${data.accent}${data.selected ? " automation-node--selected" : ""}${data.isMergeTarget ? " automation-node--merge-target" : ""}`}
-  >
-    <Handle type="target" position={Position.Top} className="automation-node__handle" isConnectable={false} />
-    {data.isMergeTarget ? (
-      <div id={`${data.canvasNodeId}-merge-badge`} className="automation-merge-badge" aria-label="Merge target">⇢ merge</div>
-    ) : null}
-    <div id={`${data.canvasNodeId}-header`} className="automation-node__header">
-      <div>
-        <div id={`${data.canvasNodeId}-eyebrow`} className="automation-node__eyebrow">
-          {data.kind === "trigger" ? "Trigger" : data.subtitle}
-        </div>
-        <div id={`${data.canvasNodeId}-title`} className="automation-node__title">
-          {data.label}
-        </div>
-      </div>
-      {data.selected ? (
-        <button
-          id={`${data.canvasNodeId}-actions-button`}
-          type="button"
-          className="automation-node__actions-button"
-          aria-label="Open node actions"
-          onClick={(event) => {
-            event.stopPropagation();
-            data.onOpenMenu?.(id, event.currentTarget.getBoundingClientRect());
-          }}
-        >
-          ...
-        </button>
+const FlowAutomationNode = ({ id, data }: NodeProps<Node<WorkflowNodeData>>) => {
+  const isTriggerNode = data.kind === "trigger";
+  const triggerCompactTitle = `Trigger:${data.label.toLowerCase()}`;
+
+  return (
+    <div
+      id={data.canvasNodeId}
+      className={`automation-node nopan automation-node--${data.kind} automation-node--accent-${data.accent}${data.selected ? " automation-node--selected" : ""}${data.isMergeTarget ? " automation-node--merge-target" : ""}${isTriggerNode ? " automation-node--trigger-compact" : ""}`}
+    >
+      <Handle type="target" position={Position.Top} className="automation-node__handle" isConnectable={false} />
+      {data.isMergeTarget ? (
+        <div id={`${data.canvasNodeId}-merge-badge`} className="automation-merge-badge" aria-label="Merge target">⇢ merge</div>
       ) : null}
+      <div id={`${data.canvasNodeId}-header`} className="automation-node__header">
+        <div>
+          {isTriggerNode ? null : (
+            <div id={`${data.canvasNodeId}-eyebrow`} className="automation-node__eyebrow">
+              {data.subtitle}
+            </div>
+          )}
+          <div id={`${data.canvasNodeId}-title`} className="automation-node__title">
+            {isTriggerNode ? triggerCompactTitle : data.label}
+          </div>
+        </div>
+        {data.selected ? (
+          <button
+            id={`${data.canvasNodeId}-actions-button`}
+            type="button"
+            className="automation-node__actions-button nodrag nopan"
+            aria-label="Open node actions"
+            onClick={(event) => {
+              event.stopPropagation();
+              data.onOpenMenu?.(id, event.currentTarget.getBoundingClientRect());
+            }}
+          >
+            ...
+          </button>
+        ) : null}
+      </div>
+      {isTriggerNode ? null : (
+        <div id={`${data.canvasNodeId}-summary`} className="automation-node__summary">
+          {data.summary}
+        </div>
+      )}
+      <Handle type="source" position={Position.Bottom} className="automation-node__handle" isConnectable={false} />
     </div>
-    <div id={`${data.canvasNodeId}-summary`} className="automation-node__summary">
-      {data.summary}
-    </div>
-    <Handle type="source" position={Position.Bottom} className="automation-node__handle" isConnectable={false} />
-  </div>
-);
+  );
+};
 
 const FlowInsertNode = ({ data }: NodeProps<Node<InsertNodeData>>) => (
-  <div id={data.canvasNodeId} className={`automation-insert-node${data.empty ? " automation-insert-node--empty" : ""}`}>
+  <div id={data.canvasNodeId} className={`automation-insert-node nopan${data.empty ? " automation-insert-node--empty" : ""}`}>
     <Handle type="target" position={Position.Top} className="automation-insert-node__handle" isConnectable={false} />
     <button
       id={`${data.canvasNodeId}-button`}
@@ -1284,23 +1293,6 @@ export const AutomationApp = () => {
               </div>
             </div>
 
-            <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
-              <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-                Save
-              </button>
-              <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-                Validate
-              </button>
-              <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-                Run now
-              </button>
-              <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
-                New draft
-              </button>
-              <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
-                Delete
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -1332,6 +1324,23 @@ export const AutomationApp = () => {
                 Branch mode
               </div>
             ) : null}
+          </div>
+          <div id="automations-workflow-actions" className="automation-workflow-bar__actions">
+            <button id="automations-save-button" type="button" className="primary-action-button" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Save
+            </button>
+            <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Validate
+            </button>
+            <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+              Run now
+            </button>
+            <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
+              New draft
+            </button>
+            <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
+              Delete
+            </button>
           </div>
         </div>
 

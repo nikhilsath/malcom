@@ -24,6 +24,11 @@ def get_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
     return build_coqui_tts_tool_response(get_connection(request), root_dir=get_root_dir(request))
 
 
+@router.get("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse)
+def get_image_magic_tool(request: Request) -> ImageMagicToolResponse:
+    return build_image_magic_tool_response(get_connection(request))
+
+
 @router.post("/api/v1/tools/llm-deepl/chat", response_model=LocalLlmChatResponse)
 def create_local_llm_chat(payload: LocalLlmChatRequest, request: Request) -> LocalLlmChatResponse:
     messages = [message.model_dump() for message in payload.messages]
@@ -144,6 +149,52 @@ def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> Coqui
     return build_coqui_tts_tool_response(connection, root_dir=get_root_dir(request))
 
 
+@router.patch("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse)
+def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> ImageMagicToolResponse:
+    connection = get_connection(request)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No Image Magic tool changes provided.")
+
+    next_config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    if "enabled" in changes:
+        next_config["enabled"] = bool(changes["enabled"])
+    if "target_worker_id" in changes:
+        next_config["target_worker_id"] = changes["target_worker_id"] or None
+    if "command" in changes:
+        next_config["command"] = str(changes["command"] or "").strip()
+
+    normalized_config = normalize_image_magic_tool_config(next_config)
+    save_image_magic_tool_config(connection, normalized_config)
+    sync_managed_tool_enabled_state(request, "image-magic", normalized_config["enabled"])
+    return build_image_magic_tool_response(connection)
+
+
+@router.post("/api/v1/tools/image-magic/execute", response_model=ImageMagicExecuteResponse)
+def execute_image_magic(payload: ImageMagicExecuteRequest, request: Request) -> ImageMagicExecuteResponse:
+    connection = get_connection(request)
+    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    if not config["enabled"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image Magic tool is disabled.")
+
+    try:
+        result = execute_image_magic_conversion_request(
+            payload,
+            root_dir=get_root_dir(request),
+            command=config["command"],
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    return ImageMagicExecuteResponse(
+        ok=True,
+        output_file_path=result["output_file_path"],
+        worker_id=get_local_worker_id(),
+        worker_name=get_local_worker_name(),
+    )
+
+
 @router.post("/api/v1/tools/smtp/start", response_model=SmtpToolResponse)
 def start_smtp_tool(request: Request) -> SmtpToolResponse:
     connection = get_connection(request)
@@ -257,6 +308,10 @@ def patch_tool_directory(tool_id: str, payload: ToolDirectoryUpdate, request: Re
                 )
                 config["enabled"] = bool(changes["enabled"])
                 save_coqui_tts_tool_config(connection, config)
+            if tool_id == "image-magic":
+                config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+                config["enabled"] = bool(changes["enabled"])
+                save_image_magic_tool_config(connection, config)
             set_tool_enabled(
                 get_root_dir(request),
                 connection,

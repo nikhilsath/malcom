@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type {
   AlertSeverity,
@@ -104,13 +105,46 @@ export const SectionToolbar = ({
   </div>
 );
 
+export const CollapsibleSection = ({
+  id,
+  label,
+  children,
+  defaultCollapsed = false
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+  defaultCollapsed?: boolean;
+}) => {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  return (
+    <section id={id} className="card">
+      <button
+        id={`${id}-collapse-toggle`}
+        type="button"
+        className="section-collapse-top-strip"
+        aria-expanded={!collapsed}
+        aria-controls={`${id}-body`}
+        aria-label={collapsed ? `Expand ${label}` : `Collapse ${label}`}
+        onClick={() => setCollapsed((c) => !c)}
+      >
+        <span id={`${id}-collapse-top-label`} className="section-collapse-top-strip__label">{label}</span>
+        <span id={`${id}-collapse-symbol`} className="section-collapse-top-strip__symbol" aria-hidden="true">
+          {collapsed ? "+" : "-"}
+        </span>
+        <span className="sr-only">
+          {collapsed ? `Expand ${label}` : `Collapse ${label}`}
+        </span>
+      </button>
+      <div id={`${id}-body`} hidden={collapsed}>
+        {children}
+      </div>
+    </section>
+  );
+};
+
 export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatus[] }) => (
-  <section id="dashboard-overview-services" className="card">
-    <SectionToolbar
-      id="dashboard-overview-services-toolbar"
-      title="Runtime status"
-      description="Current service health checks."
-    />
+  <CollapsibleSection id="dashboard-overview-services" label="Runtime status" description="Current service health checks.">
     {services.length === 0 ? (
       <EmptyState
         id="dashboard-overview-services-empty"
@@ -139,16 +173,11 @@ export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatu
         ))}
       </div>
     )}
-  </section>
+    </CollapsibleSection>
 );
 
 export const AlertsPanel = ({ alerts }: { alerts: DashboardAlert[] }) => (
-  <section id="dashboard-overview-alerts" className="card">
-    <SectionToolbar
-      id="dashboard-overview-alerts-toolbar"
-      title="Active attention items"
-      description="Items that need operator action."
-    />
+  <CollapsibleSection id="dashboard-overview-alerts" label="Active attention items" description="Items that need operator action.">
     {alerts.length === 0 ? (
       <EmptyState
         id="dashboard-overview-alerts-empty"
@@ -177,16 +206,11 @@ export const AlertsPanel = ({ alerts }: { alerts: DashboardAlert[] }) => (
         ))}
       </div>
     )}
-  </section>
+    </CollapsibleSection>
 );
 
 export const QuickLinksPanel = ({ quickLinks }: { quickLinks: DashboardQuickLink[] }) => (
-  <section id="dashboard-overview-links" className="card">
-    <SectionToolbar
-      id="dashboard-overview-links-toolbar"
-      title="Quick links"
-      description="Shortcuts to related pages."
-    />
+  <CollapsibleSection id="dashboard-overview-links" label="Quick links" description="Shortcuts to related pages.">
     <div id="dashboard-overview-links-grid" className="dashboard-quick-links-grid">
       {quickLinks.map((link) => (
         <a
@@ -204,12 +228,12 @@ export const QuickLinksPanel = ({ quickLinks }: { quickLinks: DashboardQuickLink
         </a>
       ))}
     </div>
-  </section>
+    </CollapsibleSection>
 );
 
 export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] }) => (
-  <section id="dashboard-overview-log-preview" className="card">
-    <SectionToolbar
+    <CollapsibleSection id="dashboard-overview-log-preview" label="Recent log preview">
+      <SectionToolbar
       id="dashboard-overview-log-preview-toolbar"
       title="Recent log preview"
       description="Newest retained log entries."
@@ -242,7 +266,7 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
         ))}
       </div>
     )}
-  </section>
+    </CollapsibleSection>
 );
 
 export const ReportBuilderPanel = () => (

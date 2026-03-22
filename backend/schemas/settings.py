@@ -37,6 +37,10 @@ class DataSettings(BaseModel):
     audit_retention_days: Literal[30, 90, 365]
 
 
+class AutomationSettings(BaseModel):
+    default_tool_retries: int = Field(ge=0, le=10)
+
+
 class ConnectorProviderPresetResponse(BaseModel):
     id: str
     name: str
@@ -138,6 +142,7 @@ class AppSettingsResponse(BaseModel):
     notifications: NotificationSettings
     security: SecuritySettings
     data: DataSettings
+    automation: AutomationSettings
     connectors: ConnectorSettingsResponse
 
 
@@ -147,6 +152,7 @@ class AppSettingsUpdate(BaseModel):
     notifications: NotificationSettings | None = None
     security: SecuritySettings | None = None
     data: DataSettings | None = None
+    automation: AutomationSettings | None = None
     connectors: ConnectorSettingsUpdate | None = None
 
 
@@ -181,6 +187,7 @@ class ConnectorOAuthCallbackResponse(BaseModel):
 
 
 __all__ = [
+    "AutomationSettings",
     "AppSettingsResponse",
     "AppSettingsUpdate",
     "ConnectorActionResponse",

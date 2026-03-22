@@ -1,3 +1,56 @@
+.section-collapse-top-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: none;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.section-collapse-top-strip:hover {
+  color: var(--primary);
+  background: rgba(241, 245, 249, 0.6);
+}
+
+.section-collapse-top-strip:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: -2px;
+}
+
+.section-collapse-top-strip__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-collapse-top-strip__symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+}
+
+.card > [id$="-body"][hidden],
+.card > [id$="-body"].section-body--collapsed {
+  display: none;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

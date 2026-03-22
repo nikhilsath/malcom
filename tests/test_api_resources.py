@@ -235,6 +235,69 @@ class ApiResourcesTestCase(unittest.TestCase):
         self.assertEqual(detail["auth_config"]["header_name"], "X-API-Key")
         self.assertEqual(detail["auth_config"]["header_value"], "secret-value")
 
+    def test_create_outgoing_api_from_gmail_connector_hydrates_auth(self) -> None:
+        patch_response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "connectors": {
+                    "records": [
+                        {
+                            "id": "gmail-primary",
+                            "provider": "google_gmail",
+                            "name": "Gmail",
+                            "status": "connected",
+                            "auth_type": "oauth2",
+                            "scopes": ["https://www.googleapis.com/auth/gmail.send"],
+                            "base_url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                            "owner": "Workspace",
+                            "auth_config": {
+                                "client_id": "gmail-client-id",
+                                "access_token_input": "gmail-access-token",
+                                "refresh_token_input": "gmail-refresh-token",
+                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_gmail/oauth/callback",
+                                "has_refresh_token": True,
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+
+        create_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "outgoing_scheduled",
+                "name": "gmail send",
+                "description": "Send through Gmail connector.",
+                "path_slug": "gmail-send",
+                "enabled": True,
+                "repeat_enabled": False,
+                "destination_url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                "http_method": "POST",
+                "auth_type": "none",
+                "payload_template": '{"raw":"encoded-message"}',
+                "scheduled_time": "09:30",
+                "connector_id": "gmail-primary",
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        created = create_response.json()
+        self.assertEqual(created["connector_id"], "gmail-primary")
+        self.assertEqual(created["destination_url"], "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+        self.assertEqual(created["auth_type"], "bearer")
+
+        detail_response = self.client.get(
+            f"/api/v1/outgoing/{created['id']}",
+            params={"api_type": "outgoing_scheduled"},
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["destination_url"], "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+        self.assertEqual(detail["auth_type"], "bearer")
+        self.assertEqual(detail["auth_config"]["token"], "gmail-access-token")
+
     def test_outgoing_patch_updates_record(self) -> None:
         create_response = self.client.post(
             "/api/v1/apis",

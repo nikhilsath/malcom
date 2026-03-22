@@ -176,7 +176,7 @@ export const AddStepModal = ({
                           />
                         )}
                         <span id={`add-step-type-${opt.value}-label`} className="add-step-type-card__label add-step-type-card__label--below">
-                          {opt.label}
+                          {opt.value === "log" ? "Write" : opt.label}
                         </span>
                       </span>
                     ) : (

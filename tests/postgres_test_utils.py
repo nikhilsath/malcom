@@ -21,6 +21,7 @@ TABLES_TO_TRUNCATE = (
     "scripts",
     "tools",
     "settings",
+    "integration_presets",
     "log_db_columns",
     "log_db_tables",
 )

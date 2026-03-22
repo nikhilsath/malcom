@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom - Image Magic</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body class="app-shell" data-section="tools" data-sidenav-item="sidenav-tools-image-magic" data-shell-path-prefix="../" data-tool-id="image-magic">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="main-layout">
+        <div class="content-shell tool-config-shell" id="tools-image-magic-shell">
+            <div class="page-header section-header--page" id="tools-image-magic-page-header">
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title">Image Magic</h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Convert images on the selected connected machine.</p>
+            </div>
+
+            <section id="tools-image-magic-workspace" class="card tool-config-workspace">
+                <div id="tools-image-magic-overview-header" class="section-header tool-config-workspace__header">
+                    <div id="tools-image-magic-overview-copy" class="section-header__copy">
+                        <p id="tools-image-magic-overview-eyebrow" class="section-header__eyebrow">Tool Setup</p>
+                        <div class="title-row">
+                            <h3 id="tools-image-magic-title" class="section-header__title">Image Magic configuration</h3>
+                            <button type="button" id="tools-image-magic-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-image-magic-description">i</button>
+                        </div>
+                        <p id="tools-image-magic-description" class="section-header__description" hidden>Choose the machine that runs ImageMagick and set the command used for conversion.</p>
+                    </div>
+                </div>
+
+                <div id="tools-image-magic-status-row" class="tool-config-status-row">
+                    <p id="tools-image-magic-status-label" class="tool-config-status-row__label">Status</p>
+                    <p id="tools-image-magic-status-value" class="tool-config-status-row__value">Unknown</p>
+                    <p id="tools-image-magic-status-message" class="tool-config-status-row__message"></p>
+                </div>
+
+                <form id="tools-image-magic-form" class="api-form" novalidate>
+                    <div id="tools-image-magic-form-grid" class="api-form-grid">
+                        <label id="tools-image-magic-enabled-field" class="api-form-field api-form-field--toggle">
+                            <span id="tools-image-magic-enabled-label" class="api-form-label">Enabled</span>
+                            <span id="tools-image-magic-enabled-control" class="api-inline-toggle">
+                                <input id="tools-image-magic-enabled-input" name="enabled" type="checkbox">
+                                <span id="tools-image-magic-enabled-copy" class="api-inline-toggle__label">Tool is disabled</span>
+                            </span>
+                        </label>
+
+                        <label id="tools-image-magic-machine-field" class="api-form-field api-form-field--full">
+                            <span id="tools-image-magic-machine-label" class="api-form-label">Run on machine</span>
+                            <select id="tools-image-magic-machine-input" class="api-form-input" name="targetWorkerId"></select>
+                        </label>
+
+                        <label id="tools-image-magic-command-field" class="api-form-field api-form-field--full">
+                            <span id="tools-image-magic-command-label" class="api-form-label">ImageMagick command</span>
+                            <input id="tools-image-magic-command-input" class="api-form-input" name="command" type="text" value="magick" required>
+                        </label>
+                    </div>
+
+                    <p id="tools-image-magic-default-retries" class="settings-card__description">Default retries: <span id="tools-image-magic-default-retries-value">2</span></p>
+                    <p id="tools-image-magic-form-feedback" class="api-form-feedback" role="status"></p>
+                    <div id="tools-image-magic-form-actions" class="api-form-actions">
+                        <button type="submit" id="tools-image-magic-save-button" class="button button--primary">Save</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="../scripts/utils.js"></script>
+    <script type="module" src="../scripts/log-store.js"></script>
+    <script type="module" src="../scripts/navigation.js"></script>
+    <script type="module" src="../scripts/tools/image-magic.js"></script>
+</body>
+</html>

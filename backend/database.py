@@ -109,6 +109,20 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS integration_presets (
+    id TEXT PRIMARY KEY,
+    integration_type TEXT NOT NULL DEFAULT 'connector_provider',
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT 'general',
+    auth_types_json TEXT NOT NULL DEFAULT '[]',
+    default_scopes_json TEXT NOT NULL DEFAULT '[]',
+    docs_url TEXT NOT NULL DEFAULT '',
+    base_url TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS automation_runs (
     run_id TEXT PRIMARY KEY,
     automation_id TEXT NOT NULL,

@@ -70,6 +70,26 @@ DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
             {"key": "output_file_path", "label": "Output File Path", "type": "string"},
         ],
     },
+    {
+        "id": "image-magic",
+        "name": "Image Magic",
+        "description": "Convert image files between formats using a connected machine with ImageMagick installed.",
+        "inputs": [
+            {"key": "input_file", "label": "Input File Path", "type": "string", "required": True},
+            {
+                "key": "output_format",
+                "label": "Output Format",
+                "type": "select",
+                "required": True,
+                "options": ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif"],
+            },
+            {"key": "output_filename", "label": "Output Filename", "type": "string", "required": False},
+            {"key": "max_retries", "label": "Max Retries Override", "type": "number", "required": False},
+        ],
+        "outputs": [
+            {"key": "output_file_path", "label": "Output File Path", "type": "string"},
+        ],
+    },
 )
 
 

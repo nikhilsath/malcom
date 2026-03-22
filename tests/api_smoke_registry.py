@@ -267,6 +267,18 @@ def configure_smtp_tool(context: SmokeContext) -> dict[str, Any]:
     return response.json()
 
 
+def configure_image_magic_tool(context: SmokeContext) -> dict[str, Any]:
+    response = context.client.patch(
+        "/api/v1/tools/image-magic",
+        json={
+            "enabled": True,
+            "command": "magick",
+        },
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def create_log_table(context: SmokeContext) -> dict[str, Any]:
     response = context.client.post(
         "/api/v1/log-tables",
@@ -359,6 +371,17 @@ def _invoke_smtp_send_test(case: RouteSmokeCase, context: SmokeContext, state: d
 
 def _invoke_smtp_send_relay(case: RouteSmokeCase, context: SmokeContext, state: dict[str, Any]) -> Any:
     with mock.patch("backend.routes.tools.send_smtp_relay_message", return_value=None):
+        return _default_invoke(case, context, state)
+
+
+def _invoke_image_magic_execute(case: RouteSmokeCase, context: SmokeContext, state: dict[str, Any]) -> Any:
+    with mock.patch(
+        "backend.routes.tools.execute_image_magic_conversion_request",
+        return_value={
+            "output_file_path": "backend/data/generated/image-magic/smoke-output.png",
+            "stdout": "ok",
+        },
+    ):
         return _default_invoke(case, context, state)
 
 
@@ -620,6 +643,7 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = (
     RouteSmokeCase("tools-smtp-get", "GET", "/api/v1/tools/smtp", 200, response_assert=_assert_json_response),
     RouteSmokeCase("tools-local-llm-get", "GET", "/api/v1/tools/llm-deepl/local-llm", 200, response_assert=_assert_json_response),
     RouteSmokeCase("tools-coqui-get", "GET", "/api/v1/tools/coqui-tts", 200, response_assert=_assert_json_response),
+    RouteSmokeCase("tools-image-magic-get", "GET", "/api/v1/tools/image-magic", 200, response_assert=_assert_json_response),
     RouteSmokeCase(
         "tools-local-llm-chat",
         "POST",
@@ -679,6 +703,18 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = (
         response_assert=_assert_json_response,
     ),
     RouteSmokeCase(
+        "tools-image-magic-patch",
+        "PATCH",
+        "/api/v1/tools/image-magic",
+        200,
+        payload={
+            "enabled": True,
+            "target_worker_id": None,
+            "command": "magick",
+        },
+        response_assert=_assert_json_response,
+    ),
+    RouteSmokeCase(
         "tools-smtp-start",
         "POST",
         "/api/v1/tools/smtp/start",
@@ -730,6 +766,19 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = (
         },
         response_assert=_assert_json_response,
         invoke=_invoke_smtp_send_relay,
+    ),
+    RouteSmokeCase(
+        "tools-image-magic-execute",
+        "POST",
+        "/api/v1/tools/image-magic/execute",
+        200,
+        setup=configure_image_magic_tool,
+        payload={
+            "input_file": "input.jpg",
+            "output_format": "png",
+        },
+        response_assert=_assert_json_response,
+        invoke=_invoke_image_magic_execute,
     ),
     RouteSmokeCase(
         "tools-directory-patch",

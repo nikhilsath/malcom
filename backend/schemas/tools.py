@@ -141,6 +141,38 @@ class CoquiTtsToolUpdate(BaseModel):
     output_directory: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
+class ImageMagicToolConfigResponse(BaseModel):
+    enabled: bool
+    target_worker_id: str | None = None
+    command: str
+    default_retries: int
+
+
+class ImageMagicToolResponse(BaseModel):
+    tool_id: Literal["image-magic"]
+    config: ImageMagicToolConfigResponse
+    machines: list[RuntimeMachineResponse]
+
+
+class ImageMagicToolUpdate(BaseModel):
+    enabled: bool | None = None
+    target_worker_id: str | None = Field(default=None, max_length=120)
+    command: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class ImageMagicExecuteRequest(BaseModel):
+    input_file: str = Field(min_length=1, max_length=2000)
+    output_format: str = Field(min_length=1, max_length=20)
+    output_filename: str | None = Field(default=None, max_length=255)
+
+
+class ImageMagicExecuteResponse(BaseModel):
+    ok: bool
+    output_file_path: str
+    worker_id: str
+    worker_name: str
+
+
 class LocalLlmChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str = Field(min_length=1, max_length=20000)
@@ -221,6 +253,11 @@ __all__ = [
     "CoquiTtsToolConfigResponse",
     "CoquiTtsToolResponse",
     "CoquiTtsToolUpdate",
+    "ImageMagicExecuteRequest",
+    "ImageMagicExecuteResponse",
+    "ImageMagicToolConfigResponse",
+    "ImageMagicToolResponse",
+    "ImageMagicToolUpdate",
     "LocalLlmChatMessage",
     "LocalLlmChatRequest",
     "LocalLlmChatResponse",

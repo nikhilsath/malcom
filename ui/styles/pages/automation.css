@@ -783,7 +783,7 @@
 }
 
 .automation-canvas-surface {
-  height: 920px;
+  height: 700px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -1419,13 +1419,18 @@
 }
 
 .automation-canvas-surface--full {
-  height: 980px;
+  height: 720px;
   margin: 0 24px 24px;
 }
 
 .automation-node {
-  width: 320px;
-  padding: 18px;
+  width: 272px;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.automation-node--trigger-compact {
+  min-height: 66px;
 }
 
 .automation-node__header {
@@ -1439,14 +1444,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  height: 34px;
+  min-width: 26px;
+  height: 26px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
   color: var(--text);
   cursor: pointer;
   font: inherit;
+  font-size: 0.875rem;
   line-height: 1;
 }
 

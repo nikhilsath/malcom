@@ -7,6 +7,7 @@ const settingsElements = {
   newestLogValue: document.getElementById("settings-log-newest-value"),
   workspaceEnvironmentSelect: document.getElementById("settings-workspace-environment-select"),
   workspaceTimezoneSelect: document.getElementById("settings-workspace-timezone-select"),
+  workspaceToolRetriesInput: document.getElementById("settings-workspace-tool-retries-input"),
   retentionInput: document.getElementById("settings-log-retention-input"),
   visibleInput: document.getElementById("settings-log-visible-input"),
   detailInput: document.getElementById("settings-log-detail-input"),
@@ -100,6 +101,12 @@ const buildSectionPatch = (section, fallbackSettings) => {
       general: {
         environment: "live",
         timezone: settingsElements.workspaceTimezoneSelect?.value || fallbackSettings.general.timezone
+      },
+      automation: {
+        default_tool_retries: Number.parseInt(
+          settingsElements.workspaceToolRetriesInput?.value || "",
+          10
+        )
       }
     };
   }
@@ -164,6 +171,10 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.workspaceTimezoneSelect) {
     settingsElements.workspaceTimezoneSelect.value = settings.general.timezone;
+  }
+
+  if (settingsElements.workspaceToolRetriesInput) {
+    settingsElements.workspaceToolRetriesInput.value = String(settings.automation.default_tool_retries);
   }
 
   if (settingsElements.retentionInput) {

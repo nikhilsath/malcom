@@ -396,17 +396,50 @@ const initSidebarCollapse = () => {
   });
 };
 
+let _infoBadgePopover = null;
+let _activeBadge = null;
+
+const getInfoPopover = () => {
+  if (!_infoBadgePopover) {
+    _infoBadgePopover = document.createElement("div");
+    _infoBadgePopover.id = "info-badge-popover";
+    _infoBadgePopover.className = "info-badge-popover";
+    _infoBadgePopover.setAttribute("role", "tooltip");
+    _infoBadgePopover.hidden = true;
+    document.body.appendChild(_infoBadgePopover);
+  }
+  return _infoBadgePopover;
+};
+
 const closeInfoBadges = () => {
-  document.querySelectorAll(".info-badge[aria-controls]").forEach((badge) => {
-    const contentId = badge.getAttribute("aria-controls");
-    badge.setAttribute("aria-expanded", "false");
-    if (contentId) {
-      const content = document.getElementById(contentId);
-      if (content) {
-        content.hidden = true;
-      }
-    }
-  });
+  const popover = getInfoPopover();
+  popover.hidden = true;
+  popover.innerHTML = "";
+  if (_activeBadge) {
+    _activeBadge.setAttribute("aria-expanded", "false");
+    _activeBadge = null;
+  }
+};
+
+const openInfoPopover = (badge, contentElement) => {
+  const popover = getInfoPopover();
+  closeInfoBadges();
+  _activeBadge = badge;
+  badge.setAttribute("aria-expanded", "true");
+  popover.innerHTML = contentElement.innerHTML;
+  popover.hidden = false;
+
+  const rect = badge.getBoundingClientRect();
+  const maxW = Math.min(260, window.innerWidth - 16);
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  if (left + maxW > window.innerWidth - 8) {
+    left = window.innerWidth - maxW - 8;
+  }
+  if (left < 8) left = 8;
+  popover.style.top = top + "px";
+  popover.style.left = left + "px";
+  popover.style.maxWidth = maxW + "px";
 };
 
 const initInfoBadges = () => {
@@ -424,41 +457,25 @@ const initInfoBadges = () => {
       return;
     }
 
+    const popover = getInfoPopover();
+    if (!popover.hidden && popover.contains(target)) {
+      return;
+    }
+
     const badge = target.closest(".info-badge[aria-controls]");
     if (badge instanceof HTMLElement) {
       event.stopPropagation();
       const contentId = badge.getAttribute("aria-controls");
-
-      if (!contentId) {
-        return;
-      }
-
+      if (!contentId) return;
       const content = document.getElementById(contentId);
+      if (!content) return;
 
-      if (!content) {
-        return;
+      if (badge === _activeBadge) {
+        closeInfoBadges();
+      } else {
+        openInfoPopover(badge, content);
       }
-
-      const shouldOpen = badge.getAttribute("aria-expanded") !== "true";
-      closeInfoBadges();
-      badge.setAttribute("aria-expanded", String(shouldOpen));
-      content.hidden = !shouldOpen;
       return;
-    }
-
-    if (target.closest(".info-badge")) {
-      return;
-    }
-
-    const openBadges = document.querySelectorAll(".info-badge[aria-expanded='true']");
-    for (const badge of openBadges) {
-      const contentId = badge.getAttribute("aria-controls");
-      if (contentId) {
-        const content = document.getElementById(contentId);
-        if (content && content.contains(target)) {
-          return;
-        }
-      }
     }
 
     closeInfoBadges();

@@ -88,6 +88,41 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(refresh_body["connector"]["status"], "connected")
         self.assertIsNotNone(refresh_body["connector"]["last_tested_at"])
 
+    def test_gmail_oauth_start_uses_seeded_integration_preset(self) -> None:
+        start_response = self.client.post(
+            "/api/v1/connectors/google_gmail/oauth/start",
+            json={
+                "connector_id": "gmail-primary",
+                "name": "Gmail",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/google_gmail/oauth/callback",
+                "owner": "Workspace",
+                "client_id": "gmail-client-id",
+                "client_secret_input": "gmail-client-secret",
+            },
+        )
+
+        self.assertEqual(start_response.status_code, 200)
+        start_body = start_response.json()
+        self.assertEqual(start_body["connector"]["status"], "pending_oauth")
+        self.assertEqual(start_body["connector"]["base_url"], "https://gmail.googleapis.com/gmail/v1")
+        self.assertEqual(start_body["connector"]["scopes"], ["https://www.googleapis.com/auth/gmail.send"])
+        self.assertIn("accounts.google.com", start_body["authorization_url"])
+
+        callback_response = self.client.get(
+            f"/api/v1/connectors/google_gmail/oauth/callback?state={start_body['state']}&code=demo"
+        )
+        self.assertEqual(callback_response.status_code, 200)
+        callback_body = callback_response.json()
+        self.assertTrue(callback_body["ok"])
+        self.assertEqual(callback_body["connector"]["status"], "connected")
+        self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
+
+        refresh_response = self.client.post("/api/v1/connectors/gmail-primary/refresh")
+        self.assertEqual(refresh_response.status_code, 200)
+        refresh_body = refresh_response.json()
+        self.assertTrue(refresh_body["ok"])
+        self.assertEqual(refresh_body["connector"]["status"], "connected")
+
 
 if __name__ == "__main__":
     unittest.main()

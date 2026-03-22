@@ -28,13 +28,10 @@ UI_HTML_ROUTES = {
     "/tools/llm-deepl.html": "tools/llm-deepl.html",
     "/tools/smtp.html": "tools/smtp.html",
     "/tools/convert-audio.html": "tools/convert-audio.html",
+    "/tools/image-magic.html": "tools/image-magic.html",
     "/scripts.html": "scripts.html",
     "/scripts/library.html": "scripts/library.html",
     "/dashboard/home.html": "dashboard/home.html",
-    "/docs/search.html": "docs/search.html",
-    # Placeholder pages pending documentation feature implementation
-    "/docs/browse.html": "docs/browse.html",
-    "/docs/create.html": "docs/create.html",
 }
 
 
@@ -52,6 +49,15 @@ def build_ui_route(relative_path: str):
         return get_ui_html_response(relative_path, request)
 
     return serve_ui_route
+
+
+@router.get("/favicon.ico")
+def serve_favicon(request: Request) -> FileResponse:
+    root_dir = get_root_dir(request)
+    favicon_path = root_dir / "media" / "favicon.ico"
+    if not favicon_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Favicon not found.")
+    return FileResponse(favicon_path)
 
 
 def register_ui_routes(app: FastAPI) -> None:
@@ -147,9 +153,3 @@ def redirect_tools_legacy_root() -> RedirectResponse:
 @router.get("/scripts/")
 def redirect_scripts_root() -> RedirectResponse:
     return RedirectResponse(url="/scripts.html")
-
-
-@router.get("/docs")
-@router.get("/docs/")
-def redirect_docs_root() -> RedirectResponse:
-    return RedirectResponse(url="/docs/search.html")

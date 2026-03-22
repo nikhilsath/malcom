@@ -33,12 +33,9 @@ export default defineConfig({
         toolsLlmDeepl: resolve(__dirname, "tools/llm-deepl.html"),
         toolsSmtp: resolve(__dirname, "tools/smtp.html"),
         toolsConvertAudio: resolve(__dirname, "tools/convert-audio.html"),
+        toolsImageMagic: resolve(__dirname, "tools/image-magic.html"),
         scripts: resolve(__dirname, "scripts.html"),
-        scriptsLibrary: resolve(__dirname, "scripts/library.html"),
-        docsSearch: resolve(__dirname, "docs/search.html"),
-        // Placeholder pages pending documentation feature implementation
-        docsBrowse: resolve(__dirname, "docs/browse.html"),
-        docsCreate: resolve(__dirname, "docs/create.html")
+        scriptsLibrary: resolve(__dirname, "scripts/library.html")
       }
     }
   },

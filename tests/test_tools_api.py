@@ -382,6 +382,51 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(body["config"]["language"], "en")
         self.assertTrue(body["config"]["output_directory"].endswith("generated-audio"))
 
+    def test_reads_and_updates_image_magic_tool_config(self) -> None:
+        initial_response = self.client.get("/api/v1/tools/image-magic")
+        self.assertEqual(initial_response.status_code, 200)
+        self.assertEqual(initial_response.json()["tool_id"], "image-magic")
+
+        update_response = self.client.patch(
+            "/api/v1/tools/image-magic",
+            json={
+                "enabled": True,
+                "target_worker_id": "worker-local-test-host",
+                "command": "magick",
+            },
+        )
+        self.assertEqual(update_response.status_code, 200)
+        body = update_response.json()
+        self.assertTrue(body["config"]["enabled"])
+        self.assertEqual(body["config"]["target_worker_id"], "worker-local-test-host")
+        self.assertEqual(body["config"]["command"], "magick")
+
+    def test_executes_image_magic_with_mocked_runtime(self) -> None:
+        self.client.patch(
+            "/api/v1/tools/image-magic",
+            json={
+                "enabled": True,
+                "command": "magick",
+            },
+        )
+
+        with mock.patch(
+            "backend.routes.tools.execute_image_magic_conversion_request",
+            return_value={"output_file_path": "backend/data/generated/image-magic/output.png", "stdout": "ok"},
+        ):
+            response = self.client.post(
+                "/api/v1/tools/image-magic/execute",
+                json={
+                    "input_file": "input.jpg",
+                    "output_format": "png",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertTrue(body["output_file_path"].endswith("output.png"))
+
     def test_updates_tool_metadata_via_generic_patch_endpoint(self) -> None:
         response = self.client.patch(
             "/api/v1/tools/convert-audio",
