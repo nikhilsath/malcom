@@ -206,7 +206,10 @@ export const AddStepModal = ({
 
               <div id="add-step-detail-form" className="automation-form automation-form--modal">
                 {/* shared name field */}
-                <label id="add-step-name-field" className="automation-field automation-field--full">
+                <label
+                  id="add-step-name-field"
+                  className={`automation-field automation-field--full${pickedType === "script" ? " automation-field--inline-label" : ""}`}
+                >
                   <span id="add-step-name-label" className="automation-field__label">Custom label (optional)</span>
                   <input
                     id="add-step-name-input"

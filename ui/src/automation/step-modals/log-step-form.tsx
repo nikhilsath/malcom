@@ -30,6 +30,7 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
 
   const selectedTableId = draft.config.log_table_id || "";
   const mappings = draft.config.log_column_mappings || {};
+  const disableExistingMode = !loadingTables && tables.length === 0;
 
   // The columns of the currently-selected existing table
   const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
@@ -48,6 +49,10 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
   useEffect(() => {
     if (mode === "existing") fetchTables();
   }, [mode]);
+
+  useEffect(() => {
+    fetchTables();
+  }, []);
 
   const handleModeChange = (next: "existing" | "new") => {
     setMode(next);
@@ -154,13 +159,17 @@ export const LogStepForm = ({ draft, onChange }: Props) => {
       <div id="log-step-mode-row" className="automation-field automation-field--full">
         <span id="log-step-mode-label" className="automation-field__label">Target table</span>
         <div id="log-step-mode-options" className="log-step-mode-options">
-          <label id="log-step-mode-existing-label" className="log-step-mode-option">
+          <label
+            id="log-step-mode-existing-label"
+            className={`log-step-mode-option${disableExistingMode ? " log-step-mode-option--disabled" : ""}`}
+          >
             <input
               id="log-step-mode-existing"
               type="radio"
               name="log-step-mode"
               value="existing"
               checked={mode === "existing"}
+              disabled={disableExistingMode}
               onChange={() => handleModeChange("existing")}
             />
             Use existing table

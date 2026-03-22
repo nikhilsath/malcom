@@ -59,7 +59,7 @@ export const HttpStepForm = ({ draft, connectors, onChange }: Props) => (
       <span id="add-step-http-payload-label" className="automation-field__label">Payload template</span>
       <textarea
         id="add-step-http-payload-input"
-        className="automation-textarea automation-textarea--code"
+        className="automation-textarea automation-textarea--code automation-code-input"
         rows={6}
         value={draft.config.payload_template || ""}
         onChange={(e) =>

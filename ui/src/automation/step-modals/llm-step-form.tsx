@@ -24,7 +24,7 @@ export const LlmStepForm = ({ draft, onChange }: Props) => (
       <span id="add-step-llm-system-label" className="automation-field__label">System prompt</span>
       <textarea
         id="add-step-llm-system-input"
-        className="automation-textarea automation-textarea--code"
+        className="automation-textarea automation-textarea--code automation-code-input"
         rows={5}
         value={draft.config.system_prompt || ""}
         onChange={(e) =>
@@ -37,7 +37,7 @@ export const LlmStepForm = ({ draft, onChange }: Props) => (
       <span id="add-step-llm-user-label" className="automation-field__label">User prompt</span>
       <textarea
         id="add-step-llm-user-input"
-        className="automation-textarea automation-textarea--code"
+        className="automation-textarea automation-textarea--code automation-code-input"
         rows={7}
         value={draft.config.user_prompt || ""}
         onChange={(e) =>

@@ -116,6 +116,7 @@ class LogTablesApiTestCase(unittest.TestCase):
         self.assertEqual(data["table_name"], "test_events")
         self.assertEqual(data["rows"], [])
         self.assertEqual(data["total"], 0)
+        self.assertIn("seq_id", data["columns"])
         self.assertIn("row_id", data["columns"])
         self.assertIn("automation_id", data["columns"])
         self.assertIn("inserted_at", data["columns"])
@@ -243,8 +244,46 @@ class LogStepWritesToDbTestCase(unittest.TestCase):
         rows_data = rows_resp.json()
         self.assertEqual(rows_data["total"], 1)
         row = rows_data["rows"][0]
+        self.assertEqual(row["seq_id"], 1)
         self.assertEqual(row["note"], "hello from test")
         self.assertEqual(row["automation_id"], automation_id)
+
+    def test_log_step_row_seq_id_increments_across_inserts(self) -> None:
+        log_table = self._create_log_table()
+
+        automation_resp = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "DB Seq Write Automation",
+                "description": "Writes two rows to validate sequential IDs.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "write_event",
+                        "config": {
+                            "log_table_id": log_table["id"],
+                            "log_column_mappings": {"note": "hello from test"},
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_resp.status_code, 201, automation_resp.text)
+        automation_id = automation_resp.json()["id"]
+
+        first_exec = self.client.post(f"/api/v1/automations/{automation_id}/execute")
+        self.assertEqual(first_exec.status_code, 200, first_exec.text)
+        second_exec = self.client.post(f"/api/v1/automations/{automation_id}/execute")
+        self.assertEqual(second_exec.status_code, 200, second_exec.text)
+
+        rows_resp = self.client.get(f"/api/v1/log-tables/{log_table['id']}/rows")
+        self.assertEqual(rows_resp.status_code, 200)
+        rows = rows_resp.json()["rows"]
+        seq_ids = sorted(row["seq_id"] for row in rows)
+        self.assertEqual(seq_ids, [1, 2])
 
     def test_log_step_validation_requires_log_column_mappings_when_table_id_set(self) -> None:
         log_table = self._create_log_table()

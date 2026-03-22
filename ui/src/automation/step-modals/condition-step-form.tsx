@@ -12,7 +12,7 @@ export const ConditionStepForm = ({ draft, onChange }: Props) => (
       <span id="add-step-condition-expression-label" className="automation-field__label">Expression</span>
       <textarea
         id="add-step-condition-expression-input"
-        className="automation-textarea automation-textarea--code"
+        className="automation-textarea automation-textarea--code automation-code-input"
         rows={4}
         value={draft.config.expression || ""}
         onChange={(e) =>
