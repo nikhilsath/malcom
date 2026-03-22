@@ -38,7 +38,7 @@ The system follows a simplified version of the architecture used by enterprise i
 
 ### 1. UI Layer
 
-React application used for:
+Vite-built HTML entry pages using a mix of React pages and vanilla JavaScript pages for:
 
 * managing automations
 * viewing run history
@@ -138,7 +138,7 @@ Current implementation includes:
 
 ### 4. Scheduler
 
-APScheduler handles time-based triggers.
+An in-process custom scheduler/runtime loop handles time-based triggers.
 
 Examples:
 
@@ -148,7 +148,7 @@ Examples:
 
 Current implementation note:
 
-* the project currently uses an in-process scheduler loop tied to FastAPI lifespan
+* the scheduler runs as an in-process runtime loop tied to FastAPI lifespan
 * scheduled automations and scheduled outgoing APIs share the same scheduler status surface
 
 ### 5. Connectors
@@ -203,7 +203,6 @@ Developer mode exception:
 
 * Python
 * FastAPI
-* APScheduler
 * PostgreSQL
 
 ### Database Configuration
@@ -220,8 +219,9 @@ If `MALCOM_DATABASE_URL` is not set, the app defaults to `postgresql://postgres:
 
 ## Frontend
 
-* React
-* TypeScript (preferred for all new UI code)
+* Vite-built HTML entry pages
+* React for some pages and vanilla JavaScript for others
+* TypeScript (preferred for new React/TS UI code where applicable)
 * CSS with semantic classes and stable IDs
 * Radix / primitive UI components
 
@@ -254,7 +254,7 @@ Expanded validation:
 
 This adds:
 
-* route-level API smoke coverage from `tests/api_smoke_registry.py`
+* route-level API smoke coverage through `tests/test_api_smoke_matrix.py`, backed by `tests/api_smoke_registry.py`
 * browser smoke coverage through Playwright in `ui/e2e/`
 * the informational external probe report from `scripts/test-external-probes.py`
 
@@ -433,23 +433,23 @@ Contains:
 
 ## Verification
 
-Backend tests:
+Default validation:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -q
+./scripts/test-precommit.sh
 ```
 
-Frontend tests:
+Expanded validation:
 
 ```bash
-cd ui && npm test
+./scripts/test-full.sh
 ```
 
-Frontend build:
+Notes:
 
-```bash
-cd ui && npm run build
-```
+* backend tests run with `pytest`
+* `scripts/test-precommit.sh` runs backend `pytest`, frontend `npm test`, and frontend `npm run build`
+* `scripts/test-full.sh` runs the precommit checks, then `tests/test_api_smoke_matrix.py` for route smoke coverage, the external probe report, and Playwright smoke coverage
 
 ## Adding A New Tool
 
@@ -709,7 +709,8 @@ Guidelines:
 
 Frontend stack assumed by this design template:
 
-* React
+* Vite-built HTML entry pages
+* React for some pages and vanilla JavaScript for others
 * CSS with semantic classes and stable IDs
 * Radix primitives / shadcn-style components
 
@@ -724,9 +725,10 @@ This combination provides:
 
 ## UI Build Steps (Incremental)
 
-Based on the latest design advice, the frontend should use:
+Based on the current frontend architecture, the UI uses:
 
-- React
+- Vite-built HTML entry pages
+- React for some pages and vanilla JavaScript for others
 - CSS with semantic classes and stable IDs
 - Radix UI
 - shadcn-style component patterns
