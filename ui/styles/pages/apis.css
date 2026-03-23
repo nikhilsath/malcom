@@ -105,12 +105,6 @@
   font-size: 1rem;
 }
 
-.api-summary-card .api-tooltip-toggle {
-  width: 20px;
-  height: 20px;
-  font-size: 0.75rem;
-}
-
 .resource-list {
   display: grid;
   gap: var(--space-4);
@@ -678,10 +672,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.api-tooltip-content--section {
-  max-width: 40rem;
 }
 
 .resource-card__meta {

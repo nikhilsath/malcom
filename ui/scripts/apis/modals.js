@@ -1,9 +1,7 @@
 import {
   getCreateOpenButton,
   getCreateTypeModal,
-  hasAutomationPlaceholderElements,
-  hasCreateModalElements,
-  isAutomationPage
+  hasCreateModalElements
 } from "./dom.js";
 import { apiResourceTypes, createTypeModalFallbackMarkup } from "./config.js";
 
@@ -161,40 +159,6 @@ export const createApiModalController = ({
     }
   };
 
-  const openAutomationPlaceholderModal = () => {
-    if (!elements.automationPlaceholderModal) {
-      return;
-    }
-
-    if (isAutomationPage(elements) && window.location.hash !== "#create-automation-placeholder") {
-      window.history.replaceState(null, "", `${window.location.pathname}#create-automation-placeholder`);
-    }
-
-    elements.automationPlaceholderModal.classList.add("modal--open");
-    elements.automationPlaceholderModal.setAttribute("aria-hidden", "false");
-    syncModalBodyState();
-  };
-
-  const closeAutomationPlaceholderModal = () => {
-    if (!elements.automationPlaceholderModal) {
-      return;
-    }
-
-    elements.automationPlaceholderModal.classList.remove("modal--open");
-    elements.automationPlaceholderModal.setAttribute("aria-hidden", "true");
-    syncModalBodyState();
-
-    if (isAutomationPage(elements) && window.location.hash === "#create-automation-placeholder") {
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-
-    const createOpenButton = state.createTypeReturnFocusElement || getCreateOpenButton();
-
-    if (createOpenButton) {
-      createOpenButton.focus();
-    }
-  };
-
   const openDetailModalView = () => {
     if (!elements.detailModal) {
       return;
@@ -255,15 +219,6 @@ export const createApiModalController = ({
           state.createTypeReturnFocusElement = getCreateOpenButton();
           closeCreateTypeModal({ restoreFocus: false });
 
-          if (selectedType === "automation") {
-            if (isAutomationPage(elements) && hasAutomationPlaceholderElements(elements)) {
-              openAutomationPlaceholderModal();
-            } else {
-              actions.navigateToAutomationPlaceholder();
-            }
-            return;
-          }
-
           openCreateModal(selectedType);
         }
       });
@@ -297,14 +252,6 @@ export const createApiModalController = ({
       });
     }
 
-    if (elements.automationPlaceholderModal) {
-      elements.automationPlaceholderModal.addEventListener("click", (event) => {
-        if (event.target.closest("[data-modal-close]")) {
-          closeAutomationPlaceholderModal();
-        }
-      });
-    }
-
     if (!hasCreateModalElements(elements) && !elements.detailModal && !elements.outgoingEditModal) {
       return;
     }
@@ -316,11 +263,6 @@ export const createApiModalController = ({
 
       if (elements.detailModal?.classList.contains("modal--open")) {
         closeDetailModalView();
-        return;
-      }
-
-      if (elements.automationPlaceholderModal?.classList.contains("modal--open")) {
-        closeAutomationPlaceholderModal();
         return;
       }
 
@@ -351,8 +293,6 @@ export const createApiModalController = ({
     closeCreateModal,
     openOutgoingEditModal,
     closeOutgoingEditModal,
-    openAutomationPlaceholderModal,
-    closeAutomationPlaceholderModal,
     openDetailModalView,
     closeDetailModalView,
     bindModalEvents

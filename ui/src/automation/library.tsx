@@ -98,13 +98,13 @@ export const AutomationLibraryApp = () => {
           <div id="automations-library-list-header" className="automation-panel__header">
             <div id="automations-library-list-copy" className="automation-panel__copy">
               <p id="automations-library-list-eyebrow" className="automation-panel__eyebrow">Library</p>
-              <div className="title-row">
+              <div id="automations-library-list-title-row" className="title-row">
                 <h3 id="automations-library-list-title" className="automation-panel__title">Saved automations</h3>
                 <button type="button" id="automations-library-list-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-library-list-description">i</button>
               </div>
               <p id="automations-library-list-description" className="automation-panel__description" hidden>Search and select an automation to open in Builder.</p>
             </div>
-            <a id="automations-library-create-link" href="builder.html?new=true" className="primary-action-button">
+            <a id="automations-library-create-link" href="builder.html?new=true" className="button button--success primary-action-button">
               Create +
             </a>
           </div>
@@ -156,7 +156,7 @@ export const AutomationLibraryApp = () => {
           <div id="automations-library-runtime-header" className="automation-panel__header automation-panel__header--compact">
             <div id="automations-library-runtime-copy" className="automation-panel__copy">
               <p id="automations-library-runtime-eyebrow" className="automation-panel__eyebrow">Runtime</p>
-              <div className="title-row">
+              <div id="automations-library-runtime-title-row" className="title-row">
                 <h3 id="automations-library-runtime-title" className="automation-panel__title">Scheduler status</h3>
                 <button type="button" id="automations-library-runtime-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-library-runtime-description">i</button>
               </div>
@@ -221,20 +221,20 @@ export const AutomationLibraryApp = () => {
 
                 <div id="automations-library-detail-modal-stats" className="automation-detail-dialog__stats">
                   <div id="automations-library-detail-stat-trigger" className="automation-detail-stat">
-                    <span className="automation-detail-stat__label">Trigger</span>
-                    <span className="automation-detail-stat__value">{triggerLabels[selectedAutomation.trigger_type] ?? "Unknown"}</span>
+                    <span id="automations-library-detail-stat-trigger-label" className="automation-detail-stat__label">Trigger</span>
+                    <span id="automations-library-detail-stat-trigger-value" className="automation-detail-stat__value">{triggerLabels[selectedAutomation.trigger_type] ?? "Unknown"}</span>
                   </div>
                   <div id="automations-library-detail-stat-steps" className="automation-detail-stat">
-                    <span className="automation-detail-stat__label">Steps</span>
-                    <span className="automation-detail-stat__value">{selectedAutomation.step_count}</span>
+                    <span id="automations-library-detail-stat-steps-label" className="automation-detail-stat__label">Steps</span>
+                    <span id="automations-library-detail-stat-steps-value" className="automation-detail-stat__value">{selectedAutomation.step_count}</span>
                   </div>
                   <div id="automations-library-detail-stat-lastrun" className="automation-detail-stat">
-                    <span className="automation-detail-stat__label">Last run</span>
-                    <span className="automation-detail-stat__value">{formatDateTime(selectedAutomation.last_run_at)}</span>
+                    <span id="automations-library-detail-stat-lastrun-label" className="automation-detail-stat__label">Last run</span>
+                    <span id="automations-library-detail-stat-lastrun-value" className="automation-detail-stat__value">{formatDateTime(selectedAutomation.last_run_at)}</span>
                   </div>
                   <div id="automations-library-detail-stat-nextrun" className="automation-detail-stat">
-                    <span className="automation-detail-stat__label">Next run</span>
-                    <span className="automation-detail-stat__value">{formatDateTime(selectedAutomation.next_run_at)}</span>
+                    <span id="automations-library-detail-stat-nextrun-label" className="automation-detail-stat__label">Next run</span>
+                    <span id="automations-library-detail-stat-nextrun-value" className="automation-detail-stat__value">{formatDateTime(selectedAutomation.next_run_at)}</span>
                   </div>
                 </div>
 

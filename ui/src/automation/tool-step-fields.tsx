@@ -17,6 +17,8 @@ const smtpTemplateHints = [
 ];
 
 export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Props) => {
+  const id = (suffix: string) => `${idPrefix}-${suffix}`;
+  const idSegment = (value: string) => value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "value";
   const selectedTool = toolsManifest.find((tool) => tool.id === step.config.tool_id);
   const toolInputs = step.config.tool_inputs || {};
 
@@ -34,7 +36,7 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
       <div id={`${idPrefix}-tool-id-field`} className="automation-field automation-field--full">
         <span id={`${idPrefix}-tool-id-label`} className="automation-field__label">Tool</span>
         <select
-          id={`${idPrefix}-tool-id-input`}
+          id={id("tool-id-input")}
           className="automation-native-select"
           value={step.config.tool_id || ""}
           onChange={(event) =>
@@ -44,9 +46,11 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
             })
           }
         >
-          <option value="">Select a tool…</option>
+          <option id={id("tool-id-option-empty")} value="">Select a tool…</option>
           {toolsManifest.map((tool) => (
-            <option key={tool.id} value={tool.id}>{tool.name}</option>
+            <option key={tool.id} id={id(`tool-id-option-${idSegment(tool.id)}`)} value={tool.id}>
+              {tool.name}
+            </option>
           ))}
         </select>
       </div>
@@ -85,9 +89,11 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
                     value={toolInputs[field.key] || ""}
                     onChange={(event) => updateInput(field.key, event.target.value)}
                   >
-                    <option value="">Select…</option>
+                    <option id={`${fieldId}-option-empty`} value="">Select…</option>
                     {(field.options || []).map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} id={`${fieldId}-option-${idSegment(option)}`} value={option}>
+                        {option}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -109,14 +115,17 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
         <div id={`${idPrefix}-tool-outputs-panel`} className="automation-tool-outputs">
           <span id={`${idPrefix}-tool-outputs-label`} className="automation-field__label">Available outputs</span>
           <ul id={`${idPrefix}-tool-outputs-list`} className="automation-tool-outputs__list">
-            {selectedTool.outputs.map((output) => (
-              <li key={output.key} id={`${idPrefix}-tool-output-${output.key}`} className="automation-tool-outputs__item">
-                <code className="automation-tool-outputs__key">
-                  {"{{steps.<step_name>." + output.key + "}}"}
-                </code>
-                <span className="automation-tool-outputs__desc">{output.label}</span>
-              </li>
-            ))}
+            {selectedTool.outputs.map((output) => {
+              const outputId = `${idPrefix}-tool-output-${output.key}`;
+              return (
+                <li key={output.key} id={outputId} className="automation-tool-outputs__item">
+                  <code id={`${outputId}-key`} className="automation-tool-outputs__key">
+                    {"{{steps.<step_name>." + output.key + "}}"}
+                  </code>
+                  <span id={`${outputId}-description`} className="automation-tool-outputs__desc">{output.label}</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

@@ -121,8 +121,8 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
 | Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
-| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/connectors.js`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
-| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/connectors.js` | `backend/routes/connectors.py`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
+| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
+| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `backend/routes/connectors.py`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
@@ -131,7 +131,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | shared modal utilities/patterns, `ui/styles/pages/**`, related tests | auto-open detail panes on load or permanent empty inline detail columns |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
+| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry/`, `tests/test_api_smoke_matrix.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Update agent response policy or instruction-following rules | `AGENTS.md` | `Required Output For Development Work`, `Response Scope And Instruction Fidelity`, `Rules Matrix`, machine index block | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
@@ -157,7 +157,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for default local validation and `scripts/test-full.sh` for smoke plus browser coverage | Testing workflow changes |
-| R-TEST-003 | Keep internal API smoke coverage in `tests/api_smoke_registry.py` aligned with every served `/api/v1/**` route and `/health` | Backend route additions and removals |
+| R-TEST-003 | Keep internal API smoke coverage in `tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 
 <!-- MACHINE_INDEX_START
@@ -172,7 +172,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
   "primary_sources": {
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
-    "connector_registry": ["backend/routes/connectors.py", "backend/schemas/settings.py", "ui/settings/connectors.html", "ui/scripts/connectors.js"],
+    "connector_registry": ["backend/routes/connectors.py", "backend/schemas/settings.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/"],
     "connector_activity_catalog": ["backend/services/connector_activities.py", "backend/schemas/automation.py", "backend/routes/connectors.py", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
     "outgoing_http_requests": ["backend/routes/apis.py", "backend/schemas/apis.py", "ui/apis/outgoing.html", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
     "tool_catalog": ["backend/tool_registry.py"],
@@ -182,7 +182,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "ui_collapsible_controls": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
     "ui_selection_detail_modals": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/scripts/navigation.js"],
     "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh"],
-    "api_smoke_registry": ["tests/api_smoke_registry.py"],
+    "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
     "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/"]
   },
   "task_routes": {
@@ -191,7 +191,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "verify": ["tests/"]
     },
     "connector_backed_remote_api_change": {
-      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/connectors.js", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
+      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
       "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "workflow_builder_exposes_explicit_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
       "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector"]
     },
@@ -227,7 +227,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html"]
     },
     "test_workflow_change": {
-      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry.py"],
+      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
       "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
@@ -870,7 +870,7 @@ Every meaningful code change should include the smallest relevant verification s
 - add or update API tests for route, schema, or DB behavior changes
 - use `scripts/test-precommit.sh` as the default local backend/frontend gate before commits
 - use `scripts/test-full.sh` when backend route smoke coverage or browser smoke coverage needs validation
-- keep `/health` and every `/api/v1/**` route represented in `tests/api_smoke_registry.py`
+- keep `/health` and every `/api/v1/**` route represented in `tests/test_api_smoke_matrix.py`, with scenarios sourced from `tests/api_smoke_registry/`
 
 ### Frontend {#testing-frontend}
 
@@ -886,7 +886,7 @@ When removing or rewriting tests:
 1. confirm the original behavior or contract was actually removed or replaced
 2. remove the stale test in the same change that removes the covered behavior
 3. add or update replacement coverage when the behavior still exists in a new shape
-4. update `tests/api_smoke_registry.py` when an internal API route is added, removed, or renamed
+4. update `tests/test_api_smoke_matrix.py` and the `tests/api_smoke_registry/` package when an internal API route is added, removed, or renamed
 
 Do not delete tests only because they are inconvenient or currently failing. Fix stale assertions, missing fixtures, or changed contracts explicitly.
 

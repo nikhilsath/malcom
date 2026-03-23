@@ -48,23 +48,6 @@ export const createApiRenderer = ({ elements, state, actions }) => {
     elements.alert.className = `api-system-alert api-system-alert--${tone}`;
   };
 
-  const setAutomationAlert = (message, tone = "info") => {
-    if (!elements.automationAlert) {
-      return;
-    }
-
-    if (!message) {
-      elements.automationAlert.hidden = true;
-      elements.automationAlert.textContent = "";
-      elements.automationAlert.className = "api-system-alert";
-      return;
-    }
-
-    elements.automationAlert.hidden = false;
-    elements.automationAlert.textContent = message;
-    elements.automationAlert.className = `api-system-alert api-system-alert--${tone}`;
-  };
-
   const renderTable = () => {
     if (!hasOverviewElements(elements)) {
       return;
@@ -578,7 +561,6 @@ export const createApiRenderer = ({ elements, state, actions }) => {
 
   return {
     setAlert,
-    setAutomationAlert,
     renderTable,
     renderMetadata,
     renderSecretPanel,

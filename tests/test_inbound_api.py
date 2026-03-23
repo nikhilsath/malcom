@@ -198,10 +198,12 @@ class InboundApiTestCase(unittest.TestCase):
             headers={
                 "Authorization": f"Bearer {created['secret']}",
                 "Content-Type": "application/json",
+                "X-Request-Id": "req-test-logging-001",
             },
             json={"order_id": 99},
         )
         self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.headers.get("x-request-id"), "req-test-logging-001")
 
         log_path = Path(app.state.log_file_path)
         self.assertTrue(log_path.exists())
@@ -212,6 +214,8 @@ class InboundApiTestCase(unittest.TestCase):
         self.assertIn("inbound_api_event_recorded", contents)
         self.assertIn(f'\"api_id\": \"{created["id"]}\"', contents)
         self.assertIn('\"event\": \"runtime_trigger_emitted\"', contents)
+        self.assertIn('\"request_id\": \"req-test-logging-001\"', contents)
+        self.assertIn("\"user_agent\": \"testclient\"", contents)
 
 
 if __name__ == "__main__":

@@ -77,6 +77,55 @@
                             </select>
                         </article>
                     </div>
+
+                    <section id="settings-storage-locations" class="settings-storage-locations">
+                        <div id="settings-storage-locations-header" class="settings-storage-locations__header">
+                            <p id="settings-storage-locations-eyebrow" class="section-header__eyebrow">Storage</p>
+                            <div class="title-row">
+                                <h4 id="settings-storage-locations-title" class="settings-option-card__title">Storage locations</h4>
+                                <button type="button" id="settings-storage-locations-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-locations-description">i</button>
+                            </div>
+                            <p id="settings-storage-locations-description" class="settings-option-card__description" hidden>Define machine storage spots and connector-backed destinations used by data archival workflows.</p>
+                        </div>
+
+                        <label id="settings-storage-max-field" class="api-form-field settings-storage-locations__max-field">
+                            <span id="settings-storage-max-label" class="api-form-label">Maximum storage per location (MB)</span>
+                            <input
+                                id="settings-storage-max-mb-input"
+                                class="api-form-input"
+                                type="number"
+                                min="1"
+                                max="100"
+                                step="1"
+                                value="5"
+                            >
+                        </label>
+
+                        <div id="settings-storage-location-groups" class="settings-storage-location-groups">
+                            <article id="settings-storage-local-card" class="stat-card settings-option-card">
+                                <div id="settings-storage-local-copy" class="settings-option-card__copy">
+                                    <div class="title-row" id="settings-storage-local-title-row">
+                                        <h5 id="settings-storage-local-title" class="settings-storage-location-group-title">Local machine spots</h5>
+                                        <button type="button" id="settings-storage-local-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-local-description">i</button>
+                                    </div>
+                                    <p id="settings-storage-local-description" class="settings-option-card__description" hidden>Configured directories and local runtime stores on this machine.</p>
+                                </div>
+                                <div id="settings-storage-local-list" class="settings-storage-location-list" aria-live="polite"></div>
+                            </article>
+
+                            <article id="settings-storage-connectors-card" class="stat-card settings-option-card">
+                                <div id="settings-storage-connectors-copy" class="settings-option-card__copy">
+                                    <div class="title-row" id="settings-storage-connectors-title-row">
+                                        <h5 id="settings-storage-connectors-title" class="settings-storage-location-group-title">Connector-backed storage</h5>
+                                        <button type="button" id="settings-storage-connectors-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-connectors-description">i</button>
+                                    </div>
+                                    <p id="settings-storage-connectors-description" class="settings-option-card__description" hidden>Google Drive appears when Google is enabled. Other connectors are listed when available.</p>
+                                </div>
+                                <div id="settings-storage-connectors-list" class="settings-storage-location-list" aria-live="polite"></div>
+                            </article>
+                        </div>
+                    </section>
+
                     <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
                     <div id="settings-actions" class="api-form-actions">
                         <button type="submit" id="settings-save-button" class="button button--primary primary-action-button">Save settings</button>
@@ -102,17 +151,15 @@
                         </div>
                     </span>
                     <span id="settings-log-storage-collapse-symbol" aria-hidden="true">+</span>
-                    <span class="sr-only">Expand log table storage management</span>
+                    <span id="settings-log-storage-collapse-label" class="sr-only">Expand log table storage management</span>
                 </button>
                 <div id="settings-log-storage-body" hidden class="settings-log-storage-body">
                     <div id="settings-log-storage-description-row" class="title-row">
-                        <p id="settings-log-storage-hint" class="settings-card__description">
-                            Log tables are created by automation Log steps.
-                        </p>
+                        <p id="settings-log-storage-hint" class="settings-card__description">View or clear log tables.</p>
                         <button type="button" id="settings-log-storage-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-log-storage-description">i</button>
                     </div>
                     <p id="settings-log-storage-description" class="settings-card__description" hidden>
-                        Each row represents one automation execution event. You can view full data in Automations › Log Data. Use the controls here to check current storage and clear stale rows.
+                        Log tables are created by automation Log steps. Each row represents one automation execution event. You can view full data in Automations › Log Data. Use the controls here to check current storage and clear stale rows.
                     </p>
                     <div id="settings-log-tables-stats" class="settings-log-tables-stats" aria-live="polite">
                         <p id="settings-log-tables-loading" class="automation-empty-state">Loading…</p>

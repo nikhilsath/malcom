@@ -65,7 +65,6 @@ def register_runtime_worker(*, worker_id: str, name: str, hostname: str, address
 
 def process_runtime_job(connection: DatabaseConnection, logger: logging.Logger, *, job: RuntimeTriggerJob, worker_id: str, worker_name: str) -> None:
     finished_at = utc_now_iso()
-    runtime_event_bus.record_history(job.trigger)
     runtime_event_bus.complete_job(job_id=job.job_id, worker_id=worker_id, status_value="completed", completed_at=finished_at)
     assign_automation_run_worker(connection, run_id=job.run_id, worker_id=worker_id, worker_name=worker_name)
     write_application_log(
@@ -78,6 +77,7 @@ def process_runtime_job(connection: DatabaseConnection, logger: logging.Logger, 
         worker_id=worker_id,
         worker_name=worker_name,
     )
+    runtime_event_bus.record_history(job.trigger)
     finalize_automation_run_step(
         connection,
         step_id=job.step_id,

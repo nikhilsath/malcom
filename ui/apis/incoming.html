@@ -29,14 +29,14 @@
                             <p id="api-directory-eyebrow" class="api-panel-eyebrow">Directory</p>
                             <div id="api-directory-title-row" class="api-panel-title-row">
                                 <h3 id="api-directory-title" class="api-panel-title">Created incoming APIs</h3>
-                                <button type="button" id="api-directory-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain the incoming API directory" aria-expanded="false" aria-controls="api-directory-tooltip">i</button>
+                                <button type="button" id="api-directory-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="api-directory-tooltip">i</button>
                             </div>
                         </div>
                         <div id="api-directory-actions" class="api-form-actions">
-                            <button type="button" id="api-directory-create-button" class="primary-action-button" data-create-api-type="incoming">Create incoming API</button>
+                            <button type="button" id="api-directory-create-button" class="button button--success primary-action-button" data-create-api-type="incoming">Create incoming API</button>
                         </div>
                     </div>
-                    <div id="api-directory-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Select a row to view endpoint details and logs.</div>
+                    <p id="api-directory-tooltip" class="section-header__description" hidden>Select a row to view endpoint details and logs.</p>
 
                     <div id="api-directory-status-bar" class="api-directory-status-bar">
                         <p id="api-directory-status-copy" class="api-directory-status-copy" hidden>Select a row to open details.</p>
@@ -130,11 +130,11 @@
                                 <p id="api-logs-eyebrow" class="api-panel-eyebrow">Logs</p>
                                 <div id="api-logs-title-row" class="api-panel-title-row">
                                     <h4 id="api-logs-title" class="api-panel-title">Recent inbound events</h4>
-                                    <button type="button" id="api-logs-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain inbound event logs" aria-expanded="false" aria-controls="api-logs-tooltip">i</button>
+                                    <button type="button" id="api-logs-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="api-logs-tooltip">i</button>
                                 </div>
                             </div>
                             </div>
-                            <div id="api-logs-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Filter and inspect recent request results.</div>
+                            <p id="api-logs-tooltip" class="section-header__description" hidden>Filter and inspect recent request results.</p>
 
                             <div id="api-logs-toolbar" class="api-logs-toolbar">
                                 <div id="api-logs-summary" class="api-logs-summary" aria-live="polite">

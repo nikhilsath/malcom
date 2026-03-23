@@ -6,8 +6,7 @@ import {
   hasOutgoingRegistryElements,
   hasOverviewElements,
   hasOverviewLandingElements,
-  hasWebhookRegistryElements,
-  isAutomationPage
+  hasWebhookRegistryElements
 } from "./dom.js";
 import { normalizeError, resolvePageHref, setFormMessage, stringifyPreviewValue } from "./utils.js";
 
@@ -23,81 +22,6 @@ export const createApiPageController = ({
   createApiModalMarkup,
   outgoingApiEditModalMarkup
 }) => {
-  const closeApiTooltips = () => {
-    document.querySelectorAll(".api-tooltip-toggle[aria-controls]").forEach((toggle) => {
-      const tooltipId = toggle.getAttribute("aria-controls");
-      if (!tooltipId) {
-        return;
-      }
-
-      const tooltip = document.getElementById(tooltipId);
-      toggle.setAttribute("aria-expanded", "false");
-      if (tooltip) {
-        tooltip.hidden = true;
-      }
-    });
-  };
-
-  const bindApiTooltips = () => {
-    const toggles = document.querySelectorAll(".api-tooltip-toggle[aria-controls]");
-
-    if (toggles.length === 0) {
-      return;
-    }
-
-    toggles.forEach((toggle) => {
-      if (toggle.dataset.tooltipBound === "true") {
-        return;
-      }
-
-      toggle.dataset.tooltipBound = "true";
-      toggle.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const tooltipId = toggle.getAttribute("aria-controls");
-
-        if (!tooltipId) {
-          return;
-        }
-
-        const tooltip = document.getElementById(tooltipId);
-
-        if (!tooltip) {
-          return;
-        }
-
-        const shouldOpen = toggle.getAttribute("aria-expanded") !== "true";
-        closeApiTooltips();
-        toggle.setAttribute("aria-expanded", String(shouldOpen));
-        tooltip.hidden = !shouldOpen;
-      });
-    });
-
-    if (document.body.dataset.apiTooltipListenerBound === "true") {
-      return;
-    }
-
-    document.body.dataset.apiTooltipListenerBound = "true";
-
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-
-      if (!(target instanceof Element)) {
-        closeApiTooltips();
-        return;
-      }
-
-      if (!target.closest(".api-tooltip-toggle") && !target.closest(".api-tooltip-content")) {
-        closeApiTooltips();
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeApiTooltips();
-      }
-    });
-  };
-
   const actions = {
     hasOverviewElements: () => hasOverviewElements(elements),
     hasOutgoingRegistryElements: () => hasOutgoingRegistryElements(elements),
@@ -110,16 +34,6 @@ export const createApiPageController = ({
       }
     },
     resolvePageHref,
-    navigateToAutomationPlaceholder: () => {
-      const targetHref = resolvePageHref("/ui/apis/automation.html#create-automation-placeholder");
-
-      if (window.location.href !== targetHref) {
-        window.location.assign(targetHref);
-        return;
-      }
-
-      modals.openAutomationPlaceholderModal();
-    },
     loadApiDetail: async (apiId, options = {}) => {
       if (!hasOverviewElements(elements)) {
         return;
@@ -727,44 +641,11 @@ export const createApiPageController = ({
     }
   };
 
-  const initAutomationPage = async () => {
-    if (!isAutomationPage(elements)) {
-      return;
-    }
-
-    try {
-      if (!hasCreateModalElements(elements) || !elements.automationPlaceholderModal) {
-        throw new Error("Automation page modal hosts are missing.");
-      }
-
-      render.setAutomationAlert("", "info");
-
-      if (window.location.hash === "#create-automation-placeholder") {
-        state.createTypeReturnFocusElement = getCreateOpenButton();
-        modals.openAutomationPlaceholderModal();
-      }
-    } catch (error) {
-      const { message: errorMessage, stack: errorStack } = normalizeError(error);
-      console.error("Unable to initialize automation page", error);
-      render.setAutomationAlert(errorMessage, "error");
-      emitApiLog({
-        level: "error",
-        action: "automation_page_init_failed",
-        message: "Unable to initialize automation page.",
-        details: {
-          error: errorMessage,
-          stack: errorStack
-        }
-      });
-    }
-  };
-
   const initApiPage = async () => {
     bindResourceCardActions();
     state.connectorEntries = await loadConnectorEntries();
     await initCreateModal();
     await initOutgoingEditModal();
-    bindApiTooltips();
     if (hasOverviewLandingElements(elements)) {
       try {
         await loadOverviewLanding();
@@ -786,7 +667,6 @@ export const createApiPageController = ({
     await initApiOverview();
     await initOutgoingRegistry();
     await initWebhookRegistry();
-    await initAutomationPage();
 
     window.addEventListener("malcom:app-settings-updated", (event) => {
       state.connectorEntries = event.detail?.settings?.connectors?.records || [];
@@ -795,8 +675,6 @@ export const createApiPageController = ({
 
   return {
     initApiPage,
-    closeApiTooltips,
-    bindApiTooltips,
     actions
   };
 };

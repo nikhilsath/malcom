@@ -14,6 +14,7 @@ const approvedRootLevelUtilities = new Set([
   'apis.js',
   'connectors.js',
   'dashboard-logs.js',
+  'collapsible.js',
   'format-utils.js',
   'request.js',
   'settings.js',

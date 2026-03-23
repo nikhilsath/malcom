@@ -25,7 +25,7 @@ export const ConditionStepForm = ({ draft, onChange }: Props) => (
       <div id="add-step-condition-stop-copy" className="automation-switch-field__copy">
         <span id="add-step-condition-stop-label" className="automation-field__label">Stop on false</span>
         <span id="add-step-condition-stop-description" className="automation-switch-field__description">
-          Exit the workflow when the guard evaluates to false.
+          Exit the automation when the guard evaluates to false.
         </span>
       </div>
       <Switch.Root

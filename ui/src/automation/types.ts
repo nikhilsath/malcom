@@ -149,7 +149,7 @@ export const stepTypeOptions: Array<{ value: StepType; label: string; descriptio
   { value: "connector_activity", label: "Connector activity", description: "Run a provider-aware prebuilt connector action." },
   { value: "script", label: "Script", description: "Run a stored script from the script library." },
   { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
-  { value: "condition", label: "Condition", description: "Evaluate a guard expression and optionally halt the workflow." },
+  { value: "condition", label: "Condition", description: "Evaluate a guard expression and optionally halt the automation." },
   { value: "llm_chat", label: "LLM chat", description: "Prompt a language model with middleware context." }
 ];
 

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { ReactNode } from "react";
+import { CollapsibleSection } from "../lib/collapsible-section";
 import type {
   AlertSeverity,
   DashboardAlert,
@@ -13,6 +13,8 @@ import type {
   RunStatus
 } from "./types";
 import { formatBytes, formatDateTime, formatDuration, stringifyValue } from "./data";
+
+export { CollapsibleSection };
 
 const badgeToneMap: Record<string, string> = {
   healthy: "status-badge--success",
@@ -104,44 +106,6 @@ export const SectionToolbar = ({
     {action}
   </div>
 );
-
-export const CollapsibleSection = ({
-  id,
-  label,
-  children,
-  defaultCollapsed = false
-}: {
-  id: string;
-  label: string;
-  children: ReactNode;
-  defaultCollapsed?: boolean;
-}) => {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  return (
-    <section id={id} className="card">
-      <button
-        id={`${id}-collapse-toggle`}
-        type="button"
-        className="section-collapse-top-strip"
-        aria-expanded={!collapsed}
-        aria-controls={`${id}-body`}
-        aria-label={collapsed ? `Expand ${label}` : `Collapse ${label}`}
-        onClick={() => setCollapsed((c) => !c)}
-      >
-        <span id={`${id}-collapse-top-label`} className="section-collapse-top-strip__label">{label}</span>
-        <span id={`${id}-collapse-symbol`} className="section-collapse-top-strip__symbol" aria-hidden="true">
-          {collapsed ? "+" : "-"}
-        </span>
-        <span className="sr-only">
-          {collapsed ? `Expand ${label}` : `Collapse ${label}`}
-        </span>
-      </button>
-      <div id={`${id}-body`} hidden={collapsed}>
-        {children}
-      </div>
-    </section>
-  );
-};
 
 export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatus[] }) => (
   <CollapsibleSection id="dashboard-overview-services" label="Runtime status" description="Current service health checks.">
@@ -270,7 +234,7 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
 );
 
 export const ReportBuilderPanel = () => (
-  <section id="dashboard-logs-report-builder-card" className="card">
+  <CollapsibleSection id="dashboard-logs-report-builder-card" label="Log report builder">
     <SectionToolbar
       id="dashboard-logs-report-builder-toolbar"
       title="Log report builder"
@@ -308,7 +272,7 @@ export const ReportBuilderPanel = () => (
         </div>
       </dl>
     </article>
-  </section>
+  </CollapsibleSection>
 );
 
 export const DevicesTable = ({
@@ -319,7 +283,7 @@ export const DevicesTable = ({
   devices: DashboardDevice[];
 }) => (
   <div id="dashboard-devices-layout" className="stacked-card-layout">
-    <section id="dashboard-devices-host-card" className="card">
+    <CollapsibleSection id="dashboard-devices-host-card" label="Host machine">
       <SectionToolbar
         id="dashboard-devices-host-toolbar"
         title="Host machine"
@@ -414,9 +378,9 @@ export const DevicesTable = ({
           </div>
         </div>
       )}
-    </section>
+    </CollapsibleSection>
 
-    <section id="dashboard-devices-inventory-card" className="card">
+    <CollapsibleSection id="dashboard-devices-inventory-card" label="Runtime endpoints">
       <SectionToolbar
         id="dashboard-devices-inventory-toolbar"
         title="Runtime endpoints"
@@ -459,7 +423,7 @@ export const DevicesTable = ({
           </table>
         </div>
       )}
-    </section>
+    </CollapsibleSection>
   </div>
 );
 

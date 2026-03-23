@@ -2849,7 +2849,6 @@ def process_runtime_job(
     worker_name: str,
 ) -> None:
     finished_at = utc_now_iso()
-    runtime_event_bus.record_history(job.trigger)
     runtime_event_bus.complete_job(
         job_id=job.job_id,
         worker_id=worker_id,
@@ -2872,6 +2871,7 @@ def process_runtime_job(
         worker_id=worker_id,
         worker_name=worker_name,
     )
+    runtime_event_bus.record_history(job.trigger)
     finalize_automation_run_step(
         connection,
         step_id=job.step_id,

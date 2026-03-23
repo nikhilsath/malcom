@@ -254,8 +254,7 @@
   margin-top: 0;
 }
 
-.info-badge,
-.api-tooltip-toggle {
+.info-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -274,25 +273,16 @@
   vertical-align: super;
 }
 
-.api-tooltip-toggle--compact {
-  width: 11px;
-  height: 11px;
-  font-size: 0.4rem;
-}
-
-.info-badge:hover,
-.api-tooltip-toggle:hover {
+.info-badge:hover {
   background: #ede9fe;
 }
 
-.info-badge:focus-visible,
-.api-tooltip-toggle:focus-visible {
+.info-badge:focus-visible {
   outline: 3px solid rgba(109, 40, 217, 0.2);
   outline-offset: 2px;
 }
 
-.info-badge-content,
-.api-tooltip-content {
+.info-badge-content {
   display: none;
 }
 
@@ -411,6 +401,20 @@
   color: #ffffff;
 }
 
+.button--danger {
+  border: 0;
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.button--success:hover {
+  background: var(--success-dark);
+}
+
+.button--danger:hover {
+  background: var(--danger-dark);
+}
+
 .sidenav__action-button {
   min-height: 36px;
   font-size: 0.875rem;
@@ -426,6 +430,8 @@
 .sidenav__action-button:focus-visible,
 .primary-action-button:focus-visible,
 .secondary-action-button:focus-visible,
+.button--success:focus-visible,
+.button--danger:focus-visible,
 .modal__close-button:focus-visible {
   outline: 3px solid var(--primary-focus);
   outline-offset: 2px;
@@ -512,6 +518,15 @@
 .api-form-textarea {
   min-height: 84px;
   resize: vertical;
+}
+
+.api-form-input--locked,
+.api-form-input[readonly],
+.api-form-input:disabled {
+  background: color-mix(in srgb, var(--panel) 60%, var(--surface) 40%);
+  border-style: dashed;
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .api-inline-toggle {

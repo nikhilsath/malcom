@@ -271,6 +271,40 @@ def complete_connector_oauth(
     code: str | None = None,
     error: str | None = None,
     scope: str | None = None,
+) -> ConnectorOAuthCallbackResponse | RedirectResponse:
+    accepts_html = "text/html" in (request.headers.get("accept") or "").lower()
+
+    try:
+        callback_result = _complete_connector_oauth_result(
+            provider=provider,
+            state=state,
+            request=request,
+            code=code,
+            error=error,
+            scope=scope,
+        )
+    except HTTPException as exc:
+        if not accepts_html:
+            raise
+        detail = exc.detail if isinstance(exc.detail, str) else "OAuth authorization failed."
+        target = f"/settings/connectors.html?{urllib.parse.urlencode({'oauth_status': 'error', 'oauth_message': detail})}"
+        return RedirectResponse(url=target, status_code=status.HTTP_303_SEE_OTHER)
+
+    if accepts_html:
+        target = f"/settings/connectors.html?{urllib.parse.urlencode({'oauth_status': 'success' if callback_result.ok else 'warning', 'oauth_message': callback_result.message, 'connector_id': callback_result.connector.id})}"
+        return RedirectResponse(url=target, status_code=status.HTTP_303_SEE_OTHER)
+
+    return callback_result
+
+
+def _complete_connector_oauth_result(
+    *,
+    provider: str,
+    state: str,
+    request: Request,
+    code: str | None = None,
+    error: str | None = None,
+    scope: str | None = None,
 ) -> ConnectorOAuthCallbackResponse:
     oauth_states = getattr(request.app.state, "connector_oauth_states", {})
     state_payload = oauth_states.get(state)
@@ -382,7 +416,7 @@ def complete_connector_oauth_for_ui(
     query: dict[str, str] = {}
 
     try:
-        callback_result = complete_connector_oauth(
+        callback_result = _complete_connector_oauth_result(
             provider=provider,
             state=state,
             request=request,

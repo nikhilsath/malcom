@@ -5,12 +5,12 @@ export const modalFallbackMarkup = `
         <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
         <div class="api-panel-title-row" id="create-api-modal-title-row">
           <h3 class="modal__title" id="apis-create-modal-title">Create API</h3>
-          <button type="button" id="create-api-modal-description-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain this API type" aria-expanded="false" aria-controls="create-api-modal-description">i</button>
+          <button type="button" id="create-api-modal-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="create-api-modal-description">i</button>
         </div>
       </div>
       <button type="button" class="modal__close-icon-button" id="create-api-modal-close" aria-label="Close create API modal" data-modal-close="apis-create-modal">×</button>
     </div>
-    <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The shared create form could not be loaded.</div>
+    <p id="create-api-modal-description" class="section-header__description modal__description" hidden>The shared create form could not be loaded.</p>
     <div class="modal__body" id="create-api-modal-body">
       <p id="create-api-modal-fallback-copy" class="modal__description">Refresh and try again.</p>
     </div>
@@ -57,10 +57,6 @@ export const createTypeModalFallbackMarkup = `
                 <span id="apis-create-type-option-webhook-title" class="api-create-type-modal-option__title">Webhook</span>
                 <span id="apis-create-type-option-webhook-description" class="api-create-type-modal-option__description">Store publisher verification and signing details.</span>
               </button>
-              <button type="button" id="apis-create-type-option-automation" class="api-create-type-modal-option" data-api-type="automation">
-                <span id="apis-create-type-option-automation-title" class="api-create-type-modal-option__title">Automation</span>
-                <span id="apis-create-type-option-automation-description" class="api-create-type-modal-option__description">Open the automation workspace and start a new live workflow.</span>
-              </button>
             </div>
           </div>
         </div>
@@ -76,12 +72,12 @@ export const outgoingEditModalFallbackMarkup = `
         <p class="modal__eyebrow" id="outgoing-api-edit-modal-eyebrow">Outgoing</p>
         <div class="api-panel-title-row" id="outgoing-api-edit-modal-title-row">
           <h3 class="modal__title" id="outgoing-api-edit-modal-title">Edit outgoing API</h3>
-          <button type="button" id="outgoing-api-edit-modal-tooltip-toggle" class="api-tooltip-toggle api-tooltip-toggle--compact" aria-label="Explain outgoing API editing" aria-expanded="false" aria-controls="outgoing-api-edit-modal-description">i</button>
+          <button type="button" id="outgoing-api-edit-modal-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="outgoing-api-edit-modal-description">i</button>
         </div>
       </div>
       <button type="button" class="modal__close-icon-button" id="outgoing-api-edit-modal-close" aria-label="Close outgoing API modal" data-modal-close="outgoing-api-edit-modal">×</button>
     </div>
-    <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>The outgoing edit form could not be loaded.</div>
+    <p id="outgoing-api-edit-modal-description" class="section-header__description modal__description" hidden>The outgoing edit form could not be loaded.</p>
     <div class="modal__body" id="outgoing-api-edit-modal-body">
       <p id="outgoing-api-edit-modal-fallback-copy" class="modal__description">Refresh and try again.</p>
     </div>

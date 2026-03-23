@@ -27,7 +27,7 @@ type Props = {
 };
 
 const triggerDescriptions: Record<TriggerType, string> = {
-  manual: "Run the workflow only when an operator starts it.",
+  manual: "Run the automation only when an operator starts it.",
   schedule: "Start automatically at a set time each day.",
   inbound_api: "Start when an inbound API endpoint receives an event.",
   smtp_email: "Start when incoming email matches your filters."
@@ -82,6 +82,7 @@ export const TriggerSettingsForm = ({
   inboundApiMissingSelection = false
 }: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
+  const schedulePickerLabelId = id("trigger-schedule-picker-title");
   const schedulePickerRef = useRef<HTMLDivElement | null>(null);
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
 
@@ -179,7 +180,7 @@ export const TriggerSettingsForm = ({
             onCheckedChange={(checked) => onPatch({ enabled: checked })}
             className="automation-switch"
           >
-            <Switch.Thumb className="automation-switch__thumb" />
+            <Switch.Thumb id={id("enabled-thumb")} className="automation-switch__thumb" />
           </Switch.Root>
         </div>
       ) : null}
@@ -227,7 +228,13 @@ export const TriggerSettingsForm = ({
           </button>
 
           {schedulePickerOpen ? (
-            <div id={id("trigger-schedule-picker")} className="automation-time-picker__panel" role="dialog" aria-label="Schedule time picker">
+            <div
+              id={id("trigger-schedule-picker")}
+              className="automation-time-picker__panel"
+              role="dialog"
+              aria-labelledby={schedulePickerLabelId}
+            >
+              <span id={schedulePickerLabelId} className="sr-only">Schedule time picker</span>
               <label id={id("trigger-schedule-hour-field")} className="automation-field automation-time-picker__field">
                 <span id={id("trigger-schedule-hour-label")} className="automation-field__label">Hour</span>
                 <select
@@ -241,7 +248,9 @@ export const TriggerSettingsForm = ({
                   }}
                 >
                   {scheduleHourOptions.map((hourOption) => (
-                    <option key={hourOption} value={hourOption}>{hourOption}</option>
+                    <option key={hourOption} id={id(`trigger-schedule-hour-option-${hourOption}`)} value={hourOption}>
+                      {hourOption}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -259,7 +268,9 @@ export const TriggerSettingsForm = ({
                   }}
                 >
                   {scheduleMinuteOptions.map((minuteOption) => (
-                    <option key={minuteOption} value={minuteOption}>{minuteOption}</option>
+                    <option key={minuteOption} id={id(`trigger-schedule-minute-option-${minuteOption}`)} value={minuteOption}>
+                      {minuteOption}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -276,8 +287,8 @@ export const TriggerSettingsForm = ({
                     patchScheduleTime(scheduleHour, scheduleMinute, nextPeriod);
                   }}
                 >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
+                  <option id={id("trigger-schedule-period-option-am")} value="AM">AM</option>
+                  <option id={id("trigger-schedule-period-option-pm")} value="PM">PM</option>
                 </select>
               </label>
             </div>
@@ -294,9 +305,11 @@ export const TriggerSettingsForm = ({
             value={inboundApiId}
             onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, inbound_api_id: event.target.value } })}
           >
-            <option value="">Select inbound API</option>
+            <option id={id("trigger-api-option-empty")} value="">Select inbound API</option>
             {inboundApiSelectOptions.map((option) => (
-              <option key={option.id} value={option.id}>{option.name}</option>
+              <option key={option.id} id={id(`trigger-api-option-${option.id}`)} value={option.id}>
+                {option.name}
+              </option>
             ))}
           </select>
           {inboundApiMissingSelection ? (

@@ -64,57 +64,18 @@
                 </div>
             </section>
 
-            <section id="settings-connectors-google-section" class="card settings-section" hidden>
-                <div id="settings-connectors-google-header" class="settings-section__header">
-                    <p id="settings-connectors-google-eyebrow" class="section-header__eyebrow">Authentication</p>
-                    <div class="title-row">
-                        <h3 id="settings-connectors-google-title" class="settings-card__title">Google account</h3>
-                        <button type="button" id="settings-connectors-google-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-description">i</button>
-                    </div>
-                    <p id="settings-connectors-google-description" class="settings-card__description" hidden>Connect your Google account to enable access to Gmail, Google Calendar, Google Sheets, and other Google services across Malcom.</p>
-                </div>
-                <div id="settings-connectors-google-content" class="settings-card-content">
-                    <div id="settings-connectors-google-status" class="google-connector-status">
-                        <p id="settings-connectors-google-status-label" class="google-connector-status-label">Status:</p>
-                        <p id="settings-connectors-google-status-value" class="google-connector-status-value">Not connected</p>
-                    </div>
-                    <div id="settings-connectors-google-actions" class="google-connector-actions">
-                        <p id="settings-connectors-google-connect-hint" class="section-header__description">Start Google onboarding by clicking Connect provider in Other connectors.</p>
-                        <button type="button" id="settings-connectors-google-disconnect-button" class="button button--secondary secondary-action-button" hidden>Disconnect</button>
-                    </div>
-                    <div id="settings-connectors-google-feedback" class="api-form-feedback" aria-live="polite"></div>
-                    <div id="settings-connectors-google-setup-guide">
-                        <div class="title-row">
-                            <h4 id="settings-connectors-google-setup-title" class="settings-option-card__title">Setup Instructions</h4>
-                            <button type="button" id="settings-connectors-google-setup-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-setup-description">i</button>
-                        </div>
-                        <p id="settings-connectors-google-setup-description" class="section-header__description" hidden>
-                            <strong>Before connecting:</strong> Create a Google Cloud project, configure an OAuth 2.0 Web application, and add this redirect URI to authorized domains. 
-                            <ol style="margin: 0.5em 0; padding-left: 1.5em; font-size: 0.95em;">
-                                <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud Console → APIs & Services → Credentials</a></li>
-                                <li>Click "Create Credentials" → "OAuth 2.0 Client ID" (type: Web application)</li>
-                                <li>Under "Authorized redirect URIs" add: <code style="background: rgba(255,255,255,0.1); padding: 0.2em 0.4em; border-radius: 3px;">http://127.0.0.1:8000/api/v1/connectors/google/oauth/callback</code></li>
-                                <li>Copy your Client ID and Client Secret below and click "Authorize"</li>
-                                <li>If your app is unverified, add test users on the "OAuth consent screen" tab</li>
-                            </ol>
-                            See <a href="https://developers.google.com/identity/protocols/oauth2/web-server" target="_blank" rel="noopener noreferrer">Google OAuth 2.0 documentation</a> for more.
-                        </p>
-                    </div>
-                </div>
-            </section>
-
             <section id="settings-connectors-workspace-section" class="card settings-section">
                 <div id="settings-connectors-workspace-header" class="section-header api-panel-header">
                     <div id="settings-connectors-workspace-copy" class="section-header__copy api-panel-header-copy">
                         <p id="settings-connectors-workspace-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Registry</p>
                         <div class="title-row">
-                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Other connectors</h3>
+                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Configured connectors</h3>
                             <button type="button" id="settings-connectors-workspace-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-workspace-description">i</button>
                         </div>
-                        <p id="settings-connectors-workspace-description" class="section-header__description" hidden>Select a connector to edit metadata, rotate auth, or test the saved configuration.</p>
+                        <p id="settings-connectors-workspace-description" class="section-header__description" hidden>Select any configured connector to edit metadata, rotate auth, or test the saved configuration.</p>
                     </div>
                     <div id="settings-connectors-workspace-actions" class="api-form-actions">
-                        <button type="button" id="settings-connectors-create-button" class="button button--primary primary-action-button">Connect provider</button>
+                        <button type="button" id="settings-connectors-create-button" class="button button--success primary-action-button">Connect provider</button>
                     </div>
                 </div>
                 <div id="settings-connectors-feedback" class="api-form-feedback" aria-live="polite"></div>
@@ -125,7 +86,7 @@
                         </div>
                         <div id="settings-connectors-empty" class="api-empty-state" hidden>
                             <h4 id="settings-connectors-empty-title" class="api-empty-state__title">No connectors configured</h4>
-                            <p id="settings-connectors-empty-description" class="api-empty-state__description">Use Connect provider to add a connector.</p>
+                            <p id="settings-connectors-empty-description" class="api-empty-state__description">Connect a provider to begin.</p>
                         </div>
                         <div id="settings-connectors-table-shell" class="api-table-shell">
                             <table id="settings-connectors-table" class="api-directory-table">
@@ -217,7 +178,7 @@
                         <div id="settings-connectors-modal-header-copy" class="modal__header-copy">
                             <p id="settings-connectors-modal-eyebrow" class="modal__eyebrow">Connect</p>
                             <h3 id="settings-connectors-modal-title" class="modal__title">Choose a provider preset</h3>
-                            <p id="settings-connectors-modal-description" class="modal__description">Choose a preset to prefill connector fields.</p>
+                            <p id="settings-connectors-modal-description" class="modal__description">Pick a preset.</p>
                         </div>
                         <button type="button" id="settings-connectors-modal-close" class="modal__close-icon-button" data-modal-close="settings-connectors-modal" aria-label="Close connector preset modal">×</button>
                     </div>
@@ -236,12 +197,12 @@
                 <section id="settings-connectors-detail-panel" class="modal__panel settings-connectors-detail-panel" aria-live="polite">
                     <div id="settings-connectors-detail-header" class="section-header api-panel-header modal__header">
                         <div id="settings-connectors-detail-copy" class="section-header__copy api-panel-header-copy modal__header-copy">
-                            <p id="settings-connectors-detail-eyebrow" class="section-header__eyebrow api-panel-eyebrow modal__eyebrow">Selected connector</p>
+                            <p id="settings-connectors-detail-eyebrow" class="section-header__eyebrow api-panel-eyebrow modal__eyebrow">Connector setup</p>
                             <div class="title-row">
-                                <h3 id="settings-connectors-detail-title" class="section-header__title api-panel-title modal__title">Choose a connector</h3>
+                                <h3 id="settings-connectors-detail-title" class="section-header__title api-panel-title modal__title">Connector setup</h3>
                                 <button type="button" id="settings-connectors-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-detail-description">i</button>
                             </div>
-                            <p id="settings-connectors-detail-description" class="section-header__description modal__description" hidden>Provider metadata, scope selection, and saved auth settings appear here.</p>
+                            <p id="settings-connectors-detail-description" class="section-header__description modal__description" hidden>Enter credentials and complete provider-specific setup for this connector.</p>
                         </div>
                         <button type="button" id="settings-connectors-detail-modal-close" class="modal__close-icon-button" data-modal-close="settings-connectors-detail-modal" aria-label="Close connector details">×</button>
                     </div>
@@ -249,11 +210,11 @@
                         <div id="settings-connectors-form-grid" class="api-form-grid">
                             <label id="settings-connectors-name-field" class="api-form-field">
                                 <span id="settings-connectors-name-label" class="api-form-label">Name</span>
-                                <input id="settings-connectors-name-input" class="api-form-input" type="text" maxlength="120">
+                                <input id="settings-connectors-name-input" class="api-form-input" type="text" maxlength="120" required>
                             </label>
                             <label id="settings-connectors-provider-field" class="api-form-field">
                                 <span id="settings-connectors-provider-label" class="api-form-label">Provider</span>
-                                <input id="settings-connectors-provider-input" class="api-form-input" type="text" readonly>
+                                <input id="settings-connectors-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
                             </label>
                             <label id="settings-connectors-status-field" class="api-form-field">
                                 <span id="settings-connectors-status-label" class="api-form-label">Status</span>
@@ -280,7 +241,7 @@
                             </label>
                             <label id="settings-connectors-scopes-field" class="api-form-field api-form-field--full">
                                 <span id="settings-connectors-scopes-label" class="api-form-label">Scopes</span>
-                                <input id="settings-connectors-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="Leave empty or enter comma-separated scopes">
+                                <input id="settings-connectors-scopes-input" class="api-form-input api-form-input--locked" type="text" maxlength="1000" placeholder="Default provider scopes" readonly>
                             </label>
                             <label id="settings-connectors-client-id-field" class="api-form-field">
                                 <span id="settings-connectors-client-id-label" class="api-form-label">Client ID</span>
@@ -292,15 +253,8 @@
                             </label>
                             <label id="settings-connectors-redirect-uri-field" class="api-form-field api-form-field--full">
                                 <span id="settings-connectors-redirect-uri-label" class="api-form-label">Redirect URI</span>
-                                <input id="settings-connectors-redirect-uri-input" class="api-form-input" type="url" maxlength="2000">
+                                <input id="settings-connectors-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
                             </label>
-                            <div id="settings-connectors-google-oauth-guidance" class="api-form-field api-form-field--full">
-                                <div class="title-row">
-                                    <span id="settings-connectors-google-oauth-guidance-label" class="api-form-label">Google OAuth setup</span>
-                                    <button type="button" id="settings-connectors-google-oauth-guidance-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-google-oauth-note">i</button>
-                                </div>
-                                <p id="settings-connectors-google-oauth-note" class="section-header__description" hidden>Use Google OAuth 2.0 Web application credentials. Enter Client ID and Client secret, and ensure this connector's Redirect URI is registered under Authorized redirect URIs in Google Cloud.</p>
-                            </div>
                             <label id="settings-connectors-username-field" class="api-form-field">
                                 <span id="settings-connectors-username-label" class="api-form-label">Username</span>
                                 <input id="settings-connectors-username-input" class="api-form-input" type="text" maxlength="120">
@@ -332,7 +286,7 @@
                         </div>
                         <div id="settings-connectors-credential-summary" class="selected-tools-summary">
                             <p id="settings-connectors-credential-summary-label" class="selected-tools-label">Credential summary</p>
-                            <p id="settings-connectors-credential-summary-value" class="selected-tools-value">Masked credential fields appear after the connector is saved.</p>
+                            <p id="settings-connectors-credential-summary-value" class="selected-tools-value">Saved credential fields stay masked.</p>
                         </div>
                         <div id="settings-connectors-form-actions" class="api-form-actions">
                             <button type="submit" id="settings-connectors-save-button" class="button button--primary primary-action-button">Save connector</button>
@@ -340,6 +294,7 @@
                             <button type="button" id="settings-connectors-oauth-start-button" class="button button--secondary secondary-action-button">Start OAuth</button>
                             <button type="button" id="settings-connectors-refresh-button" class="button button--secondary secondary-action-button">Refresh token</button>
                             <button type="button" id="settings-connectors-revoke-button" class="button button--secondary secondary-action-button">Revoke connector</button>
+                            <button type="button" id="settings-connectors-remove-button" class="button button--danger">Remove connector</button>
                         </div>
                     </form>
                 </section>

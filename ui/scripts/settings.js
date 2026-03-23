@@ -20,7 +20,8 @@ const settingsElements = {
   accessTokenSelect: document.getElementById("settings-access-token-select"),
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
-  dataAuditSelect: document.getElementById("settings-data-audit-select")
+  dataAuditSelect: document.getElementById("settings-data-audit-select"),
+  storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
 };
 
 const currentSettingsSection = document.body?.dataset.settingsSection || null;
@@ -143,11 +144,19 @@ const buildSectionPatch = (section, fallbackSettings) => {
   }
 
   if (section === "data") {
+    const maxStorageMb = Number.parseInt(settingsElements.storageMaxMbInput?.value || "", 10);
+
     return {
       data: {
         payload_redaction: settingsElements.dataRedactionCheckbox?.checked ?? fallbackSettings.data.payload_redaction,
         export_window_utc: settingsElements.dataExportSelect?.value || fallbackSettings.data.export_window_utc,
         audit_retention_days: Number.parseInt(settingsElements.dataAuditSelect?.value || "", 10)
+      },
+      logging: {
+        ...fallbackSettings.logging,
+        max_file_size_mb: Number.isFinite(maxStorageMb)
+          ? Math.min(100, Math.max(1, maxStorageMb))
+          : fallbackSettings.logging.max_file_size_mb
       }
     };
   }
@@ -227,6 +236,10 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.dataAuditSelect) {
     settingsElements.dataAuditSelect.value = String(settings.data.audit_retention_days);
+  }
+
+  if (settingsElements.storageMaxMbInput) {
+    settingsElements.storageMaxMbInput.value = String(settings.logging.max_file_size_mb);
   }
 
   document

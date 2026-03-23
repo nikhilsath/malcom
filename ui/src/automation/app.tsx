@@ -33,6 +33,7 @@ import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step
 import { ScriptStepForm } from "./step-modals/script-step-form";
 import { ToolStepFields } from "./tool-step-fields";
 import { TriggerSettingsForm } from "./trigger-settings-form";
+import { CollapsibleSection } from "../lib/collapsible-section";
 
 declare global {
   interface Window {
@@ -531,7 +532,6 @@ export const AutomationApp = () => {
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);
   const [advancedLabelOpen, setAdvancedLabelOpen] = useState(false);
-  const [workflowBarCollapsed, setWorkflowBarCollapsed] = useState(false);
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
 
@@ -1050,7 +1050,7 @@ export const AutomationApp = () => {
               <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
                 <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
                 <span id="automations-step-condition-stop-description" className="automation-switch-field__description">
-                  Exit the workflow when the guard evaluates to false (ignored when a FALSE branch target is set).
+                  Exit the automation when the guard evaluates to false (ignored when a FALSE branch target is set).
                 </span>
               </div>
               <Switch.Root
@@ -1172,7 +1172,7 @@ export const AutomationApp = () => {
           <button
             id="automations-step-remove-button"
             type="button"
-            className="button button--secondary automation-danger-zone__button"
+            className="button button--danger automation-danger-zone__button"
             onClick={() => {
               if (step.id) {
                 removeStepById(step.id);
@@ -1188,37 +1188,23 @@ export const AutomationApp = () => {
 
   return (
     <div id="automations-app-shell" className="automations-app automations-builder-app">
-      <section
+      <CollapsibleSection
         id="automations-workflow-bar"
-        className={`automation-workflow-bar${workflowBarCollapsed ? " automation-workflow-bar--collapsed" : ""}`}
+        label="Automation settings"
+        classes={{
+          section: "automation-workflow-bar",
+          sectionCollapsed: "automation-workflow-bar--collapsed",
+          toggle: "automation-workflow-bar__top-toggle",
+          label: "automation-workflow-bar__top-label",
+          symbol: "automation-workflow-bar__collapse-symbol",
+          body: "automation-workflow-bar__body",
+          bodyCollapsed: "automation-workflow-bar__body--hidden"
+        }}
       >
-        <button
-          id="automations-workflow-bar-collapse-toggle"
-          type="button"
-          className="automation-workflow-bar__top-toggle"
-          aria-expanded={!workflowBarCollapsed}
-          aria-controls="automations-workflow-bar-body"
-          aria-label={workflowBarCollapsed ? "Expand workflow settings" : "Collapse workflow settings"}
-          onClick={() => setWorkflowBarCollapsed((current) => !current)}
-        >
-          <span id="automations-workflow-bar-top-label" className="automation-workflow-bar__top-label">Workflow settings</span>
-          <span id="automations-workflow-bar-collapse-symbol" className="automation-workflow-bar__collapse-symbol" aria-hidden="true">
-            {workflowBarCollapsed ? "+" : "-"}
-          </span>
-          <span id="automations-workflow-bar-collapse-label" className="sr-only">
-            {workflowBarCollapsed ? "Expand workflow settings" : "Collapse workflow settings"}
-          </span>
-        </button>
-
-        <div
-          id="automations-workflow-bar-body"
-          className={`automation-workflow-bar__body${workflowBarCollapsed ? " automation-workflow-bar__body--hidden" : ""}`}
-          hidden={workflowBarCollapsed}
-        >
           <div id="automations-workflow-bar-content" className="automation-workflow-bar__content">
             <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
               <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
-                <span id="automations-workflow-name-label" className="automation-field__label">Workflow name</span>
+                <span id="automations-workflow-name-label" className="automation-field__label">Automation name</span>
                 <input
                   id="automations-workflow-name-input"
                   className="automation-input"
@@ -1228,7 +1214,7 @@ export const AutomationApp = () => {
                 />
               </label>
               <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
-                <span id="automations-workflow-description-label" className="automation-field__label">Workflow description</span>
+                <span id="automations-workflow-description-label" className="automation-field__label">Automation description</span>
                 <textarea
                   id="automations-workflow-description-input"
                   className="automation-textarea"
@@ -1260,8 +1246,7 @@ export const AutomationApp = () => {
             </div>
 
           </div>
-        </div>
-      </section>
+      </CollapsibleSection>
 
       <div
         id="automations-feedback-banner"
@@ -1276,7 +1261,7 @@ export const AutomationApp = () => {
           <div id="automations-canvas-copy" className="automation-panel__copy">
             <p id="automations-canvas-eyebrow" className="automation-panel__eyebrow">Builder</p>
             <div className="title-row">
-              <h3 id="automations-canvas-title" className="automation-panel__title">Workflow canvas</h3>
+              <h3 id="automations-canvas-title" className="automation-panel__title">Automation canvas</h3>
               <button type="button" id="automations-canvas-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-canvas-description">i</button>
             </div>
             <p id="automations-canvas-description" className="automation-panel__description" hidden>Select a node, drag steps to reorder them, and use node actions to edit.</p>
@@ -1304,7 +1289,7 @@ export const AutomationApp = () => {
             <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
               New draft
             </button>
-            <button id="automations-delete-button" type="button" className="button button--secondary" onClick={() => setDeleteDialogOpen(true)}>
+            <button id="automations-delete-button" type="button" className="button button--danger" onClick={() => setDeleteDialogOpen(true)}>
               Delete
             </button>
           </div>
@@ -1405,7 +1390,7 @@ export const AutomationApp = () => {
           <button
             id="automations-node-menu-add-after"
             type="button"
-            className="automation-node-menu__item"
+            className="automation-node-menu__item automation-node-menu__item--success"
             onClick={() => {
               const insertionIndex = nodeMenu.nodeId === "trigger-node"
                 ? 0
@@ -1449,7 +1434,7 @@ export const AutomationApp = () => {
                 </Dialog.Title>
                 <Dialog.Description id="automations-editor-drawer-description" className="automation-dialog__description">
                   {editorDrawer?.kind === "trigger"
-                    ? "Configure when the workflow runs. Workflow naming stays separate in the builder header."
+                    ? "Configure when the automation runs. Automation naming stays separate in the builder header."
                     : "Adjust the selected step. Essential fields come first, with optional custom labeling under Advanced."}
                 </Dialog.Description>
               </div>
@@ -1622,7 +1607,7 @@ export const AutomationApp = () => {
               <button
                 id="automations-delete-dialog-confirm"
                 type="button"
-                className="button button--secondary"
+                className="button button--danger"
                 onClick={() => deleteAutomation().catch((error: Error) => {
                   setFeedback(error.message);
                   setFeedbackTone("error");

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
@@ -17,8 +18,10 @@ from backend.schemas import (
 from backend.services.support import (
     fetch_all,
     fetch_one,
+    get_application_logger,
     get_connection,
     utc_now_iso,
+    write_application_log,
 )
 from uuid import uuid4
 
@@ -280,11 +283,22 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
 
     data_table = _data_table_name(row["name"])
     _assert_safe_identifier(row["name"])
+    logger = get_application_logger(request)
 
     try:
         col_names = _list_data_table_columns(connection, data_table)
-    except Exception:
+    except Exception as error:
         # Fallback for environments where information_schema lookups fail.
+        write_application_log(
+            logger,
+            logging.WARNING,
+            "log_table_columns_fallback",
+            table_id=table_id,
+            table_name=row["name"],
+            data_table=data_table,
+            error_type=type(error).__name__,
+            error=str(error),
+        )
         col_rows = fetch_all(
             connection,
             "SELECT column_name FROM log_db_columns WHERE table_id = ? ORDER BY position",
@@ -298,13 +312,34 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
             f"SELECT * FROM {data_table} ORDER BY inserted_at DESC LIMIT ?",
             (limit,),
         )
-    except Exception:
+    except Exception as error:
+        write_application_log(
+            logger,
+            logging.WARNING,
+            "log_table_rows_query_failed",
+            table_id=table_id,
+            table_name=row["name"],
+            data_table=data_table,
+            limit=limit,
+            error_type=type(error).__name__,
+            error=str(error),
+        )
         data_rows = []
 
     try:
         count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
         total = count_row["cnt"] if count_row else 0
-    except Exception:
+    except Exception as error:
+        write_application_log(
+            logger,
+            logging.WARNING,
+            "log_table_total_count_failed",
+            table_id=table_id,
+            table_name=row["name"],
+            data_table=data_table,
+            error_type=type(error).__name__,
+            error=str(error),
+        )
         total = 0
 
     return LogDbRowsResponse(

@@ -386,7 +386,7 @@ const LogsPage = () => {
 
   return (
     <div id="dashboard-logs-layout" className="stacked-card-layout">
-      <section id="dashboard-logs-summary" className="card">
+      <CollapsibleSection id="dashboard-logs-summary" label="Logs summary">
         <div id="dashboard-logs-summary-grid" className="summary-grid">
           <SummaryCard id="dashboard-logs-total-card" label="Stored logs" value={logsResponse.entries.length} />
           <SummaryCard id="dashboard-logs-filtered-card" label="Filtered results" value={filteredEntries.length} />
@@ -401,9 +401,9 @@ const LogsPage = () => {
             value={`${logsResponse.settings.maxStoredEntries} stored / ${logsResponse.settings.maxVisibleEntries} shown`}
           />
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section id="dashboard-logs-filters-card" className="card">
+      <CollapsibleSection id="dashboard-logs-filters-card" label="Detailed log filters">
         <SectionToolbar
           id="dashboard-logs-toolbar"
           title="Detailed log filters"
@@ -496,11 +496,11 @@ const LogsPage = () => {
             </select>
           </label>
         </form>
-      </section>
+      </CollapsibleSection>
 
       <ReportBuilderPanel />
 
-      <section id="dashboard-logs-results-card" className="card">
+      <CollapsibleSection id="dashboard-logs-results-card" label="Runtime event explorer">
         <SectionToolbar
           id="dashboard-logs-results-toolbar"
           title="Runtime event explorer"
@@ -520,7 +520,7 @@ const LogsPage = () => {
         ) : (
           <LogEntryList entries={filteredEntries} selectedEntryId={selectedEntryId} onSelectEntry={handleSelectEntry} />
         )}
-      </section>
+      </CollapsibleSection>
 
       {selectedEntry ? (
         <LogEntryDetailsModal
@@ -550,16 +550,16 @@ const QueuePage = () => {
 
   return (
     <div id="dashboard-queue-layout" className="stacked-card-layout">
-      <section id="dashboard-queue-summary-card" className="card">
+      <CollapsibleSection id="dashboard-queue-summary-card" label="Queue summary">
         <div id="dashboard-queue-summary-grid" className="summary-grid">
           <SummaryCard id="dashboard-queue-status-card" label="Queue status" value={queueStatusLabel} />
           <SummaryCard id="dashboard-queue-total-card" label="Queue jobs" value={queueResponse.totalJobs} />
           <SummaryCard id="dashboard-queue-pending-card" label="Pending" value={queueResponse.pendingJobs} />
           <SummaryCard id="dashboard-queue-claimed-card" label="Claimed" value={queueResponse.claimedJobs} />
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section id="dashboard-queue-jobs-card" className="card">
+      <CollapsibleSection id="dashboard-queue-jobs-card" label="Runtime trigger jobs">
         <SectionToolbar
           id="dashboard-queue-jobs-toolbar"
           title="Runtime trigger jobs"
@@ -621,7 +621,7 @@ const QueuePage = () => {
             </table>
           </div>
         )}
-      </section>
+      </CollapsibleSection>
     </div>
   );
 };

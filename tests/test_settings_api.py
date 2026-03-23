@@ -263,6 +263,71 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Invalid OAuth state.")
 
+    def test_oauth_callback_redirects_browser_requests_to_connectors_settings(self) -> None:
+        settings_response = self.client.get("/api/v1/settings")
+        self.assertEqual(settings_response.status_code, 200)
+        settings = settings_response.json()
+        google_preset = next((item for item in settings["connectors"]["catalog"] if item["id"] == "google"), None)
+        self.assertIsNotNone(google_preset)
+
+        patch_response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "connectors": {
+                    "records": [
+                        {
+                            "id": "google",
+                            "provider": "google",
+                            "name": google_preset["name"],
+                            "status": "draft",
+                            "auth_type": "oauth2",
+                            "scopes": [],
+                            "base_url": google_preset["base_url"],
+                            "owner": "Workspace",
+                            "docs_url": google_preset["docs_url"],
+                            "credential_ref": "connector/google",
+                            "created_at": "2026-03-20T00:00:00+00:00",
+                            "updated_at": "2026-03-20T00:00:00+00:00",
+                            "auth_config": {
+                                "client_id": "demo-client-id.apps.googleusercontent.com",
+                                "redirect_uri": "http://127.0.0.1:8000/api/v1/connectors/google/oauth/callback",
+                                "scope_preset": "google",
+                                "has_refresh_token": False,
+                            },
+                        }
+                    ],
+                    "auth_policy": settings["connectors"]["auth_policy"],
+                }
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+
+        start_response = self.client.post(
+            "/api/v1/connectors/google/oauth/start",
+            json={
+                "connector_id": "google",
+                "name": google_preset["name"],
+                "redirect_uri": "http://127.0.0.1:8000/api/v1/connectors/google/oauth/callback",
+                "owner": "Workspace",
+                "scopes": [],
+                "client_id": "demo-client-id.apps.googleusercontent.com",
+            },
+        )
+        self.assertEqual(start_response.status_code, 200)
+        state = start_response.json()["state"]
+
+        callback_response = self.client.get(
+            f"/api/v1/connectors/google/oauth/callback?state={state}&code=demo-authorized",
+            headers={"accept": "text/html"},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(callback_response.status_code, 303)
+        location = callback_response.headers.get("location", "")
+        self.assertIn("/settings/connectors.html", location)
+        self.assertIn("oauth_status=success", location)
+        self.assertIn("connector_id=google", location)
+
     def test_get_settings_backfills_missing_logging_fields_from_defaults(self) -> None:
         connection = connect(database_url=self.database_url)
         try:

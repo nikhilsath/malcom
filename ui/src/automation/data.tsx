@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type LogTableColumn = {
   column_name: string;
@@ -41,6 +41,8 @@ export const AutomationDataApp = () => {
   const [error, setError] = useState<string | null>(null);
   const [rowsError, setRowsError] = useState<string | null>(null);
   const [limit, setLimit] = useState(100);
+  const [returnFocusId, setReturnFocusId] = useState<string | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const loadTables = () => {
     setLoading(true);
@@ -60,8 +62,9 @@ export const AutomationDataApp = () => {
     loadTables();
   }, []);
 
-  const handleSelectTable = (tableId: string) => {
+  const handleSelectTable = (tableId: string, triggerId?: string) => {
     setSelectedTableId(tableId);
+    setReturnFocusId(triggerId || null);
     setRowsData(null);
     setRowsError(null);
     setRowsLoading(true);
@@ -76,6 +79,13 @@ export const AutomationDataApp = () => {
       });
   };
 
+  const handleCloseModal = () => {
+    setSelectedTableId(null);
+    setRowsData(null);
+    setRowsError(null);
+    setRowsLoading(false);
+  };
+
   const handleClearRows = async () => {
     if (!selectedTableId) return;
     if (!window.confirm("Clear all rows from this table? This cannot be undone.")) return;
@@ -87,12 +97,33 @@ export const AutomationDataApp = () => {
     if (!selectedTableId) return;
     if (!window.confirm("Delete this table and all its data? This cannot be undone.")) return;
     await fetch(`/api/v1/log-tables/${selectedTableId}`, { method: "DELETE" });
-    setSelectedTableId(null);
-    setRowsData(null);
+    handleCloseModal();
     loadTables();
   };
 
   const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+
+  useEffect(() => {
+    if (!selectedTableId) {
+      if (returnFocusId) {
+        document.getElementById(returnFocusId)?.focus();
+      }
+      return;
+    }
+
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseModal();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedTableId, returnFocusId]);
 
   if (loading) {
     return <p id="automations-data-loading" className="automation-empty-state">Loading log tables…</p>;
@@ -115,83 +146,134 @@ export const AutomationDataApp = () => {
 
   return (
     <div id="automations-data-root" className="automations-data-root">
-      {/* Table selector sidebar */}
-      <aside id="automations-data-sidebar" className="automations-data-sidebar">
-        <h3 id="automations-data-sidebar-title" className="automations-data-sidebar__title">Tables</h3>
-        <ul id="automations-data-table-list" className="automations-data-table-list" role="listbox" aria-label="Log tables">
+      <section id="automations-data-directory" className="automations-data-directory card">
+        <div id="automations-data-directory-header" className="section-header automation-panel__header">
+          <div id="automations-data-directory-copy" className="section-header__copy">
+            <div className="title-row">
+              <h3 id="automations-data-directory-title" className="section-header__title">Log tables</h3>
+              <button type="button" id="automations-data-directory-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-data-directory-description">i</button>
+            </div>
+            <p id="automations-data-directory-description" className="section-header__description" hidden>Select a table to inspect rows in a modal without leaving the directory list.</p>
+          </div>
+        </div>
+        <ul id="automations-data-table-list" className="automations-data-table-list" role="list" aria-label="Log tables">
           {tables.map((table) => (
-            <li key={table.id}>
+            <li key={table.id} id={`automations-data-table-item-${table.id}`}>
               <button
                 id={`automations-data-table-${table.id}`}
                 type="button"
-                role="option"
-                aria-selected={selectedTableId === table.id}
-                className={`automations-data-table-item${selectedTableId === table.id ? " automations-data-table-item--active" : ""}`}
-                onClick={() => handleSelectTable(table.id)}
+                className="automations-data-table-item"
+                onClick={() => handleSelectTable(table.id, `automations-data-table-${table.id}`)}
               >
                 <span id={`automations-data-table-${table.id}-name`} className="automations-data-table-item__name">{table.name}</span>
+                {table.description ? (
+                  <span id={`automations-data-table-${table.id}-description`} className="automations-data-table-item__description">{table.description}</span>
+                ) : null}
                 <span id={`automations-data-table-${table.id}-count`} className="automations-data-table-item__count">{table.row_count} rows</span>
               </button>
             </li>
           ))}
         </ul>
-      </aside>
+      </section>
 
-      {/* Row browser */}
-      <section id="automations-data-browser" className="automations-data-browser">
-        {!selectedTable && (
-          <p id="automations-data-select-hint" className="automation-empty-state">Select a table to view its data.</p>
-        )}
+      {!selectedTable ? (
+        <p id="automations-data-select-hint" className="automation-empty-state">Select a table to view its data.</p>
+      ) : null}
 
-        {selectedTable && (
-          <>
-            <div id="automations-data-browser-header" className="automations-data-browser-header">
-              <h3 id="automations-data-browser-title" className="automations-data-browser__title">{selectedTable.name}</h3>
-              {selectedTable.description && (
-                <p id="automations-data-browser-desc" className="automations-data-browser__desc">{selectedTable.description}</p>
-              )}
-              <div id="automations-data-browser-actions" className="automations-data-browser-actions">
-                <label id="automations-data-limit-label" className="automations-data-limit-label">
-                  Rows
-                  <select
-                    id="automations-data-limit-select"
-                    className="automation-native-select automations-data-limit-select"
-                    value={limit}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      setLimit(next);
-                      if (selectedTableId) handleSelectTable(selectedTableId);
-                    }}
-                  >
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={250}>250</option>
-                    <option value={500}>500</option>
-                  </select>
-                </label>
-                <button
-                  id="automations-data-clear-button"
-                  type="button"
-                  className="button button--secondary"
-                  onClick={handleClearRows}
-                >
-                  Clear all rows
-                </button>
-                <button
-                  id="automations-data-delete-button"
-                  type="button"
-                  className="button button--danger"
-                  onClick={handleDeleteTable}
-                >
-                  Delete table
-                </button>
+      {selectedTable ? (
+        <>
+          <button
+            type="button"
+            id="automations-data-modal-backdrop"
+            className="automation-dialog-backdrop"
+            aria-label="Close log table details"
+            onClick={handleCloseModal}
+          />
+          <div
+            id="automations-data-modal"
+            className="automation-detail-dialog automations-data-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="automations-data-browser-title"
+          >
+            <div id="automations-data-modal-dismiss-row" className="automation-dialog__dismiss-row">
+              <button
+                ref={closeButtonRef}
+                id="automations-data-modal-close"
+                type="button"
+                className="modal__close-icon-button automation-detail-dialog__close-button"
+                aria-label="Close log table details"
+                onClick={handleCloseModal}
+              >
+                ×
+              </button>
+            </div>
+
+            <div id="automations-data-browser-header" className="automation-detail-dialog__header">
+              <div id="automations-data-browser-title-row" className="automation-detail-dialog__title-row">
+                <h3 id="automations-data-browser-title" className="automation-detail-dialog__title">{selectedTable.name}</h3>
+                <button type="button" id="automations-data-browser-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-data-browser-description">i</button>
               </div>
+              <p id="automations-data-browser-description" className="automation-dialog__description" hidden>
+                {selectedTable.description || "Inspect the latest rows written to this managed log table."}
+              </p>
+              <div id="automations-data-browser-stats" className="automation-detail-dialog__stats">
+                <div id="automations-data-browser-stat-rows" className="automation-detail-stat">
+                  <span id="automations-data-browser-stat-rows-label" className="automation-detail-stat__label">Stored rows</span>
+                  <span id="automations-data-browser-stat-rows-value" className="automation-detail-stat__value">{selectedTable.row_count}</span>
+                </div>
+                <div id="automations-data-browser-stat-created" className="automation-detail-stat">
+                  <span id="automations-data-browser-stat-created-label" className="automation-detail-stat__label">Created</span>
+                  <span id="automations-data-browser-stat-created-value" className="automation-detail-stat__value">{formatDateTime(selectedTable.created_at)}</span>
+                </div>
+                <div id="automations-data-browser-stat-updated" className="automation-detail-stat">
+                  <span id="automations-data-browser-stat-updated-label" className="automation-detail-stat__label">Updated</span>
+                  <span id="automations-data-browser-stat-updated-value" className="automation-detail-stat__value">{formatDateTime(selectedTable.updated_at)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="automations-data-browser-actions" className="automations-data-browser-actions">
+              <label id="automations-data-limit-label" className="automations-data-limit-label">
+                Rows
+                <select
+                  id="automations-data-limit-select"
+                  className="automation-native-select automations-data-limit-select"
+                  value={limit}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setLimit(next);
+                    if (selectedTableId) handleSelectTable(selectedTableId, returnFocusId || undefined);
+                  }}
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={250}>250</option>
+                  <option value={500}>500</option>
+                </select>
+              </label>
+              <button
+                id="automations-data-clear-button"
+                type="button"
+                className="button button--secondary"
+                onClick={handleClearRows}
+              >
+                Clear all rows
+              </button>
+              <button
+                id="automations-data-delete-button"
+                type="button"
+                className="button button--danger"
+                onClick={handleDeleteTable}
+              >
+                Delete table
+              </button>
             </div>
 
             {rowsLoading && <p id="automations-data-rows-loading" className="automation-empty-state">Loading rows…</p>}
             {rowsError && <p id="automations-data-rows-error" className="automation-empty-state automation-empty-state--error" role="alert">{rowsError}</p>}
 
-            {rowsData && !rowsLoading && (
+            {rowsData && !rowsLoading ? (
               <>
                 <p id="automations-data-total-hint" className="automations-data-total-hint">
                   Showing {rowsData.rows.length} of {rowsData.total} rows (most recent first)
@@ -204,11 +286,7 @@ export const AutomationDataApp = () => {
                       <thead>
                         <tr id="automations-data-table-head-row">
                           {rowsData.columns.map((col) => (
-                            <th
-                              key={col}
-                              id={`automations-data-th-${col}`}
-                              scope="col"
-                            >
+                            <th key={col} id={`automations-data-th-${col}`} scope="col">
                               {col}
                             </th>
                           ))}
@@ -229,10 +307,10 @@ export const AutomationDataApp = () => {
                   </div>
                 )}
               </>
-            )}
-          </>
-        )}
-      </section>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };

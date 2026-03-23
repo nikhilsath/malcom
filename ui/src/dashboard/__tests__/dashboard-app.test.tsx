@@ -8,6 +8,10 @@ const renderDashboardApp = (initialEntries: string[]) => {
   return render(<DashboardApp initialEntries={initialEntries} />);
 };
 
+const expectTextById = (id: string, text: string) => {
+  expect(document.querySelector(`#${id}`)).toHaveTextContent(text);
+};
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.stubGlobal(
@@ -112,7 +116,7 @@ describe("DashboardApp", () => {
     const { container } = renderDashboardApp(["/devices"]);
 
     await waitFor(() => {
-      expect(screen.getByText("Host machine")).toBeInTheDocument();
+      expectTextById("dashboard-devices-host-toolbar-title", "Host machine");
     });
 
     expect(container.querySelector("#dashboard-device-row-service-api-endpoint")).toBeInTheDocument();
@@ -136,16 +140,18 @@ describe("DashboardApp", () => {
       expect(screen.getByText("Dashboard Logs")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Detailed log filters")).toBeInTheDocument();
-    expect(screen.getByText("Runtime event explorer")).toBeInTheDocument();
-    expect(screen.getByText("Log report builder")).toBeInTheDocument();
+    expectTextById("dashboard-logs-toolbar-title", "Detailed log filters");
+    expectTextById("dashboard-logs-results-toolbar-title", "Runtime event explorer");
+    expectTextById("dashboard-logs-report-builder-toolbar-title", "Log report builder");
     expect(screen.getByText("Grafana")).toBeInTheDocument();
   });
 
   it("updates event detail when selecting another log", async () => {
     renderDashboardApp(["/logs"]);
 
-    await screen.findByText("Runtime event explorer");
+    await waitFor(() => {
+      expectTextById("dashboard-logs-results-toolbar-title", "Runtime event explorer");
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /Default logging thresholds applied\./i }));
 
@@ -162,7 +168,9 @@ describe("DashboardApp", () => {
       expect(screen.getByText("Dashboard Queue")).toBeInTheDocument();
     });
 
-    expect(await screen.findByText("Runtime trigger jobs")).toBeInTheDocument();
+    await waitFor(() => {
+      expectTextById("dashboard-queue-jobs-toolbar-title", "Runtime trigger jobs");
+    });
     expect(screen.getByText("Queue is empty")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pause queue" })).toBeInTheDocument();
   });

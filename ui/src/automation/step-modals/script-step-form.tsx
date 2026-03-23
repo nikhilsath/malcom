@@ -170,7 +170,7 @@ export const ScriptStepForm = ({
             <button
               id={`${idPrefix}-script-create-button`}
               type="button"
-              className="button button--secondary add-step-script-create-button"
+              className="button button--success add-step-script-create-button"
               onClick={() => {
                 resetCreateForm();
                 setCreateModalOpen(true);
@@ -245,7 +245,7 @@ export const ScriptStepForm = ({
               Create script
             </Dialog.Title>
             <Dialog.Description id={`${idPrefix}-script-create-description`} className="automation-dialog__description">
-              Save a reusable script and its sample input for later workflow steps.
+              Save a reusable script and its sample input for later automation steps.
             </Dialog.Description>
 
             <div id={`${idPrefix}-script-create-form`} className="automation-form automation-form--modal">

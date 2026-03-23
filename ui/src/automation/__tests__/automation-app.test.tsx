@@ -556,7 +556,7 @@ describe("AutomationApp", () => {
     const { container } = renderAutomationApp();
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Workflow name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Automation name")).toBeInTheDocument();
     });
 
     expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
@@ -570,7 +570,7 @@ describe("AutomationApp", () => {
     });
 
     const drawer = document.querySelector("#automations-editor-drawer") as HTMLElement;
-    expect(within(drawer).queryByLabelText("Workflow name")).not.toBeInTheDocument();
+    expect(within(drawer).queryByLabelText("Automation name")).not.toBeInTheDocument();
     expect(within(drawer).getByText("Manual")).toBeInTheDocument();
     expect(within(drawer).getByText("Schedule")).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("radio", { name: /schedule/i }));
@@ -788,10 +788,16 @@ describe("AutomationApp", () => {
     expect(await screen.findByText("Built request")).toBeInTheDocument();
   });
 
-  it("keeps the legacy APIs automation page redirecting to the new route", () => {
-    const redirectHtml = readFileSync(resolve(process.cwd(), "apis/automation.html"), "utf8");
-    expect(redirectHtml).toContain("../automations/library.html");
-    expect(redirectHtml).toContain("window.location.replace");
+  it("keeps the legacy APIs automation route redirecting through the page registry", () => {
+    const pageRegistry = JSON.parse(readFileSync(resolve(process.cwd(), "page-registry.json"), "utf8"));
+    const automationRedirect = pageRegistry.pages.find((entry: { routePath: string }) => entry.routePath === "/apis/automation.html");
+
+    expect(automationRedirect).toMatchObject({
+      routePath: "/apis/automation.html",
+      serveMode: "redirect",
+      canonicalRoutePath: "/automations/library.html",
+      redirectTarget: "/automations/library.html"
+    });
   });
 
 

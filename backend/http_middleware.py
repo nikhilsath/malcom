@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 from datetime import UTC, datetime
 
 from fastapi import Request
@@ -9,6 +10,8 @@ from backend.services.support import get_application_logger, write_application_l
 
 
 async def log_http_requests(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or f"req_{uuid4().hex[:12]}"
+    request.state.request_id = request_id
     started_at = datetime.now(UTC)
     try:
         response = await call_next(request)
@@ -19,11 +22,14 @@ async def log_http_requests(request: Request, call_next):
             logger,
             logging.ERROR,
             "http_request_failed",
+            request_id=request_id,
             method=request.method,
             path=request.url.path,
             query=request.url.query,
             duration_ms=duration_ms,
             client_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent", ""),
+            error_type=type(error).__name__,
             error=str(error),
         )
         raise
@@ -35,11 +41,14 @@ async def log_http_requests(request: Request, call_next):
         logger,
         level,
         "http_request_completed",
+        request_id=request_id,
         method=request.method,
         path=request.url.path,
         query=request.url.query,
         status_code=response.status_code,
         duration_ms=duration_ms,
         client_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent", ""),
     )
+    response.headers["X-Request-Id"] = request_id
     return response

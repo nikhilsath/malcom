@@ -23,7 +23,7 @@ The system exposes a **local API and web interface** for managing and executing 
 1. Run reliably on low-power hardware
 2. Avoid external cloud dependencies
 3. Provide a local automation engine
-4. Support scheduled and triggered workflows
+4. Support scheduled and triggered automations
 5. Be easily expandable with new connectors
 6. Provide a clean management UI
 7. Be compatible with a future mobile WebView app
@@ -42,7 +42,7 @@ Vite-built HTML entry pages using a mix of React pages and vanilla JavaScript pa
 
 * managing automations
 * viewing run history
-* editing workflows
+* editing automations
 * viewing logs
 
 The UI runs in a browser and is designed to later run inside a **mobile WebView wrapper**.
@@ -82,15 +82,14 @@ Source of truth:
 * `ui/tools/catalog.html` as the directory page for metadata edits and enable/disable state
 * `ui/tools/<tool-id>.html` as the per-tool configuration page in the sidenav
 
-Expected workflow for adding a new tool:
+Expected sequence for adding a new tool:
 
 1. Add the tool entry to the catalog in `backend/tool_registry.py` with `id`, `name`, and `description`.
 2. Add `ui/tools/<tool-id>.html` and use the shared shell placeholders: `id="topnav"` and `id="sidenav"`.
 3. Set `data-section="tools"`, `data-sidenav-item="sidenav-tools-<tool-id>"`, `data-shell-path-prefix="../"`, and `data-tool-id="<tool-id>"` on the page body.
-4. Add the page to `ui/vite.config.ts`.
-5. Add the built route to `backend/routes/ui.py` so the backend can serve the HTML page.
-6. Run `node scripts/generate-tools-manifest.mjs`.
-7. Build the UI and confirm the tool appears in both the catalog page and the sidenav without manual nav edits.
+4. Add the page to `ui/page-registry.json` and `ui/vite.config.ts`; `backend/routes/ui.py` serves it through the registry.
+5. Run `node scripts/generate-tools-manifest.mjs`.
+6. Build the UI and confirm the tool appears in both the catalog page and the sidenav without manual nav edits.
 
 The catalog page edits metadata and enabled state through `/api/v1/tools` and `/api/v1/tools/{tool_id}/directory`.
 Tool-specific runtime configuration, when needed, should live on the per-tool page rather than being embedded in the catalog.
@@ -122,7 +121,7 @@ FastAPI service responsible for:
 
 The runtime is responsible for:
 
-* executing automation workflows
+* executing automations
 * calling APIs
 * processing responses
 * running logic rules
@@ -171,7 +170,7 @@ Google connector onboarding rule:
 * do not collect OAuth credentials with browser popup prompts
 * follow Google OAuth best practices: configure OAuth consent screen, use OAuth 2.0 Web application credentials, and register the exact redirect URI shown by Malcom
 * reference docs: https://developers.google.com/identity/protocols/oauth2/web-server
-* workflow builder connector actions: provider-aware connector activities should appear as explicit selectable actions with action-specific inputs/outputs in the automation builder UI; do not hide them behind generic connector config.
+* automation builder connector activities: provider-aware connector activities should appear as explicit selectable actions with action-specific inputs/outputs in the automation builder UI; do not hide them behind generic connector config.
 
 ### 6. Storage
 
@@ -226,6 +225,24 @@ export MALCOM_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/malcom
 
 If `MALCOM_DATABASE_URL` is not set, the app defaults to `postgresql://postgres:postgres@127.0.0.1:5432/malcom`.
 
+## Port Reference
+
+All ports used by the app and its tools are listed here. If a service fails to start with `Address already in use`, check this table first.
+
+| Port | Service | Host | Configurable? |
+|------|---------|------|---------------|
+| **5432** | PostgreSQL | `127.0.0.1` | Yes — via `MALCOM_DATABASE_URL` env var |
+| **8000** | FastAPI / Uvicorn (HTTP API + served UI) | `127.0.0.1` | No — hardcoded in `scripts/dev.py` |
+| **2525** | SMTP tool local listener | `127.0.0.1` | Yes — per-tool config in Settings → SMTP |
+| **4173** | Playwright e2e test server | `127.0.0.1` | No — hardcoded in `ui/playwright.config.ts` |
+| **1234** | LM Studio API (LLM tool preset) | `127.0.0.1` | Yes — preset only; editable in Settings → LLM |
+
+Notes:
+
+* **8000** is the most likely conflict on a developer machine. Stop any existing `./malcom` process before relaunching.
+* **5432** and **8000** are the only ports required to run the app without optional tools.
+* The SMTP tool relay port (used in automation steps) is not listed here because it is user-supplied per-step, not a server port owned by this app.
+
 ## Frontend
 
 * Vite-built HTML entry pages
@@ -264,8 +281,11 @@ Expanded validation:
 This adds:
 
 * route-level API smoke coverage via `pytest tests/test_api_smoke_matrix.py -m smoke`
-* smoke case definitions sourced from `tests/api_smoke_registry.py`
+* smoke case definitions sourced from the `tests/api_smoke_registry/` package and exercised through `tests/test_api_smoke_matrix.py`
 * browser smoke coverage through Playwright in `ui/e2e/`
+* connector onboarding smoke coverage that opens Settings -> Connectors, selects Connect provider, and verifies Google draft setup does not fail with a `PATCH /api/v1/settings` `422`
+* connector onboarding smoke coverage that verifies the Google redirect URI field is editable and defaults to `/api/v1/connectors/google/oauth/callback` so OAuth callback values can be aligned with Google Cloud credentials
+* OAuth callback browser coverage that verifies a successful authorization on `/api/v1/connectors/google/oauth/callback` redirects back to `/settings/connectors.html` with status query params
 * the informational external probe report from `scripts/test-external-probes.py`
 
 Prerequisites:
@@ -280,7 +300,7 @@ Prerequisites:
 
 # Tool Development
 
-Use this workflow whenever a new tool is introduced or an existing tool page is expanded.
+Use these steps whenever a new tool is introduced or an existing tool page is expanded.
 
 Use a tool only when the feature is a machine-executed or runtime-managed capability. For remote API work such as Gmail, prefer connectors plus outgoing APIs or automation HTTP steps.
 
@@ -301,10 +321,10 @@ Legacy note:
 
 # Example Automation
 
-Example workflow:
+Example automation:
 
 1. Scheduler triggers job
-2. Automation engine loads workflow
+2. Automation engine loads automation
 3. HTTP request sent to API
 4. Response parsed
 5. Logic rule evaluated
@@ -351,7 +371,7 @@ until they are proven necessary.
 
 The UI should behave like a **clean operational admin tool** rather than a flashy SaaS product.
 
-All UI elements must include explicit, stable `id` attributes so they can be reliably targeted for automation, testing, and accessibility workflows.
+All UI elements must include explicit, stable `id` attributes so they can be reliably targeted for automation, testing, and accessibility tasks.
 
 Avoid:
 
@@ -459,7 +479,7 @@ Notes:
 
 * backend tests run with `pytest`, not `unittest`
 * `scripts/test-precommit.sh` runs backend `pytest`, frontend `npm test`, and frontend `npm run build`
-* `scripts/test-full.sh` runs the precommit checks, then executes `tests/test_api_smoke_matrix.py` as the smoke test entrypoint, using `tests/api_smoke_registry.py` as the smoke case registry, before the external probe report and Playwright smoke coverage
+* `scripts/test-full.sh` runs the precommit checks, then executes `tests/test_api_smoke_matrix.py` as the smoke test entrypoint, using the `tests/api_smoke_registry/` package for smoke case definitions, before the external probe report and Playwright smoke coverage
 
 ## Adding A New Tool
 

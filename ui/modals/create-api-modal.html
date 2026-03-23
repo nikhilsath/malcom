@@ -4,16 +4,7 @@
       <p class="modal__eyebrow" id="create-api-modal-eyebrow">Create</p>
       <div class="api-panel-title-row" id="create-api-modal-title-row">
         <h3 class="modal__title" id="apis-create-modal-title">New Inbound API</h3>
-        <button
-          type="button"
-          id="create-api-modal-description-tooltip-toggle"
-          class="api-tooltip-toggle api-tooltip-toggle--compact"
-          aria-label="Explain this API type"
-          aria-expanded="false"
-          aria-controls="create-api-modal-description"
-        >
-          i
-        </button>
+        <button type="button" id="create-api-modal-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="create-api-modal-description">i</button>
       </div>
     </div>
     <button
@@ -26,7 +17,7 @@
       ×
     </button>
   </div>
-  <div id="create-api-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Create an API record with fields for the selected type.</div>
+  <p id="create-api-modal-description" class="section-header__description modal__description" hidden>Create an API record with fields for the selected type.</p>
   <div class="modal__body modal__body--form" id="create-api-modal-body">
     <form id="create-api-form" class="api-form">
       <input id="create-api-type-input" name="resourceType" type="hidden" value="incoming">
@@ -238,7 +229,7 @@
       <div id="create-api-form-feedback" class="api-form-feedback" aria-live="polite"></div>
 
       <div id="create-api-form-actions" class="api-form-actions">
-        <button type="submit" id="create-api-submit-button" class="primary-action-button">Create inbound API</button>
+        <button type="submit" id="create-api-submit-button" class="button button--success primary-action-button">Create inbound API</button>
       </div>
     </form>
   </div>

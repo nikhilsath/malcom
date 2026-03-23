@@ -40,11 +40,11 @@
                             <p id="apis-overview-actions-eyebrow" class="api-panel-eyebrow">Create and Route</p>
                             <div id="apis-overview-actions-title-row" class="api-panel-title-row">
                                 <h4 id="apis-overview-actions-title" class="api-panel-title">Start with the right API surface</h4>
-                                <button type="button" id="apis-overview-actions-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain API creation options" aria-expanded="false" aria-controls="apis-overview-actions-tooltip">i</button>
+                                <button type="button" id="apis-overview-actions-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-actions-tooltip">i</button>
                             </div>
                         </div>
                     </div>
-                    <div id="apis-overview-actions-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Choose a type to open the matching create form.</div>
+                    <p id="apis-overview-actions-tooltip" class="section-header__description" hidden>Choose a type to open the matching create form.</p>
                     <div id="apis-overview-action-grid" class="api-entry-grid">
                         <button type="button" id="apis-overview-create-incoming" class="api-entry-card" data-create-api-type="incoming">
                             <span id="apis-overview-create-incoming-title" class="api-entry-card__title">Incoming endpoint</span>
@@ -73,34 +73,34 @@
                     <article id="apis-overview-summary-scheduled-active" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-scheduled-active-header" class="api-summary-card__header">
                             <p id="apis-overview-summary-scheduled-active-label" class="api-summary-label">Active scheduled calls</p>
-                            <button type="button" id="apis-overview-summary-scheduled-active-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain active scheduled calls" aria-expanded="false" aria-controls="apis-overview-summary-scheduled-active-tooltip">i</button>
+                            <button type="button" id="apis-overview-summary-scheduled-active-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-summary-scheduled-active-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-scheduled-active-value" class="api-summary-value">0</p>
-                        <div id="apis-overview-summary-scheduled-active-tooltip" class="api-tooltip-content" role="tooltip" hidden>Scheduled outbound APIs with status <strong>active</strong>.</div>
+                        <div id="apis-overview-summary-scheduled-active-tooltip" class="section-header__description" hidden>Scheduled outbound APIs with status <strong>active</strong>.</div>
                     </article>
                     <article id="apis-overview-summary-calls-hour" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-calls-hour-header" class="api-summary-card__header">
                             <p id="apis-overview-summary-calls-hour-label" class="api-summary-label">Average calls per hour</p>
-                            <button type="button" id="apis-overview-summary-calls-hour-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per hour" aria-expanded="false" aria-controls="apis-overview-summary-calls-hour-tooltip">i</button>
+                            <button type="button" id="apis-overview-summary-calls-hour-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-summary-calls-hour-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-calls-hour-value" class="api-summary-value">0.0</p>
-                        <div id="apis-overview-summary-calls-hour-tooltip" class="api-tooltip-content" role="tooltip" hidden>Estimated hourly calls from scheduled and continuous deliveries.</div>
+                        <p id="apis-overview-summary-calls-hour-tooltip" class="section-header__description" hidden>Estimated hourly calls from scheduled and continuous deliveries.</p>
                     </article>
                     <article id="apis-overview-summary-calls-day" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-calls-day-header" class="api-summary-card__header">
                             <p id="apis-overview-summary-calls-day-label" class="api-summary-label">Average calls per day</p>
-                            <button type="button" id="apis-overview-summary-calls-day-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain average calls per day" aria-expanded="false" aria-controls="apis-overview-summary-calls-day-tooltip">i</button>
+                            <button type="button" id="apis-overview-summary-calls-day-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-summary-calls-day-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-calls-day-value" class="api-summary-value">0.0</p>
-                        <div id="apis-overview-summary-calls-day-tooltip" class="api-tooltip-content" role="tooltip" hidden>Estimated daily calls from scheduled and continuous deliveries.</div>
+                        <p id="apis-overview-summary-calls-day-tooltip" class="section-header__description" hidden>Estimated daily calls from scheduled and continuous deliveries.</p>
                     </article>
                     <article id="apis-overview-summary-monitored-webhooks" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-monitored-webhooks-header" class="api-summary-card__header">
                             <p id="apis-overview-summary-monitored-webhooks-label" class="api-summary-label">Monitored webhooks</p>
-                            <button type="button" id="apis-overview-summary-monitored-webhooks-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain monitored webhooks" aria-expanded="false" aria-controls="apis-overview-summary-monitored-webhooks-tooltip">i</button>
+                            <button type="button" id="apis-overview-summary-monitored-webhooks-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-summary-monitored-webhooks-tooltip">i</button>
                         </div>
                         <p id="apis-overview-summary-monitored-webhooks-value" class="api-summary-value">0</p>
-                        <div id="apis-overview-summary-monitored-webhooks-tooltip" class="api-tooltip-content" role="tooltip" hidden>Enabled webhook records on this instance.</div>
+                        <p id="apis-overview-summary-monitored-webhooks-tooltip" class="section-header__description" hidden>Enabled webhook records on this instance.</p>
                     </article>
                 </div>
 
@@ -110,12 +110,12 @@
                             <div id="apis-overview-incoming-copy" class="api-panel-header-copy">
                                 <div id="apis-overview-incoming-title-row" class="api-panel-title-row">
                                     <h4 id="apis-overview-incoming-title" class="api-panel-title">Incoming</h4>
-                                    <button type="button" id="apis-overview-incoming-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain incoming registry" aria-expanded="false" aria-controls="apis-overview-incoming-tooltip">i</button>
+                                    <button type="button" id="apis-overview-incoming-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-incoming-tooltip">i</button>
                                 </div>
                             </div>
                             <a id="apis-overview-incoming-link" class="button button--secondary secondary-action-button" href="incoming.html">Open incoming registry</a>
                         </div>
-                        <div id="apis-overview-incoming-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Inbound endpoints and current status.</div>
+                        <p id="apis-overview-incoming-tooltip" class="section-header__description" hidden>Inbound endpoints and current status.</p>
                         <div id="apis-overview-incoming-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-incoming-empty-title" class="api-empty-state__title">No incoming APIs configured</h5>
                             <p id="apis-overview-incoming-empty-description" class="api-empty-state__description">Create an incoming API.</p>
@@ -128,12 +128,12 @@
                             <div id="apis-overview-outgoing-copy" class="api-panel-header-copy">
                                 <div id="apis-overview-outgoing-title-row" class="api-panel-title-row">
                                     <h4 id="apis-overview-outgoing-title" class="api-panel-title">Outgoing</h4>
-                                    <button type="button" id="apis-overview-outgoing-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain outgoing registry" aria-expanded="false" aria-controls="apis-overview-outgoing-tooltip">i</button>
+                                    <button type="button" id="apis-overview-outgoing-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-outgoing-tooltip">i</button>
                                 </div>
                             </div>
                             <a id="apis-overview-outgoing-link" class="button button--secondary secondary-action-button" href="outgoing.html">Open outgoing registry</a>
                         </div>
-                        <div id="apis-overview-outgoing-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Scheduled and continuous outbound deliveries.</div>
+                        <p id="apis-overview-outgoing-tooltip" class="section-header__description" hidden>Scheduled and continuous outbound deliveries.</p>
                         <div id="apis-overview-outgoing-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-outgoing-empty-title" class="api-empty-state__title">No outgoing APIs configured</h5>
                             <p id="apis-overview-outgoing-empty-description" class="api-empty-state__description">Create an outgoing API.</p>
@@ -146,12 +146,12 @@
                             <div id="apis-overview-webhooks-copy" class="api-panel-header-copy">
                                 <div id="apis-overview-webhooks-title-row" class="api-panel-title-row">
                                     <h4 id="apis-overview-webhooks-title" class="api-panel-title">Webhooks</h4>
-                                    <button type="button" id="apis-overview-webhooks-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain webhook registry" aria-expanded="false" aria-controls="apis-overview-webhooks-tooltip">i</button>
+                                    <button type="button" id="apis-overview-webhooks-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-webhooks-tooltip">i</button>
                                 </div>
                             </div>
                             <a id="apis-overview-webhooks-link" class="button button--secondary secondary-action-button" href="webhooks.html">Open webhook registry</a>
                         </div>
-                        <div id="apis-overview-webhooks-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Webhook definitions and verification settings.</div>
+                        <p id="apis-overview-webhooks-tooltip" class="section-header__description" hidden>Webhook definitions and verification settings.</p>
                         <div id="apis-overview-webhooks-empty" class="api-empty-state" hidden>
                             <h5 id="apis-overview-webhooks-empty-title" class="api-empty-state__title">No webhooks configured</h5>
                             <p id="apis-overview-webhooks-empty-description" class="api-empty-state__description">Create a webhook definition.</p>

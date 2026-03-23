@@ -112,7 +112,7 @@ export const AddStepModal = ({
           {!pickedType ? (
             <>
               <Dialog.Title id="add-step-modal-type-title" className="sr-only">
-                Add a workflow step
+                Add an automation step
               </Dialog.Title>
               <Dialog.Description id="add-step-modal-type-description" className="sr-only">
                 Pick a step type to continue.
@@ -259,7 +259,7 @@ export const AddStepModal = ({
                 <button
                   id="add-step-modal-confirm"
                   type="button"
-                  className="primary-action-button"
+                  className="button button--success primary-action-button"
                   onClick={handleAdd}
                 >
                   Add step

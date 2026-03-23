@@ -26,16 +26,16 @@
                         <p id="apis-outgoing-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Outgoing Registry</p>
                         <div id="apis-outgoing-content-title-row" class="api-panel-title-row">
                             <h3 id="apis-outgoing-content-title" class="section-header__title api-panel-title">Outbound delivery definitions</h3>
-                            <button type="button" id="apis-outgoing-content-tooltip-toggle" class="api-tooltip-toggle" aria-label="Explain outgoing deliveries" aria-expanded="false" aria-controls="apis-outgoing-content-tooltip">i</button>
+                            <button type="button" id="apis-outgoing-content-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-outgoing-content-tooltip">i</button>
                         </div>
                     </div>
                     <div id="apis-outgoing-actions" class="api-form-actions">
-                        <button type="button" id="apis-outgoing-create-scheduled-button" class="primary-action-button" data-create-api-type="outgoing_scheduled">Create scheduled API</button>
-                        <button type="button" id="apis-outgoing-create-continuous-button" class="button button--secondary secondary-action-button" data-create-api-type="outgoing_continuous">Create continuous API</button>
-                        <button type="button" id="apis-outgoing-create-from-connector-button" class="button button--secondary secondary-action-button" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">Create from connector</button>
+                        <button type="button" id="apis-outgoing-create-scheduled-button" class="button button--success primary-action-button" data-create-api-type="outgoing_scheduled">Create scheduled API</button>
+                        <button type="button" id="apis-outgoing-create-continuous-button" class="button button--success" data-create-api-type="outgoing_continuous">Create continuous API</button>
+                        <button type="button" id="apis-outgoing-create-from-connector-button" class="button button--success" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">Create from connector</button>
                     </div>
                 </div>
-                <div id="apis-outgoing-content-tooltip" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Review scheduled and continuous deliveries in one registry.</div>
+                <p id="apis-outgoing-content-tooltip" class="section-header__description" hidden>Review scheduled and continuous deliveries in one registry.</p>
                 <div id="apis-outgoing-status-bar" class="api-directory-status-bar">
                     <p id="apis-outgoing-status-copy" class="api-directory-status-copy" hidden>Active deliveries show in green and inactive deliveries show in yellow.</p>
                 </div>

@@ -4,16 +4,7 @@
       <p class="modal__eyebrow" id="outgoing-api-edit-modal-eyebrow">Outgoing</p>
       <div class="api-panel-title-row" id="outgoing-api-edit-modal-title-row">
         <h3 class="modal__title" id="outgoing-api-edit-modal-title">Edit outgoing API</h3>
-        <button
-          type="button"
-          id="outgoing-api-edit-modal-tooltip-toggle"
-          class="api-tooltip-toggle api-tooltip-toggle--compact"
-          aria-label="Explain outgoing API editing"
-          aria-expanded="false"
-          aria-controls="outgoing-api-edit-modal-description"
-        >
-          i
-        </button>
+        <button type="button" id="outgoing-api-edit-modal-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="outgoing-api-edit-modal-description">i</button>
       </div>
     </div>
     <button
@@ -26,7 +17,7 @@
       ×
     </button>
   </div>
-  <div id="outgoing-api-edit-modal-description" class="api-tooltip-content api-tooltip-content--section" role="tooltip" hidden>Edit destination, auth, payload, schedule, and status.</div>
+  <p id="outgoing-api-edit-modal-description" class="section-header__description modal__description" hidden>Edit destination, auth, payload, schedule, and status.</p>
   <div class="modal__body modal__body--form" id="outgoing-api-edit-modal-body">
     <form id="outgoing-api-edit-form" class="api-form">
       <input id="outgoing-api-edit-type-input" name="resourceType" type="hidden" value="outgoing_scheduled">

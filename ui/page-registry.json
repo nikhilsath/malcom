@@ -124,8 +124,10 @@
     },
     {
       "routePath": "/apis/automation.html",
-      "sourceHtmlPath": "apis/automation.html",
-      "serveMode": "served"
+      "sourceHtmlPath": "automations/library.html",
+      "serveMode": "redirect",
+      "canonicalRoutePath": "/automations/library.html",
+      "redirectTarget": "/automations/library.html"
     },
     {
       "routePath": "/tools/catalog.html",
@@ -160,17 +162,19 @@
     },
     {
       "routePath": "/scripts.html",
-      "sourceHtmlPath": "scripts.html",
+      "sourceHtmlPath": "scripts/library.html",
+      "serveMode": "redirect",
+      "canonicalRoutePath": "/scripts/library.html",
+      "redirectTarget": "/scripts/library.html"
+    },
+    {
+      "routePath": "/scripts/library.html",
+      "sourceHtmlPath": "scripts/library.html",
       "serveMode": "served",
       "legacyAliases": [
         "/scripts",
         "/scripts/"
       ]
-    },
-    {
-      "routePath": "/scripts/library.html",
-      "sourceHtmlPath": "scripts/library.html",
-      "serveMode": "served"
     }
   ]
 }

@@ -316,7 +316,7 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
                         <button
                           id={`${idPrefix}-mapping-remove-${index}`}
                           type="button"
-                          className="button button--secondary"
+                          className="button button--danger"
                           onClick={() => setMappings(responseMappings.filter((_, candidateIndex) => candidateIndex !== index))}
                         >
                           Remove

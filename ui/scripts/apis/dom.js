@@ -2,8 +2,6 @@ export const createApiElements = () => ({
   createModal: document.getElementById("apis-create-modal"),
   createModalContent: document.getElementById("apis-create-modal-content"),
   detailModal: document.getElementById("api-detail-modal"),
-  automationPlaceholderModal: document.getElementById("apis-automation-placeholder-modal"),
-  automationAlert: document.getElementById("api-automation-alert"),
   alert: document.getElementById("api-system-alert"),
   tableBody: document.getElementById("api-directory-body"),
   tableShell: document.getElementById("api-table-shell"),
@@ -56,12 +54,6 @@ export const getCreateTypeModal = () => document.getElementById("apis-create-typ
 export const hasCreateModalElements = (elements) => Boolean(
   elements.createModal && elements.createModalContent
 );
-
-export const hasAutomationPlaceholderElements = (elements) => Boolean(
-  elements.automationPlaceholderModal
-);
-
-export const isAutomationPage = (elements) => Boolean(elements.automationAlert);
 
 export const hasOverviewElements = (elements) => Boolean(
   elements.alert

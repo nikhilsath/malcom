@@ -1563,17 +1563,17 @@
 .automation-insert-node__button {
   width: 100%;
   min-height: 44px;
-  border: 1px dashed rgba(37, 99, 235, 0.35);
+  border: 1px dashed rgba(22, 163, 74, 0.35);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
-  color: var(--primary);
+  color: var(--success-dark);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 .automation-insert-node__button:hover {
-  border-color: var(--primary);
+  border-color: var(--success);
   background: #ffffff;
 }
 
@@ -1627,7 +1627,15 @@
 }
 
 .automation-node-menu__item--danger {
-  color: #b91c1c;
+  color: var(--danger);
+}
+
+.automation-node-menu__item--success {
+  color: var(--success-dark);
+}
+
+.automation-node-menu__item--success:hover {
+  background: rgba(22, 163, 74, 0.12);
 }
 
 .automation-dialog-backdrop--drawer {
@@ -1888,7 +1896,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--color-danger, #c0392b);
+  color: var(--danger, #dc2626);
   font-size: 1.1rem;
   line-height: 1;
   padding: 0 4px;
@@ -1904,7 +1912,7 @@
 }
 
 .log-step-create-error {
-  color: var(--color-danger, #c0392b);
+  color: var(--danger, #dc2626);
   font-size: 0.85rem;
   margin: 0;
 }

@@ -1,1 +1,3 @@
-import "../connectors.js";
+import { initConnectorsPage } from "./connectors/page.js";
+
+initConnectorsPage();
