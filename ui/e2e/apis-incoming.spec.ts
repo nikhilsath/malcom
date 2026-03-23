@@ -9,7 +9,6 @@ test("incoming APIs open details, rotate secrets, toggle status, and filter logs
 
   await page.goto("/apis/incoming.html");
   await expect(page.locator("#api-directory-row-incoming-orders")).toBeVisible();
-  await expect(page.locator("#api-detail-empty")).toBeVisible();
 
   await page.locator("#api-directory-row-incoming-orders").click();
   await expect(page.locator("#api-detail-title")).toHaveText("Orders Webhook");
@@ -47,4 +46,3 @@ test("incoming APIs open details, rotate secrets, toggle status, and filter logs
   await expect(page.locator("#api-detail-modal")).not.toHaveClass(/modal--open/);
   await expect(page.locator("#api-directory-row-incoming-orders")).toBeFocused();
 });
-

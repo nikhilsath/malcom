@@ -83,6 +83,21 @@ export type ConnectorActivityDefinition = {
   execution: Record<string, unknown>;
 };
 
+export type HttpPreset = {
+  preset_id: string;
+  provider_id: string;
+  service: string;
+  operation: string;
+  label: string;
+  description: string;
+  http_method: string;
+  endpoint_path_template: string;
+  payload_template: string;
+  query_params: Record<string, string>;
+  required_scopes: string[];
+  input_schema: ConnectorActivitySchemaField[];
+};
+
 export type LogDbTableOption = {
   id: string;
   name: string;
@@ -123,6 +138,7 @@ export type AutomationStep = {
     http_method?: string;
     auth_type?: string;
     connector_id?: string;
+    http_preset_id?: string;
     payload_template?: string;
     wait_for_response?: boolean;
     response_mappings?: Array<{ key: string; path: string }>;

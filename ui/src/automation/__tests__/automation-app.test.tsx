@@ -117,6 +117,7 @@ const renderAutomationApp = (options?: {
   };
   inboundApis?: Array<{ id: string; name: string }>;
   connectors?: Array<Record<string, unknown>>;
+  httpPresets?: Array<Record<string, unknown>>;
 }) => {
   document.body.innerHTML = '<button id="automations-create-button" type="button">Create</button>';
   window.history.replaceState({}, "", "/automations/builder.html?id=automation-daily-ingest");
@@ -231,6 +232,10 @@ const renderAutomationApp = (options?: {
           execution: {}
         }
       ];
+    }
+
+    if (path === "/api/v1/connectors/http-presets") {
+      return options?.httpPresets || [];
     }
 
     if (path === "/api/v1/automations") {
@@ -357,6 +362,68 @@ beforeEach(() => {
 });
 
 describe("AutomationApp", () => {
+
+  it("uses connector-scoped HTTP presets and hides manual fields in preset mode", async () => {
+    renderAutomationApp({
+      connectors: [
+        {
+          id: "google-primary",
+          provider: "google",
+          name: "Google Workspace",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          base_url: "https://www.googleapis.com"
+        }
+      ],
+      httpPresets: [
+        {
+          preset_id: "gmail_list_messages_http",
+          provider_id: "google",
+          service: "gmail",
+          operation: "list messages",
+          label: "List emails",
+          description: "List Gmail messages",
+          http_method: "GET",
+          endpoint_path_template: "/gmail/v1/users/me/messages",
+          payload_template: "{}",
+          query_params: {},
+          required_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          input_schema: []
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-outbound_request") as HTMLElement);
+
+    await waitFor(() => {
+      expect(document.querySelector("#add-step-http-connector-input")).toBeInTheDocument();
+    });
+
+    expect(document.querySelector("#add-step-http-connector-label")).toHaveTextContent("Connectors");
+    expect(screen.getByLabelText("Destination URL")).toBeInTheDocument();
+    expect(screen.getByLabelText("Payload template")).toBeInTheDocument();
+
+    const connectorSelect = document.querySelector("#add-step-http-connector-input") as HTMLSelectElement;
+    fireEvent.change(connectorSelect, { target: { value: "google-primary" } });
+
+    const presetSelect = (await waitFor(() => {
+      const element = document.querySelector("#add-step-http-action-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    })) as HTMLSelectElement;
+    expect(within(presetSelect).getByRole("option", { name: "gmail - list messages" })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Destination URL")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Payload template")).not.toBeInTheDocument();
+    });
+  });
 
   it("shows grouped Google connector actions and dynamic inputs in the add-step modal", async () => {
     renderAutomationApp({

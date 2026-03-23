@@ -73,3 +73,14 @@ test("non-Google connector lifecycle actions update the registry", async ({ page
   await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("0");
 });
 
+test("invalid OAuth return surfaces an error without mutating the registry", async ({ page }) => {
+  const harness = createConnectorsApisHarness();
+  await harness.install(page);
+
+  await page.goto("/api/v1/connectors/google/oauth/callback?state=bad-state&code=demo-code&connector_id=google");
+
+  await expect(page).toHaveURL(/\/settings\/connectors\.html$/);
+  await expect(page.locator("#settings-connectors-feedback")).toContainText("Invalid OAuth state.");
+  await expect(page.locator("#settings-connectors-row-google")).toHaveCount(0);
+  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
+});

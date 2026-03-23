@@ -5,6 +5,7 @@ import type {
   AutomationStep,
   ConnectorRecord,
   ConnectorActivityDefinition,
+  HttpPreset,
   ToolManifestEntry,
   ScriptLibraryItem
 } from "./types";
@@ -22,6 +23,7 @@ type Props = {
   onClose: () => void;
   onAdd: (step: AutomationStep) => void;
   connectors: ConnectorRecord[];
+  httpPresets: HttpPreset[];
   activityCatalog: ConnectorActivityDefinition[];
   toolsManifest: ToolManifestEntry[];
   scripts?: ScriptLibraryItem[];
@@ -32,6 +34,7 @@ export const AddStepModal = ({
   onClose,
   onAdd,
   connectors,
+  httpPresets,
   activityCatalog,
   toolsManifest,
   scripts
@@ -71,7 +74,7 @@ export const AddStepModal = ({
       case "log":
         return <LogStepForm draft={draft} onChange={setDraft} />;
       case "outbound_request":
-        return <HttpStepForm draft={draft} connectors={connectors} onChange={setDraft} />;
+        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} onChange={setDraft} />;
       case "connector_activity":
         return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} onChange={setDraft} />;
       case "script":

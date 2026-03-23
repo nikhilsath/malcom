@@ -50,7 +50,7 @@ export const connectorElements = createElementMap({
 export const GOOGLE_RECOMMENDED_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/spreadsheets.readonly"
+  "https://www.googleapis.com/auth/spreadsheets"
 ];
 
 export const OAUTH_QUERY_KEYS = ["oauth_status", "oauth_message", "connector_id"];

@@ -31,10 +31,10 @@ test("applies a preset, saves the config, and streams a chat response", async ({
     return request?.messages?.length || 0;
   }).toBe(2);
   const chatRequest = llm.getLastChatRequest() as { messages?: Array<{ role: string; content: string }> } | null;
-  expect(chatRequest?.messages?.[0].role).toBe("system");
-  expect(chatRequest?.messages?.[0].content).toBe("Reply in one sentence.");
-  expect(chatRequest?.messages?.[1].role).toBe("user");
-  expect(chatRequest?.messages?.[1].content).toBe("Hello model");
+  expect(chatRequest?.messages?.[0]?.role).toBe("system");
+  expect(chatRequest?.messages?.[0]?.content).toBe("Reply in one sentence.");
+  expect(chatRequest?.messages?.[1]?.role).toBe("user");
+  expect(chatRequest?.messages?.[1]?.content).toBe("Hello model");
 
   await expect(page.locator("#tools-local-llm-chat-message-2")).toContainText("Local LLM reply: Hello model");
   await expect(page.locator("#tools-local-llm-chat-feedback")).toHaveText("Response received.");

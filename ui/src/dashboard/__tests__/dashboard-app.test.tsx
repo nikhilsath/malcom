@@ -57,7 +57,7 @@ describe("DashboardApp", () => {
     expect(screen.getByText("Backend dashboard endpoints are not yet connected.")).toBeInTheDocument();
     expect(screen.getByText("Runtime status")).toBeInTheDocument();
     expect(screen.getByText("Queue status")).toBeInTheDocument();
-    expect(screen.getByText("Running")).toBeInTheDocument();
+    expectTextById("dashboard-overview-summary-queue-status-value", "Running");
   });
 
   it("renders loading-ready empty states for devices", async () => {

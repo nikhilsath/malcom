@@ -22,29 +22,6 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
         setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
-        def create_test_connector_via_settings(self, connector_id: str, provider: str = "google") -> dict:
-            """Create a test connector via the settings API (more realistic integration)."""
-            response = self.client.patch(
-                "/api/v1/settings",
-                json={
-                    "app_settings": {},
-                    "records": {
-                        "connectors": [
-                            {
-                                "id": connector_id,
-                                "provider": provider,
-                                "name": f"Test {provider.upper()} Connector",
-                                "auth_type": "oauth2",
-                                "status": "connected",
-                                "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
-                            }
-                        ]
-                    }
-                }
-            )
-            if response.status_code != 200:
-                raise RuntimeError(f"Failed to create connector: {response.text}")
-            return response.json()
 
     def tearDown(self) -> None:
         self.client.__exit__(None, None, None)
@@ -54,13 +31,38 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
         app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 
+    def create_test_connector_via_settings(
+        self,
+        connector_id: str,
+        provider: str = "google",
+        scopes: list[str] | None = None,
+    ) -> dict:
+        """Create a test connector via the settings API."""
+        response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "connectors": {
+                    "records": [
+                        {
+                            "id": connector_id,
+                            "provider": provider,
+                            "name": f"Test {provider.upper()} Connector",
+                            "auth_type": "oauth2",
+                            "status": "connected",
+                            "scopes": scopes if scopes is not None else ["https://www.googleapis.com/auth/gmail.readonly"],
+                        }
+                    ]
+                }
+            }
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"Failed to create connector: {response.text}")
+        return response.json()
 
     def test_http_preset_mode_creates_automation(self) -> None:
         """HTTP preset step should be accepted and stored in automation."""
-        connector_id = self.create_google_test_connector("google-1")
-            # Create connector first
-            connector_id = "test-google-1"
-            self.create_test_connector_via_settings(connector_id)
+        connector_id = "test-google-1"
+        self.create_test_connector_via_settings(connector_id)
 
         response = self.client.post(
             "/api/v1/automations",
@@ -91,9 +93,8 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
 
     def test_http_preset_mode_rejects_unknown_preset_id(self) -> None:
         """HTTP preset step should reject unknown preset IDs."""
-        connector_id = self.create_google_test_connector("google-2")
-            connector_id = "test-google-2"
-            self.create_test_connector_via_settings(connector_id)
+        connector_id = "test-google-2"
+        self.create_test_connector_via_settings(connector_id)
 
         response = self.client.post(
             "/api/v1/automations",
@@ -150,42 +151,8 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
 
     def test_http_preset_mode_missing_scopes_validation(self) -> None:
         """HTTP preset step should validate required scopes."""
-        # Create connector with no scopes
         connector_id = "google-no-scopes"
-        from backend.services.connectors import store_connector_record
-
-        store_connector_record(
-            app.state.db_connection,
-            connector_id=connector_id,
-            provider="google",
-            name="Google No Scopes",
-            auth_type="oauth2",
-            client_id="test-client",
-            client_secret="test-secret",
-            scopes=[],  # No scopes
-            access_token="test-token",
-            refresh_token="test-refresh",
-            expires_at=None,
-        )
-            connector_id = "test-google-no-scopes"
-            response = self.client.patch(
-                "/api/v1/settings",
-                json={
-                    "app_settings": {},
-                    "records": {
-                        "connectors": [
-                            {
-                                "id": connector_id,
-                                "provider": "google",
-                                "name": "Google No Scopes",
-                                "auth_type": "oauth2",
-                                "scopes": [],  # No scopes
-                            }
-                        ]
-                    }
-                }
-            )
-            self.assertEqual(response.status_code, 200, f"Failed to create connector: {response.text}")
+        self.create_test_connector_via_settings(connector_id, scopes=[])
 
         response = self.client.post(
             "/api/v1/automations",

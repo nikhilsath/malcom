@@ -1,5 +1,5 @@
 import { Page, Route } from "@playwright/test";
-import { buildSettingsResponse, defaultToolsDirectory, stubSettings } from "./core";
+import { buildSettingsResponse, defaultToolsDirectory, stubSettings } from "./core.ts";
 
 export type AutomationStepFixture = {
   id: string;
@@ -269,9 +269,7 @@ const defaultAutomationFixtures = (): AutomationFixture[] => ([
           auth_type: "none",
           payload_template: "{\"order_id\":\"42\"}",
           wait_for_response: true,
-          response_mappings: [
-            { key: "customer_name", path: "data.customer.name" }
-          ]
+          response_mappings: []
         }
       },
       {

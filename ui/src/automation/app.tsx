@@ -23,7 +23,8 @@ import type {
   ConnectorActivityDefinition,
   ToolManifestEntry,
   InboundApiOption,
-  ScriptLibraryItem
+  ScriptLibraryItem,
+  HttpPreset
 } from "./types";
 import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
@@ -520,6 +521,7 @@ export const AutomationApp = () => {
   const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
+  const [httpPresets, setHttpPresets] = useState<HttpPreset[]>([]);
   const [inboundApis, setInboundApis] = useState<InboundApiOption[]>([]);
   const [activityCatalog, setActivityCatalog] = useState<ConnectorActivityDefinition[]>([]);
   const [scripts, setScripts] = useState<ScriptLibraryItem[]>([]);
@@ -658,16 +660,18 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const [settings, inbound, scriptItems, activityItems] = await Promise.all([
+    const [settings, inbound, scriptItems, activityItems, presetItems] = await Promise.all([
       requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
       requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
       requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts"),
-      requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog")
+      requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog"),
+      requestJsonCompat<HttpPreset[]>("/api/v1/connectors/http-presets")
     ]);
     setConnectors(settings.connectors?.records || []);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
     setScripts(scriptItems);
     setActivityCatalog(activityItems);
+    setHttpPresets(presetItems);
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
@@ -1001,6 +1005,7 @@ export const AutomationApp = () => {
           <HttpStepForm
             draft={step}
             connectors={connectors}
+            httpPresets={httpPresets}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step-http"
           />
@@ -1581,6 +1586,7 @@ export const AutomationApp = () => {
           setAddStepModalOpen(false);
         }}
         connectors={connectors}
+        httpPresets={httpPresets}
         activityCatalog={activityCatalog}
         toolsManifest={window.TOOLS_MANIFEST || []}
         scripts={scripts}

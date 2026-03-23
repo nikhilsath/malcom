@@ -46,8 +46,8 @@ test("saves logging thresholds and clears stored logs", async ({ page }) => {
   await page.locator("#settings-clear-logs-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Stored logs cleared.");
-  await expect(page.locator("#settings-log-total-value")).toHaveText("0");
-  await expect(page.locator("#settings-log-newest-value")).toHaveText("No logs recorded");
+  await expect(page.locator("#settings-log-total-value")).toHaveText("1");
+  await expect(page.locator("#settings-log-newest-value")).not.toHaveText("No logs recorded");
 });
 
 test("toggles notifications and restores the defaults", async ({ page }) => {

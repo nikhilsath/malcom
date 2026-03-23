@@ -403,6 +403,17 @@ export async function installClipboardMock(page: Page) {
   await page.addInitScript(() => {
     const globalWindow = window as typeof window & { __copiedText?: string };
     globalWindow.__copiedText = "";
+    const clipboard = navigator.clipboard as Clipboard & { writeText?: (value: string) => Promise<void> } | undefined;
+    if (clipboard) {
+      Object.defineProperty(clipboard, "writeText", {
+        value: async (value: string) => {
+          globalWindow.__copiedText = value;
+        },
+        configurable: true
+      });
+      return;
+    }
+
     Object.defineProperty(navigator, "clipboard", {
       value: {
         writeText: async (value: string) => {
@@ -610,7 +621,7 @@ export async function stubSmtpTool(page: Page, overrides: DeepPartial<SmtpToolSt
       return;
     }
 
-    const payload = (route.request().postDataJSON?.() || {}) as JsonObject;
+    const payload = route.request().postDataJSON() as JsonObject;
     relayPayloads.push(payload);
 
     await fulfillJson(route, {
@@ -646,7 +657,7 @@ export async function stubLocalLlmTool(page: Page, overrides: DeepPartial<LocalL
       return;
     }
 
-    const payload = (route.request().postDataJSON?.() || {}) as JsonObject;
+    const payload = route.request().postDataJSON() as JsonObject;
     savedConfigs.push(payload);
 
     const nextEndpoints = {
@@ -782,7 +793,7 @@ export async function stubCoquiTtsTool(page: Page, overrides: DeepPartial<CoquiT
       return;
     }
 
-    const payload = (route.request().postDataJSON?.() || {}) as JsonObject;
+    const payload = route.request().postDataJSON() as JsonObject;
     savedConfigs.push(payload);
 
     state = mergeDeep(state, {

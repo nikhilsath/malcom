@@ -1,8 +1,41 @@
 import type { Page, Route } from "@playwright/test";
 
-import { defaultSettingsResponse } from "./core";
-
 type JsonRecord = Record<string, unknown>;
+
+export const defaultSettingsResponse = {
+  connectors: {
+    catalog: [
+      {
+        id: "google",
+        name: "Google",
+        description: "Google Workspace OAuth provider.",
+        auth_types: ["oauth2"],
+        base_url: "https://www.googleapis.com",
+        docs_url: "https://developers.google.com",
+        default_scopes: [
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/calendar.readonly",
+          "https://www.googleapis.com/auth/spreadsheets.readonly"
+        ]
+      },
+      {
+        id: "github",
+        name: "GitHub",
+        description: "GitHub API connector.",
+        auth_types: ["oauth2", "bearer"],
+        base_url: "https://api.github.com",
+        docs_url: "https://docs.github.com",
+        default_scopes: ["repo"]
+      }
+    ],
+    records: [],
+    auth_policy: {
+      rotation_interval_days: 30,
+      reconnect_requires_approval: false,
+      credential_visibility: "workspace"
+    }
+  }
+} as const;
 
 export type ConnectorRecord = {
   id: string;
@@ -566,7 +599,80 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
   };
 
   const install = async (page: Page) => {
-    await page.addInitScript(() => {
+    await page.addInitScript((initialState) => {
+      const stateKey = "malcom.playwright.connectors-apis";
+      const clone = (value: unknown) => JSON.parse(JSON.stringify(value));
+      const mergeDeep = (base: Record<string, unknown>, override: Record<string, unknown>) => {
+        const output = clone(base) as Record<string, unknown>;
+
+        for (const [key, value] of Object.entries(override || {})) {
+          if (Array.isArray(value)) {
+            output[key] = clone(value);
+            continue;
+          }
+
+          if (value && typeof value === "object") {
+            const baseValue = output[key];
+            output[key] = mergeDeep(
+              (baseValue && typeof baseValue === "object" && !Array.isArray(baseValue)) ? baseValue as Record<string, unknown> : {},
+              value as Record<string, unknown>
+            );
+            continue;
+          }
+
+          output[key] = value;
+        }
+
+        return output;
+      };
+
+      const loadState = () => {
+        try {
+          const raw = window.localStorage.getItem(stateKey);
+          if (raw) {
+            return JSON.parse(raw) as typeof initialState;
+          }
+        } catch {
+          // fall through to initial state
+        }
+
+        const nextState = clone(initialState) as typeof initialState;
+        window.localStorage.setItem(stateKey, JSON.stringify(nextState));
+        return nextState;
+      };
+
+      const saveState = (nextState: typeof initialState) => {
+        window.localStorage.setItem(stateKey, JSON.stringify(nextState));
+        return nextState;
+      };
+
+      const upsert = <T extends { id: string }>(items: T[], nextItem: T) => {
+        const index = items.findIndex((item) => item.id === nextItem.id);
+        if (index >= 0) {
+          items[index] = nextItem;
+          return;
+        }
+        items.unshift(nextItem);
+      };
+
+      const stripConnectorSecrets = (record: Record<string, unknown>) => {
+        const authConfig = (record.auth_config as Record<string, unknown>) || {};
+        return {
+          ...record,
+          auth_config: {
+            ...authConfig,
+            client_secret_masked: authConfig.client_secret_masked || (authConfig.client_secret_input ? "••••••••" : authConfig.client_secret_masked),
+            access_token_masked: authConfig.access_token_masked || (authConfig.access_token_input ? "••••••••" : authConfig.access_token_masked),
+            refresh_token_masked: authConfig.refresh_token_masked || (authConfig.refresh_token_input ? "••••••••" : authConfig.refresh_token_masked),
+            api_key_masked: authConfig.api_key_masked || (authConfig.api_key_input ? "••••••••" : authConfig.api_key_masked),
+            password_masked: authConfig.password_masked || (authConfig.password_input ? "••••••••" : authConfig.password_masked),
+            header_value_masked: authConfig.header_value_masked || (authConfig.header_value_input ? "••••••••" : authConfig.header_value_masked)
+          }
+        };
+      };
+
+      const state = loadState();
+
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,
         value: {
@@ -575,7 +681,345 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           }
         }
       });
-    });
+
+      window.Malcom = window.Malcom || {};
+      window.Malcom.requestJson = async (path: string, options: RequestInit = {}) => {
+        const method = (options.method || "GET").toString().toUpperCase();
+        const body = typeof options.body === "string" && options.body
+          ? JSON.parse(options.body)
+          : {};
+        const url = new URL(path, window.location.origin);
+        const pathname = url.pathname;
+
+        const respond = (payload: unknown, status = 200) => {
+          if (status >= 400) {
+            throw new Error((payload as { detail?: string } | null)?.detail || "Request failed.");
+          }
+
+          return clone(payload);
+        };
+
+        if (pathname === "/api/v1/settings") {
+          const response = await fetch(url.toString(), {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+              ...(options.headers || {})
+            },
+            body: typeof options.body === "string" ? options.body : undefined
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(text || `Request failed with status ${response.status}.`);
+          }
+
+          const text = await response.text();
+          return text ? JSON.parse(text) : null;
+        }
+
+        const connectorStartMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)\/oauth\/start$/);
+        if (connectorStartMatch && method === "POST") {
+          const provider = connectorStartMatch[1];
+          const connectorId = String(body.connector_id || provider);
+          const connectors = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
+          const existing = connectors.find((record) => record.id === connectorId);
+          const nextRecord = {
+            id: connectorId,
+            provider,
+            name: String(body.name || provider),
+            status: "pending_oauth",
+            auth_type: "oauth2",
+            scopes: Array.isArray(body.scopes) ? body.scopes : ["repo"],
+            base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+            owner: String(body.owner || "Workspace"),
+            docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+            credential_ref: `connector/${connectorId}`,
+            created_at: existing?.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_tested_at: null,
+            auth_config: {
+              client_id: String(body.client_id || existing?.auth_config?.client_id || `${provider}-client-id`),
+              client_secret_input: String(body.client_secret_input || ""),
+              redirect_uri: String(body.redirect_uri || ""),
+              scope_preset: provider,
+              expires_at: null,
+              has_refresh_token: false
+            }
+          };
+
+          upsert(connectors, nextRecord);
+          ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records = connectors;
+          (state as Record<string, unknown>).oauthStateByConnector = {
+            ...((state as Record<string, unknown>).oauthStateByConnector as Record<string, unknown> || {}),
+            [connectorId]: {
+              state: `oauth-state-${connectorId}`,
+              redirectUri: String(body.redirect_uri || ""),
+              provider
+            }
+          };
+          saveState(state);
+          return respond({
+            connector: stripConnectorSecrets(nextRecord),
+            authorization_url: `https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-${connectorId}&redirect_uri=${encodeURIComponent(String(body.redirect_uri || ""))}&response_type=code`,
+            state: `oauth-state-${connectorId}`,
+            expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            code_challenge_method: "S256"
+          });
+        }
+
+        const connectorIdMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)\/(test|refresh)$/);
+        if (connectorIdMatch && method === "POST") {
+          const connectorId = connectorIdMatch[1];
+          const action = connectorIdMatch[2];
+          const connectors = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
+          const record = connectors.find((item) => item.id === connectorId);
+          if (!record) {
+            return respond({ detail: "Connector not found." }, 404);
+          }
+
+          if (action === "test") {
+            record.status = record.status === "revoked" ? "revoked" : "connected";
+            record.updated_at = new Date().toISOString();
+            record.last_tested_at = new Date().toISOString();
+            saveState(state);
+            return respond({
+              ok: record.status !== "revoked",
+              message: record.status === "revoked" ? "Connector is revoked." : "Connector credentials look complete.",
+              connector: stripConnectorSecrets(record)
+            });
+          }
+
+          record.status = "connected";
+          record.updated_at = new Date().toISOString();
+          record.last_tested_at = new Date().toISOString();
+          record.auth_config = {
+            ...record.auth_config,
+            access_token_input: `token_${connectorId.slice(0, 12)}`,
+            expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            has_refresh_token: true
+          };
+          saveState(state);
+          return respond({
+            ok: true,
+            message: "Connector token refreshed.",
+            connector: stripConnectorSecrets(record)
+          });
+        }
+
+        if (pathname === "/api/v1/apis/test-delivery" && method === "POST") {
+          return respond({
+            ok: true,
+            status_code: 200,
+            response_body: JSON.stringify({ ok: true, destination_url: String(body.destination_url || "") }),
+            sent_headers: {
+              "Content-Type": "application/json"
+            },
+            destination_url: String(body.destination_url || "")
+          });
+        }
+
+        if (pathname === "/api/v1/apis" && method === "POST") {
+          const type = String(body.type || "incoming");
+
+          if (type === "incoming") {
+            const created = {
+              id: body.path_slug ? `incoming-${body.path_slug}` : `incoming-${Date.now()}`,
+              name: String(body.name || "Incoming API"),
+              description: String(body.description || ""),
+              path_slug: String(body.path_slug || `incoming-${Date.now()}`),
+              enabled: Boolean(body.enabled),
+              endpoint_path: `/api/v1/inbound/${body.path_slug || `incoming-${Date.now()}`}`,
+              endpoint_url: `http://127.0.0.1:4173/api/v1/inbound/${body.path_slug || `incoming-${Date.now()}`}`,
+              secret: `secret-${body.path_slug || Date.now()}`,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              last_received_at: null,
+              last_delivery_status: "No deliveries",
+              events: []
+            };
+            state.inbound.unshift(created);
+            saveState(state);
+            return respond({
+              id: created.id,
+              name: created.name,
+              description: created.description,
+              path_slug: created.path_slug,
+              enabled: created.enabled,
+              secret: created.secret,
+              endpoint_path: created.endpoint_path,
+              endpoint_url: created.endpoint_url,
+              type: "incoming"
+            }, 201);
+          }
+
+          if (type === "webhook") {
+            const created = {
+              id: body.path_slug ? `webhook-${body.path_slug}` : `webhook-${Date.now()}`,
+              type: "webhook",
+              name: String(body.name || "Webhook"),
+              description: String(body.description || ""),
+              path_slug: String(body.path_slug || `webhook-${Date.now()}`),
+              enabled: Boolean(body.enabled),
+              callback_path: String(body.callback_path || "/hooks/webhook"),
+              verification_token: String(body.verification_token || "verify-token"),
+              signing_secret: String(body.signing_secret || "signing-secret"),
+              signature_header: String(body.signature_header || "X-Signature"),
+              event_filter: String(body.event_filter || "order.created"),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              last_activity_at: null
+            };
+            state.webhooks.unshift(created);
+            saveState(state);
+            return respond(created, 201);
+          }
+
+          const created = {
+            id: body.path_slug ? `outgoing-${body.path_slug}` : `outgoing-${Date.now()}`,
+            type,
+            name: String(body.name || "Outgoing API"),
+            description: String(body.description || ""),
+            path_slug: String(body.path_slug || `outgoing-${Date.now()}`),
+            enabled: Boolean(body.enabled),
+            destination_url: String(body.destination_url || ""),
+            http_method: String(body.http_method || "POST"),
+            auth_type: String(body.auth_type || "none"),
+            auth_config: clone(body.auth_config || {}),
+            payload_template: String(body.payload_template || "{}"),
+            scheduled_time: body.scheduled_time ? String(body.scheduled_time) : null,
+            repeat_enabled: Boolean(body.repeat_enabled),
+            repeat_interval_minutes: body.repeat_interval_minutes ? Number(body.repeat_interval_minutes) : null,
+            status: body.enabled === false ? "paused" : "active",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_activity_at: null
+          };
+          if (type === "outgoing_scheduled") {
+            state.outgoingScheduled.unshift(created);
+          } else {
+            state.outgoingContinuous.unshift(created);
+          }
+          saveState(state);
+          return respond(created, 201);
+        }
+
+        if (pathname === "/api/v1/inbound" && method === "GET") {
+          return respond(state.inbound.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
+            description: entry.description,
+            path_slug: entry.path_slug,
+            enabled: entry.enabled,
+            endpoint_path: entry.endpoint_path,
+            endpoint_url: entry.endpoint_url,
+            created_at: entry.created_at,
+            updated_at: entry.updated_at,
+            last_received_at: entry.last_received_at,
+            last_delivery_status: entry.last_delivery_status,
+            type: "incoming"
+          })));
+        }
+
+        const rotateMatch = pathname.match(/^\/api\/v1\/inbound\/([^/]+)\/rotate-secret$/);
+        if (rotateMatch && method === "POST") {
+          const record = state.inbound.find((entry) => entry.id === rotateMatch[1]);
+          if (!record) {
+            return respond({ detail: "API not found." }, 404);
+          }
+          record.secret = `secret-${rotateMatch[1]}-rotated`;
+          record.updated_at = new Date().toISOString();
+          saveState(state);
+          return respond({ id: record.id, secret: record.secret, name: record.name, enabled: record.enabled });
+        }
+
+        const inboundMatch = pathname.match(/^\/api\/v1\/inbound\/([^/]+)$/);
+        if (inboundMatch) {
+          const record = state.inbound.find((entry) => entry.id === inboundMatch[1]);
+          if (!record) {
+            return respond({ detail: "API not found." }, 404);
+          }
+
+          if (method === "GET") {
+            return respond(record);
+          }
+
+          if (method === "PATCH") {
+            record.enabled = typeof body.enabled === "boolean" ? body.enabled : record.enabled;
+            record.name = String(body.name || record.name);
+            record.description = String(body.description || record.description);
+            record.path_slug = String(body.path_slug || record.path_slug);
+            record.updated_at = new Date().toISOString();
+            saveState(state);
+            return respond({
+              id: record.id,
+              name: record.name,
+              description: record.description,
+              path_slug: record.path_slug,
+              enabled: record.enabled,
+              endpoint_path: record.endpoint_path,
+              endpoint_url: record.endpoint_url,
+              created_at: record.created_at,
+              updated_at: record.updated_at,
+              last_received_at: record.last_received_at,
+              last_delivery_status: record.last_delivery_status,
+              type: "incoming"
+            });
+          }
+        }
+
+        if (pathname === "/api/v1/outgoing/scheduled" && method === "GET") {
+          return respond(state.outgoingScheduled.map((entry) => ({ ...entry, type: "outgoing_scheduled" })));
+        }
+
+        if (pathname === "/api/v1/outgoing/continuous" && method === "GET") {
+          return respond(state.outgoingContinuous.map((entry) => ({ ...entry, type: "outgoing_continuous" })));
+        }
+
+        const outgoingMatch = pathname.match(/^\/api\/v1\/outgoing\/([^/]+)$/);
+        if (outgoingMatch) {
+          const record = [...state.outgoingScheduled, ...state.outgoingContinuous].find((entry) => entry.id === outgoingMatch[1]);
+          if (!record) {
+            return respond({ detail: "Outgoing API not found." }, 404);
+          }
+
+          if (method === "GET") {
+            return respond(record);
+          }
+
+          if (method === "PATCH") {
+            record.name = String(body.name || record.name);
+            record.description = String(body.description || record.description);
+            record.path_slug = String(body.path_slug || record.path_slug);
+            record.enabled = typeof body.enabled === "boolean" ? body.enabled : record.enabled;
+            record.destination_url = String(body.destination_url || record.destination_url);
+            record.http_method = String(body.http_method || record.http_method);
+            record.auth_type = String(body.auth_type || record.auth_type);
+            record.auth_config = clone(body.auth_config || record.auth_config);
+            record.payload_template = String(body.payload_template || record.payload_template);
+            record.scheduled_time = body.scheduled_time ? String(body.scheduled_time) : record.scheduled_time;
+            record.repeat_enabled = typeof body.repeat_enabled === "boolean" ? body.repeat_enabled : record.repeat_enabled;
+            record.repeat_interval_minutes = body.repeat_interval_minutes ? Number(body.repeat_interval_minutes) : record.repeat_interval_minutes;
+            record.updated_at = new Date().toISOString();
+            saveState(state);
+            return respond(record);
+          }
+        }
+
+        if (pathname === "/api/v1/webhooks" && method === "GET") {
+          return respond(state.webhooks.map((entry) => ({ ...entry, type: "webhook" })));
+        }
+
+        throw new Error(`Unsupported request: ${method} ${pathname}`);
+      };
+    }, clone({
+      settings,
+      oauthStateByConnector: {},
+      inbound: options.inbound ? clone(options.inbound) : createDefaultIncomingFixtures(),
+      outgoingScheduled: options.outgoingScheduled ? clone(options.outgoingScheduled) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_scheduled"),
+      outgoingContinuous: options.outgoingContinuous ? clone(options.outgoingContinuous) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_continuous"),
+      webhooks: options.webhooks ? clone(options.webhooks) : createDefaultWebhookFixtures()
+    }));
 
     await page.route("**/api/v1/settings", async (route) => {
       const method = route.request().method();
@@ -632,7 +1076,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
     await page.route("**/api/v1/connectors/google/oauth/callback/ui**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = createOAuthCallbackResponse("google", url.searchParams);
+      const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "google"), "success", "Connector authorized successfully.");
       await route.fulfill({
         status: 303,
         headers: {
@@ -644,7 +1088,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
     await page.route("**/api/v1/connectors/github/oauth/callback/ui**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = createOAuthCallbackResponse("github", url.searchParams);
+      const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "github"), "success", "Connector authorized successfully.");
       await route.fulfill({
         status: 303,
         headers: {
@@ -970,4 +1414,3 @@ export const installClipboardTracker = async (page: Page) => {
 };
 
 export const readClipboardTracker = async (page: Page) => page.evaluate(() => (window as unknown as { __copiedText?: string }).__copiedText || "");
-

@@ -36,6 +36,9 @@ test("copies mailbox details and sends a local test email", async ({ page }) => 
   await expect(page.locator("#tools-smtp-summary-messages-value")).toHaveText("3");
   await expect(page.locator("#tools-smtp-mailbox-item-smtp-message-new")).toBeVisible();
 
+  await page.locator("#tools-smtp-test-modal-close").click();
+  await expect(page.locator("#tools-smtp-test-modal")).toHaveAttribute("aria-hidden", "true");
+
   await page.locator("#tools-smtp-mailbox-item-smtp-message-new").click();
   await page.locator("#tools-smtp-copy-raw-message-button").click();
   await expect.poll(async () => getCopiedText(page)).toContain("Smoke test body.");

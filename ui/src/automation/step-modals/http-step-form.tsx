@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { normalizeRequestError, requestJson } from "../../lib/request";
-import type { AutomationStep, ConnectorRecord } from "../types";
+import type { AutomationStep, ConnectorRecord, HttpPreset } from "../types";
 
 type Props = {
   draft: AutomationStep;
   connectors: ConnectorRecord[];
+  httpPresets: HttpPreset[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
 };
@@ -102,7 +103,7 @@ const JsonTree = ({
   return null;
 };
 
-export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step-http" }: Props) => {
+export const HttpStepForm = ({ draft, connectors, httpPresets, onChange, idPrefix = "add-step-http" }: Props) => {
   const [sampleResponse, setSampleResponse] = useState<unknown | null>(null);
   const [sampleError, setSampleError] = useState<string>("");
   const [sampleLoading, setSampleLoading] = useState(false);
@@ -113,6 +114,23 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
   );
 
   const updateConfig = (nextConfig: AutomationStep["config"]) => onChange({ ...draft, config: nextConfig });
+
+  const selectedConnector = connectors.find((c) => c.id === draft.config.connector_id) || null;
+  const availablePresets = useMemo(() => {
+    if (!selectedConnector?.provider) {
+      return [] as HttpPreset[];
+    }
+    return httpPresets.filter((preset) => preset.provider_id === selectedConnector.provider);
+  }, [httpPresets, selectedConnector?.provider]);
+  const selectedPresetId = draft.config.http_preset_id || availablePresets[0]?.preset_id || "";
+  const isPresetMode = Boolean(selectedPresetId);
+
+  useEffect(() => {
+    if (!selectedConnector || availablePresets.length === 0 || draft.config.http_preset_id) {
+      return;
+    }
+    updateConfig({ ...draft.config, http_preset_id: availablePresets[0].preset_id });
+  }, [availablePresets, draft.config, draft.config.http_preset_id, selectedConnector]);
 
   const setMappings = (mappings: JsonMapping[]) => {
     updateConfig({ ...draft.config, response_mappings: mappings });
@@ -172,12 +190,23 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
       </label>
 
       <label id={`${idPrefix}-connector-field`} className="automation-field automation-field--full automation-field--inline-label">
-        <span id={`${idPrefix}-connector-label`} className="automation-field__label">Saved connector</span>
+        <span id={`${idPrefix}-connector-label`} className="automation-field__label">Connectors</span>
         <select
           id={`${idPrefix}-connector-input`}
           className="automation-native-select"
           value={draft.config.connector_id || ""}
-          onChange={(e) => updateConfig({ ...draft.config, connector_id: e.target.value })}
+          onChange={(e) => {
+            const nextConnectorId = e.target.value;
+            const nextConnector = connectors.find((c) => c.id === nextConnectorId);
+            const nextPresets = nextConnector?.provider
+              ? httpPresets.filter((preset) => preset.provider_id === nextConnector.provider)
+              : [];
+            updateConfig({
+              ...draft.config,
+              connector_id: nextConnectorId,
+              http_preset_id: nextPresets[0]?.preset_id || ""
+            });
+          }}
         >
           <option value="">None</option>
           {connectors.map((c) => {
@@ -191,11 +220,29 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
         </select>
       </label>
 
-      {draft.config.connector_id && connectors.some((c) => c.id === draft.config.connector_id) && (
+      {selectedConnector ? (
+        <label id={`${idPrefix}-action-field`} className="automation-field automation-field--full automation-field--inline-label">
+          <span id={`${idPrefix}-action-label`} className="automation-field__label">Prebuilt action</span>
+          <select
+            id={`${idPrefix}-action-input`}
+            className="automation-native-select"
+            value={selectedPresetId}
+            onChange={(e) => updateConfig({ ...draft.config, http_preset_id: e.target.value })}
+            disabled={availablePresets.length === 0}
+          >
+            {availablePresets.length === 0 ? <option value="">No prebuilt actions available</option> : null}
+            {availablePresets.map((preset) => (
+              <option key={preset.preset_id} value={preset.preset_id}>
+                {`${preset.service} - ${preset.operation}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {selectedConnector && (
         <div id={`${idPrefix}-connector-info`} className="automation-field automation-field--full">
           {(() => {
-            const selectedConnector = connectors.find((c) => c.id === draft.config.connector_id);
-            if (!selectedConnector) return null;
             return (
               <div id={`${idPrefix}-connector-scopes-info`} className="automation-field automation-field__info">
                 <div id={`${idPrefix}-scopes-label`} className="automation-field__label">Available APIs/Scopes</div>
@@ -217,26 +264,30 @@ export const HttpStepForm = ({ draft, connectors, onChange, idPrefix = "add-step
           })()}
         </div>
       )}
-      <label id={`${idPrefix}-url-field`} className="automation-field automation-field--full automation-field--inline-label">
-        <span id={`${idPrefix}-url-label`} className="automation-field__label">Destination URL</span>
-        <input
-          id={`${idPrefix}-url-input`}
-          className="automation-input"
-          value={draft.config.destination_url || ""}
-          onChange={(e) => updateConfig({ ...draft.config, destination_url: e.target.value })}
-        />
-      </label>
+      {!isPresetMode ? (
+        <>
+          <label id={`${idPrefix}-url-field`} className="automation-field automation-field--full automation-field--inline-label">
+            <span id={`${idPrefix}-url-label`} className="automation-field__label">Destination URL</span>
+            <input
+              id={`${idPrefix}-url-input`}
+              className="automation-input"
+              value={draft.config.destination_url || ""}
+              onChange={(e) => updateConfig({ ...draft.config, destination_url: e.target.value })}
+            />
+          </label>
 
-      <label id={`${idPrefix}-payload-field`} className="automation-field automation-field--full automation-field--inline-label">
-        <span id={`${idPrefix}-payload-label`} className="automation-field__label">Payload template</span>
-        <textarea
-          id={`${idPrefix}-payload-input`}
-          className="automation-textarea automation-textarea--code automation-code-input"
-          rows={6}
-          value={draft.config.payload_template || ""}
-          onChange={(e) => updateConfig({ ...draft.config, payload_template: e.target.value })}
-        />
-      </label>
+          <label id={`${idPrefix}-payload-field`} className="automation-field automation-field--full automation-field--inline-label">
+            <span id={`${idPrefix}-payload-label`} className="automation-field__label">Payload template</span>
+            <textarea
+              id={`${idPrefix}-payload-input`}
+              className="automation-textarea automation-textarea--code automation-code-input"
+              rows={6}
+              value={draft.config.payload_template || ""}
+              onChange={(e) => updateConfig({ ...draft.config, payload_template: e.target.value })}
+            />
+          </label>
+        </>
+      ) : null}
 
       <div id={`${idPrefix}-wait-toggle-field`} className="automation-switch-field automation-field--full">
         <div id={`${idPrefix}-wait-toggle-copy`} className="automation-switch-field__copy">

@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { stubToolCatalog, stubToolSettings } from "./support/tools";
+import { stubImageMagicTool, stubToolCatalog, stubToolSettings } from "./support/tools";
 
 test("opens a tool detail, edits metadata, enables it, and follows the config link", async ({ page }) => {
   await stubToolSettings(page);
+  await stubImageMagicTool(page);
   const catalog = await stubToolCatalog(page);
 
   await page.goto("/tools/catalog.html");
@@ -23,8 +24,9 @@ test("opens a tool detail, edits metadata, enables it, and follows the config li
   await expect(page.locator("#tool-card-image-magic-state")).toHaveText("Enabled");
   await expect(page.locator("#tool-detail-config-link")).toBeVisible();
   await expect(page.locator("#tool-detail-config-link")).toHaveAttribute("href", /\/tools\/image-magic\.html$/);
-  await expect(catalog.patches.length).toBeGreaterThan(0);
+  await expect.poll(() => catalog.patches.length).toBeGreaterThan(0);
 
   await page.locator("#tool-detail-config-link").click();
   await expect(page).toHaveURL(/\/tools\/image-magic\.html$/);
+  await expect(page.locator("#tools-image-magic-status-value")).toHaveText("Disabled");
 });

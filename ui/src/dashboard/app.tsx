@@ -28,6 +28,7 @@ import {
   ReportBuilderPanel,
   SectionToolbar,
   ServiceStatusStrip,
+  StatusBadge,
   SummaryCard
 } from "./components";
 import type {

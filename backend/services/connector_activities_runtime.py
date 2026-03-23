@@ -129,13 +129,46 @@ def _get_connector_activity_context(
     return record, headers
 
 
+# Broader Google OAuth scopes that implicitly satisfy narrower ones.
+# Key = broader scope; value = set of narrower scopes it covers.
+_GOOGLE_SCOPE_IMPLIES: dict[str, set[str]] = {
+    "https://www.googleapis.com/auth/spreadsheets": {
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+    },
+    "https://www.googleapis.com/auth/drive": {
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/drive.metadata.readonly",
+    },
+    "https://www.googleapis.com/auth/drive.readonly": {
+        "https://www.googleapis.com/auth/drive.metadata.readonly",
+    },
+    "https://www.googleapis.com/auth/gmail.modify": {
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.compose",
+    },
+    "https://www.googleapis.com/auth/gmail.compose": {
+        "https://www.googleapis.com/auth/gmail.send",
+    },
+}
+
+
+def _expand_granted_scopes(granted: set[str]) -> set[str]:
+    """Return *granted* plus any narrower scopes implied by broader ones the connector holds."""
+    expanded = set(granted)
+    for broad_scope, implied in _GOOGLE_SCOPE_IMPLIES.items():
+        if broad_scope in granted:
+            expanded |= implied
+    return expanded
+
+
 def get_missing_connector_activity_scopes(
     connector_record: dict[str, Any] | None,
     activity_definition: dict[str, Any] | None,
 ) -> list[str]:
     if connector_record is None or activity_definition is None:
         return []
-    granted = set(connector_record.get("scopes") or [])
+    granted = _expand_granted_scopes(set(connector_record.get("scopes") or []))
     return [scope for scope in activity_definition.get("required_scopes", []) if scope not in granted]
 
 
