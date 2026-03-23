@@ -68,6 +68,102 @@ class DashboardQueueApiResponse(BaseModel):
     jobs: list[DashboardQueueJobResponse]
 
 
+class DashboardSummaryRunCountsResponse(BaseModel):
+    success: int
+    warning: int
+    error: int
+    idle: int
+
+
+class DashboardSummaryRecentRunResponse(BaseModel):
+    id: str
+    automation_name: str
+    trigger_type: Literal["schedule", "manual", "api"]
+    status: Literal["success", "warning", "error", "idle"]
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+
+
+class DashboardSummaryAlertResponse(BaseModel):
+    id: str
+    severity: Literal["info", "warning", "error"]
+    title: str
+    message: str
+    source: str
+    created_at: str
+
+
+class DashboardSummaryQuickLinkResponse(BaseModel):
+    id: str
+    label: str
+    href: str
+    count: int
+
+
+class DashboardSummaryHealthResponse(BaseModel):
+    id: str
+    status: Literal["healthy", "degraded", "offline"]
+    label: str
+    summary: str
+    updated_at: str
+
+
+class DashboardSummaryServiceResponse(BaseModel):
+    id: str
+    name: str
+    status: Literal["healthy", "degraded", "offline"]
+    detail: str
+    last_check_at: str
+
+
+class DashboardSummaryRuntimeOverviewResponse(BaseModel):
+    scheduler_active: bool
+    queue_status: Literal["running", "paused"]
+    queue_pending_jobs: int
+    queue_claimed_jobs: int
+    queue_updated_at: str
+    scheduler_last_tick_started_at: str | None
+    scheduler_last_tick_finished_at: str | None
+
+
+class DashboardSummaryWorkerHealthResponse(BaseModel):
+    total: int
+    healthy: int
+    offline: int
+
+
+class DashboardSummaryApiPerformanceResponse(BaseModel):
+    inbound_total_24h: int
+    inbound_errors_24h: int
+    error_rate_percent_24h: float
+    outgoing_scheduled_enabled: int
+    outgoing_continuous_enabled: int
+
+
+class DashboardSummaryConnectorHealthResponse(BaseModel):
+    total: int
+    connected: int
+    needs_attention: int
+    expired: int
+    revoked: int
+    draft: int
+    pending_oauth: int
+
+
+class DashboardSummaryApiResponse(BaseModel):
+    health: DashboardSummaryHealthResponse
+    services: list[DashboardSummaryServiceResponse]
+    run_counts: DashboardSummaryRunCountsResponse
+    recent_runs: list[DashboardSummaryRecentRunResponse]
+    alerts: list[DashboardSummaryAlertResponse]
+    quick_links: list[DashboardSummaryQuickLinkResponse]
+    runtime_overview: DashboardSummaryRuntimeOverviewResponse
+    worker_health: DashboardSummaryWorkerHealthResponse
+    api_performance: DashboardSummaryApiPerformanceResponse
+    connector_health: DashboardSummaryConnectorHealthResponse
+
+
 class WorkerRegistrationRequest(BaseModel):
     worker_id: str | None = Field(default=None, min_length=1, max_length=120)
     name: str = Field(min_length=1, max_length=120)
@@ -128,6 +224,17 @@ class RuntimeMachineResponse(BaseModel):
 __all__ = [
     "DashboardDeviceResponse",
     "DashboardDevicesApiResponse",
+    "DashboardSummaryAlertResponse",
+    "DashboardSummaryApiPerformanceResponse",
+    "DashboardSummaryApiResponse",
+    "DashboardSummaryConnectorHealthResponse",
+    "DashboardSummaryHealthResponse",
+    "DashboardSummaryQuickLinkResponse",
+    "DashboardSummaryRecentRunResponse",
+    "DashboardSummaryRunCountsResponse",
+    "DashboardSummaryRuntimeOverviewResponse",
+    "DashboardSummaryServiceResponse",
+    "DashboardSummaryWorkerHealthResponse",
     "DashboardQueueApiResponse",
     "DashboardQueueJobResponse",
     "HostMachineSummary",

@@ -2590,6 +2590,351 @@ def set_runtime_queue_pause_state(paused: bool) -> DashboardQueueApiResponse:
     return get_runtime_queue_response()
 
 
+def _normalize_dashboard_run_status(status_value: str, error_summary: str | None) -> Literal["success", "warning", "error", "idle"]:
+    normalized_status = (status_value or "").strip().lower()
+    has_error_summary = bool((error_summary or "").strip())
+
+    if normalized_status == "failed" or has_error_summary:
+        return "error"
+    if normalized_status == "completed":
+        return "success"
+    if normalized_status in {"running", "queued", "pending", "claimed"}:
+        return "warning"
+    return "idle"
+
+
+def _normalize_dashboard_trigger_type(trigger_type: str) -> Literal["schedule", "manual", "api"]:
+    normalized_trigger = (trigger_type or "").strip().lower()
+    if normalized_trigger == "schedule":
+        return "schedule"
+    if normalized_trigger == "manual":
+        return "manual"
+    return "api"
+
+
+def get_runtime_dashboard_summary_response(connection: DatabaseConnection) -> DashboardSummaryApiResponse:
+    now_iso = utc_now_iso()
+    runtime_status = runtime_scheduler.status()
+    queue_response = get_runtime_queue_response()
+    workers = runtime_event_bus.list_workers()
+
+    runs_row = fetch_one(
+        connection,
+        """
+        SELECT
+            COUNT(*) AS total_runs,
+            SUM(CASE WHEN status = 'completed' AND COALESCE(TRIM(error_summary), '') = '' THEN 1 ELSE 0 END) AS success_runs,
+            SUM(CASE WHEN status IN ('running', 'pending', 'queued') THEN 1 ELSE 0 END) AS warning_runs,
+            SUM(CASE WHEN status = 'failed' OR COALESCE(TRIM(error_summary), '') <> '' THEN 1 ELSE 0 END) AS error_runs
+        FROM automation_runs
+        WHERE started_at >= ?
+        """,
+        ((datetime.now(UTC) - timedelta(hours=24)).isoformat(),),
+    )
+
+    recent_run_rows = fetch_all(
+        connection,
+        """
+        SELECT
+            automation_runs.run_id,
+            automation_runs.automation_id,
+            automation_runs.trigger_type,
+            automation_runs.status,
+            automation_runs.started_at,
+            automation_runs.finished_at,
+            automation_runs.duration_ms,
+            automation_runs.error_summary,
+            automations.name AS automation_name
+        FROM automation_runs
+        LEFT JOIN automations ON automations.id = automation_runs.automation_id
+        ORDER BY automation_runs.started_at DESC
+        LIMIT 10
+        """,
+    )
+
+    inbound_row = fetch_one(
+        connection,
+        """
+        SELECT
+            COUNT(*) AS inbound_total,
+            SUM(CASE WHEN status NOT IN ('accepted', 'completed', 'success') THEN 1 ELSE 0 END) AS inbound_errors
+        FROM inbound_api_events
+        WHERE received_at >= ?
+        """,
+        ((datetime.now(UTC) - timedelta(hours=24)).isoformat(),),
+    )
+
+    outgoing_scheduled_row = fetch_one(
+        connection,
+        "SELECT COUNT(*) AS total FROM outgoing_scheduled_apis WHERE enabled = 1 AND is_mock = 0",
+    )
+    outgoing_continuous_row = fetch_one(
+        connection,
+        "SELECT COUNT(*) AS total FROM outgoing_continuous_apis WHERE enabled = 1 AND is_mock = 0",
+    )
+
+    connectors_settings = get_stored_connector_settings(connection)
+    connector_records = connectors_settings.get("records") if isinstance(connectors_settings, dict) else []
+    connector_records = connector_records if isinstance(connector_records, list) else []
+
+    connector_status_counts = {
+        "connected": 0,
+        "needs_attention": 0,
+        "expired": 0,
+        "revoked": 0,
+        "draft": 0,
+        "pending_oauth": 0,
+    }
+    for record in connector_records:
+        if not isinstance(record, dict):
+            continue
+        status_value = str(record.get("status") or "draft")
+        if status_value in connector_status_counts:
+            connector_status_counts[status_value] += 1
+        else:
+            connector_status_counts["draft"] += 1
+
+    total_runs = int((runs_row or {}).get("total_runs") or 0)
+    success_runs = int((runs_row or {}).get("success_runs") or 0)
+    warning_runs = int((runs_row or {}).get("warning_runs") or 0)
+    error_runs = int((runs_row or {}).get("error_runs") or 0)
+    idle_runs = max(0, total_runs - success_runs - warning_runs - error_runs)
+
+    inbound_total = int((inbound_row or {}).get("inbound_total") or 0)
+    inbound_errors = int((inbound_row or {}).get("inbound_errors") or 0)
+    inbound_error_rate = round((inbound_errors / inbound_total) * 100, 1) if inbound_total else 0.0
+
+    worker_total = len(workers)
+    worker_healthy = sum(1 for worker in workers if worker.status == "healthy")
+    worker_offline = max(0, worker_total - worker_healthy)
+
+    needs_attention_total = (
+        connector_status_counts["needs_attention"]
+        + connector_status_counts["expired"]
+        + connector_status_counts["revoked"]
+    )
+
+    health_status: Literal["healthy", "degraded", "offline"] = "healthy"
+    if not runtime_status.get("active"):
+        health_status = "offline"
+    elif queue_response.is_paused or error_runs > 0 or needs_attention_total > 0 or inbound_errors > 0:
+        health_status = "degraded"
+
+    alerts: list[DashboardSummaryAlertResponse] = []
+    if not runtime_status.get("active"):
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="runtime-scheduler-offline",
+                severity="error",
+                title="Scheduler inactive",
+                message="Runtime scheduler is not active. Scheduled automations may not execute.",
+                source="runtime",
+                created_at=now_iso,
+            )
+        )
+    if queue_response.is_paused:
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="runtime-queue-paused",
+                severity="warning",
+                title="Queue paused",
+                message="Trigger queue is paused. Pending jobs will not be claimed.",
+                source="queue",
+                created_at=now_iso,
+            )
+        )
+    if error_runs > 0:
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="automation-run-errors",
+                severity="error",
+                title="Automation run failures detected",
+                message=f"{error_runs} automation runs failed in the last 24 hours.",
+                source="automations",
+                created_at=now_iso,
+            )
+        )
+    if needs_attention_total > 0:
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="connector-needs-attention",
+                severity="warning",
+                title="Connector attention required",
+                message=f"{needs_attention_total} connectors need attention.",
+                source="connectors",
+                created_at=now_iso,
+            )
+        )
+    if inbound_errors > 0:
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="inbound-api-errors",
+                severity="warning",
+                title="Inbound API delivery issues",
+                message=f"{inbound_errors} inbound events reported non-success status in the last 24 hours.",
+                source="apis",
+                created_at=now_iso,
+            )
+        )
+
+    if not alerts:
+        alerts.append(
+            DashboardSummaryAlertResponse(
+                id="system-healthy",
+                severity="info",
+                title="No active incidents",
+                message="All monitored services are operating within expected limits.",
+                source="dashboard",
+                created_at=now_iso,
+            )
+        )
+
+    services: list[DashboardSummaryServiceResponse] = [
+        DashboardSummaryServiceResponse(
+            id="service-runtime-scheduler",
+            name="Runtime scheduler",
+            status="healthy" if runtime_status.get("active") else "offline",
+            detail="Schedules and dispatches automation work.",
+            last_check_at=str(runtime_status.get("last_tick_finished_at") or now_iso),
+        ),
+        DashboardSummaryServiceResponse(
+            id="service-runtime-queue",
+            name="Runtime queue",
+            status="degraded" if queue_response.is_paused else "healthy",
+            detail=f"{queue_response.pending_jobs} pending and {queue_response.claimed_jobs} claimed jobs.",
+            last_check_at=queue_response.status_updated_at,
+        ),
+        DashboardSummaryServiceResponse(
+            id="service-runtime-workers",
+            name="Worker fleet",
+            status="degraded" if worker_offline > 0 else "healthy",
+            detail=f"{worker_healthy} healthy of {worker_total} registered workers.",
+            last_check_at=now_iso,
+        ),
+        DashboardSummaryServiceResponse(
+            id="service-runtime-apis",
+            name="API deliveries",
+            status="degraded" if inbound_errors > 0 else "healthy",
+            detail=f"{inbound_total} inbound events in 24h, {inbound_errors} flagged as errors.",
+            last_check_at=now_iso,
+        ),
+        DashboardSummaryServiceResponse(
+            id="service-runtime-connectors",
+            name="Connector health",
+            status="degraded" if needs_attention_total > 0 else "healthy",
+            detail=f"{connector_status_counts['connected']} connected, {needs_attention_total} require action.",
+            last_check_at=now_iso,
+        ),
+    ]
+
+    quick_links = [
+        DashboardSummaryQuickLinkResponse(
+            id="queue",
+            label="Queue jobs",
+            href="queue.html",
+            count=queue_response.pending_jobs,
+        ),
+        DashboardSummaryQuickLinkResponse(
+            id="logs",
+            label="Recent incidents",
+            href="logs.html",
+            count=error_runs + inbound_errors,
+        ),
+        DashboardSummaryQuickLinkResponse(
+            id="automations",
+            label="Automations",
+            href="../automations/overview.html",
+            count=total_runs,
+        ),
+        DashboardSummaryQuickLinkResponse(
+            id="apis",
+            label="Inbound APIs",
+            href="../apis/incoming.html",
+            count=inbound_total,
+        ),
+        DashboardSummaryQuickLinkResponse(
+            id="connectors",
+            label="Connectors",
+            href="../settings/connectors.html",
+            count=len(connector_records),
+        ),
+    ]
+
+    recent_runs = [
+        DashboardSummaryRecentRunResponse(
+            id=str(row["run_id"]),
+            automation_name=str(row.get("automation_name") or row["automation_id"]),
+            trigger_type=_normalize_dashboard_trigger_type(str(row.get("trigger_type") or "")),
+            status=_normalize_dashboard_run_status(str(row.get("status") or ""), row.get("error_summary")),
+            started_at=str(row.get("started_at") or now_iso),
+            finished_at=row.get("finished_at"),
+            duration_ms=row.get("duration_ms"),
+        )
+        for row in recent_run_rows
+    ]
+
+    health_label = {
+        "healthy": "All systems healthy",
+        "degraded": "Performance attention needed",
+        "offline": "Runtime offline",
+    }[health_status]
+    health_summary = {
+        "healthy": "Scheduler, queue, workers, and connectors report healthy behavior.",
+        "degraded": "One or more runtime domains require attention. Review incidents and service cards.",
+        "offline": "Runtime scheduler is inactive and automation orchestration is unavailable.",
+    }[health_status]
+
+    return DashboardSummaryApiResponse(
+        health=DashboardSummaryHealthResponse(
+            id="system-health",
+            status=health_status,
+            label=health_label,
+            summary=health_summary,
+            updated_at=now_iso,
+        ),
+        services=services,
+        run_counts=DashboardSummaryRunCountsResponse(
+            success=success_runs,
+            warning=warning_runs,
+            error=error_runs,
+            idle=idle_runs,
+        ),
+        recent_runs=recent_runs,
+        alerts=alerts,
+        quick_links=quick_links,
+        runtime_overview=DashboardSummaryRuntimeOverviewResponse(
+            scheduler_active=bool(runtime_status.get("active")),
+            queue_status=queue_response.status,
+            queue_pending_jobs=queue_response.pending_jobs,
+            queue_claimed_jobs=queue_response.claimed_jobs,
+            queue_updated_at=queue_response.status_updated_at,
+            scheduler_last_tick_started_at=runtime_status.get("last_tick_started_at"),
+            scheduler_last_tick_finished_at=runtime_status.get("last_tick_finished_at"),
+        ),
+        worker_health=DashboardSummaryWorkerHealthResponse(
+            total=worker_total,
+            healthy=worker_healthy,
+            offline=worker_offline,
+        ),
+        api_performance=DashboardSummaryApiPerformanceResponse(
+            inbound_total_24h=inbound_total,
+            inbound_errors_24h=inbound_errors,
+            error_rate_percent_24h=inbound_error_rate,
+            outgoing_scheduled_enabled=int((outgoing_scheduled_row or {}).get("total") or 0),
+            outgoing_continuous_enabled=int((outgoing_continuous_row or {}).get("total") or 0),
+        ),
+        connector_health=DashboardSummaryConnectorHealthResponse(
+            total=len(connector_records),
+            connected=connector_status_counts["connected"],
+            needs_attention=connector_status_counts["needs_attention"],
+            expired=connector_status_counts["expired"],
+            revoked=connector_status_counts["revoked"],
+            draft=connector_status_counts["draft"],
+            pending_oauth=connector_status_counts["pending_oauth"],
+        ),
+    )
+
+
 def get_api_or_404(connection: DatabaseConnection, api_id: str) -> DatabaseRow:
     row = fetch_one(
         connection,

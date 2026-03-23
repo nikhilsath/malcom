@@ -78,6 +78,27 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertEqual(triggers[0]["api_id"], inbound["id"])
         self.assertEqual(triggers[0]["payload"], {"id": 42})
 
+    def test_dashboard_summary_exposes_performance_sections(self) -> None:
+        summary_response = self.client.get("/api/v1/dashboard/summary")
+        self.assertEqual(summary_response.status_code, 200)
+        body = summary_response.json()
+
+        self.assertIn("health", body)
+        self.assertIn("services", body)
+        self.assertIn("run_counts", body)
+        self.assertIn("recent_runs", body)
+        self.assertIn("alerts", body)
+        self.assertIn("quick_links", body)
+        self.assertIn("runtime_overview", body)
+        self.assertIn("worker_health", body)
+        self.assertIn("api_performance", body)
+        self.assertIn("connector_health", body)
+
+        self.assertIn("scheduler_active", body["runtime_overview"])
+        self.assertIn("queue_status", body["runtime_overview"])
+        self.assertIn("inbound_total_24h", body["api_performance"])
+        self.assertIn("needs_attention", body["connector_health"])
+
 
 if __name__ == "__main__":
     unittest.main()

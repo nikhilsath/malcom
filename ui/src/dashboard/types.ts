@@ -99,6 +99,36 @@ export interface DashboardSummaryResponse {
   recentRuns: DashboardRunSummary[];
   alerts: DashboardAlert[];
   quickLinks: DashboardQuickLink[];
+  runtimeOverview: {
+    schedulerActive: boolean;
+    queueStatus: QueueRuntimeStatus;
+    queuePendingJobs: number;
+    queueClaimedJobs: number;
+    queueUpdatedAt: string;
+    schedulerLastTickStartedAt: string | null;
+    schedulerLastTickFinishedAt: string | null;
+  };
+  workerHealth: {
+    total: number;
+    healthy: number;
+    offline: number;
+  };
+  apiPerformance: {
+    inboundTotal24h: number;
+    inboundErrors24h: number;
+    errorRatePercent24h: number;
+    outgoingScheduledEnabled: number;
+    outgoingContinuousEnabled: number;
+  };
+  connectorHealth: {
+    total: number;
+    connected: number;
+    needsAttention: number;
+    expired: number;
+    revoked: number;
+    draft: number;
+    pendingOauth: number;
+  };
 }
 
 export interface DashboardDevicesResponse {

@@ -29,6 +29,11 @@ def get_dashboard_devices() -> DashboardDevicesApiResponse:
     return get_runtime_devices_response()
 
 
+@router.get("/api/v1/dashboard/summary", response_model=DashboardSummaryApiResponse)
+def get_dashboard_summary(request: Request) -> DashboardSummaryApiResponse:
+    return get_runtime_dashboard_summary_response(get_connection(request))
+
+
 @router.get("/api/v1/dashboard/queue", response_model=DashboardQueueApiResponse)
 def get_dashboard_queue() -> DashboardQueueApiResponse:
     return get_runtime_queue_response()

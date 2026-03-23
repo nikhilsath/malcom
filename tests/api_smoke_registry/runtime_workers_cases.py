@@ -9,6 +9,7 @@ RUNTIME_WORKERS_CASES: tuple[RouteSmokeCase, ...] = (
     list_case("healthcheck", "GET", "/health", response_assert=assert_json_response),
     list_case("runtime-status", "GET", "/api/v1/runtime/status", response_assert=assert_json_response),
     list_case("scheduler-jobs", "GET", "/api/v1/scheduler/jobs", response_assert=assert_json_response),
+    list_case("dashboard-summary", "GET", "/api/v1/dashboard/summary", response_assert=assert_json_response),
     list_case("dashboard-devices", "GET", "/api/v1/dashboard/devices", response_assert=assert_json_response),
     list_case("dashboard-queue", "GET", "/api/v1/dashboard/queue", response_assert=assert_json_response),
     action_case("dashboard-queue-pause", "POST", "/api/v1/dashboard/queue/pause", 200, response_assert=assert_json_response),

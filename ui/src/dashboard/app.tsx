@@ -64,16 +64,25 @@ const useSummaryData = () => {
 
   useEffect(() => {
     let isActive = true;
-    setState(null);
+    let intervalId: number | null = null;
 
-    dashboardApi.getSummary().then((response) => {
-      if (isActive) {
-        setState(response);
-      }
-    });
+    const loadSummary = () => {
+      dashboardApi.getSummary().then((response) => {
+        if (isActive) {
+          setState(response);
+        }
+      });
+    };
+
+    setState(null);
+    loadSummary();
+    intervalId = window.setInterval(loadSummary, 10_000);
 
     return () => {
       isActive = false;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
     };
   }, []);
 
@@ -246,11 +255,101 @@ const HomePage = () => {
         </div>
         <div id="dashboard-overview-summary-grid" className="summary-grid">
           <SummaryCard id="dashboard-overview-summary-total-runs" label="Recent runs" value={runSummary.total} />
-          <SummaryCard id="dashboard-overview-summary-errors" label="Run errors" value={runSummary.error} />
+          <SummaryCard id="dashboard-overview-summary-errors" label="Run errors" value={summary.runCounts.error} />
           <SummaryCard id="dashboard-overview-summary-warnings" label="Alerts" value={alertSummary.warning + alertSummary.error} />
           <SummaryCard id="dashboard-overview-summary-visible-logs" label="Stored logs" value={logs.entries.length} />
           <SummaryCard id="dashboard-overview-summary-queue-status" label="Queue status" value={queue.isPaused ? "Paused" : "Running"} />
           <SummaryCard id="dashboard-overview-summary-queue-pending" label="Queue pending" value={queue.pendingJobs} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="dashboard-overview-runtime-performance" label="Runtime and queue performance">
+        <div id="dashboard-overview-runtime-performance-grid" className="summary-grid">
+          <SummaryCard
+            id="dashboard-overview-runtime-scheduler-status"
+            label="Scheduler"
+            value={summary.runtimeOverview.schedulerActive ? "Active" : "Offline"}
+          />
+          <SummaryCard
+            id="dashboard-overview-runtime-queue-status"
+            label="Queue state"
+            value={summary.runtimeOverview.queueStatus === "paused" ? "Paused" : "Running"}
+          />
+          <SummaryCard
+            id="dashboard-overview-runtime-queue-pending"
+            label="Queue pending"
+            value={summary.runtimeOverview.queuePendingJobs}
+          />
+          <SummaryCard
+            id="dashboard-overview-runtime-queue-claimed"
+            label="Queue claimed"
+            value={summary.runtimeOverview.queueClaimedJobs}
+          />
+          <SummaryCard
+            id="dashboard-overview-runtime-last-tick"
+            label="Last scheduler tick"
+            value={formatDateTime(summary.runtimeOverview.schedulerLastTickFinishedAt)}
+          />
+          <SummaryCard
+            id="dashboard-overview-runtime-queue-updated"
+            label="Queue updated"
+            value={formatDateTime(summary.runtimeOverview.queueUpdatedAt)}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="dashboard-overview-run-performance" label="Automation run performance">
+        <div id="dashboard-overview-run-performance-grid" className="summary-grid">
+          <SummaryCard id="dashboard-overview-run-success" label="Run success" value={summary.runCounts.success} />
+          <SummaryCard id="dashboard-overview-run-warning" label="Run warning" value={summary.runCounts.warning} />
+          <SummaryCard id="dashboard-overview-run-error" label="Run error" value={summary.runCounts.error} />
+          <SummaryCard id="dashboard-overview-run-idle" label="Run idle" value={summary.runCounts.idle} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="dashboard-overview-worker-performance" label="Worker health">
+        <div id="dashboard-overview-worker-performance-grid" className="summary-grid">
+          <SummaryCard id="dashboard-overview-worker-total" label="Workers total" value={summary.workerHealth.total} />
+          <SummaryCard id="dashboard-overview-worker-healthy" label="Workers healthy" value={summary.workerHealth.healthy} />
+          <SummaryCard id="dashboard-overview-worker-offline" label="Workers offline" value={summary.workerHealth.offline} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="dashboard-overview-api-performance" label="API performance">
+        <div id="dashboard-overview-api-performance-grid" className="summary-grid">
+          <SummaryCard id="dashboard-overview-api-inbound-total" label="Inbound events 24h" value={summary.apiPerformance.inboundTotal24h} />
+          <SummaryCard id="dashboard-overview-api-inbound-errors" label="Inbound errors 24h" value={summary.apiPerformance.inboundErrors24h} />
+          <SummaryCard
+            id="dashboard-overview-api-error-rate"
+            label="Inbound error rate"
+            value={`${summary.apiPerformance.errorRatePercent24h.toFixed(1)}%`}
+          />
+          <SummaryCard
+            id="dashboard-overview-api-scheduled-enabled"
+            label="Scheduled outbound APIs"
+            value={summary.apiPerformance.outgoingScheduledEnabled}
+          />
+          <SummaryCard
+            id="dashboard-overview-api-continuous-enabled"
+            label="Continuous outbound APIs"
+            value={summary.apiPerformance.outgoingContinuousEnabled}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="dashboard-overview-connector-performance" label="Connector health">
+        <div id="dashboard-overview-connector-performance-grid" className="summary-grid">
+          <SummaryCard id="dashboard-overview-connectors-total" label="Connectors total" value={summary.connectorHealth.total} />
+          <SummaryCard id="dashboard-overview-connectors-connected" label="Connected" value={summary.connectorHealth.connected} />
+          <SummaryCard
+            id="dashboard-overview-connectors-needs-attention"
+            label="Needs attention"
+            value={summary.connectorHealth.needsAttention}
+          />
+          <SummaryCard id="dashboard-overview-connectors-expired" label="Expired" value={summary.connectorHealth.expired} />
+          <SummaryCard id="dashboard-overview-connectors-revoked" label="Revoked" value={summary.connectorHealth.revoked} />
+          <SummaryCard id="dashboard-overview-connectors-draft" label="Draft" value={summary.connectorHealth.draft} />
+          <SummaryCard id="dashboard-overview-connectors-pending" label="Pending OAuth" value={summary.connectorHealth.pendingOauth} />
         </div>
       </CollapsibleSection>
 
@@ -386,7 +485,7 @@ const LogsPage = () => {
 
   return (
     <div id="dashboard-logs-layout" className="stacked-card-layout">
-      <CollapsibleSection id="dashboard-logs-summary" label="Logs summary">
+      <CollapsibleSection id="dashboard-logs-summary" label="Logs summary" defaultCollapsed>
         <div id="dashboard-logs-summary-grid" className="summary-grid">
           <SummaryCard id="dashboard-logs-total-card" label="Stored logs" value={logsResponse.entries.length} />
           <SummaryCard id="dashboard-logs-filtered-card" label="Filtered results" value={filteredEntries.length} />
@@ -550,7 +649,7 @@ const QueuePage = () => {
 
   return (
     <div id="dashboard-queue-layout" className="stacked-card-layout">
-      <CollapsibleSection id="dashboard-queue-summary-card" label="Queue summary">
+      <CollapsibleSection id="dashboard-queue-summary-card" label="Queue summary" defaultCollapsed>
         <div id="dashboard-queue-summary-grid" className="summary-grid">
           <SummaryCard id="dashboard-queue-status-card" label="Queue status" value={queueStatusLabel} />
           <SummaryCard id="dashboard-queue-total-card" label="Queue jobs" value={queueResponse.totalJobs} />

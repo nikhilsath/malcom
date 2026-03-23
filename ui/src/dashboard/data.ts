@@ -1,4 +1,5 @@
 import type {
+  DashboardAlert,
   DashboardDevice,
   DashboardDevicesResponse,
   DashboardHost,
@@ -7,6 +8,7 @@ import type {
   DashboardLogsResponse,
   DashboardQueueJob,
   DashboardQueueResponse,
+  DashboardRunSummary,
   DashboardSummaryResponse,
   MalcomLogStore
 } from "./types";
@@ -128,6 +130,102 @@ type DashboardQueueApiResponse = {
   jobs: DashboardQueueApiJob[];
 };
 
+type DashboardSummaryApiHealth = {
+  id: string;
+  status: DashboardSummaryResponse["health"]["status"];
+  label: string;
+  summary: string;
+  updated_at: string;
+};
+
+type DashboardSummaryApiService = {
+  id: string;
+  name: string;
+  status: DashboardSummaryResponse["services"][number]["status"];
+  detail: string;
+  last_check_at: string;
+};
+
+type DashboardSummaryApiRunCounts = {
+  success: number;
+  warning: number;
+  error: number;
+  idle: number;
+};
+
+type DashboardSummaryApiRun = {
+  id: string;
+  automation_name: string;
+  trigger_type: DashboardRunSummary["triggerType"];
+  status: DashboardRunSummary["status"];
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+};
+
+type DashboardSummaryApiAlert = {
+  id: string;
+  severity: DashboardAlert["severity"];
+  title: string;
+  message: string;
+  source: string;
+  created_at: string;
+};
+
+type DashboardSummaryApiQuickLink = {
+  id: string;
+  label: string;
+  href: string;
+  count: number;
+};
+
+type DashboardSummaryApiRuntimeOverview = {
+  scheduler_active: boolean;
+  queue_status: DashboardQueueResponse["status"];
+  queue_pending_jobs: number;
+  queue_claimed_jobs: number;
+  queue_updated_at: string;
+  scheduler_last_tick_started_at: string | null;
+  scheduler_last_tick_finished_at: string | null;
+};
+
+type DashboardSummaryApiWorkerHealth = {
+  total: number;
+  healthy: number;
+  offline: number;
+};
+
+type DashboardSummaryApiApiPerformance = {
+  inbound_total_24h: number;
+  inbound_errors_24h: number;
+  error_rate_percent_24h: number;
+  outgoing_scheduled_enabled: number;
+  outgoing_continuous_enabled: number;
+};
+
+type DashboardSummaryApiConnectorHealth = {
+  total: number;
+  connected: number;
+  needs_attention: number;
+  expired: number;
+  revoked: number;
+  draft: number;
+  pending_oauth: number;
+};
+
+type DashboardSummaryApiResponse = {
+  health: DashboardSummaryApiHealth;
+  services: DashboardSummaryApiService[];
+  run_counts: DashboardSummaryApiRunCounts;
+  recent_runs: DashboardSummaryApiRun[];
+  alerts: DashboardSummaryApiAlert[];
+  quick_links: DashboardSummaryApiQuickLink[];
+  runtime_overview: DashboardSummaryApiRuntimeOverview;
+  worker_health: DashboardSummaryApiWorkerHealth;
+  api_performance: DashboardSummaryApiApiPerformance;
+  connector_health: DashboardSummaryApiConnectorHealth;
+};
+
 const emptyQueueResponse: DashboardQueueResponse = {
   status: "running",
   isPaused: false,
@@ -195,6 +293,82 @@ const mapApiQueueResponse = (payload: DashboardQueueApiResponse): DashboardQueue
   jobs: payload.jobs.map(mapApiQueueJob)
 });
 
+const mapApiSummaryResponse = (payload: DashboardSummaryApiResponse): DashboardSummaryResponse => ({
+  health: {
+    id: payload.health.id,
+    status: payload.health.status,
+    label: payload.health.label,
+    summary: payload.health.summary,
+    updatedAt: payload.health.updated_at
+  },
+  services: payload.services.map((service) => ({
+    id: service.id,
+    name: service.name,
+    status: service.status,
+    detail: service.detail,
+    lastCheckAt: service.last_check_at
+  })),
+  runCounts: {
+    success: payload.run_counts.success,
+    warning: payload.run_counts.warning,
+    error: payload.run_counts.error,
+    idle: payload.run_counts.idle
+  },
+  recentRuns: payload.recent_runs.map((run) => ({
+    id: run.id,
+    automationName: run.automation_name,
+    triggerType: run.trigger_type,
+    status: run.status,
+    startedAt: run.started_at,
+    finishedAt: run.finished_at,
+    durationMs: run.duration_ms
+  })),
+  alerts: payload.alerts.map((alert) => ({
+    id: alert.id,
+    severity: alert.severity,
+    title: alert.title,
+    message: alert.message,
+    source: alert.source,
+    createdAt: alert.created_at
+  })),
+  quickLinks: payload.quick_links.map((link) => ({
+    id: link.id,
+    label: link.label,
+    href: link.href,
+    count: link.count
+  })),
+  runtimeOverview: {
+    schedulerActive: payload.runtime_overview.scheduler_active,
+    queueStatus: payload.runtime_overview.queue_status,
+    queuePendingJobs: payload.runtime_overview.queue_pending_jobs,
+    queueClaimedJobs: payload.runtime_overview.queue_claimed_jobs,
+    queueUpdatedAt: payload.runtime_overview.queue_updated_at,
+    schedulerLastTickStartedAt: payload.runtime_overview.scheduler_last_tick_started_at,
+    schedulerLastTickFinishedAt: payload.runtime_overview.scheduler_last_tick_finished_at
+  },
+  workerHealth: {
+    total: payload.worker_health.total,
+    healthy: payload.worker_health.healthy,
+    offline: payload.worker_health.offline
+  },
+  apiPerformance: {
+    inboundTotal24h: payload.api_performance.inbound_total_24h,
+    inboundErrors24h: payload.api_performance.inbound_errors_24h,
+    errorRatePercent24h: payload.api_performance.error_rate_percent_24h,
+    outgoingScheduledEnabled: payload.api_performance.outgoing_scheduled_enabled,
+    outgoingContinuousEnabled: payload.api_performance.outgoing_continuous_enabled
+  },
+  connectorHealth: {
+    total: payload.connector_health.total,
+    connected: payload.connector_health.connected,
+    needsAttention: payload.connector_health.needs_attention,
+    expired: payload.connector_health.expired,
+    revoked: payload.connector_health.revoked,
+    draft: payload.connector_health.draft,
+    pendingOauth: payload.connector_health.pending_oauth
+  }
+});
+
 const createFallbackLogStore = (): MalcomLogStore => {
   let settings = { ...defaultLogSettings };
   let logs = [...defaultLogEntries];
@@ -252,7 +426,7 @@ export const writeSidebarCollapsed = (collapsed: boolean) => {
 
 export const dashboardApi = {
   async getSummary(): Promise<DashboardSummaryResponse> {
-    return {
+    const fallbackSummary: DashboardSummaryResponse = {
       health: {
         id: "system-health",
         status: "offline",
@@ -269,8 +443,51 @@ export const dashboardApi = {
       },
       recentRuns: [],
       alerts: [],
-      quickLinks: []
+      quickLinks: [],
+      runtimeOverview: {
+        schedulerActive: false,
+        queueStatus: "running",
+        queuePendingJobs: 0,
+        queueClaimedJobs: 0,
+        queueUpdatedAt: new Date().toISOString(),
+        schedulerLastTickStartedAt: null,
+        schedulerLastTickFinishedAt: null
+      },
+      workerHealth: {
+        total: 0,
+        healthy: 0,
+        offline: 0
+      },
+      apiPerformance: {
+        inboundTotal24h: 0,
+        inboundErrors24h: 0,
+        errorRatePercent24h: 0,
+        outgoingScheduledEnabled: 0,
+        outgoingContinuousEnabled: 0
+      },
+      connectorHealth: {
+        total: 0,
+        connected: 0,
+        needsAttention: 0,
+        expired: 0,
+        revoked: 0,
+        draft: 0,
+        pendingOauth: 0
+      }
     };
+
+    try {
+      const response = await fetch("/api/v1/dashboard/summary");
+
+      if (!response.ok) {
+        return fallbackSummary;
+      }
+
+      const payload = (await response.json()) as DashboardSummaryApiResponse;
+      return mapApiSummaryResponse(payload);
+    } catch {
+      return fallbackSummary;
+    }
   },
 
   async getDevices(): Promise<DashboardDevicesResponse> {
