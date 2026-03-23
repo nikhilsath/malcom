@@ -271,8 +271,9 @@ This runs:
 * backend `pytest` coverage-oriented validation against the configured PostgreSQL database
 * frontend `npm run test`
 * frontend `npm run build`
+* fast iteration checks only; this is not the completion gate for user-visible workflow changes
 
-Expanded validation:
+Completion gate:
 
 ```bash
 ./scripts/test-full.sh
@@ -282,10 +283,10 @@ This adds:
 
 * route-level API smoke coverage via `pytest tests/test_api_smoke_matrix.py -m smoke`
 * smoke case definitions sourced from the `tests/api_smoke_registry/` package and exercised through `tests/test_api_smoke_matrix.py`
-* browser smoke coverage through Playwright in `ui/e2e/`
-* connector onboarding smoke coverage that opens Settings -> Connectors, selects Connect provider, and verifies Google draft setup does not fail with a `PATCH /api/v1/settings` `422`
-* connector onboarding smoke coverage that verifies the Google redirect URI field is editable and defaults to `/api/v1/connectors/google/oauth/callback` so OAuth callback values can be aligned with Google Cloud credentials
-* OAuth callback browser coverage that verifies a successful authorization on `/api/v1/connectors/google/oauth/callback` redirects back to `/settings/connectors.html` with status query params
+* cross-browser Playwright workflow coverage in `ui/e2e/` on Chromium, Firefox, and WebKit
+* deterministic connector onboarding coverage that opens Settings -> Connectors, selects Connect provider, and verifies Google draft setup does not fail with a `PATCH /api/v1/settings` `422`
+* deterministic connector onboarding coverage that verifies the Google redirect URI field is editable and defaults to `/api/v1/connectors/google/oauth/callback`
+* deterministic OAuth callback coverage that verifies an authorization return on `/api/v1/connectors/google/oauth/callback` redirects back to `/settings/connectors.html` with status query params
 * the informational external probe report from `scripts/test-external-probes.py`
 
 Prerequisites:
@@ -294,7 +295,7 @@ Prerequisites:
 * prefer `MALCOM_TEST_DATABASE_URL` for the isolated test database used by `pytest` and Playwright
 * install backend dependencies from `requirements.txt`
 * install frontend dependencies in `ui/`
-* for browser smoke tests, run `cd ui && npm run test:e2e:install` at least once to install Chromium
+* for browser workflow tests, run `cd ui && npm run test:e2e:install` at least once to install Chromium, Firefox, and WebKit
 
 ---
 
@@ -478,8 +479,8 @@ Expanded validation:
 Notes:
 
 * backend tests run with `pytest`, not `unittest`
-* `scripts/test-precommit.sh` runs backend `pytest`, frontend `npm test`, and frontend `npm run build`
-* `scripts/test-full.sh` runs the precommit checks, then executes `tests/test_api_smoke_matrix.py` as the smoke test entrypoint, using the `tests/api_smoke_registry/` package for smoke case definitions, before the external probe report and Playwright smoke coverage
+* `scripts/test-precommit.sh` runs backend `pytest`, frontend `npm test`, and frontend `npm run build`; use it for fast iteration, not as the completion gate for user-visible workflow changes
+* `scripts/test-full.sh` runs the precommit checks, then executes `tests/test_api_smoke_matrix.py` as the smoke test entrypoint, using the `tests/api_smoke_registry/` package for smoke case definitions, before the external probe report and cross-browser Playwright workflow coverage
 
 ## Adding A New Tool
 

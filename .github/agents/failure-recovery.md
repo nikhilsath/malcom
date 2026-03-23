@@ -62,9 +62,9 @@ Always review whichever of these are relevant:
 - pull request diff or the most recent commit diff touching the affected area
 - backend tests in `tests/`
 - frontend tests in `ui/src/**` when React code is involved
-- browser smoke coverage in `ui/e2e/` when the failure is user-facing
+- browser workflow coverage in `ui/e2e/` when the failure is user-facing
 - the test scripts `scripts/test-precommit.sh` and `scripts/test-full.sh`
-- `tests/api_smoke_registry.py` when API routes or served route coverage are involved
+- `tests/api_smoke_registry/` when API routes or served route coverage are involved
 - README and AGENTS guidance when changing expected test workflow or repository policy
 
 ## Root-cause requirements
@@ -88,6 +88,8 @@ When deciding why the bug escaped, classify the miss as one or more of:
 - test data or fixtures failed to represent the real scenario
 
 Be precise. Do not say only that coverage was insufficient.
+
+If the miss is browser coverage, name the missing Playwright spec or scenario explicitly.
 
 ## Fix rules
 
@@ -116,6 +118,7 @@ Use the smallest relevant checks first, then widen as needed:
 - expanded gate: `./scripts/test-full.sh`
 
 Select validation based on the affected layer. Run the full gate when the bug indicates a broader workflow escape or when the change touches shared infrastructure.
+For user-facing regressions, add or update the missing Playwright case and rerun `./scripts/test-full.sh` before closing the task.
 
 ## Pull request behavior
 

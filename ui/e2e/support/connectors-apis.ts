@@ -1,0 +1,973 @@
+import type { Page, Route } from "@playwright/test";
+
+import { defaultSettingsResponse } from "./core";
+
+type JsonRecord = Record<string, unknown>;
+
+export type ConnectorRecord = {
+  id: string;
+  provider: string;
+  name: string;
+  status: string;
+  auth_type: string;
+  scopes: string[];
+  base_url: string;
+  owner: string;
+  docs_url?: string;
+  credential_ref?: string;
+  created_at: string;
+  updated_at: string;
+  last_tested_at: string | null;
+  auth_config: JsonRecord;
+};
+
+export type InboundEventRecord = {
+  event_id: string;
+  received_at: string;
+  source_ip: string;
+  status: string;
+  payload_json: JsonRecord;
+  request_headers_subset: JsonRecord;
+  error_message?: string | null;
+};
+
+export type IncomingApiRecord = {
+  id: string;
+  name: string;
+  description: string;
+  path_slug: string;
+  enabled: boolean;
+  endpoint_path: string;
+  endpoint_url: string;
+  secret?: string;
+  created_at: string;
+  updated_at: string;
+  last_received_at: string | null;
+  last_delivery_status: string;
+  events: InboundEventRecord[];
+};
+
+export type OutgoingApiRecord = {
+  id: string;
+  type: "outgoing_scheduled" | "outgoing_continuous";
+  name: string;
+  description: string;
+  path_slug: string;
+  enabled: boolean;
+  destination_url: string;
+  http_method: string;
+  auth_type: string;
+  auth_config: JsonRecord;
+  payload_template: string;
+  scheduled_time?: string | null;
+  repeat_enabled: boolean;
+  repeat_interval_minutes?: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  last_activity_at: string | null;
+};
+
+export type WebhookRecord = {
+  id: string;
+  type: "webhook";
+  name: string;
+  description: string;
+  path_slug: string;
+  enabled: boolean;
+  callback_path: string;
+  verification_token: string;
+  signing_secret: string;
+  signature_header: string;
+  event_filter: string;
+  created_at: string;
+  updated_at: string;
+  last_activity_at: string | null;
+};
+
+export type ConnectorsApisHarnessOptions = {
+  settings?: Partial<JsonRecord>;
+  connectors?: ConnectorRecord[];
+  inbound?: IncomingApiRecord[];
+  outgoingScheduled?: OutgoingApiRecord[];
+  outgoingContinuous?: OutgoingApiRecord[];
+  webhooks?: WebhookRecord[];
+};
+
+const iso = (offsetMinutes = 0) => new Date(Date.parse("2026-03-23T12:00:00.000Z") - offsetMinutes * 60_000).toISOString();
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const mergeDeep = (base: JsonRecord, override: JsonRecord): JsonRecord => {
+  const output: JsonRecord = clone(base);
+
+  for (const [key, value] of Object.entries(override)) {
+    if (Array.isArray(value)) {
+      output[key] = clone(value);
+      continue;
+    }
+
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const baseValue = output[key];
+      output[key] = mergeDeep(
+        (baseValue && typeof baseValue === "object" && !Array.isArray(baseValue)) ? (baseValue as JsonRecord) : {},
+        value as JsonRecord,
+      );
+      continue;
+    }
+
+    output[key] = value;
+  }
+
+  return output;
+};
+
+const toJson = (body: JsonRecord | JsonRecord[]) => ({
+  status: 200,
+  contentType: "application/json",
+  body: JSON.stringify(body)
+});
+
+const createDefaultSettings = (connectors: ConnectorRecord[]) => mergeDeep(clone(defaultSettingsResponse), {
+  connectors: {
+    catalog: clone(defaultSettingsResponse.connectors.catalog),
+    records: connectors,
+    auth_policy: clone(defaultSettingsResponse.connectors.auth_policy)
+  }
+});
+
+const createConnectorRecord = (overrides: Partial<ConnectorRecord> & { id: string; provider: string; name: string }): ConnectorRecord => ({
+  id: overrides.id,
+  provider: overrides.provider,
+  name: overrides.name,
+  status: overrides.status || "draft",
+  auth_type: overrides.auth_type || "oauth2",
+  scopes: overrides.scopes || [],
+  base_url: overrides.base_url || "",
+  owner: overrides.owner || "Workspace",
+  docs_url: overrides.docs_url,
+  credential_ref: overrides.credential_ref || `connector/${overrides.id}`,
+  created_at: overrides.created_at || iso(90),
+  updated_at: overrides.updated_at || iso(0),
+  last_tested_at: overrides.last_tested_at ?? null,
+  auth_config: overrides.auth_config || {
+    client_id: "",
+    username: "",
+    header_name: "",
+    scope_preset: overrides.provider,
+    redirect_uri: "",
+    expires_at: null,
+    has_refresh_token: false
+  }
+});
+
+const createIncomingRecord = (overrides: Partial<IncomingApiRecord> & { id: string; name: string; path_slug: string }): IncomingApiRecord => ({
+  id: overrides.id,
+  name: overrides.name,
+  description: overrides.description || "",
+  path_slug: overrides.path_slug,
+  enabled: overrides.enabled ?? true,
+  endpoint_path: overrides.endpoint_path || `/api/v1/inbound/${overrides.id}`,
+  endpoint_url: overrides.endpoint_url || `http://127.0.0.1:4173/api/v1/inbound/${overrides.id}`,
+  secret: overrides.secret,
+  created_at: overrides.created_at || iso(120),
+  updated_at: overrides.updated_at || iso(0),
+  last_received_at: overrides.last_received_at ?? null,
+  last_delivery_status: overrides.last_delivery_status || "No deliveries",
+  events: overrides.events ? clone(overrides.events) : []
+});
+
+const createOutgoingRecord = (
+  overrides: Partial<OutgoingApiRecord> & { id: string; type: "outgoing_scheduled" | "outgoing_continuous"; name: string; path_slug: string }
+): OutgoingApiRecord => ({
+  id: overrides.id,
+  type: overrides.type,
+  name: overrides.name,
+  description: overrides.description || "",
+  path_slug: overrides.path_slug,
+  enabled: overrides.enabled ?? true,
+  destination_url: overrides.destination_url || "",
+  http_method: overrides.http_method || "POST",
+  auth_type: overrides.auth_type || "none",
+  auth_config: overrides.auth_config || {},
+  payload_template: overrides.payload_template || '{ "event": "scheduled.delivery" }',
+  scheduled_time: overrides.scheduled_time ?? (overrides.type === "outgoing_scheduled" ? "09:00" : null),
+  repeat_enabled: overrides.repeat_enabled ?? false,
+  repeat_interval_minutes: overrides.repeat_interval_minutes ?? null,
+  status: overrides.status || (overrides.enabled === false ? "paused" : "active"),
+  created_at: overrides.created_at || iso(60),
+  updated_at: overrides.updated_at || iso(0),
+  last_activity_at: overrides.last_activity_at ?? null
+});
+
+const createWebhookRecord = (overrides: Partial<WebhookRecord> & { id: string; name: string; path_slug: string }): WebhookRecord => ({
+  id: overrides.id,
+  type: "webhook",
+  name: overrides.name,
+  description: overrides.description || "",
+  path_slug: overrides.path_slug,
+  enabled: overrides.enabled ?? true,
+  callback_path: overrides.callback_path || "/hooks/webhook",
+  verification_token: overrides.verification_token || "verify-token",
+  signing_secret: overrides.signing_secret || "signing-secret",
+  signature_header: overrides.signature_header || "X-Signature",
+  event_filter: overrides.event_filter || "order.created",
+  created_at: overrides.created_at || iso(30),
+  updated_at: overrides.updated_at || iso(0),
+  last_activity_at: overrides.last_activity_at ?? null
+});
+
+const createDefaultConnectorFixtures = (): ConnectorRecord[] => [
+  createConnectorRecord({
+    id: "github-oauth",
+    provider: "github",
+    name: "GitHub Primary",
+    status: "connected",
+    auth_type: "oauth2",
+    scopes: ["repo"],
+    base_url: "https://api.github.com",
+    owner: "Workspace",
+    docs_url: "https://docs.github.com",
+    auth_config: {
+      client_id: "github-client-id",
+      client_secret_masked: "••••••••",
+      access_token_masked: "••••••••",
+      refresh_token_masked: "••••••••",
+      redirect_uri: "http://localhost:8000/api/v1/connectors/github/oauth/callback",
+      has_refresh_token: true,
+      scope_preset: "github"
+    },
+    last_tested_at: iso(10)
+  })
+];
+
+const createDefaultIncomingFixtures = (): IncomingApiRecord[] => [
+  createIncomingRecord({
+    id: "incoming-orders",
+    name: "Orders Webhook",
+    description: "Receives order events.",
+    path_slug: "orders-webhook",
+    enabled: true,
+    secret: "secret-incoming-orders",
+    last_received_at: iso(25),
+    last_delivery_status: "accepted",
+    events: [
+      {
+        event_id: "evt-1",
+        received_at: iso(25),
+        source_ip: "198.51.100.20",
+        status: "accepted",
+        payload_json: { order_id: 42, event: "order.created", message: "primary payload" },
+        request_headers_subset: { "x-request-id": "req-1", "content-type": "application/json" }
+      },
+      {
+        event_id: "evt-2",
+        received_at: iso(20),
+        source_ip: "127.0.0.1",
+        status: "unauthorized",
+        payload_json: { order_id: 84, event: "order.updated", message: "warning payload" },
+        request_headers_subset: { "x-request-id": "req-2", authorization: "Bearer bad" },
+        error_message: "Bearer token did not match."
+      },
+      {
+        event_id: "evt-3",
+        received_at: iso(15),
+        source_ip: "10.0.0.10",
+        status: "invalid_json",
+        payload_json: { event: "order.replayed", warning: "invalid json" },
+        request_headers_subset: { "x-request-id": "req-3" },
+        error_message: "JSON body could not be parsed."
+      }
+    ]
+  })
+];
+
+const createDefaultOutgoingFixtures = (): OutgoingApiRecord[] => [
+  createOutgoingRecord({
+    id: "outgoing-digest",
+    type: "outgoing_scheduled",
+    name: "Daily Digest",
+    description: "Sends a morning summary.",
+    path_slug: "daily-digest",
+    enabled: true,
+    destination_url: "https://example.com/webhooks/digest",
+    http_method: "POST",
+    auth_type: "bearer",
+    auth_config: { token: "digest-token" },
+    payload_template: '{ "event": "digest.ready", "sent_at": "{{timestamp}}" }',
+    scheduled_time: "09:00",
+    repeat_enabled: true,
+    status: "active",
+    last_activity_at: iso(35)
+  }),
+  createOutgoingRecord({
+    id: "outgoing-heartbeat",
+    type: "outgoing_continuous",
+    name: "Heartbeat",
+    description: "Repeated delivery.",
+    path_slug: "heartbeat",
+    enabled: true,
+    destination_url: "https://example.com/webhooks/heartbeat",
+    http_method: "POST",
+    auth_type: "header",
+    auth_config: { header_name: "X-API-Key", header_value: "heartbeat-key" },
+    payload_template: '{ "event": "heartbeat", "status": "{{status}}" }',
+    repeat_enabled: true,
+    repeat_interval_minutes: 15,
+    status: "active",
+    last_activity_at: iso(12)
+  })
+];
+
+const createDefaultWebhookFixtures = (): WebhookRecord[] => [
+  createWebhookRecord({
+    id: "webhook-orders",
+    name: "Order Webhook",
+    description: "Publishes order changes.",
+    path_slug: "order-webhook",
+    enabled: true,
+    callback_path: "/publisher/orders",
+    verification_token: "verify-token",
+    signing_secret: "signing-secret",
+    signature_header: "X-Signature",
+    event_filter: "order.created",
+    last_activity_at: iso(55)
+  })
+];
+
+const extractPath = (route: Route) => new URL(route.request().url()).pathname;
+
+const writeJson = async (route: Route, body: JsonRecord | JsonRecord[], status = 200) => {
+  await route.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify(body)
+  });
+};
+
+const stripSecretFields = (record: ConnectorRecord): JsonRecord => {
+  const authConfig = record.auth_config || {};
+  return {
+    ...record,
+    auth_config: {
+      ...authConfig,
+      client_secret_masked: authConfig.client_secret_masked || (authConfig.client_secret_input ? "••••••••" : authConfig.client_secret_masked),
+      access_token_masked: authConfig.access_token_masked || (authConfig.access_token_input ? "••••••••" : authConfig.access_token_masked),
+      refresh_token_masked: authConfig.refresh_token_masked || (authConfig.refresh_token_input ? "••••••••" : authConfig.refresh_token_masked),
+      api_key_masked: authConfig.api_key_masked || (authConfig.api_key_input ? "••••••••" : authConfig.api_key_masked),
+      password_masked: authConfig.password_masked || (authConfig.password_input ? "••••••••" : authConfig.password_masked),
+      header_value_masked: authConfig.header_value_masked || (authConfig.header_value_input ? "••••••••" : authConfig.header_value_masked)
+    }
+  };
+};
+
+const findConnector = (connectors: ConnectorRecord[], id: string) => connectors.find((item) => item.id === id) || null;
+
+const upsertConnector = (connectors: ConnectorRecord[], nextRecord: ConnectorRecord) => {
+  const existingIndex = connectors.findIndex((item) => item.id === nextRecord.id);
+  if (existingIndex >= 0) {
+    connectors[existingIndex] = nextRecord;
+    return;
+  }
+  connectors.unshift(nextRecord);
+};
+
+const removeConnector = (connectors: ConnectorRecord[], id: string) => {
+  const index = connectors.findIndex((item) => item.id === id);
+  if (index >= 0) {
+    connectors.splice(index, 1);
+  }
+};
+
+const setConnectorStatus = (record: ConnectorRecord | null, nextStatus: string) => {
+  if (!record) {
+    return null;
+  }
+
+  return {
+    ...record,
+    status: nextStatus,
+    updated_at: iso(0),
+    last_tested_at: iso(0)
+  };
+};
+
+const createConnectorAuthorizationUrl = (stateToken: string, redirectUri: string) => {
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("state", stateToken);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  return url.toString();
+};
+
+const buildCallbackRedirect = (connectorId: string, status: "success" | "warning" | "error", message: string) => {
+  const url = new URL("http://127.0.0.1:4173/settings/connectors.html");
+  url.searchParams.set("oauth_status", status);
+  url.searchParams.set("oauth_message", message);
+  url.searchParams.set("connector_id", connectorId);
+  return url.toString();
+};
+
+const makeCreatedIncoming = (body: JsonRecord, counter: number): IncomingApiRecord => createIncomingRecord({
+  id: body.path_slug ? `incoming-${body.path_slug}` : `incoming-${counter}`,
+  name: String(body.name || "Incoming API"),
+  description: String(body.description || ""),
+  path_slug: String(body.path_slug || `incoming-${counter}`),
+  enabled: Boolean(body.enabled),
+  secret: `secret-${body.path_slug || counter}`,
+  last_received_at: null,
+  last_delivery_status: "No deliveries",
+  events: []
+});
+
+const makeCreatedOutgoing = (body: JsonRecord, counter: number): OutgoingApiRecord => createOutgoingRecord({
+  id: body.path_slug ? `outgoing-${body.path_slug}` : `outgoing-${counter}`,
+  type: body.type as "outgoing_scheduled" | "outgoing_continuous",
+  name: String(body.name || "Outgoing API"),
+  description: String(body.description || ""),
+  path_slug: String(body.path_slug || `outgoing-${counter}`),
+  enabled: Boolean(body.enabled),
+  destination_url: String(body.destination_url || ""),
+  http_method: String(body.http_method || "POST"),
+  auth_type: String(body.auth_type || "none"),
+  auth_config: clone(body.auth_config || {}),
+  payload_template: String(body.payload_template || "{}"),
+  scheduled_time: body.scheduled_time ? String(body.scheduled_time) : null,
+  repeat_enabled: Boolean(body.repeat_enabled),
+  repeat_interval_minutes: body.repeat_interval_minutes ? Number(body.repeat_interval_minutes) : null,
+  status: body.enabled === false ? "paused" : "active",
+  last_activity_at: null
+});
+
+const makeCreatedWebhook = (body: JsonRecord, counter: number): WebhookRecord => createWebhookRecord({
+  id: body.path_slug ? `webhook-${body.path_slug}` : `webhook-${counter}`,
+  name: String(body.name || "Webhook"),
+  description: String(body.description || ""),
+  path_slug: String(body.path_slug || `webhook-${counter}`),
+  enabled: Boolean(body.enabled),
+  callback_path: String(body.callback_path || "/hooks/webhook"),
+  verification_token: String(body.verification_token || "verify-token"),
+  signing_secret: String(body.signing_secret || "signing-secret"),
+  signature_header: String(body.signature_header || "X-Signature"),
+  event_filter: String(body.event_filter || "order.created")
+});
+
+export function createConnectorsApisHarness(options: ConnectorsApisHarnessOptions = {}) {
+  const settings = createDefaultSettings(options.connectors || createDefaultConnectorFixtures());
+  if (options.settings) {
+    Object.assign(settings, mergeDeep(settings, options.settings as JsonRecord));
+  }
+
+  const state = {
+    settings,
+    oauthStateByConnector: {} as Record<string, { state: string; redirectUri: string; provider: string }>,
+    inbound: options.inbound ? clone(options.inbound) : createDefaultIncomingFixtures(),
+    outgoingScheduled: options.outgoingScheduled ? clone(options.outgoingScheduled) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_scheduled"),
+    outgoingContinuous: options.outgoingContinuous ? clone(options.outgoingContinuous) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_continuous"),
+    webhooks: options.webhooks ? clone(options.webhooks) : createDefaultWebhookFixtures(),
+    counts: {
+      inbound: 1,
+      outgoing: 1,
+      webhooks: 1
+    }
+  };
+
+  const nextSettings = () => clone(state.settings);
+
+  const updateSettings = (patch: JsonRecord) => {
+    state.settings = mergeDeep(state.settings, patch);
+    return nextSettings();
+  };
+
+  const listConnectors = () => (state.settings.connectors?.records || []).map((record: ConnectorRecord) => stripSecretFields(record));
+
+  const replaceConnector = (record: ConnectorRecord) => {
+    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    upsertConnector(connectors, record);
+    state.settings.connectors.records = connectors;
+    return record;
+  };
+
+  const createOAuthStartResponse = (body: JsonRecord, provider: string) => {
+    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    const existing = findConnector(connectors, String(body.connector_id || ""));
+    const nextRecord = createConnectorRecord({
+      id: String(body.connector_id || provider),
+      provider,
+      name: String(body.name || provider),
+      status: "pending_oauth",
+      auth_type: "oauth2",
+      scopes: Array.isArray(body.scopes) ? body.scopes as string[] : ["repo"],
+      base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+      owner: String(body.owner || "Workspace"),
+      docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+      credential_ref: `connector/${String(body.connector_id || provider)}`,
+      auth_config: {
+        client_id: String(body.client_id || existing?.auth_config?.client_id || `${provider}-client-id`),
+        client_secret_input: String(body.client_secret_input || ""),
+        redirect_uri: String(body.redirect_uri || ""),
+        scope_preset: provider,
+        expires_at: null,
+        has_refresh_token: false
+      },
+      created_at: existing?.created_at || iso(5),
+      updated_at: iso(0),
+      last_tested_at: null
+    });
+
+    replaceConnector(nextRecord);
+
+    const stateToken = `oauth-state-${String(body.connector_id || provider)}`;
+    state.oauthStateByConnector[nextRecord.id] = {
+      state: stateToken,
+      redirectUri: String(body.redirect_uri || ""),
+      provider
+    };
+
+    return {
+      connector: stripSecretFields(nextRecord),
+      authorization_url: createConnectorAuthorizationUrl(stateToken, String(body.redirect_uri || "")),
+      state: stateToken,
+      expires_at: iso(-15),
+      code_challenge_method: "S256"
+    };
+  };
+
+  const createOAuthCallbackResponse = (provider: string, query: URLSearchParams) => {
+    const stateToken = String(query.get("state") || "");
+    const code = String(query.get("code") || "demo");
+    const connectorId = String(query.get("connector_id") || "google");
+    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    const existing = findConnector(connectors, connectorId);
+    const session = state.oauthStateByConnector[connectorId];
+
+    if (!existing || !session || session.state !== stateToken || session.provider !== provider) {
+      return buildCallbackRedirect(connectorId, "error", "Invalid OAuth state.");
+    }
+
+    const nextRecord: ConnectorRecord = {
+      ...existing,
+      status: "connected",
+      updated_at: iso(0),
+      last_tested_at: iso(0),
+      scopes: existing.scopes.length > 0 ? existing.scopes : ["https://www.googleapis.com/auth/gmail.readonly"],
+      auth_config: {
+        ...existing.auth_config,
+        access_token_input: `token_${code.slice(0, 24)}`,
+        refresh_token_input: `refresh_${code.slice(0, 24)}`,
+        has_refresh_token: true,
+        expires_at: iso(60),
+        client_secret_input: ""
+      }
+    };
+
+    replaceConnector(nextRecord);
+    return buildCallbackRedirect(connectorId, "success", "Connector authorized successfully.");
+  };
+
+  const install = async (page: Page) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            (window as unknown as { __copiedText?: string }).__copiedText = value;
+          }
+        }
+      });
+    });
+
+    await page.route("**/api/v1/settings", async (route) => {
+      const method = route.request().method();
+      if (method === "GET") {
+        await writeJson(route, nextSettings());
+        return;
+      }
+
+      if (method === "PATCH") {
+        const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+        state.settings = mergeDeep(state.settings, body);
+        await writeJson(route, nextSettings());
+        return;
+      }
+
+      await route.fallback();
+    });
+
+    await page.route("**/api/v1/connectors/google/oauth/start", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      await writeJson(route, createOAuthStartResponse(body, "google"));
+    });
+
+    await page.route("**/api/v1/connectors/github/oauth/start", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      await writeJson(route, createOAuthStartResponse(body, "github"));
+    });
+
+    await page.route("**accounts.google.com/**", async (route) => {
+      const url = new URL(route.request().url());
+      const stateToken = url.searchParams.get("state") || "oauth-state-google";
+      const callbackUrl = new URL("http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback/ui");
+      callbackUrl.searchParams.set("state", stateToken);
+      callbackUrl.searchParams.set("connector_id", "google");
+      callbackUrl.searchParams.set("code", "demo-google-code");
+      await route.fulfill({
+        status: 302,
+        headers: {
+          location: callbackUrl.toString()
+        },
+        body: ""
+      });
+    });
+
+    await page.route("**/api/v1/connectors/google/oauth/callback/ui**", async (route) => {
+      const url = new URL(route.request().url());
+      const redirectUrl = createOAuthCallbackResponse("google", url.searchParams);
+      await route.fulfill({
+        status: 303,
+        headers: {
+          location: redirectUrl
+        },
+        body: ""
+      });
+    });
+
+    await page.route("**/api/v1/connectors/github/oauth/callback/ui**", async (route) => {
+      const url = new URL(route.request().url());
+      const redirectUrl = createOAuthCallbackResponse("github", url.searchParams);
+      await route.fulfill({
+        status: 303,
+        headers: {
+          location: redirectUrl
+        },
+        body: ""
+      });
+    });
+
+    await page.route("**/api/v1/connectors/*/test", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const path = extractPath(route);
+      const connectorId = path.split("/")[4];
+      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const record = findConnector(connectors, connectorId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
+        return;
+      }
+
+      const nextStatus = record.status === "revoked" ? "revoked" : "connected";
+      const nextRecord = setConnectorStatus(record, nextStatus) || record;
+      nextRecord.auth_config = {
+        ...nextRecord.auth_config,
+        client_secret_input: nextRecord.auth_config.client_secret_input || ""
+      };
+      replaceConnector(nextRecord);
+      await writeJson(route, {
+        ok: nextStatus !== "revoked",
+        message: nextStatus === "revoked" ? "Connector is revoked." : "Connector credentials look complete.",
+        connector: stripSecretFields(nextRecord)
+      });
+    });
+
+    await page.route("**/api/v1/connectors/*/refresh", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const path = extractPath(route);
+      const connectorId = path.split("/")[4];
+      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const record = findConnector(connectors, connectorId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
+        return;
+      }
+
+      const nextRecord: ConnectorRecord = {
+        ...record,
+        status: "connected",
+        updated_at: iso(0),
+        last_tested_at: iso(0),
+        auth_config: {
+          ...record.auth_config,
+          access_token_input: `token_${connectorId.slice(0, 12)}`,
+          expires_at: iso(60),
+          has_refresh_token: true
+        }
+      };
+      replaceConnector(nextRecord);
+      await writeJson(route, {
+        ok: true,
+        message: "Connector token refreshed.",
+        connector: stripSecretFields(nextRecord)
+      });
+    });
+
+    await page.route("**/api/v1/apis/test-delivery", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      await writeJson(route, {
+        ok: true,
+        status_code: 200,
+        response_body: JSON.stringify({ ok: true, destination_url: body.destination_url || "" }),
+        sent_headers: {
+          "Content-Type": "application/json"
+        },
+        destination_url: String(body.destination_url || "")
+      });
+    });
+
+    await page.route("**/api/v1/apis", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      const type = String(body.type || "incoming");
+
+      if (type === "incoming") {
+        const created = makeCreatedIncoming(body, state.inbound.length + 1);
+        state.inbound.unshift(created);
+        await writeJson(route, {
+          id: created.id,
+          name: created.name,
+          description: created.description,
+          path_slug: created.path_slug,
+          enabled: created.enabled,
+          secret: created.secret,
+          endpoint_path: created.endpoint_path,
+          endpoint_url: created.endpoint_url,
+          type: "incoming"
+        }, 201);
+        return;
+      }
+
+      if (type === "webhook") {
+        const created = makeCreatedWebhook(body, state.webhooks.length + 1);
+        state.webhooks.unshift(created);
+        await writeJson(route, {
+          ...created,
+          type: "webhook"
+        }, 201);
+        return;
+      }
+
+      const created = makeCreatedOutgoing(body, state.outgoingScheduled.length + state.outgoingContinuous.length + 1);
+      if (created.type === "outgoing_scheduled") {
+        state.outgoingScheduled.unshift(created);
+      } else {
+        state.outgoingContinuous.unshift(created);
+      }
+      await writeJson(route, {
+        ...created
+      }, 201);
+    });
+
+    await page.route("**/api/v1/inbound", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+
+      await writeJson(route, state.inbound.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        description: entry.description,
+        path_slug: entry.path_slug,
+        enabled: entry.enabled,
+        endpoint_path: entry.endpoint_path,
+        endpoint_url: entry.endpoint_url,
+        created_at: entry.created_at,
+        updated_at: entry.updated_at,
+        last_received_at: entry.last_received_at,
+        last_delivery_status: entry.last_delivery_status,
+        type: "incoming"
+      })));
+    });
+
+    await page.route(/\/api\/v1\/inbound\/[^/]+\/rotate-secret(?:\?.*)?$/, async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const path = extractPath(route);
+      const connectorId = path.split("/")[4];
+      const record = state.inbound.find((entry) => entry.id === connectorId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "API not found." }) });
+        return;
+      }
+
+      record.secret = `secret-${connectorId}-rotated`;
+      record.updated_at = iso(0);
+      await writeJson(route, {
+        id: record.id,
+        secret: record.secret,
+        name: record.name,
+        enabled: record.enabled
+      });
+    });
+
+    await page.route(/\/api\/v1\/inbound\/[^/]+(?:\?.*)?$/, async (route) => {
+      const path = extractPath(route);
+      const inboundId = path.split("/")[4];
+      const record = state.inbound.find((entry) => entry.id === inboundId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "API not found." }) });
+        return;
+      }
+
+      if (route.request().method() === "GET") {
+        await writeJson(route, clone(record));
+        return;
+      }
+
+      if (route.request().method() === "PATCH") {
+        const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+        Object.assign(record, {
+          enabled: typeof body.enabled === "boolean" ? body.enabled : record.enabled,
+          name: String(body.name || record.name),
+          description: String(body.description || record.description),
+          path_slug: String(body.path_slug || record.path_slug),
+          updated_at: iso(0),
+          last_delivery_status: record.last_delivery_status
+        });
+        await writeJson(route, {
+          id: record.id,
+          name: record.name,
+          description: record.description,
+          path_slug: record.path_slug,
+          enabled: record.enabled,
+          endpoint_path: record.endpoint_path,
+          endpoint_url: record.endpoint_url,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+          last_received_at: record.last_received_at,
+          last_delivery_status: record.last_delivery_status,
+          type: "incoming"
+        });
+        return;
+      }
+
+      await route.fallback();
+    });
+
+    await page.route("**/api/v1/outgoing/scheduled", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+
+      await writeJson(route, state.outgoingScheduled.map((entry) => ({ ...entry, type: "outgoing_scheduled" })));
+    });
+
+    await page.route("**/api/v1/outgoing/continuous", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+
+      await writeJson(route, state.outgoingContinuous.map((entry) => ({ ...entry, type: "outgoing_continuous" })));
+    });
+
+    await page.route(/\/api\/v1\/outgoing\/[^/]+(?:\?.*)?$/, async (route) => {
+      const path = extractPath(route);
+      const outgoingId = path.split("/")[4];
+      const record = [...state.outgoingScheduled, ...state.outgoingContinuous].find((entry) => entry.id === outgoingId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Outgoing API not found." }) });
+        return;
+      }
+
+      if (route.request().method() === "GET") {
+        await writeJson(route, clone(record));
+        return;
+      }
+
+      if (route.request().method() === "PATCH") {
+        const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+        const nextRecord = {
+          ...record,
+          name: String(body.name || record.name),
+          description: String(body.description || record.description),
+          path_slug: String(body.path_slug || record.path_slug),
+          enabled: typeof body.enabled === "boolean" ? body.enabled : record.enabled,
+          destination_url: String(body.destination_url || record.destination_url),
+          http_method: String(body.http_method || record.http_method),
+          auth_type: String(body.auth_type || record.auth_type),
+          auth_config: clone(body.auth_config || record.auth_config),
+          payload_template: String(body.payload_template || record.payload_template),
+          scheduled_time: body.scheduled_time ? String(body.scheduled_time) : record.scheduled_time,
+          repeat_enabled: typeof body.repeat_enabled === "boolean" ? body.repeat_enabled : record.repeat_enabled,
+          repeat_interval_minutes: body.repeat_interval_minutes ? Number(body.repeat_interval_minutes) : record.repeat_interval_minutes,
+          updated_at: iso(0),
+          last_activity_at: record.last_activity_at
+        } as OutgoingApiRecord;
+
+        const list = record.type === "outgoing_scheduled" ? state.outgoingScheduled : state.outgoingContinuous;
+        const index = list.findIndex((entry) => entry.id === outgoingId);
+        list[index] = nextRecord;
+        await writeJson(route, nextRecord);
+        return;
+      }
+
+      await route.fallback();
+    });
+
+    await page.route("**/api/v1/webhooks", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+
+      await writeJson(route, state.webhooks.map((entry) => ({ ...entry, type: "webhook" })));
+    });
+  };
+
+  return {
+    state,
+    install,
+    connectorRecords: () => listConnectors(),
+    getIncoming: () => clone(state.inbound),
+    getOutgoingScheduled: () => clone(state.outgoingScheduled),
+    getOutgoingContinuous: () => clone(state.outgoingContinuous),
+    getWebhooks: () => clone(state.webhooks)
+  };
+}
+
+export const installClipboardTracker = async (page: Page) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          (window as unknown as { __copiedText?: string }).__copiedText = value;
+        }
+      }
+    });
+  });
+};
+
+export const readClipboardTracker = async (page: Page) => page.evaluate(() => (window as unknown as { __copiedText?: string }).__copiedText || "");
+

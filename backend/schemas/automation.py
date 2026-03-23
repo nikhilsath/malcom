@@ -70,6 +70,8 @@ class AutomationStepConfig(BaseModel):
     payload_template: str | None = Field(default=None, max_length=10000)
     wait_for_response: bool = True
     response_mappings: list[dict[str, str]] | None = None
+    # HTTP preset mode: when set, destination_url and payload_template are resolved from preset definition
+    http_preset_id: str | None = Field(default=None, max_length=120)
     activity_id: str | None = Field(default=None, max_length=120)
     activity_inputs: dict[str, Any] | None = None
     script_id: str | None = Field(default=None, max_length=120)

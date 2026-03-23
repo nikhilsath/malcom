@@ -20,6 +20,17 @@ def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionRespons
     return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog()]
 
 
+@router.get("/api/v1/connectors/http-presets")
+def list_http_presets() -> list[dict[str, Any]]:
+    """List all available HTTP request presets for workflow builder automation steps.
+    
+    Returns presets grouped by provider and service, with templates and input schemas.
+    """
+    from backend.services.http_presets import DEFAULT_HTTP_PRESET_CATALOG
+
+    return [preset.to_dict() for preset in DEFAULT_HTTP_PRESET_CATALOG]
+
+
 def _exchange_google_oauth_code_for_tokens(
     *,
     code: str,

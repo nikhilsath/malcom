@@ -121,17 +121,17 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
 | Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
-| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx` | `backend/tool_registry.py` unless a local runtime/executable is required |
-| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `backend/routes/connectors.py`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
-| Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py` | hardcoded tool cards/nav links |
-| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/` | new root-level page entry in `ui/scripts/*.js` |
-| Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests | unrelated section folders |
+| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx`, `ui/e2e/` | `backend/tool_registry.py` unless a local runtime/executable is required |
+| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
+| Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py`, `ui/e2e/` | hardcoded tool cards/nav links |
+| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/`, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
+| Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests, `ui/e2e/` | unrelated section folders |
 | Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
 | Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or collapse states that leave empty layout space |
 | Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | shared modal utilities/patterns, `ui/styles/pages/**`, related tests | auto-open detail panes on load or permanent empty inline detail columns |
-| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes | page-local duplicated topnav/sidenav markup |
+| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry/`, `tests/test_api_smoke_matrix.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
+| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry/`, `tests/test_api_smoke_matrix.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `ui/e2e/`, `ui/e2e/README.md`, `README.md` | `ui/dist/**` |
 | Update agent response policy or instruction-following rules | `AGENTS.md` | `Required Output For Development Work`, `Response Scope And Instruction Fidelity`, `Rules Matrix`, machine index block | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
@@ -156,13 +156,15 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
-| R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for default local validation and `scripts/test-full.sh` for smoke plus browser coverage | Testing workflow changes |
+| R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
 | R-TEST-003 | Keep internal API smoke coverage in `tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
+| R-TEST-005 | Any user-visible UI workflow change must add or update Playwright coverage in `ui/e2e/` unless the change is strictly non-behavioral | Frontend and browser workflow changes |
+| R-TEST-006 | Playwright coverage must assert the changed workflow behavior, not only route load or static render | Playwright authoring and UI changes |
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 11,
+  "version": 12,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -181,9 +183,9 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"],
     "ui_collapsible_controls": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
     "ui_selection_detail_modals": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/scripts/navigation.js"],
-    "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh"],
+    "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "ui/e2e/", "ui/e2e/README.md"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
-    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/"]
+    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/", "ui/e2e/README.md"]
   },
   "task_routes": {
     "db_schema_change": {
@@ -191,13 +193,13 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "verify": ["tests/"]
     },
     "connector_backed_remote_api_change": {
-      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
+      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx", "ui/e2e/"],
       "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "workflow_builder_exposes_explicit_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
-      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector"]
+      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector", "npm run test:e2e"]
     },
     "new_ui_page": {
-      "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py"],
-      "verify": ["ui/dist/"]
+      "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py", "ui/e2e/"],
+      "verify": ["ui/dist/", "npm run test:e2e"]
     },
     "ui_text_density_cleanup": {
       "edit": ["ui/<section>/<page>.html", "ui/styles/pages/**"],
@@ -205,14 +207,14 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "verify": ["manual_badge_toggle", "default_page_readability"]
     },
     "ui_collapsible_control_change": {
-      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
+      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/e2e/"],
       "check": ["aria_expanded", "aria_controls", "hidden", "stable_ids", "top_strip_toggle", "display_none_layout_collapse"],
-      "verify": ["toggle_click", "toggle_keyboard", "indicator_plus_minus", "collapsed_body_not_in_layout"]
+      "verify": ["toggle_click", "toggle_keyboard", "indicator_plus_minus", "collapsed_body_not_in_layout", "npm run test:e2e"]
     },
     "ui_selection_detail_modal_change": {
-      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
+      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/e2e/"],
       "check": ["default_state_has_no_open_details", "no_reserved_empty_detail_space", "shared_modal_usage", "keyboard_access", "focus_management", "inline_exception_documented"],
-      "verify": ["selection_opens_modal", "initial_load_has_no_details", "focus_returns_to_trigger", "inline_detail_exception_reason_present_when_used"]
+      "verify": ["selection_opens_modal", "initial_load_has_no_details", "focus_returns_to_trigger", "inline_detail_exception_reason_present_when_used", "npm run test:e2e"]
     },
     "tool_change": {
       "edit": [
@@ -221,13 +223,14 @@ Use this section as the first lookup for task routing. It accelerates file targe
         "ui/tools/<id>.html",
         "ui/scripts/tools/<id>.js",
         "ui/vite.config.ts",
-        "backend/routes/ui.py"
+        "backend/routes/ui.py",
+        "ui/e2e/"
       ],
       "generate": ["scripts/generate-tools-manifest.mjs"],
-      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html"]
+      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html", "npm run test:e2e"]
     },
     "test_workflow_change": {
-      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
+      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
       "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
@@ -864,19 +867,23 @@ If a generated file is expected to change, regenerate it from its source workflo
 
 Every meaningful code change should include the smallest relevant verification set.
 
+User-visible workflow changes are not complete until `./scripts/test-full.sh` succeeds or the agent explicitly reports that full verification could not be completed.
+
 ### Backend {#testing-backend}
 
 - run targeted `pytest` files in `tests/`
 - add or update API tests for route, schema, or DB behavior changes
-- use `scripts/test-precommit.sh` as the default local backend/frontend gate before commits
-- use `scripts/test-full.sh` when backend route smoke coverage or browser smoke coverage needs validation
+- use `scripts/test-precommit.sh` as the fast local backend/frontend iteration gate before commits
+- use `scripts/test-full.sh` as the completion gate when backend route smoke coverage, browser coverage, or shared test infrastructure changes are involved
 - keep `/health` and every `/api/v1/**` route represented in `tests/test_api_smoke_matrix.py`, with scenarios sourced from `tests/api_smoke_registry/`
 
 ### Frontend {#testing-frontend}
 
 - run `npm run build` in `ui/` for page wiring, Vite input, or asset changes
 - run `npm run test` in `ui/` for React test coverage when React code changes
-- run `npm run test:e2e` in `ui/` for browser smoke coverage when validating the full gate
+- add or update `ui/e2e/` coverage whenever a user-visible workflow changes unless the change is strictly non-behavioral
+- run `npm run test:e2e` in `ui/` for browser workflow coverage when validating the full gate
+- ensure Playwright assertions cover the changed workflow behavior, not only route load or static render
 - manually verify the served page route if HTML/script wiring changed
 
 ### Test Retirement {#test-retirement}

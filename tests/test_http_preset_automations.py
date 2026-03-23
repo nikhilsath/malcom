@@ -1,0 +1,218 @@
+"""Tests for HTTP preset mode in automation steps."""
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from backend.main import app
+from tests.postgres_test_utils import setup_postgres_test_app
+
+
+class HttpPresetAutomationTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.root_dir = Path(self.tempdir.name)
+        (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        self.previous_root_dir = app.state.root_dir
+        self.previous_db_path = app.state.db_path
+        self.previous_database_url = app.state.database_url
+        self.previous_skip_ui_build_check = getattr(app.state, "skip_ui_build_check", False)
+        setup_postgres_test_app(app=app, root_dir=self.root_dir)
+        self.client = TestClient(app)
+        self.client.__enter__()
+        def create_test_connector_via_settings(self, connector_id: str, provider: str = "google") -> dict:
+            """Create a test connector via the settings API (more realistic integration)."""
+            response = self.client.patch(
+                "/api/v1/settings",
+                json={
+                    "app_settings": {},
+                    "records": {
+                        "connectors": [
+                            {
+                                "id": connector_id,
+                                "provider": provider,
+                                "name": f"Test {provider.upper()} Connector",
+                                "auth_type": "oauth2",
+                                "status": "connected",
+                                "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+                            }
+                        ]
+                    }
+                }
+            )
+            if response.status_code != 200:
+                raise RuntimeError(f"Failed to create connector: {response.text}")
+            return response.json()
+
+    def tearDown(self) -> None:
+        self.client.__exit__(None, None, None)
+        app.state.root_dir = self.previous_root_dir
+        app.state.db_path = self.previous_db_path
+        app.state.database_url = self.previous_database_url
+        app.state.skip_ui_build_check = self.previous_skip_ui_build_check
+        self.tempdir.cleanup()
+
+
+    def test_http_preset_mode_creates_automation(self) -> None:
+        """HTTP preset step should be accepted and stored in automation."""
+        connector_id = self.create_google_test_connector("google-1")
+            # Create connector first
+            connector_id = "test-google-1"
+            self.create_test_connector_via_settings(connector_id)
+
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Gmail List Preset Test",
+                "description": "Test HTTP preset mode",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "List Gmail Messages",
+                        "config": {
+                            "connector_id": connector_id,
+                            "http_preset_id": "gmail_list_messages_http",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 201, f"Failed to create automation: {response.text}")
+        automation = response.json()
+        self.assertIsNotNone(automation.get("id"))
+        self.assertEqual(automation["name"], "Gmail List Preset Test")
+
+    def test_http_preset_mode_rejects_unknown_preset_id(self) -> None:
+        """HTTP preset step should reject unknown preset IDs."""
+        connector_id = self.create_google_test_connector("google-2")
+            connector_id = "test-google-2"
+            self.create_test_connector_via_settings(connector_id)
+
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Invalid Preset Test",
+                "description": "Test with invalid preset ID",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Invalid Step",
+                        "config": {
+                            "connector_id": connector_id,
+                            "http_preset_id": "nonexistent_preset_id",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 422, f"Should reject invalid preset. Got: {response.text}")
+        detail = response.json().get("detail", "")
+        self.assertIn("nonexistent_preset_id", str(detail))
+
+    def test_http_preset_step_requires_connector_id(self) -> None:
+        """HTTP preset step must have connector_id specified."""
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Missing Connector Test",
+                "description": "Test preset without connector",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Bad Preset Step",
+                        "config": {
+                            "http_preset_id": "gmail_list_messages_http",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 422, f"Should reject preset without connector. Got: {response.text}")
+        detail = response.json().get("detail", "")
+        self.assertIn("connector_id", str(detail))
+
+    def test_http_preset_mode_missing_scopes_validation(self) -> None:
+        """HTTP preset step should validate required scopes."""
+        # Create connector with no scopes
+        connector_id = "google-no-scopes"
+        from backend.services.connectors import store_connector_record
+
+        store_connector_record(
+            app.state.db_connection,
+            connector_id=connector_id,
+            provider="google",
+            name="Google No Scopes",
+            auth_type="oauth2",
+            client_id="test-client",
+            client_secret="test-secret",
+            scopes=[],  # No scopes
+            access_token="test-token",
+            refresh_token="test-refresh",
+            expires_at=None,
+        )
+            connector_id = "test-google-no-scopes"
+            response = self.client.patch(
+                "/api/v1/settings",
+                json={
+                    "app_settings": {},
+                    "records": {
+                        "connectors": [
+                            {
+                                "id": connector_id,
+                                "provider": "google",
+                                "name": "Google No Scopes",
+                                "auth_type": "oauth2",
+                                "scopes": [],  # No scopes
+                            }
+                        ]
+                    }
+                }
+            )
+            self.assertEqual(response.status_code, 200, f"Failed to create connector: {response.text}")
+
+        response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Missing Scopes Test",
+                "description": "Connector without required scopes",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Gmail List Without Scopes",
+                        "config": {
+                            "connector_id": connector_id,
+                            "http_preset_id": "gmail_list_messages_http",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 422, f"Should reject missing scopes. Got: {response.text}")
+        detail = response.json().get("detail", "")
+        self.assertIn("missing required scopes", str(detail).lower())
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -48,15 +48,38 @@ def validate_automation_definition(
                 if not step.config.message:
                     issues.append(f"Step {index} requires config.message or a log_table_id for log steps.")
         if step.type == "outbound_request":
-            if not step.config.destination_url and not step.config.connector_id:
-                issues.append(f"Step {index} requires config.destination_url.")
-            if step.config.payload_template is None:
-                issues.append(f"Step {index} requires config.payload_template.")
+            # HTTP preset mode: connector_id and http_preset_id required
+            if step.config.http_preset_id:
+                if not step.config.connector_id:
+                    issues.append(f"Step {index} requires config.connector_id when using preset mode.")
+                else:
+                    # Validate preset exists and connector supports it
+                    from backend.services.http_presets import get_http_preset
+                    connector_record = find_stored_connector_record(connection, step.config.connector_id) if connection else None
+                    if connector_record is None and connection is not None:
+                        issues.append(f"Step {index} references an unknown connector.")
+                    elif connector_record:
+                        provider_id = connector_record.get("provider") or ""
+                        preset = get_http_preset(provider_id, step.config.http_preset_id)
+                        if preset is None:
+                            issues.append(f"Step {index}: connector provider '{provider_id}' does not support preset '{step.config.http_preset_id}'.")
+                        else:
+                            # Check required scopes
+                            missing_scopes = [scope for scope in preset.required_scopes if scope not in (connector_record.get("scopes") or [])]
+                            if missing_scopes:
+                                issues.append(f"Step {index}: connector is missing required scopes: {', '.join(missing_scopes)}.")
+            # Manual mode: destination_url and payload_template required
             else:
-                try:
-                    json.loads(step.config.payload_template)
-                except json.JSONDecodeError as error:
-                    issues.append(f"Step {index} has invalid JSON payload_template: {error.msg}.")
+                if not step.config.destination_url:
+                    issues.append(f"Step {index} requires config.destination_url.")
+                if step.config.payload_template is None:
+                    issues.append(f"Step {index} requires config.payload_template.")
+                else:
+                    try:
+                        json.loads(step.config.payload_template)
+                    except json.JSONDecodeError as error:
+                        issues.append(f"Step {index} has invalid JSON payload_template: {error.msg}.")
+            # Response mappings validation applies to both modes
             for mapping_index, mapping in enumerate(step.config.response_mappings or [], start=1):
                 key = str(mapping.get("key", "")).strip()
                 path = str(mapping.get("path", "")).strip()

@@ -1,0 +1,338 @@
+"""
+HTTP request action presets for workflow builder automation steps.
+
+Presets provide templated request definitions with auto-filled method, endpoint, and payload
+for common provider API operations. They eliminate the need for users to manually construct
+destination URLs and payload templates.
+
+Presets are provider-aware and can be filtered by connector provider.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class HttpRequestPreset:
+    """HTTP request preset definition with templated fields."""
+
+    def __init__(
+        self,
+        preset_id: str,
+        provider_id: str,
+        service: str,
+        operation: str,
+        label: str,
+        description: str,
+        http_method: str,
+        endpoint_path_template: str,
+        payload_template: str,
+        query_params: dict[str, str] | None = None,
+        required_scopes: list[str] | None = None,
+        input_schema: list[dict[str, Any]] | None = None,
+    ):
+        """
+        Args:
+            preset_id: machine-readable preset identifier (e.g., 'gmail_list_messages_http')
+            provider_id: provider name (e.g., 'google')
+            service: service name (e.g., 'gmail', 'drive', 'sheets')
+            operation: operation type (e.g., 'read', 'write')
+            label: human-readable label shown in workflow builder
+            description: what this preset does
+            http_method: HTTP method (GET, POST, PUT, PATCH, DELETE)
+            endpoint_path_template: endpoint path; may contain {{variable}} placeholders
+            payload_template: default JSON payload template; may contain {{variable}} placeholders
+            query_params: default query parameters; may contain {{variable}} placeholders
+            required_scopes: required Google API scopes
+            input_schema: optional input field definitions for user customization of template variables
+        """
+        self.preset_id = preset_id
+        self.provider_id = provider_id
+        self.service = service
+        self.operation = operation
+        self.label = label
+        self.description = description
+        self.http_method = http_method
+        self.endpoint_path_template = endpoint_path_template
+        self.payload_template = payload_template
+        self.query_params = query_params or {}
+        self.required_scopes = required_scopes or []
+        self.input_schema = input_schema or []
+
+    def to_dict(self) -> dict[str, Any]:
+        """Export preset as dict for API serialization."""
+        return {
+            "preset_id": self.preset_id,
+            "provider_id": self.provider_id,
+            "service": self.service,
+            "operation": self.operation,
+            "label": self.label,
+            "description": self.description,
+            "http_method": self.http_method,
+            "endpoint_path_template": self.endpoint_path_template,
+            "payload_template": self.payload_template,
+            "query_params": self.query_params,
+            "required_scopes": self.required_scopes,
+            "input_schema": self.input_schema,
+        }
+
+
+# ── Google HTTP Presets ────────────────────────────────────────────────────
+
+GMAIL_LIST_MESSAGES_PRESET = HttpRequestPreset(
+    preset_id="gmail_list_messages_http",
+    provider_id="google",
+    service="gmail",
+    operation="read",
+    label="List emails",
+    description="Retrieve a list of email messages from Gmail mailbox with optional label and search filters.",
+    http_method="GET",
+    endpoint_path_template="/gmail/v1/users/me/messages",
+    payload_template="{}",
+    query_params={"maxResults": "10"},
+    required_scopes=["https://www.googleapis.com/auth/gmail.readonly"],
+    input_schema=[
+        {
+            "key": "q",
+            "label": "Search Query",
+            "type": "string",
+            "required": False,
+            "help_text": "Gmail search query (e.g., 'from:someone@example.com')",
+            "placeholder": "from: or subject: or is:unread",
+        },
+        {
+            "key": "labelIds",
+            "label": "Label ID (optional)",
+            "type": "string",
+            "required": False,
+            "help_text": "Filter by specific Gmail label ID",
+            "placeholder": "INBOX, SENT_MAIL, or custom label ID",
+        },
+        {
+            "key": "maxResults",
+            "label": "Max Results",
+            "type": "integer",
+            "required": False,
+            "default": 10,
+            "help_text": "Maximum number of messages to return",
+        },
+    ],
+)
+
+GMAIL_SEND_EMAIL_PRESET = HttpRequestPreset(
+    preset_id="gmail_send_email_http",
+    provider_id="google",
+    service="gmail",
+    operation="write",
+    label="Send email",
+    description="Compose and send an email message through Gmail.",
+    http_method="POST",
+    endpoint_path_template="/gmail/v1/users/me/messages/send",
+    payload_template='{"raw": ""}',
+    required_scopes=["https://www.googleapis.com/auth/gmail.send"],
+    input_schema=[
+        {
+            "key": "to",
+            "label": "To",
+            "type": "string",
+            "required": True,
+            "help_text": "Recipient email address",
+        },
+        {
+            "key": "subject",
+            "label": "Subject",
+            "type": "string",
+            "required": True,
+            "help_text": "Email subject line",
+        },
+        {
+            "key": "body",
+            "label": "Body",
+            "type": "text",
+            "required": True,
+            "help_text": "Email body content (plain text)",
+        },
+    ],
+)
+
+DRIVE_LIST_FILES_PRESET = HttpRequestPreset(
+    preset_id="drive_list_files_http",
+    provider_id="google",
+    service="drive",
+    operation="read",
+    label="List Drive files",
+    description="Retrieve a list of files from Google Drive with optional folder and search filters.",
+    http_method="GET",
+    endpoint_path_template="/drive/v3/files",
+    payload_template="{}",
+    query_params={"pageSize": "10", "fields": "files(id,name,mimeType,parents)"},
+    required_scopes=["https://www.googleapis.com/auth/drive.readonly"],
+    input_schema=[
+        {
+            "key": "q",
+            "label": "Search Query",
+            "type": "string",
+            "required": False,
+            "help_text": "Drive search query (e.g., \"name='filename'\")",
+            "placeholder": "name='file.txt' or mimeType='image/png'",
+        },
+        {
+            "key": "corpora",
+            "label": "Search Scope",
+            "type": "select",
+            "required": False,
+            "options": ["user", "drive", "allDrives"],
+            "default": "user",
+            "help_text": "Where to search for files",
+        },
+        {
+            "key": "pageSize",
+            "label": "Page Size",
+            "type": "integer",
+            "required": False,
+            "default": 10,
+            "help_text": "Maximum number of files to return",
+        },
+    ],
+)
+
+DRIVE_UPLOAD_FILE_PRESET = HttpRequestPreset(
+    preset_id="drive_upload_file_http",
+    provider_id="google",
+    service="drive",
+    operation="write",
+    label="Upload file to Drive",
+    description="Upload a file to Google Drive with optional folder destination and metadata.",
+    http_method="POST",
+    endpoint_path_template="/upload/drive/v3/files",
+    payload_template='{"name": "", "parents": []}',
+    query_params={"uploadType": "multipart"},
+    required_scopes=["https://www.googleapis.com/auth/drive.file"],
+    input_schema=[
+        {
+            "key": "name",
+            "label": "File Name",
+            "type": "string",
+            "required": True,
+            "help_text": "Name to give the uploaded file",
+        },
+        {
+            "key": "parents",
+            "label": "Parent Folder IDs (JSON array)",
+            "type": "text",
+            "required": False,
+            "help_text": "JSON array of folder IDs where file should be placed",
+            "placeholder": '["folder-id-here"]',
+        },
+        {
+            "key": "description",
+            "label": "File Description",
+            "type": "string",
+            "required": False,
+            "help_text": "Optional description for the file",
+        },
+    ],
+)
+
+SHEETS_UPDATE_RANGE_PRESET = HttpRequestPreset(
+    preset_id="sheets_update_range_http",
+    provider_id="google",
+    service="sheets",
+    operation="write",
+    label="Update Sheets range",
+    description="Write values to a range in a Google Sheet.",
+    http_method="PUT",
+    endpoint_path_template="/sheets/v4/spreadsheets/{{spreadsheet_id}}/values/{{range_name}}",
+    payload_template='{"values": [], "majorDimension": "ROWS"}',
+    query_params={"valueInputOption": "USER_ENTERED"},
+    required_scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    input_schema=[
+        {
+            "key": "spreadsheet_id",
+            "label": "Spreadsheet ID",
+            "type": "string",
+            "required": True,
+            "help_text": "Google Sheets ID (from URL)",
+        },
+        {
+            "key": "range_name",
+            "label": "Range Name",
+            "type": "string",
+            "required": True,
+            "help_text": "Sheet and range (e.g., Sheet1!A1:C10)",
+            "placeholder": "Sheet1!A1:B100",
+        },
+        {
+            "key": "values",
+            "label": "Values (JSON array of arrays)",
+            "type": "text",
+            "required": True,
+            "help_text": "Row-major JSON array of values",
+            "placeholder": '[["A1", "B1"], ["A2", "B2"]]',
+        },
+    ],
+)
+
+SHEETS_READ_RANGE_PRESET = HttpRequestPreset(
+    preset_id="sheets_read_range_http",
+    provider_id="google",
+    service="sheets",
+    operation="read",
+    label="Read Sheets range",
+    description="Read values from a range in a Google Sheet.",
+    http_method="GET",
+    endpoint_path_template="/sheets/v4/spreadsheets/{{spreadsheet_id}}/values/{{range_name}}",
+    payload_template="{}",
+    required_scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    input_schema=[
+        {
+            "key": "spreadsheet_id",
+            "label": "Spreadsheet ID",
+            "type": "string",
+            "required": True,
+            "help_text": "Google Sheets ID (from URL)",
+        },
+        {
+            "key": "range_name",
+            "label": "Range Name",
+            "type": "string",
+            "required": True,
+            "help_text": "Sheet and range (e.g., Sheet1!A1:C10)",
+            "placeholder": "Sheet1!A1:B100",
+        },
+    ],
+)
+
+# ── Preset Catalog ────────────────────────────────────────────────────────
+
+GOOGLE_HTTP_PRESETS = (
+    GMAIL_LIST_MESSAGES_PRESET,
+    GMAIL_SEND_EMAIL_PRESET,
+    DRIVE_LIST_FILES_PRESET,
+    DRIVE_UPLOAD_FILE_PRESET,
+    SHEETS_UPDATE_RANGE_PRESET,
+    SHEETS_READ_RANGE_PRESET,
+)
+
+DEFAULT_HTTP_PRESET_CATALOG = GOOGLE_HTTP_PRESETS
+
+
+def get_http_presets_by_provider(provider_id: str) -> list[HttpRequestPreset]:
+    """Get all HTTP presets available for a given provider."""
+    return [p for p in DEFAULT_HTTP_PRESET_CATALOG if p.provider_id == provider_id]
+
+
+def get_http_preset(provider_id: str, preset_id: str) -> HttpRequestPreset | None:
+    """Get a single HTTP preset by provider and preset ID."""
+    for preset in DEFAULT_HTTP_PRESET_CATALOG:
+        if preset.provider_id == provider_id and preset.preset_id == preset_id:
+            return preset
+    return None
+
+
+__all__ = [
+    "HttpRequestPreset",
+    "DEFAULT_HTTP_PRESET_CATALOG",
+    "get_http_presets_by_provider",
+    "get_http_preset",
+]

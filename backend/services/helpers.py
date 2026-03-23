@@ -3749,6 +3749,58 @@ def execute_script_step(
     )
 
 
+def _materialize_http_preset_config(
+    connection: DatabaseConnection,
+    *,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+) -> AutomationStepDefinition:
+    """Materialize HTTP preset into concrete destination_url and payload_template.
+    
+    If step uses http_preset_id, resolves the preset definition, renders any template
+    variables, and returns a new step config with concrete URL and payload.
+    If no preset, returns step unchanged.
+    """
+    if not step.config.http_preset_id:
+        return step
+
+    from backend.services.http_presets import get_http_preset
+
+    # Resolve connector provider
+    connector_id = step.config.connector_id
+    if not connector_id:
+        raise RuntimeError(f"HTTP preset step '{step.name}' requires a connector_id.")
+
+    connector_record = find_stored_connector_record(connection, connector_id)
+    if not connector_record:
+        raise RuntimeError(f"HTTP preset step '{step.name}' references unknown connector '{connector_id}'.")
+
+    provider_id = connector_record.get("provider") or ""
+    preset_id = step.config.http_preset_id
+
+    # Look up preset definition
+    preset = get_http_preset(provider_id, preset_id)
+    if not preset:
+        raise RuntimeError(f"HTTP preset step '{step.name}': provider '{provider_id}' does not support preset '{preset_id}'.")
+
+    # Build base endpoint from template
+    base_endpoint = "https://www.googleapis.com"  # Google API base for now; can be parameterized later
+    endpoint_path = render_template_string(preset.endpoint_path_template, context)
+    destination_url = base_endpoint + endpoint_path
+
+    # Materialize payload template with context variables
+    payload_template = render_template_string(preset.payload_template, context)
+
+    # Return new step with materialized config
+    materialized_config = step.config.model_copy()
+    materialized_config.destination_url = destination_url
+    materialized_config.payload_template = payload_template
+    materialized_config.http_method = preset.http_method
+    materialized_config.auth_type = "none"  # Preset mode uses connector auth, not explicit config
+
+    return step.model_copy(update={"config": materialized_config})
+
+
 def _execute_outbound_request_delivery(
     connection: DatabaseConnection,
     *,
@@ -3956,6 +4008,13 @@ def execute_automation_step(
         return RuntimeExecutionResult(status="completed", response_summary=message, detail={"message": message}, output=message)
 
     if step.type == "outbound_request":
+        # Materialize HTTP preset if in preset mode
+        if step.config.http_preset_id:
+            try:
+                step = _materialize_http_preset_config(connection, step=step, context=context)
+            except RuntimeError as error:
+                return RuntimeExecutionResult(status="failed", response_summary=str(error), detail={"error": str(error)}, output={})
+
         if not step.config.wait_for_response:
             if not run_step_id:
                 raise RuntimeError("Non-blocking HTTP steps require a runtime step identifier.")
