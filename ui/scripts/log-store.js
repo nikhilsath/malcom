@@ -14,7 +14,7 @@ const malcomDefaultAppSettings = {
     max_file_size_mb: 5
   },
   notifications: {
-    channel: "slack",
+    channel: "email",
     digest: "hourly",
     escalate_oncall: true
   },

@@ -20,7 +20,7 @@ class LoggingSettings(BaseModel):
 
 
 class NotificationSettings(BaseModel):
-    channel: str = Field(pattern=r"^(email|slack|pager)$")
+    channel: str = Field(pattern=r"^(email|pager)$")
     digest: str = Field(pattern=r"^(realtime|hourly|daily)$")
     escalate_oncall: bool
 
