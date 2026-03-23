@@ -320,7 +320,7 @@ Use one integration model per responsibility. Do not blur remote API access, HTT
 ### Connectors {#connector-boundary-connectors}
 
 - Connectors store reusable provider credentials, auth state, scopes, and base URLs for remote services and HTTP APIs.
-- Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, Slack, or similar SaaS APIs.
+- Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, or similar SaaS APIs.
 - Connector records live in workspace settings and are reused by outgoing APIs, connector workflow activities, and automation HTTP steps.
 - Google connector setup must start from the Connect provider control in `ui/settings/connectors.html` and continue in the connector details modal.
 - Do not collect Google OAuth Client ID or Client secret with browser `prompt()` dialogs.

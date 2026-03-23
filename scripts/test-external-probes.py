@@ -35,13 +35,6 @@ CONNECTOR_PROBES: dict[str, dict[str, Any]] = {
         "credentials": ["oauth2 access token or bearer token"],
         "notes": "Common authenticated identity probe for GitHub REST APIs.",
     },
-    "slack": {
-        "probe_type": "external_endpoint",
-        "probe_candidate": "POST /auth.test",
-        "confidence": "high",
-        "credentials": ["oauth2 access token"],
-        "notes": "Slack provides a dedicated auth validation endpoint.",
-    },
     "notion": {
         "probe_type": "external_endpoint",
         "probe_candidate": "GET /users/me",

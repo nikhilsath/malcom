@@ -122,7 +122,6 @@ SUPPORTED_CONNECTOR_PROVIDERS = {
     "google",
     *LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS,
     "github",
-    "slack",
     "notion",
     "trello",
     "generic_http",
@@ -365,16 +364,6 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "base_url": "https://api.github.com",
     },
     {
-        "id": "slack",
-        "name": "Slack",
-        "description": "Post messages, inspect channels, and drive notifications.",
-        "category": "messaging",
-        "auth_types": ["oauth2"],
-        "default_scopes": ["chat:write", "channels:read"],
-        "docs_url": "https://docs.slack.dev/apis/web-api/",
-        "base_url": "https://slack.com/api",
-    },
-    {
         "id": "notion",
         "name": "Notion",
         "description": "Access internal workspace pages and databases.",
@@ -575,7 +564,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "max_file_size_mb": 5,
     },
     "notifications": {
-        "channel": "slack",
+        "channel": "email",
         "digest": "hourly",
         "escalate_oncall": True,
     },
@@ -734,7 +723,6 @@ def build_connector_catalog(connection: DatabaseConnection | None = None) -> lis
     return deduped_catalog
 def get_connector_preset(provider: str, *, connection: DatabaseConnection | None = None) -> dict[str, Any] | None:
     canonical_provider = canonicalize_connector_provider(provider)
-
     if connection is None:
         return _get_default_connector_preset(canonical_provider or provider)
 
@@ -1024,16 +1012,6 @@ def build_connector_oauth_authorization_url(
             "client_id": client_id,
             "redirect_uri": redirect_uri,
             "scope": " ".join(scopes),
-            "state": state,
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-        }
-    elif provider == "slack":
-        base_url = "https://slack.com/oauth/v2/authorize"
-        query = {
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": ",".join(scopes),
             "state": state,
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",

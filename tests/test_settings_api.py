@@ -35,7 +35,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["general"]["environment"], "live")
         self.assertEqual(body["logging"]["max_stored_entries"], 250)
         self.assertEqual(body["logging"]["max_file_size_mb"], 5)
-        self.assertEqual(body["notifications"]["channel"], "slack")
+        self.assertEqual(body["notifications"]["channel"], "email")
         self.assertTrue(body["security"]["dual_approval_required"])
         self.assertEqual(body["data"]["audit_retention_days"], 365)
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
@@ -139,7 +139,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(saved_settings["general"]["environment"], "live")
         self.assertEqual(saved_settings["logging"]["max_visible_entries"], 100)
         self.assertEqual(saved_settings["logging"]["max_file_size_mb"], 8)
-        self.assertEqual(saved_settings["notifications"]["channel"], "slack")
+        self.assertEqual(saved_settings["notifications"]["channel"], "email")
 
     def test_patch_connectors_masks_secret_values_and_stores_protected_payload(self) -> None:
         response = self.client.patch(
@@ -405,7 +405,7 @@ class SettingsApiTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["general"]["environment"], "live")
         self.assertEqual(body["general"]["timezone"], "local")
-        self.assertEqual(body["notifications"]["channel"], "slack")
+        self.assertEqual(body["notifications"]["channel"], "email")
         self.assertEqual(body["notifications"]["digest"], "hourly")
 
 
