@@ -81,13 +81,7 @@ export const defaultSettingsResponse = {
   },
   notifications: {
     channel: "slack",
-    digest: "hourly",
-    escalate_oncall: true
-  },
-  security: {
-    session_timeout_minutes: 30,
-    dual_approval_required: true,
-    token_rotation_days: 90
+    digest: "hourly"
   },
   data: {
     payload_redaction: true,

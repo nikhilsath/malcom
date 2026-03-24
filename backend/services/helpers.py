@@ -566,12 +566,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "notifications": {
         "channel": "email",
         "digest": "hourly",
-        "escalate_oncall": True,
-    },
-    "security": {
-        "session_timeout_minutes": 30,
-        "dual_approval_required": True,
-        "token_rotation_days": 90,
     },
     "data": {
         "payload_redaction": True,
@@ -1044,7 +1038,6 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
         "general": GeneralSettings,
         "logging": LoggingSettings,
         "notifications": NotificationSettings,
-        "security": SecuritySettings,
         "data": DataSettings,
         "automation": AutomationSettings,
         "connectors": ConnectorSettingsResponse,

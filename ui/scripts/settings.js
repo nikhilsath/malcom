@@ -14,10 +14,7 @@ const settingsElements = {
   fileSizeInput: document.getElementById("settings-log-file-size-input"),
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
-  notificationsOncallCheckbox: document.getElementById("settings-notifications-oncall-checkbox"),
-  accessSessionSelect: document.getElementById("settings-access-session-select"),
-  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
-  accessTokenSelect: document.getElementById("settings-access-token-select"),
+
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
   storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
@@ -126,18 +123,7 @@ const buildSectionPatch = (section, fallbackSettings) => {
     return {
       notifications: {
         channel: settingsElements.notificationsChannelSelect?.value || fallbackSettings.notifications.channel,
-        digest: settingsElements.notificationsDigestSelect?.value || fallbackSettings.notifications.digest,
-        escalate_oncall: settingsElements.notificationsOncallCheckbox?.checked ?? fallbackSettings.notifications.escalate_oncall
-      }
-    };
-  }
-
-  if (section === "access") {
-    return {
-      security: {
-        session_timeout_minutes: Number.parseInt(settingsElements.accessSessionSelect?.value || "", 10),
-        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
-        token_rotation_days: Number.parseInt(settingsElements.accessTokenSelect?.value || "", 10)
+        digest: settingsElements.notificationsDigestSelect?.value || fallbackSettings.notifications.digest
       }
     };
   }

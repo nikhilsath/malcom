@@ -22,13 +22,6 @@ class LoggingSettings(BaseModel):
 class NotificationSettings(BaseModel):
     channel: str = Field(pattern=r"^(email|pager)$")
     digest: str = Field(pattern=r"^(realtime|hourly|daily)$")
-    escalate_oncall: bool
-
-
-class SecuritySettings(BaseModel):
-    session_timeout_minutes: int = Field(ge=15, le=60)
-    dual_approval_required: bool
-    token_rotation_days: Literal[30, 60, 90]
 
 
 class DataSettings(BaseModel):
@@ -139,7 +132,6 @@ class AppSettingsResponse(BaseModel):
     general: GeneralSettings
     logging: LoggingSettings
     notifications: NotificationSettings
-    security: SecuritySettings
     data: DataSettings
     automation: AutomationSettings
     connectors: ConnectorSettingsResponse
@@ -149,7 +141,6 @@ class AppSettingsUpdate(BaseModel):
     general: GeneralSettings | None = None
     logging: LoggingSettings | None = None
     notifications: NotificationSettings | None = None
-    security: SecuritySettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
     connectors: ConnectorSettingsUpdate | None = None
@@ -205,5 +196,4 @@ __all__ = [
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
-    "SecuritySettings",
 ]

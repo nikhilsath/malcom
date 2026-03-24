@@ -32,50 +32,6 @@
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-access-grid" class="settings-option-grid">
-                        <article id="settings-access-session-card" class="stat-card settings-option-card">
-                            <div id="settings-access-session-copy" class="settings-option-card__copy">
-                                <div class="title-row">
-                                    <h4 id="settings-access-session-title" class="settings-option-card__title">Session timeout</h4>
-                                    <button type="button" id="settings-access-session-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-session-description">i</button>
-                                </div>
-                                <p id="settings-access-session-description" class="settings-option-card__description" hidden>Idle sessions can auto-lock after a fixed period to reduce console exposure.</p>
-                            </div>
-                            <select id="settings-access-session-select" class="api-form-input">
-                                <option id="settings-access-session-option-15" value="15">15 minutes</option>
-                                <option id="settings-access-session-option-30" value="30" selected>30 minutes</option>
-                                <option id="settings-access-session-option-60" value="60">60 minutes</option>
-                            </select>
-                        </article>
-                        <article id="settings-access-approval-card" class="stat-card settings-option-card">
-                            <div id="settings-access-approval-copy" class="settings-option-card__copy">
-                                <div class="title-row">
-                                    <h4 id="settings-access-approval-title" class="settings-option-card__title">Change approval</h4>
-                                    <button type="button" id="settings-access-approval-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-approval-description">i</button>
-                                </div>
-                                <p id="settings-access-approval-description" class="settings-option-card__description" hidden>Require a second operator before high-impact automation changes are applied.</p>
-                            </div>
-                            <label id="settings-access-approval-toggle" class="toggle settings-option-card__toggle toggle--on">
-                                <input type="checkbox" class="sr-only" id="settings-access-approval-checkbox" checked>
-                                <div class="toggle__slider" id="settings-access-approval-slider" aria-hidden="true">
-                                    <div class="toggle__knob" id="settings-access-approval-knob" aria-hidden="true"></div>
-                                </div>
-                                <span id="settings-access-approval-label" class="toggle__label">Required</span>
-                            </label>
-                        </article>
-                        <article id="settings-access-token-card" class="stat-card settings-option-card">
-                            <div id="settings-access-token-copy" class="settings-option-card__copy">
-                                <div class="title-row">
-                                    <h4 id="settings-access-token-title" class="settings-option-card__title">API token rotation</h4>
-                                    <button type="button" id="settings-access-token-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-token-description">i</button>
-                                </div>
-                                <p id="settings-access-token-description" class="settings-option-card__description" hidden>Set the standard token rotation policy for new outbound integrations.</p>
-                            </div>
-                            <select id="settings-access-token-select" class="api-form-input">
-                                <option id="settings-access-token-option-30" value="30">30 days</option>
-                                <option id="settings-access-token-option-60" value="60">60 days</option>
-                                <option id="settings-access-token-option-90" value="90" selected>90 days</option>
-                            </select>
-                        </article>
                     </div>
                     <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
                     <div id="settings-actions" class="api-form-actions">

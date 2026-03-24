@@ -55,9 +55,6 @@ test("toggles notifications and restores the defaults", async ({ page }) => {
 
   await page.goto("/settings/notifications.html");
 
-  await page.locator("#settings-notifications-oncall-toggle").click();
-  await expect(page.locator("#settings-notifications-oncall-label")).toHaveText("Disabled");
-
   await page.locator("#settings-notifications-channel-select").selectOption("email");
   await page.locator("#settings-notifications-digest-select").selectOption("daily");
   await page.locator("#settings-save-button").click();
@@ -71,30 +68,6 @@ test("toggles notifications and restores the defaults", async ({ page }) => {
   await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
   await expect(page.locator("#settings-notifications-channel-select")).toHaveValue("slack");
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("hourly");
-  await expect(page.locator("#settings-notifications-oncall-label")).toHaveText("Enabled");
-});
-
-test("saves access controls and restores defaults", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
-
-  await page.goto("/settings/access.html");
-
-  await page.locator("#settings-access-session-select").selectOption("60");
-  await page.locator("#settings-access-approval-toggle").click();
-  await expect(page.locator("#settings-access-approval-label")).toHaveText("Optional");
-  await page.locator("#settings-access-token-select").selectOption("30");
-  await page.locator("#settings-save-button").click();
-
-  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
-  await expect(page.locator("#settings-access-session-select")).toHaveValue("60");
-  await expect(page.locator("#settings-access-token-select")).toHaveValue("30");
-
-  await page.locator("#settings-reset-button").click();
-
-  await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
-  await expect(page.locator("#settings-access-session-select")).toHaveValue("30");
-  await expect(page.locator("#settings-access-token-select")).toHaveValue("90");
-  await expect(page.locator("#settings-access-approval-label")).toHaveText("Required");
 });
 
 test("renders connector-backed storage and clears log table rows", async ({ page }) => {
