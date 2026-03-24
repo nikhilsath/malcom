@@ -141,7 +141,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
                 json={
                     "connector_id": "google-missing-client",
                     "name": "Google Missing Client",
-                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                     "owner": "Workspace",
                     "client_id": "",
                 },
@@ -160,7 +160,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
                 json={
                     "connector_id": "google-env-client",
                     "name": "Google Env Client",
-                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                     "owner": "Workspace",
                     "client_id": "",
                 },
@@ -177,7 +177,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
             json={
                 "connector_id": "google-ui-callback",
                 "name": "Google UI Callback",
-                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback/ui",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
                 "owner": "Workspace",
                 "client_id": "google-client-id",
                 "client_secret_input": "google-client-secret",
@@ -187,7 +187,8 @@ class ConnectorsApiTestCase(unittest.TestCase):
         start_body = start_response.json()
 
         callback_response = self.client.get(
-            f"/api/v1/connectors/google/oauth/callback/ui?state={start_body['state']}&code=demo",
+            f"/api/v1/connectors/google/oauth/callback?state={start_body['state']}&code=demo",
+            headers={"Accept": "text/html"},
             follow_redirects=False,
         )
 

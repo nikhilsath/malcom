@@ -38,6 +38,18 @@ def get_test_database_url() -> str:
 def reset_database(database_url: str) -> None:
     connection = connect(database_url=database_url)
     try:
+        # Playwright runs can collide with an already-running local app process.
+        # Best-effort terminate other sessions on this DB so truncate does not hang.
+        try:
+            connection.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            )
+            connection.execute("SET lock_timeout = '5s'")
+            connection.execute("SET statement_timeout = '60s'")
+        except Exception:
+            # If privileges are restricted, continue with normal reset behavior.
+            pass
+
         initialize(connection)
         # Drop any dynamic log data tables (log_data_*) first so they don't block truncation
         rows = connection.execute(

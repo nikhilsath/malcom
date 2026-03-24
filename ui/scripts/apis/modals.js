@@ -97,7 +97,7 @@ export const createApiModalController = ({
     modal.setAttribute("aria-hidden", "false");
     syncCreateTypeTriggerState(true);
     syncModalBodyState();
-    const firstOption = modal.querySelector(".api-create-type-modal-option");
+    const firstOption = modal.querySelector(".api-popup-option, .api-create-type-modal-option");
 
     if (firstOption instanceof HTMLElement) {
       firstOption.focus();
@@ -211,11 +211,11 @@ export const createApiModalController = ({
           return;
         }
 
-        const typeTarget = event.target.closest(".api-create-type-modal-option");
+        const typeTarget = event.target.closest(".api-popup-option, .api-create-type-modal-option");
 
         if (typeTarget instanceof HTMLElement) {
           const selectedType = typeTarget.dataset.apiType || "incoming";
-          state.createFromConnector = false;
+          state.createFromConnector = typeTarget.dataset.createFromConnector === "true";
           state.createTypeReturnFocusElement = getCreateOpenButton();
           closeCreateTypeModal({ restoreFocus: false });
 

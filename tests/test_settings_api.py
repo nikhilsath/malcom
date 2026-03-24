@@ -37,7 +37,6 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["logging"]["max_file_size_mb"], 5)
         self.assertEqual(body["notifications"]["channel"], "email")
         self.assertTrue(body["security"]["dual_approval_required"])
-        self.assertEqual(body["data"]["audit_retention_days"], 365)
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
         self.assertEqual(body["connectors"]["records"], [])
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)

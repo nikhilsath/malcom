@@ -159,20 +159,15 @@ export const shellSections = {
         href: "apis/webhooks.html",
         pageTitle: "API Webhooks",
         description: "Manage webhook definitions and verification."
+      },
+      {
+        id: "sidenav-apis-connectors",
+        label: "Connectors",
+        href: "settings/connectors.html",
+        pageTitle: "API Connectors",
+        description: "Manage connector presets and credentials."
       }
-    ],
-    footer: {
-      kind: "button",
-      id: "apis-create-button",
-      label: "Create +",
-      className: "button button--success sidenav__action-button",
-      attributes: {
-        "aria-controls": "apis-create-type-modal",
-        "aria-expanded": "false",
-        "aria-haspopup": "dialog",
-        type: "button"
-      }
-    }
+    ]
   },
   tools: {
     id: "tools",
@@ -238,13 +233,6 @@ export const shellSections = {
         aliases: ["settings/security.html"],
         pageTitle: "Settings Access",
         description: "Manage approval and session controls."
-      },
-      {
-        id: "sidenav-settings-connectors",
-        label: "Connectors",
-        href: "settings/connectors.html",
-        pageTitle: "Settings Connectors",
-        description: "Manage connector presets and credentials."
       },
       {
         id: "sidenav-settings-data",

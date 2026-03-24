@@ -40,22 +40,26 @@ export const createTypeModalFallbackMarkup = `
             <button type="button" class="modal__close-icon-button" id="apis-create-type-modal-close" aria-label="Close create API type modal" data-modal-close="apis-create-type-modal">×</button>
           </div>
           <div class="modal__body modal__body--form api-create-type-modal-body" id="apis-create-type-modal-body">
-            <div id="apis-create-type-modal-options" class="api-create-type-modal-options">
-              <button type="button" id="apis-create-type-option-incoming" class="api-create-type-modal-option" data-api-type="incoming">
-                <span id="apis-create-type-option-incoming-title" class="api-create-type-modal-option__title">Incoming</span>
-                <span id="apis-create-type-option-incoming-description" class="api-create-type-modal-option__description">Provision an authenticated inbound endpoint for JSON callbacks.</span>
+            <div id="apis-create-type-modal-options" class="api-popup-option-grid">
+              <button type="button" id="apis-create-type-option-incoming" class="api-popup-option" data-api-type="incoming">
+                <span id="apis-create-type-option-incoming-title" class="api-popup-option__title">Incoming</span>
+                <span id="apis-create-type-option-incoming-description" class="api-popup-option__description">Provision an authenticated inbound endpoint for JSON callbacks.</span>
               </button>
-              <button type="button" id="apis-create-type-option-outgoing-scheduled" class="api-create-type-modal-option" data-api-type="outgoing_scheduled">
-                <span id="apis-create-type-option-outgoing-scheduled-title" class="api-create-type-modal-option__title">Outgoing scheduled</span>
-                <span id="apis-create-type-option-outgoing-scheduled-description" class="api-create-type-modal-option__description">Send a payload on a defined daily schedule.</span>
+              <button type="button" id="apis-create-type-option-outgoing-scheduled" class="api-popup-option" data-api-type="outgoing_scheduled">
+                <span id="apis-create-type-option-outgoing-scheduled-title" class="api-popup-option__title">Outgoing scheduled</span>
+                <span id="apis-create-type-option-outgoing-scheduled-description" class="api-popup-option__description">Send a payload on a defined daily schedule.</span>
               </button>
-              <button type="button" id="apis-create-type-option-outgoing-continuous" class="api-create-type-modal-option" data-api-type="outgoing_continuous">
-                <span id="apis-create-type-option-outgoing-continuous-title" class="api-create-type-modal-option__title">Outgoing continuous</span>
-                <span id="apis-create-type-option-outgoing-continuous-description" class="api-create-type-modal-option__description">Keep an outbound delivery ready on a repeating interval.</span>
+              <button type="button" id="apis-create-type-option-outgoing-continuous" class="api-popup-option" data-api-type="outgoing_continuous">
+                <span id="apis-create-type-option-outgoing-continuous-title" class="api-popup-option__title">Outgoing continuous</span>
+                <span id="apis-create-type-option-outgoing-continuous-description" class="api-popup-option__description">Keep an outbound delivery ready on a repeating interval.</span>
               </button>
-              <button type="button" id="apis-create-type-option-webhook" class="api-create-type-modal-option" data-api-type="webhook">
-                <span id="apis-create-type-option-webhook-title" class="api-create-type-modal-option__title">Webhook</span>
-                <span id="apis-create-type-option-webhook-description" class="api-create-type-modal-option__description">Store publisher verification and signing details.</span>
+              <button type="button" id="apis-create-type-option-from-connector" class="api-popup-option" data-api-type="outgoing_scheduled" data-create-from-connector="true">
+                <span id="apis-create-type-option-from-connector-title" class="api-popup-option__title">Create from connector</span>
+                <span id="apis-create-type-option-from-connector-description" class="api-popup-option__description">Start from a saved connector and prefill auth defaults.</span>
+              </button>
+              <button type="button" id="apis-create-type-option-webhook" class="api-popup-option" data-api-type="webhook">
+                <span id="apis-create-type-option-webhook-title" class="api-popup-option__title">Webhook</span>
+                <span id="apis-create-type-option-webhook-description" class="api-popup-option__description">Store publisher verification and signing details.</span>
               </button>
             </div>
           </div>

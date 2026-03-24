@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .builders import action_case, list_case, patch_case
 from .core import RouteSmokeCase, SmokeContext, assert_json_response, resolve_value
-from .resolvers import connector_setup, oauth_callback_params, oauth_start_setup, refresh_setup
+from .resolvers import connector_setup, oauth_callback_params, oauth_start_setup, refresh_setup, revoke_setup
 
 
 def assert_redirect_to_connectors(response: object, _: SmokeContext, __: dict[str, object]) -> None:
@@ -41,6 +41,12 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         "/api/v1/connectors/activity-catalog",
         response_assert=assert_json_response,
     ),
+    list_case(
+        "connectors-http-presets",
+        "GET",
+        "/api/v1/connectors/http-presets",
+        response_assert=assert_json_response,
+    ),
     action_case(
         "connectors-oauth-start",
         "POST",
@@ -67,12 +73,13 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         response_assert=assert_json_response,
     ),
     list_case(
-        "connectors-oauth-callback-ui",
+        "connectors-oauth-callback-html",
         "GET",
-        "/api/v1/connectors/google/oauth/callback/ui",
+        "/api/v1/connectors/google/oauth/callback",
         303,
-        route_path="/api/v1/connectors/{provider}/oauth/callback/ui",
+        route_path="/api/v1/connectors/{provider}/oauth/callback",
         setup=oauth_start_setup,
+        headers={"Accept": "text/html"},
         params=oauth_callback_params,
         response_assert=assert_redirect_to_connectors,
         invoke=invoke_without_redirect,
@@ -84,6 +91,15 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         200,
         route_path="/api/v1/connectors/{connector_id}/refresh",
         setup=refresh_setup,
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "connectors-revoke",
+        "POST",
+        "/api/v1/connectors/google-primary/revoke",
+        200,
+        route_path="/api/v1/connectors/{connector_id}/revoke",
+        setup=revoke_setup,
         response_assert=assert_json_response,
     ),
 )

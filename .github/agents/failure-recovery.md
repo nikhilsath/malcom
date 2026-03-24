@@ -55,6 +55,8 @@ Work in this order:
 7. rerun the smallest relevant validation first, then the wider validation needed for confidence
 8. update documentation describing the testing gap and the expected future coverage
 
+If a required validation command cannot run (for example Playwright fails to start because of port conflicts, missing browsers, or server startup issues), treat that as part of the failure and troubleshoot it in the same task instead of skipping it.
+
 ## Evidence to review
 
 Always review whichever of these are relevant:
@@ -119,6 +121,12 @@ Use the smallest relevant checks first, then widen as needed:
 
 Select validation based on the affected layer. Run the full gate when the bug indicates a broader workflow escape or when the change touches shared infrastructure.
 For user-facing regressions, add or update the missing Playwright case and rerun `./scripts/test-full.sh` before closing the task.
+
+When Playwright validation is required:
+- do not stop after reporting a Playwright startup/runtime error
+- identify and fix the underlying execution blocker (for example occupied port, missing browser install, or broken webServer command)
+- rerun the same Playwright command after the fix and report the result
+- only treat Playwright as unresolved when an external constraint remains after troubleshooting; in that case, report every attempted remediation step explicitly
 
 ## Pull request behavior
 

@@ -1061,7 +1061,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     await page.route("**accounts.google.com/**", async (route) => {
       const url = new URL(route.request().url());
       const stateToken = url.searchParams.get("state") || "oauth-state-google";
-      const callbackUrl = new URL("http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback/ui");
+      const callbackUrl = new URL("http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback");
       callbackUrl.searchParams.set("state", stateToken);
       callbackUrl.searchParams.set("connector_id", "google");
       callbackUrl.searchParams.set("code", "demo-google-code");
@@ -1074,7 +1074,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       });
     });
 
-    await page.route("**/api/v1/connectors/google/oauth/callback/ui**", async (route) => {
+    await page.route("**/api/v1/connectors/google/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "google"), "success", "Connector authorized successfully.");
       await route.fulfill({
@@ -1086,7 +1086,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       });
     });
 
-    await page.route("**/api/v1/connectors/github/oauth/callback/ui**", async (route) => {
+    await page.route("**/api/v1/connectors/github/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "github"), "success", "Connector authorized successfully.");
       await route.fulfill({

@@ -576,7 +576,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "data": {
         "payload_redaction": True,
         "export_window_utc": "02:00",
-        "audit_retention_days": 365,
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
     "connectors": get_default_connector_settings(),

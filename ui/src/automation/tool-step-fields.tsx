@@ -1,9 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
+import type { DataFlowToken } from "./data-flow";
+import { TokenPicker } from "./token-picker";
 import type { AutomationStep, ToolManifestEntry } from "./types";
 
 type Props = {
   idPrefix: string;
   step: AutomationStep;
   toolsManifest: ToolManifestEntry[];
+  dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
 };
 
@@ -16,11 +20,25 @@ const smtpTemplateHints = [
   "{{payload.smtp.subject}}",
 ];
 
-export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Props) => {
+export const ToolStepFields = ({ idPrefix, step, toolsManifest, dataFlowTokens = [], onChange }: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
   const idSegment = (value: string) => value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "value";
   const selectedTool = toolsManifest.find((tool) => tool.id === step.config.tool_id);
   const toolInputs = step.config.tool_inputs || {};
+  const insertableFields = useMemo(
+    () => (selectedTool?.inputs || []).filter((field) => field.type === "string" || field.type === "text").map((field) => field.key),
+    [selectedTool?.inputs]
+  );
+  const [activeTokenFieldKey, setActiveTokenFieldKey] = useState<string>(insertableFields[0] || "");
+
+  useEffect(() => {
+    setActiveTokenFieldKey((current) => {
+      if (current && insertableFields.includes(current)) {
+        return current;
+      }
+      return insertableFields[0] || "";
+    });
+  }, [insertableFields]);
 
   const updateInput = (key: string, value: string) =>
     onChange({
@@ -30,6 +48,14 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
         tool_inputs: { ...toolInputs, [key]: value }
       }
     });
+
+  const insertToken = (token: string) => {
+    if (!activeTokenFieldKey) {
+      return;
+    }
+    const currentValue = toolInputs[activeTokenFieldKey] || "";
+    updateInput(activeTokenFieldKey, `${currentValue}${token}`);
+  };
 
   return (
     <>
@@ -128,6 +154,30 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, onChange }: Prop
             })}
           </ul>
         </div>
+      ) : null}
+
+      {selectedTool && insertableFields.length > 0 && dataFlowTokens.length > 0 ? (
+        <>
+          <label id={`${idPrefix}-tool-token-target-field`} className="automation-field automation-field--full automation-field--inline-label">
+            <span id={`${idPrefix}-tool-token-target-label`} className="automation-field__label">Token target field</span>
+            <select
+              id={`${idPrefix}-tool-token-target-input`}
+              className="automation-native-select"
+              value={activeTokenFieldKey}
+              onChange={(event) => setActiveTokenFieldKey(event.target.value)}
+            >
+              {insertableFields.map((fieldKey) => (
+                <option key={fieldKey} value={fieldKey}>{fieldKey}</option>
+              ))}
+            </select>
+          </label>
+          <TokenPicker
+            idPrefix={`${idPrefix}-tool`}
+            tokens={dataFlowTokens}
+            description="Pick a target tool field, then insert a workflow token."
+            onInsert={insertToken}
+          />
+        </>
       ) : null}
     </>
   );

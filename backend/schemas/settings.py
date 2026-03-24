@@ -34,7 +34,6 @@ class SecuritySettings(BaseModel):
 class DataSettings(BaseModel):
     payload_redaction: bool
     export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
-    audit_retention_days: Literal[30, 90, 365]
 
 
 class AutomationSettings(BaseModel):

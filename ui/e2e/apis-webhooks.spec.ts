@@ -13,7 +13,9 @@ test("webhook registry creates records and copies callback metadata", async ({ p
   await page.locator("#apis-webhooks-list-copy-callback-webhook-orders").click();
   await expect(await readClipboardTracker(page)).toContain("/publisher/orders");
 
-  await page.locator("#apis-webhooks-create-button").click();
+  await page.locator("#apis-create-button").click();
+  await expect(page.locator("#apis-create-type-modal")).toHaveClass(/modal--open/);
+  await page.locator("#apis-create-type-option-webhook").click();
   await expect(page.locator("#apis-create-modal-title")).toHaveText("New Webhook");
 
   await page.locator("#create-api-name-input").fill("Shipment Webhook");

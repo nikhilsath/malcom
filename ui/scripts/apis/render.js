@@ -552,7 +552,7 @@ export const createApiRenderer = ({ elements, state, actions }) => {
     elements.overviewTotalCount.textContent = `${totalCount} configured APIs`;
     elements.overviewHelper.textContent = totalCount > 0
       ? "Across all configured API registries."
-      : "Create an API to add it to the registry.";
+      : "Open a registry page to create your first API.";
     elements.overviewScheduledActiveCount.textContent = String(activeScheduledCalls);
     elements.overviewCallsPerHour.textContent = formatRate(callsPerHour);
     elements.overviewCallsPerDay.textContent = formatRate(callsPerDay);

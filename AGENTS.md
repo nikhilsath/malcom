@@ -40,10 +40,11 @@ This file is the operating manual for future agent changes.
 
 1. Execute work in small, testable steps.
 2. Validate each step before moving to the next.
-3. Log intermediate outcomes when a task has multiple stages.
-4. Include testing instructions whenever code or behavior changes.
-5. Match existing repo structure before introducing a new pattern.
-6. Prefer extending the current source of truth over creating a second one.
+3. Build or update the smallest relevant automated tests in the same change as behavior changes.
+4. Log intermediate outcomes when a task has multiple stages.
+5. Include testing instructions whenever code or behavior changes.
+6. Match existing repo structure before introducing a new pattern.
+7. Prefer extending the current source of truth over creating a second one.
 
 ### GitHub Update Workflow {#github-update-workflow}
 
@@ -130,8 +131,10 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or collapse states that leave empty layout space |
 | Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | shared modal utilities/patterns, `ui/styles/pages/**`, related tests | auto-open detail panes on load or permanent empty inline detail columns |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
+| Implement or change behavior | feature source files + matching tests (`tests/`, `ui/src/**`, `ui/e2e/`) | `scripts/test-precommit.sh`, `scripts/test-full.sh` | shipping behavior changes without updating relevant automated tests |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry/`, `tests/test_api_smoke_matrix.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `ui/e2e/`, `ui/e2e/README.md`, `README.md` | `ui/dist/**` |
+| Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `scripts/test-full.sh`, `backend/data/logs/`, `ui/e2e/README.md`, `README.md` | skipping infra diagnosis and reporting blockers as unresolved without checking active listeners/processes |
 | Update agent response policy or instruction-following rules | `AGENTS.md` | `Required Output For Development Work`, `Response Scope And Instruction Fidelity`, `Rules Matrix`, machine index block | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
@@ -161,10 +164,12 @@ Use this section as the first lookup for task routing. It accelerates file targe
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 | R-TEST-005 | Any user-visible UI workflow change must add or update Playwright coverage in `ui/e2e/` unless the change is strictly non-behavioral | Frontend and browser workflow changes |
 | R-TEST-006 | Playwright coverage must assert the changed workflow behavior, not only route load or static render | Playwright authoring and UI changes |
+| R-TEST-007 | For startup, server-launch, or Playwright execution failures, verify what is already running by checking active listeners/processes on expected ports before treating the failure as unresolved | Failure recovery and test infrastructure troubleshooting |
+| R-TEST-008 | Behavior-changing implementation work must add or update relevant automated tests in the same change unless the change is strictly non-behavioral | All implementation workflows |
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 12,
+  "version": 14,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -185,7 +190,8 @@ Use this section as the first lookup for task routing. It accelerates file targe
     "ui_selection_detail_modals": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/scripts/navigation.js"],
     "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "ui/e2e/", "ui/e2e/README.md"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
-    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/", "ui/e2e/README.md"]
+    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/", "ui/e2e/README.md"],
+    "startup_diagnostics": ["scripts/dev.py", "scripts/run_playwright_server.sh", "ui/playwright.config.ts", "backend/data/logs/"]
   },
   "task_routes": {
     "db_schema_change": {
@@ -234,6 +240,16 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
+    "implementation_behavior_change": {
+      "edit": ["feature source files", "matching backend tests in tests/", "matching frontend unit tests in ui/src/**", "matching browser workflow tests in ui/e2e/ when user-visible"],
+      "check": ["scripts/test-precommit.sh", "scripts/test-full.sh"],
+      "verify": ["new_or_updated_tests_fail_before_fix_when_practical", "new_or_updated_tests_pass_after_fix", "no_behavior_change_ships_without_relevant_test_updates"]
+    },
+    "startup_or_playwright_blocker": {
+      "edit": ["scripts/dev.py", "scripts/run_playwright_server.sh", "ui/playwright.config.ts", "scripts/test-full.sh", "ui/e2e/README.md"],
+      "check": ["backend/data/logs/", "README.md"],
+      "verify": ["active_listener_check", "port_preflight", "retry_same_playwright_command"]
+    },
     "response_policy_update": {
       "edit": ["AGENTS.md"],
       "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#rules-matrix", "MACHINE_INDEX_START"],
@@ -251,6 +267,7 @@ Use this section as the first lookup for task routing. It accelerates file targe
       "expected_behavior",
       "verification_steps"
     ],
+    "test_creation_policy": "For behavior-changing implementation tasks, add or update relevant automated tests in the same change unless strictly non-behavioral.",
     "general_rule": "For non-implementation requests, respond with only the directly requested content unless the user asks for more detail."
   }
 }
@@ -867,6 +884,10 @@ If a generated file is expected to change, regenerate it from its source workflo
 
 Every meaningful code change should include the smallest relevant verification set.
 
+Build tests as implementation progresses rather than deferring all coverage to a follow-up task.
+
+Behavior-changing work is incomplete unless relevant automated tests are added or updated in the same change, except for strictly non-behavioral edits.
+
 User-visible workflow changes are not complete until `./scripts/test-full.sh` succeeds or the agent explicitly reports that full verification could not be completed.
 
 ### Backend {#testing-backend}
@@ -885,6 +906,19 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 - run `npm run test:e2e` in `ui/` for browser workflow coverage when validating the full gate
 - ensure Playwright assertions cover the changed workflow behavior, not only route load or static render
 - manually verify the served page route if HTML/script wiring changed
+
+### Startup And Port Conflict Triage {#startup-and-port-conflict-triage}
+
+When startup, test server launch, or Playwright execution fails, confirm what is already running before declaring a blocker unresolved.
+
+Required triage steps:
+
+1. check active listeners/processes on expected ports (for example app, Vite, or Playwright web server ports)
+2. inspect `backend/data/logs/` for startup/runtime failures that accompany listener conflicts or partial startup
+3. report the specific conflicting process or listener in the task output
+4. remediate the conflict and rerun the same failing command to confirm recovery
+
+Do not stop at a generic startup timeout message when listener/process diagnostics are available.
 
 ### Test Retirement {#test-retirement}
 
@@ -915,6 +949,7 @@ Do:
 - keep page entrypoints matched to page paths
 - keep shared shell config centralized
 - place tests beside the backend feature area they cover or under the React feature they cover
+- add or update relevant automated tests in the same change when behavior changes
 - prefer additive schema evolution over one-off DB edits
 
 Do not:

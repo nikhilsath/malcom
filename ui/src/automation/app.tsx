@@ -26,12 +26,14 @@ import type {
   ScriptLibraryItem,
   HttpPreset
 } from "./types";
-import { stepTypeOptions, triggerTypeOptions, cloneStepTemplate, createDraftStepId, getDefaultStepName } from "./types";
+import { stepTypeOptions, triggerTypeOptions, createDraftStepId, getDefaultStepName } from "./types";
 import { AddStepModal } from "./add-step-modal";
+import { buildDataFlowTokens } from "./data-flow";
 import { LogStepForm } from "./step-modals/log-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
 import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step-form";
 import { ScriptStepForm } from "./step-modals/script-step-form";
+import { TokenPicker } from "./token-picker";
 import { ToolStepFields } from "./tool-step-fields";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 import { CollapsibleSection } from "../lib/collapsible-section";
@@ -150,6 +152,7 @@ type TestRunResultState = {
 };
 
 type TestResultState = ValidationResultState | TestRunResultState | null;
+type BuilderMode = "guided" | "canvas";
 
 const CANVAS_X = 240;
 const TRIGGER_Y = 44;
@@ -516,9 +519,46 @@ const getNodeMenuLabel = (nodeId: string, steps: AutomationStep[]) => {
   return step?.name || "Step";
 };
 
+const appendToken = (value: string, token: string) => {
+  if (!value) {
+    return token;
+  }
+  if (value.endsWith(" ") || value.endsWith("\n")) {
+    return `${value}${token}`;
+  }
+  return `${value} ${token}`;
+};
+
+const isTriggerConfigured = (automation: AutomationDetail) => {
+  if (automation.trigger_type === "schedule") {
+    return Boolean(automation.trigger_config.schedule_time);
+  }
+  if (automation.trigger_type === "inbound_api") {
+    return Boolean(automation.trigger_config.inbound_api_id);
+  }
+  return true;
+};
+
+const inferBuilderModeFromSearch = (search: string): BuilderMode => {
+  const params = new URLSearchParams(search);
+  const explicitMode = params.get("mode");
+  if (explicitMode === "guided" || explicitMode === "canvas") {
+    return explicitMode;
+  }
+  return params.get("new") === "true" ? "guided" : "canvas";
+};
+
+const getInitialBuilderMode = (): BuilderMode => {
+  if (typeof window === "undefined") {
+    return "canvas";
+  }
+  return inferBuilderModeFromSearch(window.location.search);
+};
+
 export const AutomationApp = () => {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
+  const [builderMode, setBuilderMode] = useState<BuilderMode>(getInitialBuilderMode);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [httpPresets, setHttpPresets] = useState<HttpPreset[]>([]);
@@ -559,6 +599,41 @@ export const AutomationApp = () => {
   const drawerStep = editorDrawer?.kind === "step"
     ? currentAutomation.steps.find((step) => step.id === editorDrawer.stepId) || null
     : null;
+  const toolsManifest = window.TOOLS_MANIFEST || [];
+  const hasName = Boolean(currentAutomation.name.trim());
+  const triggerReady = isTriggerConfigured(currentAutomation) && !isInboundApiSelectionMissing(currentAutomation, inboundApis);
+  const hasAtLeastOneStep = currentAutomation.steps.length > 0;
+  const hasPersistedDraft = Boolean(currentAutomation.id);
+
+  const guidedNextAction = useMemo(() => {
+    if (!hasName) {
+      return "Name your automation so it can be saved and found later.";
+    }
+    if (!triggerReady) {
+      return "Configure the trigger so the workflow knows when to run.";
+    }
+    if (!hasAtLeastOneStep) {
+      return "Add your first action step to start the workflow.";
+    }
+    if (!hasPersistedDraft) {
+      return "Save once to create a persistent draft, then run validation.";
+    }
+    return "Validate and run a test execution to confirm behavior before enabling it.";
+  }, [hasAtLeastOneStep, hasName, hasPersistedDraft, triggerReady]);
+
+  const drawerDataFlowTokens = useMemo(
+    () => buildDataFlowTokens(currentAutomation.steps, drawerStep?.id || null, toolsManifest, activityCatalog),
+    [currentAutomation.steps, drawerStep?.id, toolsManifest, activityCatalog]
+  );
+  const addStepDataFlowTokens = useMemo(
+    () => buildDataFlowTokens(currentAutomation.steps.slice(0, pendingInsertIndex), null, toolsManifest, activityCatalog),
+    [currentAutomation.steps, pendingInsertIndex, toolsManifest, activityCatalog]
+  );
+
+  const openAddStepFlow = (index: number) => {
+    setPendingInsertIndex(index);
+    setAddStepModalOpen(true);
+  };
 
   const openNodeMenu = (nodeId: string, anchor: DOMRect | { x: number; y: number }) => {
     const x = anchor instanceof DOMRect ? anchor.right + 8 : anchor.x;
@@ -674,6 +749,56 @@ export const AutomationApp = () => {
     setHttpPresets(presetItems);
   };
 
+  const updateBuilderUrl = ({
+    automationId,
+    useNewDraft,
+    mode
+  }: {
+    automationId?: string;
+    useNewDraft: boolean;
+    mode: BuilderMode;
+  }) => {
+    const params = new URLSearchParams();
+    if (automationId) {
+      params.set("id", automationId);
+    } else if (useNewDraft) {
+      params.set("new", "true");
+    }
+    params.set("mode", mode);
+    window.history.replaceState({}, "", `builder.html?${params.toString()}`);
+  };
+
+  const syncModeOnlyInUrl = (mode: BuilderMode) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", mode);
+    if (!params.get("id") && params.get("new") !== "true") {
+      params.set("new", "true");
+    }
+    window.history.replaceState({}, "", `builder.html?${params.toString()}`);
+  };
+
+  const switchBuilderMode = (mode: BuilderMode) => {
+    setBuilderMode(mode);
+    syncModeOnlyInUrl(mode);
+  };
+
+  const navigateToWorkflowMetadata = () => {
+    const workflowBar = document.getElementById("automations-workflow-bar");
+    const workflowBarBody = document.getElementById("automations-workflow-bar-body");
+    const workflowBarToggle = document.getElementById("automations-workflow-bar-collapse-toggle") as HTMLButtonElement | null;
+    const nameInput = document.getElementById("automations-workflow-name-input") as HTMLInputElement | null;
+
+    if (workflowBarBody?.hasAttribute("hidden") && workflowBarToggle) {
+      workflowBarToggle.click();
+    }
+
+    workflowBar?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      nameInput?.focus();
+      nameInput?.select();
+    }, 180);
+  };
+
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
     startTransition(() => {
       setCurrentAutomation(emptyDetail());
@@ -685,7 +810,7 @@ export const AutomationApp = () => {
       setTestResults(null);
     });
     if (updateUrl) {
-      window.history.replaceState({}, "", "builder.html?new=true");
+      updateBuilderUrl({ useNewDraft: true, mode: builderMode });
     }
     setFeedback("");
     setFeedbackTone("");
@@ -713,13 +838,20 @@ export const AutomationApp = () => {
       return;
     }
     await selectAutomation(targetId);
-    window.history.replaceState({}, "", `builder.html?id=${targetId}`);
+    updateBuilderUrl({ automationId: targetId, useNewDraft: false, mode: builderMode });
   };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlId = params.get("id") ?? undefined;
     const isNewDraft = params.get("new") === "true";
+    const urlMode = inferBuilderModeFromSearch(window.location.search);
+    setBuilderMode(urlMode);
+    if (params.get("mode") !== urlMode) {
+      const normalized = new URLSearchParams(params);
+      normalized.set("mode", urlMode);
+      window.history.replaceState({}, "", `builder.html?${normalized.toString()}`);
+    }
 
     Promise.all([
       loadBuilderSupportData(),
@@ -787,7 +919,7 @@ export const AutomationApp = () => {
 
     setFeedback(currentAutomation.id ? "Automation updated." : "Automation created.");
     setFeedbackTone("success");
-    window.history.replaceState({}, "", `builder.html?id=${response.id}`);
+    updateBuilderUrl({ automationId: response.id, useNewDraft: false, mode: builderMode });
     await loadAutomations(response.id);
   };
 
@@ -875,8 +1007,7 @@ export const AutomationApp = () => {
           insertionIndex: index,
           empty: false,
           onInsert: (insertIndex) => {
-            setPendingInsertIndex(insertIndex);
-            setAddStepModalOpen(true);
+            openAddStepFlow(insertIndex);
           }
         }
       });
@@ -912,8 +1043,7 @@ export const AutomationApp = () => {
         insertionIndex: currentAutomation.steps.length,
         empty: currentAutomation.steps.length === 0,
         onInsert: (insertIndex) => {
-          setPendingInsertIndex(insertIndex);
-          setAddStepModalOpen(true);
+          openAddStepFlow(insertIndex);
         }
       }
     });
@@ -977,23 +1107,7 @@ export const AutomationApp = () => {
     const customLabelValue = step.name === getDefaultStepName(step.type) ? "" : step.name;
 
     return (
-      <div id="automations-step-drawer-form" className="automation-form">
-        <div id="automations-step-type-field" className="automation-field automation-field--full">
-          <span id="automations-step-type-label" className="automation-field__label">Step type</span>
-          <FlowSelect
-            rootId="automations-step-type-input"
-            labelId="automations-step-type-label"
-            value={step.type}
-            placeholder="Choose a step type"
-            options={stepTypeOptions}
-            onValueChange={(nextValue) => updateDrawerStep(() => ({
-              ...cloneStepTemplate(nextValue),
-              id: step.id,
-              name: getDefaultStepName(nextValue)
-            }))}
-          />
-        </div>
-
+      <div id="automations-step-modal-form" className="automation-form">
         {step.type === "log" ? (
           <LogStepForm
             draft={step}
@@ -1006,6 +1120,7 @@ export const AutomationApp = () => {
             draft={step}
             connectors={connectors}
             httpPresets={httpPresets}
+            dataFlowTokens={drawerDataFlowTokens}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step-http"
           />
@@ -1025,6 +1140,7 @@ export const AutomationApp = () => {
           <ScriptStepForm
             draft={step}
             scripts={scripts}
+            dataFlowTokens={drawerDataFlowTokens}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step"
           />
@@ -1034,7 +1150,8 @@ export const AutomationApp = () => {
           <ToolStepFields
             idPrefix="automations-step"
             step={step}
-            toolsManifest={window.TOOLS_MANIFEST || []}
+            toolsManifest={toolsManifest}
+            dataFlowTokens={drawerDataFlowTokens}
             onChange={(updatedStep) => updateDrawerStep(() => updatedStep)}
           />
         ) : null}
@@ -1051,6 +1168,17 @@ export const AutomationApp = () => {
                 onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, expression: event.target.value } }))}
               />
             </label>
+            {drawerDataFlowTokens.length > 0 ? (
+              <TokenPicker
+                idPrefix="automations-step-condition"
+                tokens={drawerDataFlowTokens}
+                description="Insert data references into condition expressions."
+                onInsert={(token) => updateDrawerStep((currentStep) => ({
+                  ...currentStep,
+                  config: { ...currentStep.config, expression: appendToken(currentStep.config.expression || "", token) }
+                }))}
+              />
+            ) : null}
             <div id="automations-step-condition-stop-field" className="automation-switch-field">
               <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
                 <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
@@ -1131,6 +1259,17 @@ export const AutomationApp = () => {
                 onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, user_prompt: event.target.value } }))}
               />
             </label>
+            {drawerDataFlowTokens.length > 0 ? (
+              <TokenPicker
+                idPrefix="automations-step-llm"
+                tokens={drawerDataFlowTokens}
+                description="Insert workflow output tokens into prompts."
+                onInsert={(token) => updateDrawerStep((currentStep) => ({
+                  ...currentStep,
+                  config: { ...currentStep.config, user_prompt: appendToken(currentStep.config.user_prompt || "", token) }
+                }))}
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -1261,6 +1400,129 @@ export const AutomationApp = () => {
         {feedback}
       </div>
 
+      <section id="automations-builder-mode-bar" className="automation-builder-mode-bar" aria-label="Builder mode selector">
+        <div id="automations-builder-mode-copy" className="automation-panel__copy">
+          <p id="automations-builder-mode-eyebrow" className="automation-panel__eyebrow">Build mode</p>
+          <h3 id="automations-builder-mode-title" className="automation-panel__title">
+            {builderMode === "guided" ? "Guided Mode" : "Canvas Mode"}
+          </h3>
+          <p id="automations-builder-mode-description" className="automation-panel__description">
+            {builderMode === "guided"
+              ? "Follow a focused sequence for trigger setup, first actions, and validation."
+              : "Use freeform canvas editing with direct node operations and branch controls."}
+          </p>
+        </div>
+        <div id="automations-builder-mode-actions" className="automation-mode-toggle" role="group" aria-label="Builder mode">
+          <button
+            id="automations-builder-mode-guided"
+            type="button"
+            className={`automation-mode-toggle__button${builderMode === "guided" ? " automation-mode-toggle__button--active" : ""}`}
+            aria-pressed={builderMode === "guided"}
+            onClick={() => switchBuilderMode("guided")}
+          >
+            Guided
+          </button>
+          <button
+            id="automations-builder-mode-canvas"
+            type="button"
+            className={`automation-mode-toggle__button${builderMode === "canvas" ? " automation-mode-toggle__button--active" : ""}`}
+            aria-pressed={builderMode === "canvas"}
+            onClick={() => switchBuilderMode("canvas")}
+          >
+            Canvas
+          </button>
+        </div>
+      </section>
+
+      {builderMode === "guided" ? (
+        <section id="automations-guided-panel" className="automation-panel automation-guided-panel" aria-label="Guided workflow setup">
+          <div id="automations-guided-panel-header" className="automation-panel__header automation-panel__header--compact">
+            <div id="automations-guided-panel-copy" className="automation-panel__copy">
+              <p id="automations-guided-panel-eyebrow" className="automation-panel__eyebrow">Guided checklist</p>
+              <h3 id="automations-guided-panel-title" className="automation-panel__title">Build your first successful run</h3>
+              <p id="automations-guided-panel-description" className="automation-panel__description">{guidedNextAction}</p>
+            </div>
+          </div>
+
+          <div id="automations-guided-checklist" className="automation-guided-checklist">
+            <article id="automations-guided-item-name" className="automation-guided-item">
+              <span id="automations-guided-item-name-state" className={`automation-guided-item__state${hasName ? " automation-guided-item__state--done" : ""}`}>
+                {hasName ? "Done" : "Pending"}
+              </span>
+              <div id="automations-guided-item-name-copy" className="automation-guided-item__copy">
+                <h4 id="automations-guided-item-name-title" className="automation-guided-item__title">Name and describe automation</h4>
+                <p id="automations-guided-item-name-description" className="automation-guided-item__description">Set a clear name and short purpose in the settings bar.</p>
+              </div>
+              <button
+                id="automations-guided-item-name-action"
+                type="button"
+                className="button button--secondary"
+                onClick={navigateToWorkflowMetadata}
+              >
+                Edit metadata
+              </button>
+            </article>
+
+            <article id="automations-guided-item-trigger" className="automation-guided-item">
+              <span id="automations-guided-item-trigger-state" className={`automation-guided-item__state${triggerReady ? " automation-guided-item__state--done" : ""}`}>
+                {triggerReady ? "Done" : "Pending"}
+              </span>
+              <div id="automations-guided-item-trigger-copy" className="automation-guided-item__copy">
+                <h4 id="automations-guided-item-trigger-title" className="automation-guided-item__title">Configure trigger</h4>
+                <p id="automations-guided-item-trigger-description" className="automation-guided-item__description">Open trigger settings and define when this automation starts.</p>
+              </div>
+              <button
+                id="automations-guided-item-trigger-action"
+                type="button"
+                className="button button--secondary"
+                onClick={() => openEditorForNode("trigger-node")}
+              >
+                Edit trigger
+              </button>
+            </article>
+
+            <article id="automations-guided-item-step" className="automation-guided-item">
+              <span id="automations-guided-item-step-state" className={`automation-guided-item__state${hasAtLeastOneStep ? " automation-guided-item__state--done" : ""}`}>
+                {hasAtLeastOneStep ? "Done" : "Pending"}
+              </span>
+              <div id="automations-guided-item-step-copy" className="automation-guided-item__copy">
+                <h4 id="automations-guided-item-step-title" className="automation-guided-item__title">Add workflow actions</h4>
+                <p id="automations-guided-item-step-description" className="automation-guided-item__description">Start with one action, then expand and branch in Canvas Mode when needed.</p>
+              </div>
+              <button
+                id="automations-guided-item-step-action"
+                type="button"
+                className="button button--secondary"
+                onClick={() => openAddStepFlow(currentAutomation.steps.length)}
+              >
+                Add step
+              </button>
+            </article>
+
+            <article id="automations-guided-item-save" className="automation-guided-item">
+              <span id="automations-guided-item-save-state" className={`automation-guided-item__state${hasPersistedDraft ? " automation-guided-item__state--done" : ""}`}>
+                {hasPersistedDraft ? "Done" : "Pending"}
+              </span>
+              <div id="automations-guided-item-save-copy" className="automation-guided-item__copy">
+                <h4 id="automations-guided-item-save-title" className="automation-guided-item__title">Save, validate, and test</h4>
+                <p id="automations-guided-item-save-description" className="automation-guided-item__description">Persist your draft, check validation, then run a test execution.</p>
+              </div>
+              <div id="automations-guided-item-save-actions" className="automation-inline-actions">
+                <button id="automations-guided-save-button" type="button" className="button button--secondary" onClick={() => saveAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                  Save draft
+                </button>
+                <button id="automations-guided-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                  Validate
+                </button>
+                <button id="automations-guided-run-button" type="button" className="button button--secondary" disabled={!currentAutomation.id} onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
+                  Test run
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       <section id="automations-canvas-panel" className="automation-panel automation-panel--canvas automation-panel--canvas-full">
         <div id="automations-canvas-header" className="automation-panel__header automation-panel__header--canvas">
           <div id="automations-canvas-copy" className="automation-panel__copy">
@@ -1269,7 +1531,11 @@ export const AutomationApp = () => {
               <h3 id="automations-canvas-title" className="automation-panel__title">Automation canvas</h3>
               <button type="button" id="automations-canvas-description-badge" className="info-badge" aria-label="More information" aria-expanded="false" aria-controls="automations-canvas-description">i</button>
             </div>
-            <p id="automations-canvas-description" className="automation-panel__description" hidden>Select a node, drag steps to reorder them, and use node actions to edit.</p>
+            <p id="automations-canvas-description" className="automation-panel__description" hidden>
+              {builderMode === "guided"
+                ? "Use the guided checklist above and switch here for direct visual editing."
+                : "Select a node, drag steps to reorder them, and use node actions to edit."}
+            </p>
           </div>
           <div id="automations-canvas-chips" className="automation-canvas-chips">
             <div id="automations-canvas-selection-chip" className="automation-selection-chip" hidden={!selectedNodeId}>
@@ -1400,8 +1666,7 @@ export const AutomationApp = () => {
               const insertionIndex = nodeMenu.nodeId === "trigger-node"
                 ? 0
                 : currentAutomation.steps.findIndex((step) => `step-node-${step.id}` === nodeMenu.nodeId) + 1;
-              setPendingInsertIndex(Math.max(0, insertionIndex));
-              setAddStepModalOpen(true);
+              openAddStepFlow(Math.max(0, insertionIndex));
               closeNodeMenu();
             }}
           >
@@ -1425,37 +1690,34 @@ export const AutomationApp = () => {
 
       <Dialog.Root open={editorDrawer !== null} onOpenChange={(open) => { if (!open) closeEditorDrawer(); }}>
         <Dialog.Portal>
-          <Dialog.Backdrop id="automations-editor-drawer-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
+          <Dialog.Backdrop id="automations-editor-modal-backdrop" className="automation-dialog-backdrop" />
           <Dialog.Popup
-            id="automations-editor-drawer"
-            className="automation-side-drawer automation-side-drawer--editor"
-            aria-labelledby="automations-editor-drawer-title"
-            aria-describedby="automations-editor-drawer-description"
+            id="automations-editor-modal"
+            className="automation-dialog automation-dialog--edit"
+            aria-labelledby="automations-editor-modal-title"
+            aria-describedby="automations-editor-modal-description"
           >
-            <div id="automations-editor-drawer-header" className="automation-side-drawer__header">
-              <div id="automations-editor-drawer-copy" className="automation-panel__copy">
-                <Dialog.Title id="automations-editor-drawer-title" className="automation-dialog__title">
-                  {editorDrawer?.kind === "trigger" ? "Edit trigger" : drawerStep?.name || "Edit step"}
-                </Dialog.Title>
-                <Dialog.Description id="automations-editor-drawer-description" className="automation-dialog__description">
-                  {editorDrawer?.kind === "trigger"
-                    ? "Configure when the automation runs. Automation naming stays separate in the builder header."
-                    : "Adjust the selected step. Essential fields come first, with optional custom labeling under Advanced."}
-                </Dialog.Description>
-              </div>
+            <div id="automations-editor-modal-dismiss-row" className="automation-dialog__dismiss-row">
               <Dialog.Close
-                id="automations-editor-drawer-close"
-                className="modal__close-icon-button automation-side-drawer__close"
-                aria-label="Close editor drawer"
+                id="automations-editor-modal-close"
+                className="modal__close-icon-button automation-dialog__close-button"
+                aria-label="Close editor"
               >
                 ×
               </Dialog.Close>
             </div>
-
-            <div id="automations-editor-drawer-body" className="automation-side-drawer__body">
+            <Dialog.Title id="automations-editor-modal-title" className="automation-dialog__title">
+              {editorDrawer?.kind === "trigger" ? "Edit trigger" : drawerStep?.name || "Edit step"}
+            </Dialog.Title>
+            <Dialog.Description id="automations-editor-modal-description" className="automation-dialog__description">
+              {editorDrawer?.kind === "trigger"
+                ? "Configure when the automation runs. Automation naming stays separate in the builder header."
+                : "Adjust the step configuration. To change the step type, remove this step and add a new one."}
+            </Dialog.Description>
+            <div id="automations-editor-modal-body" className="automation-dialog--edit__body">
               {editorDrawer?.kind === "trigger" ? (
                 <TriggerSettingsForm
-                  idPrefix="automations-trigger-drawer"
+                  idPrefix="automations-trigger-modal"
                   value={currentAutomation}
                   onPatch={patchAutomation}
                   showWorkflowFields={false}
@@ -1465,40 +1727,45 @@ export const AutomationApp = () => {
                 />
               ) : drawerStep ? renderStepEditor(drawerStep) : null}
             </div>
+            <div id="automations-editor-modal-actions" className="automation-dialog__actions">
+              <Dialog.Close
+                id="automations-editor-modal-done"
+                className="button button--primary"
+              >
+                Done
+              </Dialog.Close>
+            </div>
           </Dialog.Popup>
         </Dialog.Portal>
       </Dialog.Root>
 
       <Dialog.Root open={testResults !== null} onOpenChange={(open) => { if (!open) setTestResults(null); }}>
         <Dialog.Portal>
-          <Dialog.Backdrop id="automations-test-results-backdrop" className="automation-dialog-backdrop automation-dialog-backdrop--drawer" />
+          <Dialog.Backdrop id="automations-test-results-modal-backdrop" className="automation-dialog-backdrop" />
           <Dialog.Popup
-            id="automations-test-results-drawer"
-            className="automation-side-drawer automation-side-drawer--results"
+            id="automations-test-results-modal"
+            className="automation-dialog automation-dialog--results"
             aria-labelledby="automations-test-results-title"
             aria-describedby="automations-test-results-description"
           >
-            <div id="automations-test-results-header" className="automation-side-drawer__header">
-              <div id="automations-test-results-copy" className="automation-panel__copy">
-                <Dialog.Title id="automations-test-results-title" className="automation-dialog__title">
-                  {testResults?.kind === "validation" ? "Validation results" : "Test run results"}
-                </Dialog.Title>
-                <Dialog.Description id="automations-test-results-description" className="automation-dialog__description">
-                  {testResults?.kind === "validation"
-                    ? "Validation only appears when you test the draft."
-                    : "Execution output is shown on demand so the builder can stay focused on composition."}
-                </Dialog.Description>
-              </div>
+            <div id="automations-test-results-dismiss-row" className="automation-dialog__dismiss-row">
               <Dialog.Close
                 id="automations-test-results-close"
-                className="modal__close-icon-button automation-side-drawer__close"
-                aria-label="Close test results drawer"
+                className="modal__close-icon-button automation-dialog__close-button"
+                aria-label="Close test results"
               >
                 ×
               </Dialog.Close>
             </div>
-
-            <div id="automations-test-results-body" className="automation-side-drawer__body automation-side-drawer__body--results">
+            <Dialog.Title id="automations-test-results-title" className="automation-dialog__title">
+              {testResults?.kind === "validation" ? "Validation results" : "Test run results"}
+            </Dialog.Title>
+            <Dialog.Description id="automations-test-results-description" className="automation-dialog__description">
+              {testResults?.kind === "validation"
+                ? "Validation only appears when you test the draft."
+                : "Execution output is shown on demand so the builder can stay focused on composition."}
+            </Dialog.Description>
+            <div id="automations-test-results-body" className="automation-dialog--results__body">
               {testResults?.kind === "validation" ? (
                 <div id="automations-validation-results" className="automation-results-panel">
                   <div id="automations-validation-summary" className={`automation-results-banner automation-results-banner--${testResults.valid ? "success" : "error"}`}>
@@ -1588,8 +1855,9 @@ export const AutomationApp = () => {
         connectors={connectors}
         httpPresets={httpPresets}
         activityCatalog={activityCatalog}
-        toolsManifest={window.TOOLS_MANIFEST || []}
+        toolsManifest={toolsManifest}
         scripts={scripts}
+        dataFlowTokens={addStepDataFlowTokens}
       />
 
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

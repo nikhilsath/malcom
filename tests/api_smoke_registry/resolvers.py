@@ -75,3 +75,12 @@ def refresh_setup(context: SmokeContext) -> dict[str, Any]:
         params={"state": state["state"], "code": "demo"},
     ).json()
     return {"callback": callback}
+
+
+def revoke_setup(context: SmokeContext) -> dict[str, Any]:
+    state = start_google_oauth(context)
+    callback = context.client.get(
+        "/api/v1/connectors/google/oauth/callback",
+        params={"state": state["state"], "code": "demo"},
+    ).json()
+    return {"callback": callback}

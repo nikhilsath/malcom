@@ -34,41 +34,6 @@
 
                 <div id="api-system-alert" class="api-system-alert" hidden></div>
 
-                <section id="apis-overview-actions-panel" class="api-overview-actions-panel">
-                    <div id="apis-overview-actions-header" class="api-panel-header">
-                        <div id="apis-overview-actions-copy" class="api-panel-header-copy">
-                            <p id="apis-overview-actions-eyebrow" class="api-panel-eyebrow">Create and Route</p>
-                            <div id="apis-overview-actions-title-row" class="api-panel-title-row">
-                                <h4 id="apis-overview-actions-title" class="api-panel-title">Start with the right API surface</h4>
-                                <button type="button" id="apis-overview-actions-tooltip-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="apis-overview-actions-tooltip">i</button>
-                            </div>
-                        </div>
-                    </div>
-                    <p id="apis-overview-actions-tooltip" class="section-header__description" hidden>Choose a type to open the matching create form.</p>
-                    <div id="apis-overview-action-grid" class="api-entry-grid">
-                        <button type="button" id="apis-overview-create-incoming" class="api-entry-card" data-create-api-type="incoming">
-                            <span id="apis-overview-create-incoming-title" class="api-entry-card__title">Incoming endpoint</span>
-                            <span id="apis-overview-create-incoming-description" class="api-entry-card__description">Create an inbound endpoint.</span>
-                        </button>
-                        <button type="button" id="apis-overview-create-outgoing-scheduled" class="api-entry-card" data-create-api-type="outgoing_scheduled">
-                            <span id="apis-overview-create-outgoing-scheduled-title" class="api-entry-card__title">Scheduled delivery</span>
-                            <span id="apis-overview-create-outgoing-scheduled-description" class="api-entry-card__description">Send payloads on a daily schedule.</span>
-                        </button>
-                        <button type="button" id="apis-overview-create-outgoing-continuous" class="api-entry-card" data-create-api-type="outgoing_continuous">
-                            <span id="apis-overview-create-outgoing-continuous-title" class="api-entry-card__title">Continuous delivery</span>
-                            <span id="apis-overview-create-outgoing-continuous-description" class="api-entry-card__description">Send payloads on a repeat interval.</span>
-                        </button>
-                        <button type="button" id="apis-overview-create-from-connector" class="api-entry-card" data-create-api-type="outgoing_scheduled" data-create-from-connector="true">
-                            <span id="apis-overview-create-from-connector-title" class="api-entry-card__title">Create from connector</span>
-                            <span id="apis-overview-create-from-connector-description" class="api-entry-card__description">Start from a saved connector.</span>
-                        </button>
-                        <button type="button" id="apis-overview-create-webhook" class="api-entry-card" data-create-api-type="webhook">
-                            <span id="apis-overview-create-webhook-title" class="api-entry-card__title">Webhook definition</span>
-                            <span id="apis-overview-create-webhook-description" class="api-entry-card__description">Store webhook verification settings.</span>
-                        </button>
-                    </div>
-                </section>
-
                 <div id="apis-overview-summary-grid" class="api-summary-grid">
                     <article id="apis-overview-summary-scheduled-active" class="stat-card api-summary-card">
                         <div id="apis-overview-summary-scheduled-active-header" class="api-summary-card__header">
@@ -163,20 +128,6 @@
             </section>
         </div>
     </main>
-
-    <div
-        id="apis-create-modal"
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="apis-create-modal-title"
-        aria-hidden="true"
-    >
-        <div class="modal__backdrop" id="apis-create-modal-backdrop" data-modal-close="apis-create-modal"></div>
-        <div class="modal__dialog modal__dialog--form" id="apis-create-modal-dialog">
-            <div class="modal__content" id="apis-create-modal-content"></div>
-        </div>
-    </div>
 
     <script type="module" src="../scripts/utils.js"></script>
     <script type="module" src="../scripts/log-store.js"></script>

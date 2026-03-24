@@ -279,9 +279,9 @@ export const renderModalProviders = (onSelectPreset) => {
 
   const catalog = connectorState.settings?.connectors?.catalog || [];
   connectorElements.modalProviderGrid.innerHTML = catalog.map((preset) => `
-    <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-entry-card" data-provider-id="${preset.id}">
-      <span id="settings-connectors-provider-option-title-${preset.id}" class="api-entry-card__title">${preset.name}</span>
-      <span id="settings-connectors-provider-option-description-${preset.id}" class="api-entry-card__description">${preset.id === "google" ? "Continue with Google to connect your workspace." : preset.description}</span>
+    <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-popup-option" data-provider-id="${preset.id}">
+      <span id="settings-connectors-provider-option-title-${preset.id}" class="api-popup-option__title">${preset.name}</span>
+      <span id="settings-connectors-provider-option-description-${preset.id}" class="api-popup-option__description">${preset.id === "google" ? "Continue with Google to connect your workspace." : preset.description}</span>
     </button>
   `).join("");
 

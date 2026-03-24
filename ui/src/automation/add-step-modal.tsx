@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
+import type { DataFlowToken } from "./data-flow";
 import type {
   StepType,
   AutomationStep,
@@ -27,6 +28,7 @@ type Props = {
   activityCatalog: ConnectorActivityDefinition[];
   toolsManifest: ToolManifestEntry[];
   scripts?: ScriptLibraryItem[];
+  dataFlowTokens?: DataFlowToken[];
 };
 
 export const AddStepModal = ({
@@ -37,7 +39,8 @@ export const AddStepModal = ({
   httpPresets,
   activityCatalog,
   toolsManifest,
-  scripts
+  scripts,
+  dataFlowTokens = []
 }: Props) => {
   const [pickedType, setPickedType] = useState<StepType | null>(null);
   const [draft, setDraft] = useState<AutomationStep | null>(null);
@@ -74,17 +77,17 @@ export const AddStepModal = ({
       case "log":
         return <LogStepForm draft={draft} onChange={setDraft} />;
       case "outbound_request":
-        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} onChange={setDraft} />;
+        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "connector_activity":
         return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} onChange={setDraft} />;
       case "script":
-        return <ScriptStepForm draft={draft} scripts={scripts} onChange={setDraft} />;
+        return <ScriptStepForm draft={draft} scripts={scripts} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "tool":
-        return <ToolStepForm draft={draft} toolsManifest={toolsManifest} onChange={setDraft} />;
+        return <ToolStepForm draft={draft} toolsManifest={toolsManifest} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "condition":
         return <ConditionStepForm draft={draft} onChange={setDraft} />;
       case "llm_chat":
-        return <LlmStepForm draft={draft} onChange={setDraft} />;
+        return <LlmStepForm draft={draft} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
     }
   };
 

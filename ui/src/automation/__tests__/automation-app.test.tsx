@@ -587,6 +587,29 @@ describe("AutomationApp", () => {
     expect(screen.getByText("data.guides.count")).toBeInTheDocument();
   });
 
+  it("inserts workflow tokens into HTTP payload templates", async () => {
+    renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#mock-select-step-node-step-http") as HTMLElement);
+    fireEvent.click(document.querySelector("#automation-canvas-node-step-step-http-actions-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
+
+    const tokenInput = await waitFor(() => {
+      const element = document.querySelector("#automations-step-http-payload-token-picker-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    fireEvent.change(tokenInput, { target: { value: "{{payload}}" } });
+    fireEvent.click(document.querySelector("#automations-step-http-payload-token-picker-insert") as HTMLElement);
+
+    const payloadTemplate = screen.getByLabelText("Payload template") as HTMLTextAreaElement;
+    expect(payloadTemplate.value).toContain("{{payload}}");
+  });
+
   it("supports the node context menu shortcut on desktop", async () => {
     const { container } = renderAutomationApp();
 

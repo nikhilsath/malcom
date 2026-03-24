@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { requestJson } from "../../lib/request";
+import type { DataFlowToken } from "../data-flow";
+import { TokenPicker } from "../token-picker";
 import type { AutomationStep, ScriptLibraryItem } from "../types";
 
 type Props = {
   draft: AutomationStep;
   scripts?: ScriptLibraryItem[];
+  dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
   allowCreate?: boolean;
@@ -42,6 +45,7 @@ const sortScripts = (items: ScriptLibraryItem[]) =>
 export const ScriptStepForm = ({
   draft,
   scripts,
+  dataFlowTokens = [],
   onChange,
   idPrefix = "add-step",
   allowCreate = true
@@ -55,6 +59,7 @@ export const ScriptStepForm = ({
   const [newLanguage, setNewLanguage] = useState<ScriptLanguage>("python");
   const [newSampleInput, setNewSampleInput] = useState("");
   const [newCode, setNewCode] = useState(defaultTemplates.python);
+  const scriptInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setAvailableScripts(sortScripts(scripts || []));
@@ -97,6 +102,25 @@ export const ScriptStepForm = ({
     if (!newCode.trim() || newCode === defaultTemplates.python || newCode === defaultTemplates.javascript) {
       setNewCode(defaultTemplates[value]);
     }
+  };
+
+  const insertTokenIntoScriptInput = (token: string) => {
+    const currentValue = draft.config.script_input_template || "";
+    const textarea = scriptInputRef.current;
+    if (!textarea) {
+      onChange({
+        ...draft,
+        config: { ...draft.config, script_input_template: `${currentValue}${token}` }
+      });
+      return;
+    }
+    const selectionStart = textarea.selectionStart ?? currentValue.length;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    const nextValue = `${currentValue.slice(0, selectionStart)}${token}${currentValue.slice(selectionEnd)}`;
+    onChange({
+      ...draft,
+      config: { ...draft.config, script_input_template: nextValue }
+    });
   };
 
   const handleCreateScript = async () => {
@@ -192,6 +216,7 @@ export const ScriptStepForm = ({
         <span id={`${idPrefix}-script-input-label`} className="automation-field__label">Script input</span>
         <textarea
           id={`${idPrefix}-script-input-input`}
+          ref={scriptInputRef}
           className="automation-textarea automation-textarea--code"
           aria-labelledby={`${idPrefix}-script-input-label`}
           rows={8}
@@ -223,6 +248,15 @@ export const ScriptStepForm = ({
           </button>
         ) : null}
       </label>
+
+      {dataFlowTokens.length > 0 ? (
+        <TokenPicker
+          idPrefix={`${idPrefix}-script-input`}
+          tokens={dataFlowTokens}
+          description="Insert available workflow outputs directly into script input templates."
+          onInsert={insertTokenIntoScriptInput}
+        />
+      ) : null}
 
       <Dialog.Root open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <Dialog.Portal>

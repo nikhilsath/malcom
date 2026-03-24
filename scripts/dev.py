@@ -206,6 +206,19 @@ def ensure_postgres_running() -> None:
 
 
 def start_backend() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe_socket:
+        probe_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe_socket.bind(("127.0.0.1", 8000))
+        except OSError:
+            print_status("Port 8000 is already in use. Existing listeners:")
+            if shutil.which("lsof") is not None:
+                subprocess.run(["lsof", "-nP", "-iTCP:8000", "-sTCP:LISTEN"], check=False)
+            raise SystemExit(
+                "Backend startup aborted because port 8000 is occupied. "
+                "Stop the existing process and run './malcom' again."
+            )
+
     print_status("Starting backend at http://127.0.0.1:8000")
     os.execv(
         str(VENV_PYTHON),

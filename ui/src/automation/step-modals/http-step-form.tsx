@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeRequestError, requestJson } from "../../lib/request";
+import type { DataFlowToken } from "../data-flow";
+import { TokenPicker } from "../token-picker";
 import type { AutomationStep, ConnectorRecord, HttpPreset } from "../types";
 
 type Props = {
   draft: AutomationStep;
   connectors: ConnectorRecord[];
   httpPresets: HttpPreset[];
+  dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
 };
@@ -103,10 +106,18 @@ const JsonTree = ({
   return null;
 };
 
-export const HttpStepForm = ({ draft, connectors, httpPresets, onChange, idPrefix = "add-step-http" }: Props) => {
+export const HttpStepForm = ({
+  draft,
+  connectors,
+  httpPresets,
+  dataFlowTokens = [],
+  onChange,
+  idPrefix = "add-step-http"
+}: Props) => {
   const [sampleResponse, setSampleResponse] = useState<unknown | null>(null);
   const [sampleError, setSampleError] = useState<string>("");
   const [sampleLoading, setSampleLoading] = useState(false);
+  const payloadTemplateRef = useRef<HTMLTextAreaElement | null>(null);
 
   const responseMappings = useMemo(
     () => (draft.config.response_mappings || []).map((mapping) => ({ key: mapping.key || "", path: mapping.path || "" })),
@@ -134,6 +145,20 @@ export const HttpStepForm = ({ draft, connectors, httpPresets, onChange, idPrefi
 
   const setMappings = (mappings: JsonMapping[]) => {
     updateConfig({ ...draft.config, response_mappings: mappings });
+  };
+
+  const insertTokenIntoPayloadTemplate = (token: string) => {
+    const currentValue = draft.config.payload_template || "";
+    const textarea = payloadTemplateRef.current;
+    if (!textarea) {
+      updateConfig({ ...draft.config, payload_template: `${currentValue}${token}` });
+      return;
+    }
+
+    const selectionStart = textarea.selectionStart ?? currentValue.length;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    const nextValue = `${currentValue.slice(0, selectionStart)}${token}${currentValue.slice(selectionEnd)}`;
+    updateConfig({ ...draft.config, payload_template: nextValue });
   };
 
   const handlePathSelect = (path: string) => {
@@ -280,12 +305,21 @@ export const HttpStepForm = ({ draft, connectors, httpPresets, onChange, idPrefi
             <span id={`${idPrefix}-payload-label`} className="automation-field__label">Payload template</span>
             <textarea
               id={`${idPrefix}-payload-input`}
+              ref={payloadTemplateRef}
               className="automation-textarea automation-textarea--code automation-code-input"
               rows={6}
               value={draft.config.payload_template || ""}
               onChange={(e) => updateConfig({ ...draft.config, payload_template: e.target.value })}
             />
           </label>
+          {dataFlowTokens.length > 0 ? (
+            <TokenPicker
+              idPrefix={`${idPrefix}-payload`}
+              tokens={dataFlowTokens}
+              description="Use workflow variables in JSON templates without manually typing token paths."
+              onInsert={insertTokenIntoPayloadTemplate}
+            />
+          ) : null}
         </>
       ) : null}
 

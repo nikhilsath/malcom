@@ -224,29 +224,13 @@ export const bindFormEvents = ({ renderAll, startConnectorOauth }) => {
     }
 
     try {
-      connectorElements.statusInput.value = "revoked";
-      connectorElements.clientSecretInput.value = "";
-      connectorElements.accessTokenInput.value = "";
-      connectorElements.refreshTokenInput.value = "";
-      connectorElements.apiKeyInput.value = "";
-      connectorElements.passwordInput.value = "";
-      connectorElements.headerValueInput.value = "";
-      const nextSettings = cloneValue(connectorState.settings);
-      const connectorIndex = nextSettings.connectors.records.findIndex((item) => item.id === selected.id);
-      nextSettings.connectors.records[connectorIndex] = {
-        ...nextSettings.connectors.records[connectorIndex],
-        status: "revoked",
-        auth_config: {
-          ...nextSettings.connectors.records[connectorIndex].auth_config,
-          clear_credentials: true
-        }
-      };
-      const response = await getStore().updateAppSettings(nextSettings);
-      connectorState.settings = response;
-      connectorState.selectedConnectorId = selected.id;
+      const response = await requestJson(`/api/v1/connectors/${selected.id}/revoke`, { method: "POST" });
+      const nextSettings = await getStore().ready();
+      connectorState.settings = nextSettings;
+      connectorState.selectedConnectorId = response.connector.id;
       renderAll();
       openDetailModal();
-      setFeedback("Connector revoked and stored credentials cleared.", "success");
+      setFeedback(response.message, "success");
     } catch (error) {
       setFeedback(normalizeRequestError(error).message, "error");
     }

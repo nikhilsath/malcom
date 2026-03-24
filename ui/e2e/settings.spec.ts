@@ -102,8 +102,7 @@ test("renders connector-backed storage and clears log table rows", async ({ page
     settings: {
       data: {
         payload_redaction: false,
-        export_window_utc: "02:00",
-        audit_retention_days: 365
+        export_window_utc: "02:00"
       },
       connectors: {
         records: [
@@ -138,7 +137,6 @@ test("renders connector-backed storage and clears log table rows", async ({ page
 
   await page.locator("#settings-storage-max-mb-input").fill("7");
   await page.locator("#settings-data-export-select").selectOption("04:00");
-  await page.locator("#settings-data-audit-select").selectOption("30");
   await page.locator("#settings-save-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");

@@ -7,7 +7,9 @@ test("outgoing API create-from-connector flow populates connector defaults and s
   await harness.install(page);
 
   await page.goto("/apis/outgoing.html");
-  await page.locator("#apis-outgoing-create-from-connector-button").click();
+  await page.locator("#apis-create-button").click();
+  await expect(page.locator("#apis-create-type-modal")).toHaveClass(/modal--open/);
+  await page.locator("#apis-create-type-option-from-connector").click();
 
   await expect(page.locator("#apis-create-modal-title")).toHaveText("New Outgoing Scheduled API");
   await expect(page.locator("#create-api-connector-input")).toHaveValue("github-oauth");

@@ -154,55 +154,32 @@ def sync_tools_to_database(root_dir: Path, connection: Any) -> list[dict[str, st
     now = utc_now_iso()
 
     for tool in discovered_tools:
-        existing = fetch_one(
-            connection,
-            """
-            SELECT id, source_name, source_description,
-                   inputs_schema_json, outputs_schema_json
-            FROM tools
-            WHERE id = ?
-            """,
-            (tool["id"],),
-        )
-
         inputs_json = json.dumps(tool.get("inputs") or [])
         outputs_json = json.dumps(tool.get("outputs") or [])
 
-        if existing is None:
-            connection.execute(
-                """
-                INSERT INTO tools (
-                    id,
-                    source_name,
-                    source_description,
-                    enabled,
-                    name_override,
-                    description_override,
-                    inputs_schema_json,
-                    outputs_schema_json,
-                    created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, 0, NULL, NULL, ?, ?, ?, ?)
-                """,
-                (tool["id"], tool["name"], tool["description"], inputs_json, outputs_json, now, now),
-            )
-            continue
-
-        if (
-            existing["source_name"] != tool["name"]
-            or existing["source_description"] != tool["description"]
-            or existing["inputs_schema_json"] != inputs_json
-            or existing["outputs_schema_json"] != outputs_json
-        ):
-            connection.execute(
-                """
-                UPDATE tools
-                SET source_name = ?, source_description = ?,
-                    inputs_schema_json = ?, outputs_schema_json = ?, updated_at = ?
-                WHERE id = ?
-                """,
-                (tool["name"], tool["description"], inputs_json, outputs_json, now, tool["id"]),
-            )
+        connection.execute(
+            """
+            INSERT INTO tools (
+                id,
+                source_name,
+                source_description,
+                enabled,
+                name_override,
+                description_override,
+                inputs_schema_json,
+                outputs_schema_json,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, 0, NULL, NULL, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE
+            SET source_name = excluded.source_name,
+                source_description = excluded.source_description,
+                inputs_schema_json = excluded.inputs_schema_json,
+                outputs_schema_json = excluded.outputs_schema_json,
+                updated_at = excluded.updated_at
+            """,
+            (tool["id"], tool["name"], tool["description"], inputs_json, outputs_json, now, now),
+        )
 
     if known_tool_ids:
         placeholders = ", ".join("?" for _ in known_tool_ids)

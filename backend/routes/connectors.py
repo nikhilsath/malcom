@@ -149,6 +149,64 @@ def _refresh_google_access_token(
     return token_payload
 
 
+def _revoke_google_token(*, token: str) -> None:
+    """Call Google's token revocation endpoint. Swallows non-critical errors — local cleanup still proceeds."""
+    if token.startswith("token_") or token.startswith("refresh_"):
+        return
+
+    request_data = urllib.parse.urlencode({"token": token}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://oauth2.googleapis.com/revoke",
+        data=request_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except (urllib.error.HTTPError, urllib.error.URLError):
+        pass  # Best-effort; local credentials are cleared regardless
+
+
+@router.post("/api/v1/connectors/{connector_id}/revoke", response_model=ConnectorActionResponse)
+def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    settings = get_stored_connector_settings(connection)
+    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
+
+    secret_map = extract_connector_secret_map(record.get("auth_config") or {}, protection_secret)
+    provider = canonicalize_connector_provider(record.get("provider"))
+    if provider == "google":
+        token = secret_map.get("access_token") or secret_map.get("refresh_token") or ""
+        if token:
+            _revoke_google_token(token=token)
+
+    now = utc_now_iso()
+    record["status"] = "revoked"
+    record["updated_at"] = now
+    record["auth_config"] = normalize_connector_auth_config_for_storage(
+        {
+            **record.get("auth_config", {}),
+            "access_token_input": None,
+            "refresh_token_input": None,
+            "client_secret_input": None,
+            "api_key_input": None,
+            "password_input": None,
+            "header_value_input": None,
+            "has_refresh_token": False,
+            "clear_credentials": True,
+        },
+        record.get("auth_config") or {},
+        protection_secret,
+    )
+    write_settings_section(connection, "connectors", settings)
+    sanitized = sanitize_connector_record_for_response(record, protection_secret)
+    return ConnectorActionResponse(ok=True, message="Connector revoked and credentials cleared.", connector=ConnectorRecordResponse(**sanitized))
+
+
 @router.post("/api/v1/connectors/{connector_id}/test", response_model=ConnectorActionResponse)
 def test_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
@@ -413,38 +471,6 @@ def _complete_connector_oauth_result(
         message="Connector authorized successfully.",
         connector=ConnectorRecordResponse(**sanitized),
     )
-
-
-@router.get("/api/v1/connectors/{provider}/oauth/callback/ui")
-def complete_connector_oauth_for_ui(
-    provider: str,
-    state: str,
-    request: Request,
-    code: str | None = None,
-    error: str | None = None,
-    scope: str | None = None,
-) -> RedirectResponse:
-    query: dict[str, str] = {}
-
-    try:
-        callback_result = _complete_connector_oauth_result(
-            provider=provider,
-            state=state,
-            request=request,
-            code=code,
-            error=error,
-            scope=scope,
-        )
-        query["oauth_status"] = "success" if callback_result.ok else "warning"
-        query["oauth_message"] = callback_result.message
-        query["connector_id"] = callback_result.connector.id
-    except HTTPException as exc:
-        detail = exc.detail if isinstance(exc.detail, str) else "OAuth authorization failed."
-        query["oauth_status"] = "error"
-        query["oauth_message"] = detail
-
-    target = f"/settings/connectors.html?{urllib.parse.urlencode(query)}"
-    return RedirectResponse(url=target, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/api/v1/connectors/{connector_id}/refresh", response_model=ConnectorActionResponse)

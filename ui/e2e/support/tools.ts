@@ -181,8 +181,7 @@ const defaultSettingsResponse = {
   },
   data: {
     payload_redaction: true,
-    export_window_utc: "02:00",
-    audit_retention_days: 365
+    export_window_utc: "02:00"
   },
   automation: {
     default_tool_retries: 2

@@ -20,7 +20,6 @@ const settingsElements = {
   accessTokenSelect: document.getElementById("settings-access-token-select"),
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
-  dataAuditSelect: document.getElementById("settings-data-audit-select"),
   storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
 };
 
@@ -149,8 +148,7 @@ const buildSectionPatch = (section, fallbackSettings) => {
     return {
       data: {
         payload_redaction: settingsElements.dataRedactionCheckbox?.checked ?? fallbackSettings.data.payload_redaction,
-        export_window_utc: settingsElements.dataExportSelect?.value || fallbackSettings.data.export_window_utc,
-        audit_retention_days: Number.parseInt(settingsElements.dataAuditSelect?.value || "", 10)
+        export_window_utc: settingsElements.dataExportSelect?.value || fallbackSettings.data.export_window_utc
       },
       logging: {
         ...fallbackSettings.logging,
@@ -232,10 +230,6 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.dataExportSelect) {
     settingsElements.dataExportSelect.value = settings.data.export_window_utc;
-  }
-
-  if (settingsElements.dataAuditSelect) {
-    settingsElements.dataAuditSelect.value = String(settings.data.audit_retention_days);
   }
 
   if (settingsElements.storageMaxMbInput) {
