@@ -221,6 +221,18 @@ def execute_image_magic(payload: ImageMagicExecuteRequest, request: Request) -> 
     if not config["enabled"]:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image Magic tool is disabled.")
 
+    target_worker_id = config.get("target_worker_id")
+    if target_worker_id and target_worker_id != get_local_worker_id():
+        worker = get_runtime_worker_or_error(target_worker_id)
+        response = call_worker_rpc(
+            worker,
+            method="POST",
+            path="/api/v1/internal/workers/tools/image-magic/execute",
+            json_body=payload.model_dump(),
+            timeout=120.0,
+        )
+        return ImageMagicExecuteResponse(**response.json())
+
     try:
         result = execute_image_magic_conversion_request(
             payload,
@@ -262,8 +274,23 @@ def stop_smtp_tool(request: Request) -> SmtpToolResponse:
 
 @router.post("/api/v1/tools/smtp/send-test", response_model=SmtpSendTestResponse)
 def send_smtp_test_message(payload: SmtpSendTestRequest, request: Request) -> SmtpSendTestResponse:
+    connection = get_connection(request)
+    config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
+    machines = list_runtime_machine_assignments()
+    selected_machine = get_selected_smtp_machine(config, machines)
+    if selected_machine is not None and not selected_machine.is_local:
+        worker = get_runtime_worker_or_error(selected_machine.worker_id)
+        response = call_worker_rpc(
+            worker,
+            method="POST",
+            path="/api/v1/internal/workers/tools/smtp/send-test",
+            json_body=payload.model_dump(),
+            timeout=20.0,
+        )
+        rpc_payload = response.json()
+        return SmtpSendTestResponse(**rpc_payload)
+
     runtime = get_local_smtp_runtime_or_400(request.app)
-    config = normalize_smtp_tool_config(get_smtp_tool_config(get_connection(request)))
     recipients = validate_smtp_send_inputs(mail_from=payload.mail_from, recipients=payload.recipients)
 
     if config.get("recipient_email") and any(recipient != config["recipient_email"] for recipient in recipients):

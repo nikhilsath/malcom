@@ -166,6 +166,26 @@ export interface DashboardQueueResponse {
   jobs: DashboardQueueJob[];
 }
 
+export interface DashboardResourceMetric {
+  component: string;
+  operation: string;
+  executions: number;
+  avgDurationMs: number;
+  maxDurationMs: number;
+  minDurationMs: number;
+  totalDurationMs: number;
+  memoryPeakMb: number;
+  errorCount: number;
+  errorRatePercent: number;
+  lastExecutedAt: string;
+}
+
+export interface DashboardResourceProfileResponse {
+  collectedAt: string;
+  totalMetrics: number;
+  metrics: DashboardResourceMetric[];
+}
+
 export interface MalcomLogStore {
   defaults: DashboardLogSettings;
   getSettings: () => DashboardLogSettings;

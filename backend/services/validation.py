@@ -195,6 +195,20 @@ def validate_outgoing_resource_payload(payload: ApiResourceCreate) -> None:
         if not payload.repeat_enabled and payload.repeat_interval_minutes is not None:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Set repeating on continuous outgoing APIs before providing an interval.")
 
+    webhook_signing = payload.webhook_signing
+    if webhook_signing and any(
+        getattr(webhook_signing, field_name)
+        for field_name in ("algorithm", "secret_source", "signing_secret", "signature_header", "verification_token")
+    ):
+        if webhook_signing.algorithm != "hmac_sha256":
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing currently supports only hmac_sha256.")
+        if webhook_signing.secret_source not in {None, "inline"}:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing currently supports only inline secrets.")
+        if not webhook_signing.signing_secret:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing requires a signing secret.")
+        if not webhook_signing.signature_header:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing requires a signature header.")
+
 
 def validate_outgoing_update_payload(payload: ScheduledApiResourceUpdate | ContinuousApiResourceUpdate) -> None:
     if payload.destination_url is not None:
@@ -226,6 +240,20 @@ def validate_outgoing_update_payload(payload: ScheduledApiResourceUpdate | Conti
 
     if payload.type == "outgoing_continuous" and payload.repeat_enabled is False and payload.repeat_interval_minutes is not None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Set repeating on continuous outgoing APIs before providing an interval.")
+
+    webhook_signing = payload.webhook_signing
+    if webhook_signing and any(
+        getattr(webhook_signing, field_name)
+        for field_name in ("algorithm", "secret_source", "signing_secret", "signature_header", "verification_token")
+    ):
+        if webhook_signing.algorithm != "hmac_sha256":
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing currently supports only hmac_sha256.")
+        if webhook_signing.secret_source not in {None, "inline"}:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing currently supports only inline secrets.")
+        if not webhook_signing.signing_secret:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing requires a signing secret.")
+        if not webhook_signing.signature_header:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Outgoing webhook signing requires a signature header.")
 
 
 def validate_webhook_resource_payload(payload: ApiResourceCreate) -> None:

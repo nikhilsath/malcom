@@ -119,3 +119,45 @@ test("saves SMTP assignment, starts and stops the listener, and sends a relay me
   await expect.poll(() => smtp.relayPayloads.length).toBe(1);
   await expect(page.locator("#tools-smtp-relay-feedback")).toHaveText("Email sent through the external SMTP relay.");
 });
+
+test("shows remote SMTP assignment failures from the controller view", async ({ page }) => {
+  await stubToolSettings(page);
+  await stubSmtpTool(page, {
+    config: {
+      enabled: true,
+      target_worker_id: "worker-remote-1",
+      bind_host: "0.0.0.0",
+      port: 2525,
+      recipient_email: "alerts@example.com"
+    },
+    runtime: {
+      status: "assigned",
+      message: "Remote SMTP worker sync failed: timed out",
+      listening_host: null,
+      listening_port: null,
+      selected_machine_id: "worker-remote-1",
+      selected_machine_name: "Remote Worker",
+      last_started_at: null,
+      last_stopped_at: null,
+      last_error: "timed out",
+      session_count: 0,
+      message_count: 0,
+      last_message_at: null,
+      last_mail_from: null,
+      last_recipient: null,
+      recent_messages: []
+    },
+    inbound_identity: {
+      display_address: "alerts@example.com",
+      configured_recipient_email: "alerts@example.com",
+      accepts_any_recipient: false,
+      listening_host: null,
+      listening_port: null,
+      connection_hint: "Waiting for the remote SMTP worker."
+    }
+  });
+
+  await page.goto("/tools/smtp.html");
+  await expect(page.locator("#tools-smtp-runtime-banner-title")).toHaveText("SMTP is assigned remotely");
+  await expect(page.locator("#tools-smtp-runtime-banner-body")).toContainText("timed out");
+});

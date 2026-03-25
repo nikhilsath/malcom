@@ -99,6 +99,9 @@ export type OutgoingApiRecord = {
   created_at: string;
   updated_at: string;
   last_activity_at: string | null;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
+  last_error?: string | null;
 };
 
 export type WebhookRecord = {
@@ -116,6 +119,8 @@ export type WebhookRecord = {
   created_at: string;
   updated_at: string;
   last_activity_at: string | null;
+  last_delivery_status?: string | null;
+  events_count?: number;
 };
 
 export type ConnectorsApisHarnessOptions = {
@@ -230,7 +235,10 @@ const createOutgoingRecord = (
   status: overrides.status || (overrides.enabled === false ? "paused" : "active"),
   created_at: overrides.created_at || iso(60),
   updated_at: overrides.updated_at || iso(0),
-  last_activity_at: overrides.last_activity_at ?? null
+  last_activity_at: overrides.last_activity_at ?? null,
+  last_run_at: overrides.last_run_at ?? null,
+  next_run_at: overrides.next_run_at ?? (overrides.type === "outgoing_continuous" ? iso(-5) : null),
+  last_error: overrides.last_error ?? null
 });
 
 const createWebhookRecord = (overrides: Partial<WebhookRecord> & { id: string; name: string; path_slug: string }): WebhookRecord => ({
@@ -247,7 +255,9 @@ const createWebhookRecord = (overrides: Partial<WebhookRecord> & { id: string; n
   event_filter: overrides.event_filter || "order.created",
   created_at: overrides.created_at || iso(30),
   updated_at: overrides.updated_at || iso(0),
-  last_activity_at: overrides.last_activity_at ?? null
+  last_activity_at: overrides.last_activity_at ?? null,
+  last_delivery_status: overrides.last_delivery_status || "accepted",
+  events_count: overrides.events_count ?? 3
 });
 
 const createDefaultConnectorFixtures = (): ConnectorRecord[] => [

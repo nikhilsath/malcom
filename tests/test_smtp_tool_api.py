@@ -121,7 +121,8 @@ class SmtpToolApiTestCase(unittest.TestCase):
         self.assertEqual(payload["runtime"]["status"], "assigned")
         self.assertEqual(payload["runtime"]["selected_machine_id"], "worker_lan_01")
         self.assertIsNone(payload["runtime"]["listening_port"])
-        self.assertIn("Remote SMTP execution is not wired yet.", payload["runtime"]["message"])
+        self.assertIn("Remote SMTP worker sync failed:", payload["runtime"]["message"])
+        self.assertTrue(payload["runtime"]["last_error"])
 
         directory_response = self.client.get("/api/v1/tools")
         self.assertEqual(directory_response.status_code, 200)

@@ -62,6 +62,9 @@ export const createApiClient = () => ({
   async listWebhooks() {
     const response = await window.Malcom?.requestJson?.("/api/v1/webhooks");
     return normalizeResourceEntries(response, "webhook");
+  },
+  async detailWebhook(apiId) {
+    return window.Malcom?.requestJson?.(`/api/v1/webhooks/${apiId}`);
   }
 });
 

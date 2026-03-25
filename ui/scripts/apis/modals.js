@@ -111,6 +111,7 @@ export const createApiModalController = ({
 
     closeApiTooltips();
     setCreateModalType(selectedType);
+    document.getElementById("create-api-form")?.dispatchEvent(new CustomEvent("create-modal-open"));
     elements.createModal.classList.add("modal--open");
     elements.createModal.setAttribute("aria-hidden", "false");
     syncModalBodyState();

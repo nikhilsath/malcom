@@ -72,6 +72,132 @@ describe("DashboardApp", () => {
     expect(document.querySelector("#dashboard-devices-summary-card")).not.toBeInTheDocument();
   });
 
+  it("surfaces runtime resource profile metrics on dashboard home", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+
+        if (url.includes("/api/v1/dashboard/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              health: {
+                id: "system-health",
+                status: "healthy",
+                label: "Workspace healthy",
+                summary: "Summary endpoint connected.",
+                updated_at: "2026-03-21T12:00:00.000Z"
+              },
+              services: [],
+              run_counts: { success: 2, warning: 0, error: 0, idle: 0 },
+              recent_runs: [],
+              alerts: [],
+              quick_links: [],
+              runtime_overview: {
+                scheduler_active: true,
+                queue_status: "running",
+                queue_pending_jobs: 0,
+                queue_claimed_jobs: 0,
+                queue_updated_at: "2026-03-21T12:00:00.000Z",
+                scheduler_last_tick_started_at: "2026-03-21T12:00:00.000Z",
+                scheduler_last_tick_finished_at: "2026-03-21T12:00:01.000Z"
+              },
+              worker_health: { total: 1, healthy: 1, offline: 0 },
+              api_performance: {
+                inbound_total_24h: 4,
+                inbound_errors_24h: 0,
+                error_rate_percent_24h: 0,
+                outgoing_scheduled_enabled: 1,
+                outgoing_continuous_enabled: 0
+              },
+              connector_health: {
+                total: 1,
+                connected: 1,
+                needs_attention: 0,
+                expired: 0,
+                revoked: 0,
+                draft: 0,
+                pending_oauth: 0
+              }
+            })
+          };
+        }
+
+        if (url.includes("/api/v1/dashboard/queue")) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: "running",
+              is_paused: false,
+              status_updated_at: "2026-03-20T09:00:00.000Z",
+              total_jobs: 0,
+              pending_jobs: 0,
+              claimed_jobs: 0,
+              jobs: []
+            })
+          };
+        }
+
+        if (url.includes("/api/v1/debug/resource-profile")) {
+          return {
+            ok: true,
+            json: async () => ({
+              collected_at: "2026-03-21T12:00:00.000Z",
+              total_metrics: 2,
+              metrics: [
+                {
+                  component: "automation_executor",
+                  operation: "step_tool",
+                  executions: 8,
+                  avg_duration_ms: 120.15,
+                  max_duration_ms: 420.5,
+                  min_duration_ms: 30.1,
+                  total_duration_ms: 961.2,
+                  memory_peak_mb: 12.75,
+                  error_count: 1,
+                  error_rate_percent: 12.5,
+                  last_executed_at: "2026-03-21T11:59:00.000Z"
+                },
+                {
+                  component: "automation_executor",
+                  operation: "step_connector_activity",
+                  executions: 4,
+                  avg_duration_ms: 90.2,
+                  max_duration_ms: 105.0,
+                  min_duration_ms: 70.1,
+                  total_duration_ms: 360.8,
+                  memory_peak_mb: 2.2,
+                  error_count: 0,
+                  error_rate_percent: 0,
+                  last_executed_at: "2026-03-21T11:58:00.000Z"
+                }
+              ]
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ host: null, devices: [] })
+        };
+      })
+    );
+
+    renderDashboardApp(["/home"]);
+
+    await waitFor(() => {
+      expectTextById("dashboard-overview-resource-profile-toolbar-title", "Runtime resource profile");
+    });
+
+    expectTextById("dashboard-overview-resource-total-metrics-value", "2");
+    expectTextById("dashboard-overview-resource-visible-metrics-value", "2");
+    expectTextById("dashboard-overview-resource-operation-0", "step_tool");
+    expectTextById("dashboard-overview-resource-memory-0", "12.75 MB");
+    expectTextById("dashboard-overview-resource-errors-0", "12.5% (1)");
+    expect(screen.getByRole("button", { name: "Reset metrics" })).toBeInTheDocument();
+  });
+
   it("renders live backend devices when data is available", async () => {
     vi.stubGlobal(
       "fetch",

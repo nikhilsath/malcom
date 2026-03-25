@@ -12,15 +12,17 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
 
   await page.goto("/automations/builder.html?new=true");
 
-  await expect(page.locator("#automations-workflow-name-input")).toHaveValue("");
   await page.locator("#automations-validate-button").click();
   await expect(page.locator("#automations-feedback-banner")).toContainText("Name is required.");
   await expect(page.locator("#automations-test-results-modal")).toBeVisible();
   await expect(page.locator("#automations-validation-summary")).toContainText("validation issue");
   await page.locator("#automations-test-results-close").click();
 
+  await page.locator("#automations-guided-item-name-action").click();
+  await expect(page.locator("#automations-guided-settings-modal")).toBeVisible();
   await page.locator("#automations-workflow-name-input").fill("Customer notification");
   await page.locator("#automations-workflow-description-input").fill("Sends an email when a customer event occurs.");
+  await page.locator("#automations-guided-settings-modal-done").click();
 
   await page.locator("#automation-canvas-insert-0-button").click();
   await expect(page.locator("#add-step-modal")).toBeVisible();
@@ -59,7 +61,17 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
 
   await page.locator("#automation-canvas-node-trigger").dblclick();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
+  await expect(page.locator("#automations-editor-modal-trigger-back")).toBeVisible();
+  await page.locator("#automations-editor-modal-trigger-back").click();
+  await expect(page.locator("#automations-trigger-modal-trigger-type-options")).toBeVisible();
+  await page.locator("#automations-trigger-modal-trigger-type-option-schedule").click();
   await page.locator("#automations-trigger-modal-trigger-schedule-input").click();
+  await expect(page.locator("#automations-trigger-modal-trigger-schedule-picker")).toBeVisible();
+  const scheduleTriggerBox = await page.locator("#automations-trigger-modal-trigger-schedule-input").boundingBox();
+  const schedulePickerBox = await page.locator("#automations-trigger-modal-trigger-schedule-picker").boundingBox();
+  expect(scheduleTriggerBox).not.toBeNull();
+  expect(schedulePickerBox).not.toBeNull();
+  expect((schedulePickerBox?.y ?? 0) + (schedulePickerBox?.height ?? 0)).toBeLessThanOrEqual((scheduleTriggerBox?.y ?? 0) + 2);
   await page.locator("#automations-trigger-modal-trigger-schedule-hour-input").selectOption("10");
   await page.locator("#automations-trigger-modal-trigger-schedule-minute-input").selectOption("45");
   await page.locator("#automations-trigger-modal-trigger-schedule-period-input").selectOption("AM");
@@ -109,7 +121,8 @@ test("defaults to guided mode for new drafts and allows switching to canvas mode
   await expect(page).toHaveURL(/mode=guided/);
 
   await page.locator("#automations-guided-item-name-action").click();
-  await expect(page.locator("#automations-workflow-name-input")).toBeFocused();
+  await expect(page.locator("#automations-guided-settings-modal")).toBeVisible();
+  await page.locator("#automations-guided-settings-modal-close").click();
 
   await page.locator("#automations-builder-mode-canvas").click();
 

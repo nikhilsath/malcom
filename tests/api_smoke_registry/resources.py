@@ -4,6 +4,10 @@ from typing import Any
 
 from .core import SmokeContext
 
+SMOKE_WEBHOOK_VERIFICATION_TOKEN = "smoke-verify-token"
+SMOKE_WEBHOOK_SIGNING_SECRET = "smoke-signing-secret"
+SMOKE_WEBHOOK_SIGNATURE_HEADER = "X-Smoke-Signature"
+
 
 def create_inbound_api(context: SmokeContext, *, slug: str = "smoke-inbound") -> dict[str, Any]:
     response = context.client.post(
@@ -67,6 +71,26 @@ def create_outgoing_api(context: SmokeContext, *, api_type: str) -> dict[str, An
         payload["repeat_enabled"] = True
         payload["repeat_interval_minutes"] = 15
     response = context.client.post("/api/v1/apis", json=payload)
+    response.raise_for_status()
+    return response.json()
+
+
+def create_webhook_api(context: SmokeContext, *, path_slug: str = "smoke-webhook", callback_path: str = "/hooks/smoke-webhook") -> dict[str, Any]:
+    response = context.client.post(
+        "/api/v1/apis",
+        json={
+            "type": "webhook",
+            "name": "Smoke webhook",
+            "description": "Created for route smoke coverage.",
+            "path_slug": path_slug,
+            "enabled": True,
+            "callback_path": callback_path,
+            "verification_token": SMOKE_WEBHOOK_VERIFICATION_TOKEN,
+            "signing_secret": SMOKE_WEBHOOK_SIGNING_SECRET,
+            "signature_header": SMOKE_WEBHOOK_SIGNATURE_HEADER,
+            "event_filter": "",
+        },
+    )
     response.raise_for_status()
     return response.json()
 

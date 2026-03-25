@@ -44,7 +44,7 @@ export const initApisPage = async () => {
       syncCreateModalType: (...args) => forms.syncCreateModalType(...args)
     },
     createTypeModalMarkup: createApiTypeModalMarkup,
-    closeApiTooltips: () => page.closeApiTooltips()
+    closeApiTooltips: () => {}
   });
 
   const page = createApiPageController({

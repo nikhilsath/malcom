@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import smtplib
+
 from fastapi import APIRouter
 
 from backend.schemas import *
@@ -24,6 +26,86 @@ def register_worker(payload: WorkerRegistrationRequest) -> WorkerResponse:
         capabilities=payload.capabilities,
     )
     return worker_to_response(worker)
+
+
+@router.post("/api/v1/internal/workers/tools/smtp/sync", response_model=SmtpToolResponse)
+def sync_worker_smtp_tool(payload: WorkerRpcSmtpSyncRequest, request: Request) -> SmtpToolResponse:
+    assert_worker_rpc_authorized(request)
+    connection = get_connection(request)
+    next_config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
+    next_config["enabled"] = payload.enabled
+    next_config["bind_host"] = payload.bind_host
+    next_config["port"] = payload.port
+    next_config["recipient_email"] = payload.recipient_email
+    next_config["target_worker_id"] = get_local_worker_id()
+    save_smtp_tool_config(connection, next_config)
+    sync_smtp_tool_runtime(request.app, connection)
+    return build_smtp_tool_response(request.app, connection)
+
+
+@router.get("/api/v1/internal/workers/tools/smtp/status", response_model=SmtpToolResponse)
+def get_worker_smtp_tool_status(request: Request) -> SmtpToolResponse:
+    assert_worker_rpc_authorized(request)
+    return build_smtp_tool_response(request.app, get_connection(request))
+
+
+@router.post("/api/v1/internal/workers/tools/smtp/send-test", response_model=SmtpSendTestResponse)
+def send_worker_smtp_test_message(payload: SmtpSendTestRequest, request: Request) -> SmtpSendTestResponse:
+    assert_worker_rpc_authorized(request)
+    runtime = get_local_smtp_runtime_or_400(request.app)
+    connection = get_connection(request)
+    config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
+    recipients = validate_smtp_send_inputs(mail_from=payload.mail_from, recipients=payload.recipients)
+
+    if config.get("recipient_email") and any(recipient != config["recipient_email"] for recipient in recipients):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Test recipients must match the configured receive email.")
+
+    message = build_smtp_email_message(
+        mail_from=payload.mail_from.strip(),
+        recipients=recipients,
+        subject=payload.subject.strip(),
+        body=payload.body,
+    )
+    try:
+        with smtplib.SMTP(str(runtime["listening_host"]), int(runtime["listening_port"]), timeout=10) as client:
+            client.send_message(message, from_addr=payload.mail_from.strip(), to_addrs=recipients)
+    except smtplib.SMTPException as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"SMTP test send failed: {error}") from error
+    except (OSError, TimeoutError) as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"SMTP test connection failed: {error}") from error
+
+    snapshot = request.app.state.smtp_manager.snapshot()
+    latest_message = (snapshot.get("recent_messages") or [None])[0]
+    return SmtpSendTestResponse(
+        ok=True,
+        message="Test email sent through the SMTP listener.",
+        message_id=(latest_message or {}).get("id") if isinstance(latest_message, dict) else None,
+    )
+
+
+@router.post("/api/v1/internal/workers/tools/image-magic/execute", response_model=ImageMagicExecuteResponse)
+def execute_worker_image_magic(payload: ImageMagicExecuteRequest, request: Request) -> ImageMagicExecuteResponse:
+    assert_worker_rpc_authorized(request)
+    connection = get_connection(request)
+    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    if not config["enabled"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image Magic tool is disabled.")
+
+    try:
+        result = execute_image_magic_conversion_request(
+            payload,
+            root_dir=get_root_dir(request),
+            command=config["command"],
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    return ImageMagicExecuteResponse(
+        ok=True,
+        output_file_path=result["output_file_path"],
+        worker_id=get_local_worker_id(),
+        worker_name=get_local_worker_name(),
+    )
 
 
 @router.post("/api/v1/workers/claim-trigger", response_model=WorkerClaimResponse)

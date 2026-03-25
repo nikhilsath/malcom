@@ -377,7 +377,9 @@ export const createApiRenderer = ({ elements, state, actions }) => {
         metadataItems.push(
           { label: "Callback path", value: entry.callback_path || "Not configured" },
           { label: "Signature header", value: entry.signature_header || "Not configured" },
-          { label: "Event filter", value: entry.event_filter || "All events" }
+          { label: "Event filter", value: entry.event_filter || "All events" },
+          { label: "Last result", value: entry.last_delivery_status || "No deliveries yet" },
+          { label: "Events", value: String(entry.events_count || 0) }
         );
 
         quickActions.push(
@@ -490,15 +492,15 @@ export const createApiRenderer = ({ elements, state, actions }) => {
         </div>
         <div id="${sectionIdPrefix}-last-fired-cell-${entry.id}" class="apis-outgoing-list__cell">
           <span id="${sectionIdPrefix}-last-fired-label-${entry.id}" class="apis-outgoing-list__label">Last fired</span>
-          <span id="${sectionIdPrefix}-last-fired-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(formatDateTime(getEntryLastActivity(entry)))}</span>
+          <span id="${sectionIdPrefix}-last-fired-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(formatDateTime(entry.last_run_at || getEntryLastActivity(entry)))}</span>
         </div>
         <div id="${sectionIdPrefix}-send-time-cell-${entry.id}" class="apis-outgoing-list__cell">
-          <span id="${sectionIdPrefix}-send-time-label-${entry.id}" class="apis-outgoing-list__label">Send time</span>
-          <span id="${sectionIdPrefix}-send-time-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(formatOutgoingSendTime(entry))}</span>
+          <span id="${sectionIdPrefix}-send-time-label-${entry.id}" class="apis-outgoing-list__label">${escapeHtml(entry.type === "outgoing_continuous" ? "Next run" : "Send time")}</span>
+          <span id="${sectionIdPrefix}-send-time-value-${entry.id}" class="apis-outgoing-list__value">${escapeHtml(entry.next_run_at ? formatDateTime(entry.next_run_at) : formatOutgoingSendTime(entry))}</span>
         </div>
         <div id="${sectionIdPrefix}-url-cell-${entry.id}" class="apis-outgoing-list__cell apis-outgoing-list__cell--url">
-          <span id="${sectionIdPrefix}-url-label-${entry.id}" class="apis-outgoing-list__label">URL</span>
-          <span id="${sectionIdPrefix}-url-value-${entry.id}" class="apis-outgoing-list__value apis-outgoing-list__value--url">${escapeHtml(entry.destination_url || "Not configured")}</span>
+          <span id="${sectionIdPrefix}-url-label-${entry.id}" class="apis-outgoing-list__label">${escapeHtml(entry.last_error ? "Last error" : "URL")}</span>
+          <span id="${sectionIdPrefix}-url-value-${entry.id}" class="apis-outgoing-list__value apis-outgoing-list__value--url">${escapeHtml(entry.last_error || entry.destination_url || "Not configured")}</span>
         </div>
       `;
 

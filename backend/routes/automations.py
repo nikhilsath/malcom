@@ -14,15 +14,13 @@ def _ensure_inbound_trigger_reference_exists(connection: DatabaseConnection, pay
     inbound_api_id = payload.trigger_config.inbound_api_id
     if not inbound_api_id:
         return
-    try:
-        get_api_or_404(connection, inbound_api_id)
-    except HTTPException as error:
-        if error.status_code == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Inbound API automations require an existing trigger_config.inbound_api_id.",
-            ) from error
-        raise
+    inbound_row = fetch_one(connection, "SELECT id FROM inbound_apis WHERE id = ?", (inbound_api_id,))
+    webhook_row = fetch_one(connection, "SELECT id FROM webhook_apis WHERE id = ?", (inbound_api_id,))
+    if inbound_row is None and webhook_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Inbound API automations require an existing trigger_config.inbound_api_id.",
+        )
 
 
 @router.get("/api/v1/automations", response_model=list[AutomationSummaryResponse])

@@ -28,10 +28,10 @@ SMOKE_CASES: tuple[RouteSmokeCase, ...] = tuple(
     case for group_cases in SMOKE_CASE_GROUPS.values() for case in group_cases
 )
 
-ROUTE_SCENARIO_MAP: dict[str, str] = {
-    case_signature(case): case.name
-    for case in SMOKE_CASES
-}
+ROUTE_SCENARIO_MAP: dict[str, tuple[str, ...]] = {}
+for case in SMOKE_CASES:
+    signature = case_signature(case)
+    ROUTE_SCENARIO_MAP[signature] = (*ROUTE_SCENARIO_MAP.get(signature, ()), case.name)
 
 
 def validate_route_scenario_mapping() -> tuple[list[str], list[str]]:

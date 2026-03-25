@@ -728,6 +728,11 @@
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
 }
 
+.automation-time-picker__panel--upward {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
 .automation-time-picker__field {
   min-width: 0;
 }
@@ -1225,9 +1230,18 @@
   margin: 0 0 8px;
 }
 
+.automation-dialog__dismiss-row--split {
+  justify-content: space-between;
+  align-items: center;
+}
+
 .automation-dialog__close-button,
 .automation-detail-dialog__close-button {
   color: var(--muted);
+}
+
+.automation-dialog__back-button {
+  line-height: 1;
 }
 
 .automation-dialog__close-button:hover,

@@ -99,6 +99,31 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertIn("inbound_total_24h", body["api_performance"])
         self.assertIn("needs_attention", body["connector_health"])
 
+    def test_resource_profile_endpoints_expose_and_reset_metrics(self) -> None:
+        # Execute a lightweight runtime call to populate baseline metrics in normal execution paths.
+        self.assertEqual(self.client.get("/api/v1/runtime/status").status_code, 200)
+
+        profile_response = self.client.get("/api/v1/debug/resource-profile")
+        self.assertEqual(profile_response.status_code, 200)
+        profile_body = profile_response.json()
+        self.assertIn("collected_at", profile_body)
+        self.assertIn("total_metrics", profile_body)
+        self.assertIn("metrics", profile_body)
+        self.assertIsInstance(profile_body["metrics"], list)
+
+        component_response = self.client.get("/api/v1/debug/resource-profile/automation_executor")
+        self.assertEqual(component_response.status_code, 200)
+        component_body = component_response.json()
+        self.assertEqual(component_body.get("component"), "automation_executor")
+        self.assertIn("operations", component_body)
+
+        reset_response = self.client.post("/api/v1/debug/resource-profile/reset")
+        self.assertEqual(reset_response.status_code, 204)
+
+        post_reset_profile = self.client.get("/api/v1/debug/resource-profile")
+        self.assertEqual(post_reset_profile.status_code, 200)
+        self.assertEqual(post_reset_profile.json().get("total_metrics"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

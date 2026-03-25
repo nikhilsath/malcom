@@ -35,6 +35,7 @@ test("outgoing registry edit modal saves changes and exercises the test delivery
   await harness.install(page);
 
   await page.goto("/apis/outgoing.html");
+  await expect(page.locator("#apis-outgoing-list-send-time-label-outgoing-heartbeat")).toHaveText("Next run");
   await page.locator("#apis-outgoing-list-row-outgoing-heartbeat").click();
 
   await expect(page.locator("#outgoing-api-edit-modal")).toHaveClass(/modal--open/);
@@ -50,4 +51,3 @@ test("outgoing registry edit modal saves changes and exercises the test delivery
   await expect(page.locator("#apis-outgoing-list-row-outgoing-heartbeat")).toContainText("Heartbeat Updated");
   await expect(page.locator("#outgoing-api-edit-modal")).not.toHaveClass(/modal--open/);
 });
-

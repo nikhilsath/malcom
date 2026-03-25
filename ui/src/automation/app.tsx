@@ -153,6 +153,12 @@ type TestRunResultState = {
 
 type TestResultState = ValidationResultState | TestRunResultState | null;
 type BuilderMode = "guided" | "canvas";
+type TriggerEditorScreen = "picker" | "detail";
+
+type AutomationSettingsFieldsProps = {
+  currentAutomation: AutomationDetail;
+  patchAutomation: (patch: Partial<AutomationDetail>) => void;
+};
 
 const CANVAS_X = 240;
 const TRIGGER_Y = 44;
@@ -195,6 +201,53 @@ const emptyDetail = (): AutomationDetail => ({
   next_run_at: null,
   steps: []
 });
+
+const AutomationSettingsFields = ({ currentAutomation, patchAutomation }: AutomationSettingsFieldsProps) => (
+  <>
+    <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
+      <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
+        <span id="automations-workflow-name-label" className="automation-field__label">Automation name</span>
+        <input
+          id="automations-workflow-name-input"
+          className="automation-input"
+          placeholder="Name this automation"
+          value={currentAutomation.name}
+          onChange={(event) => patchAutomation({ name: event.target.value })}
+        />
+      </label>
+      <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
+        <span id="automations-workflow-description-label" className="automation-field__label">Automation description</span>
+        <textarea
+          id="automations-workflow-description-input"
+          className="automation-textarea"
+          rows={2}
+          placeholder="Describe what this automation is for"
+          value={currentAutomation.description}
+          onChange={(event) => patchAutomation({ description: event.target.value })}
+        />
+      </label>
+    </div>
+
+    <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
+      <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
+        <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
+          <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
+          <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
+            Edit the trigger directly from the canvas trigger node.
+          </span>
+        </div>
+        <Switch.Root
+          id="automations-workflow-enabled-input"
+          checked={currentAutomation.enabled}
+          onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
+          className="automation-switch"
+        >
+          <Switch.Thumb className="automation-switch__thumb" />
+        </Switch.Root>
+      </div>
+    </div>
+  </>
+);
 
 const formatDateTime = (value?: string | null) => {
   if (!value) {
@@ -569,7 +622,9 @@ export const AutomationApp = () => {
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [addStepModalOpen, setAddStepModalOpen] = useState(false);
+  const [guidedSettingsDialogOpen, setGuidedSettingsDialogOpen] = useState(false);
   const [editorDrawer, setEditorDrawer] = useState<EditorDrawerState>(null);
+  const [triggerEditorScreen, setTriggerEditorScreen] = useState<TriggerEditorScreen>("detail");
   const [nodeMenu, setNodeMenu] = useState<NodeMenuState | null>(null);
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);
@@ -650,6 +705,7 @@ export const AutomationApp = () => {
 
   const closeEditorDrawer = () => {
     setEditorDrawer(null);
+    setTriggerEditorScreen("detail");
     setAdvancedLabelOpen(false);
   };
 
@@ -657,6 +713,7 @@ export const AutomationApp = () => {
     setSelectedNodeId(nodeId);
     if (nodeId === "trigger-node") {
       setEditorDrawer({ kind: "trigger" });
+      setTriggerEditorScreen("detail");
       setAdvancedLabelOpen(false);
       closeNodeMenu();
       return;
@@ -782,21 +839,8 @@ export const AutomationApp = () => {
     syncModeOnlyInUrl(mode);
   };
 
-  const navigateToWorkflowMetadata = () => {
-    const workflowBar = document.getElementById("automations-workflow-bar");
-    const workflowBarBody = document.getElementById("automations-workflow-bar-body");
-    const workflowBarToggle = document.getElementById("automations-workflow-bar-collapse-toggle") as HTMLButtonElement | null;
-    const nameInput = document.getElementById("automations-workflow-name-input") as HTMLInputElement | null;
-
-    if (workflowBarBody?.hasAttribute("hidden") && workflowBarToggle) {
-      workflowBarToggle.click();
-    }
-
-    workflowBar?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => {
-      nameInput?.focus();
-      nameInput?.select();
-    }, 180);
+  const openGuidedSettingsDialog = () => {
+    setGuidedSettingsDialogOpen(true);
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
@@ -805,6 +849,7 @@ export const AutomationApp = () => {
       setSelectedNodeId("trigger-node");
       setDeleteDialogOpen(false);
       setAddStepModalOpen(false);
+      setGuidedSettingsDialogOpen(false);
       closeEditorDrawer();
       closeNodeMenu();
       setTestResults(null);
@@ -822,6 +867,7 @@ export const AutomationApp = () => {
     startTransition(() => {
       setCurrentAutomation(sanitizeAutomationDetail(detail));
       setSelectedNodeId("trigger-node");
+      setGuidedSettingsDialogOpen(false);
       closeEditorDrawer();
       closeNodeMenu();
       setTestResults(null);
@@ -1332,65 +1378,25 @@ export const AutomationApp = () => {
 
   return (
     <div id="automations-app-shell" className="automations-app automations-builder-app">
-      <CollapsibleSection
-        id="automations-workflow-bar"
-        label="Automation settings"
-        classes={{
-          section: "automation-workflow-bar",
-          sectionCollapsed: "automation-workflow-bar--collapsed",
-          toggle: "automation-workflow-bar__top-toggle",
-          label: "automation-workflow-bar__top-label",
-          symbol: "automation-workflow-bar__collapse-symbol",
-          body: "automation-workflow-bar__body",
-          bodyCollapsed: "automation-workflow-bar__body--hidden"
-        }}
-      >
+      {builderMode === "canvas" ? (
+        <CollapsibleSection
+          id="automations-workflow-bar"
+          label="Automation settings"
+          classes={{
+            section: "automation-workflow-bar",
+            sectionCollapsed: "automation-workflow-bar--collapsed",
+            toggle: "automation-workflow-bar__top-toggle",
+            label: "automation-workflow-bar__top-label",
+            symbol: "automation-workflow-bar__collapse-symbol",
+            body: "automation-workflow-bar__body",
+            bodyCollapsed: "automation-workflow-bar__body--hidden"
+          }}
+        >
           <div id="automations-workflow-bar-content" className="automation-workflow-bar__content">
-            <div id="automations-workflow-bar-fields" className="automation-workflow-bar__fields">
-              <label id="automations-workflow-name-field" className="automation-field automation-field--full automation-workflow-bar__field">
-                <span id="automations-workflow-name-label" className="automation-field__label">Automation name</span>
-                <input
-                  id="automations-workflow-name-input"
-                  className="automation-input"
-                  placeholder="Name this automation"
-                  value={currentAutomation.name}
-                  onChange={(event) => patchAutomation({ name: event.target.value })}
-                />
-              </label>
-              <label id="automations-workflow-description-field" className="automation-field automation-field--full automation-workflow-bar__field">
-                <span id="automations-workflow-description-label" className="automation-field__label">Automation description</span>
-                <textarea
-                  id="automations-workflow-description-input"
-                  className="automation-textarea"
-                  rows={2}
-                  placeholder="Describe what this automation is for"
-                  value={currentAutomation.description}
-                  onChange={(event) => patchAutomation({ description: event.target.value })}
-                />
-              </label>
-            </div>
-
-            <div id="automations-workflow-bar-meta" className="automation-workflow-bar__meta">
-              <div id="automations-workflow-enabled-field" className="automation-switch-field automation-workflow-card">
-                <div id="automations-workflow-enabled-copy" className="automation-switch-field__copy">
-                  <span id="automations-workflow-enabled-label" className="automation-field__label">Enabled</span>
-                  <span id="automations-workflow-enabled-description" className="automation-switch-field__description">
-                    Edit the trigger directly from the canvas trigger node.
-                  </span>
-                </div>
-                <Switch.Root
-                  id="automations-workflow-enabled-input"
-                  checked={currentAutomation.enabled}
-                  onCheckedChange={(checked) => patchAutomation({ enabled: checked })}
-                  className="automation-switch"
-                >
-                  <Switch.Thumb className="automation-switch__thumb" />
-                </Switch.Root>
-              </div>
-            </div>
-
+            <AutomationSettingsFields currentAutomation={currentAutomation} patchAutomation={patchAutomation} />
           </div>
-      </CollapsibleSection>
+        </CollapsibleSection>
+      ) : null}
 
       <div
         id="automations-feedback-banner"
@@ -1451,13 +1457,13 @@ export const AutomationApp = () => {
               </span>
               <div id="automations-guided-item-name-copy" className="automation-guided-item__copy">
                 <h4 id="automations-guided-item-name-title" className="automation-guided-item__title">Name and describe automation</h4>
-                <p id="automations-guided-item-name-description" className="automation-guided-item__description">Set a clear name and short purpose in the settings bar.</p>
+                <p id="automations-guided-item-name-description" className="automation-guided-item__description">Set a clear name and short purpose in the settings popup.</p>
               </div>
               <button
                 id="automations-guided-item-name-action"
                 type="button"
                 className="button button--secondary"
-                onClick={navigateToWorkflowMetadata}
+                onClick={openGuidedSettingsDialog}
               >
                 Edit metadata
               </button>
@@ -1522,6 +1528,44 @@ export const AutomationApp = () => {
           </div>
         </section>
       ) : null}
+
+      <Dialog.Root open={guidedSettingsDialogOpen} onOpenChange={setGuidedSettingsDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop id="automations-guided-settings-modal-backdrop" className="automation-dialog-backdrop" />
+          <Dialog.Popup
+            id="automations-guided-settings-modal"
+            className="automation-dialog automation-dialog--wide"
+            aria-labelledby="automations-guided-settings-modal-title"
+            aria-describedby="automations-guided-settings-modal-description"
+          >
+            <div id="automations-guided-settings-modal-dismiss-row" className="automation-dialog__dismiss-row">
+              <Dialog.Close
+                id="automations-guided-settings-modal-close"
+                className="modal__close-icon-button automation-dialog__close-button"
+                aria-label="Close automation settings"
+              >
+                ×
+              </Dialog.Close>
+            </div>
+            <Dialog.Title id="automations-guided-settings-modal-title" className="automation-dialog__title">
+              Automation settings
+            </Dialog.Title>
+            <Dialog.Description id="automations-guided-settings-modal-description" className="automation-dialog__description">
+              Set the automation name, description, and enabled state without leaving Guided Mode.
+            </Dialog.Description>
+            <div id="automations-guided-settings-modal-body" className="automation-dialog--edit__body">
+              <div id="automations-guided-settings-modal-content" className="automation-workflow-bar__content">
+                <AutomationSettingsFields currentAutomation={currentAutomation} patchAutomation={patchAutomation} />
+              </div>
+            </div>
+            <div id="automations-guided-settings-modal-actions" className="automation-dialog__actions">
+              <Dialog.Close id="automations-guided-settings-modal-done" className="button button--primary">
+                Done
+              </Dialog.Close>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <section id="automations-canvas-panel" className="automation-panel automation-panel--canvas automation-panel--canvas-full">
         <div id="automations-canvas-header" className="automation-panel__header automation-panel__header--canvas">
@@ -1697,7 +1741,21 @@ export const AutomationApp = () => {
             aria-labelledby="automations-editor-modal-title"
             aria-describedby="automations-editor-modal-description"
           >
-            <div id="automations-editor-modal-dismiss-row" className="automation-dialog__dismiss-row">
+            <div
+              id="automations-editor-modal-dismiss-row"
+              className={`automation-dialog__dismiss-row${editorDrawer?.kind === "trigger" && triggerEditorScreen === "detail" ? " automation-dialog__dismiss-row--split" : ""}`}
+            >
+              {editorDrawer?.kind === "trigger" && triggerEditorScreen === "detail" ? (
+                <button
+                  id="automations-editor-modal-trigger-back"
+                  type="button"
+                  className="modal__close-icon-button automation-dialog__close-button automation-dialog__back-button"
+                  aria-label="Back to trigger types"
+                  onClick={() => setTriggerEditorScreen("picker")}
+                >
+                  ←
+                </button>
+              ) : null}
               <Dialog.Close
                 id="automations-editor-modal-close"
                 className="modal__close-icon-button automation-dialog__close-button"
@@ -1707,11 +1765,17 @@ export const AutomationApp = () => {
               </Dialog.Close>
             </div>
             <Dialog.Title id="automations-editor-modal-title" className="automation-dialog__title">
-              {editorDrawer?.kind === "trigger" ? "Edit trigger" : drawerStep?.name || "Edit step"}
+              {editorDrawer?.kind === "trigger"
+                ? triggerEditorScreen === "picker"
+                  ? "Choose trigger type"
+                  : `Edit ${getTriggerTypeLabel(currentAutomation.trigger_type)}`
+                : drawerStep?.name || "Edit step"}
             </Dialog.Title>
             <Dialog.Description id="automations-editor-modal-description" className="automation-dialog__description">
               {editorDrawer?.kind === "trigger"
-                ? "Configure when the automation runs. Automation naming stays separate in the builder header."
+                ? triggerEditorScreen === "picker"
+                  ? "Pick how this automation starts, then continue into that trigger's settings."
+                  : "Configure only the settings for this trigger type. Use the back arrow to pick a different trigger."
                 : "Adjust the step configuration. To change the step type, remove this step and add a new one."}
             </Dialog.Description>
             <div id="automations-editor-modal-body" className="automation-dialog--edit__body">
@@ -1724,6 +1788,9 @@ export const AutomationApp = () => {
                   showEnabledField={false}
                   inboundApiOptions={inboundApis}
                   inboundApiMissingSelection={isInboundApiSelectionMissing(currentAutomation, inboundApis)}
+                  modalFlow
+                  modalScreen={triggerEditorScreen}
+                  onModalScreenChange={setTriggerEditorScreen}
                 />
               ) : drawerStep ? renderStepEditor(drawerStep) : null}
             </div>

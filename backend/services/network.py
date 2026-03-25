@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import urllib.error
 import urllib.parse
@@ -9,7 +11,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from backend.schemas import OutgoingAuthConfig, OutgoingApiTestRequest, OutgoingApiTestResponse
+from backend.schemas import OutgoingAuthConfig, OutgoingApiTestRequest, OutgoingApiTestResponse, OutgoingWebhookSigningConfig
 
 
 def header_subset(headers: Any) -> dict[str, str]:
@@ -24,6 +26,9 @@ def header_subset(headers: Any) -> dict[str, str]:
 def build_outgoing_request_headers(
     auth_type: str,
     auth_config: OutgoingAuthConfig | None,
+    *,
+    webhook_signing: OutgoingWebhookSigningConfig | None = None,
+    request_body_bytes: bytes | None = None,
 ) -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     config = auth_config or OutgoingAuthConfig()
@@ -35,6 +40,18 @@ def build_outgoing_request_headers(
         headers["Authorization"] = f"Basic {encoded}"
     elif auth_type == "header" and config.header_name and config.header_value:
         headers[config.header_name] = config.header_value
+
+    signing = webhook_signing or OutgoingWebhookSigningConfig()
+    if signing.verification_token:
+        headers["X-Malcom-Verification-Token"] = signing.verification_token
+
+    if signing.algorithm == "hmac_sha256" and signing.signing_secret and signing.signature_header:
+        digest = hmac.new(
+            signing.signing_secret.encode("utf-8"),
+            request_body_bytes or b"",
+            hashlib.sha256,
+        ).hexdigest()
+        headers[signing.signature_header] = f"sha256={digest}"
 
     return headers
 
@@ -67,10 +84,16 @@ def execute_outgoing_test_delivery(payload: OutgoingApiTestRequest) -> OutgoingA
     if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Destination URL must be a valid http or https URL.")
 
-    headers = build_outgoing_request_headers(payload.auth_type, payload.auth_config)
+    request_body = json.dumps(parsed_payload).encode("utf-8")
+    headers = build_outgoing_request_headers(
+        payload.auth_type,
+        payload.auth_config,
+        webhook_signing=payload.webhook_signing,
+        request_body_bytes=request_body,
+    )
     request = urllib.request.Request(
         payload.destination_url,
-        data=json.dumps(parsed_payload).encode("utf-8"),
+        data=request_body,
         headers=headers,
         method=payload.http_method,
     )

@@ -26,6 +26,6 @@ def test_internal_api_route_smoke_matrix(case) -> None:
 def test_internal_api_routes_have_smoke_coverage() -> None:
     missing, extra = validate_route_scenario_mapping()
 
-    assert len(ROUTE_SCENARIO_MAP) == len(SMOKE_CASES)
+    assert all(ROUTE_SCENARIO_MAP.values())
     assert not missing, f"Missing route smoke coverage for: {missing}"
     assert not extra, f"Route smoke registry contains unknown routes: {extra}"

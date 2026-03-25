@@ -310,6 +310,52 @@ export const defaultDashboardQueueResponse = {
   ]
 } satisfies RouteObject;
 
+export const defaultDashboardResourceProfileResponse = {
+  collected_at: fixedNowIso,
+  total_metrics: 3,
+  metrics: [
+    {
+      component: "automation_executor",
+      operation: "step_tool",
+      executions: 8,
+      avg_duration_ms: 120.15,
+      max_duration_ms: 420.5,
+      min_duration_ms: 30.1,
+      total_duration_ms: 961.2,
+      memory_peak_mb: 12.75,
+      error_count: 1,
+      error_rate_percent: 12.5,
+      last_executed_at: "2026-03-21T11:59:00.000Z"
+    },
+    {
+      component: "automation_executor",
+      operation: "step_connector_activity",
+      executions: 4,
+      avg_duration_ms: 90.2,
+      max_duration_ms: 105.0,
+      min_duration_ms: 70.1,
+      total_duration_ms: 360.8,
+      memory_peak_mb: 2.2,
+      error_count: 0,
+      error_rate_percent: 0,
+      last_executed_at: "2026-03-21T11:58:00.000Z"
+    },
+    {
+      component: "automation_executor",
+      operation: "step_script",
+      executions: 3,
+      avg_duration_ms: 50.5,
+      max_duration_ms: 89.3,
+      min_duration_ms: 21.0,
+      total_duration_ms: 151.5,
+      memory_peak_mb: 1.9,
+      error_count: 0,
+      error_rate_percent: 0,
+      last_executed_at: "2026-03-21T11:57:00.000Z"
+    }
+  ]
+} satisfies RouteObject;
+
 export const defaultLogTablesResponse = [
   {
     id: "log-table-1",
@@ -344,6 +390,7 @@ export type DashboardSettingsFixtureOptions = {
   summary?: RouteObject;
   devices?: RouteObject;
   queue?: RouteObject;
+  resourceProfile?: RouteObject;
   logTables?: Array<RouteObject>;
   logs?: Array<RouteObject>;
   freezeTimeIso?: string;
@@ -356,6 +403,7 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     summary: clone(deepMerge(defaultDashboardSummaryResponse, options.summary || {})),
     devices: clone(deepMerge(defaultDashboardDevicesResponse, options.devices || {})),
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
+    resourceProfile: clone(deepMerge(defaultDashboardResourceProfileResponse, options.resourceProfile || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
     freezeTimeIso: options.freezeTimeIso || fixedNowIso
   };
@@ -445,6 +493,34 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
       contentType: "application/json",
       body: JSON.stringify(state.queue)
     });
+  });
+
+  await page.route("**/api/v1/debug/resource-profile", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(state.resourceProfile)
+    });
+  });
+
+  await page.route("**/api/v1/debug/resource-profile/reset", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    state.resourceProfile = {
+      collected_at: state.freezeTimeIso,
+      total_metrics: 0,
+      metrics: []
+    };
+
+    await route.fulfill({ status: 204, body: "" });
   });
 
   await page.route("**/api/v1/dashboard/queue/pause", async (route) => {

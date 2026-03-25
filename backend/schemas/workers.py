@@ -221,6 +221,13 @@ class RuntimeMachineResponse(BaseModel):
     capabilities: list[str]
 
 
+class WorkerRpcStatusResponse(BaseModel):
+    worker_id: str
+    worker_name: str
+    ok: bool
+    error: str | None = None
+
+
 __all__ = [
     "DashboardDeviceResponse",
     "DashboardDevicesApiResponse",
@@ -244,5 +251,6 @@ __all__ = [
     "WorkerClaimResponse",
     "WorkerCompletionRequest",
     "WorkerRegistrationRequest",
+    "WorkerRpcStatusResponse",
     "WorkerResponse",
 ]

@@ -12,6 +12,13 @@ test("renders the dashboard home summary and collapsible sections", async ({ pag
   await expect(page.locator("#dashboard-overview-summary-queue-status-value")).toHaveText("Running");
   await expect(page.locator("#dashboard-overview-summary-queue-pending-value")).toHaveText("1");
   await expect(page.locator("#dashboard-overview-log-preview-item-log-api-retry")).toBeVisible();
+  await expect(page.locator("#dashboard-overview-resource-total-metrics-value")).toHaveText("3");
+  await expect(page.locator("#dashboard-overview-resource-operation-0")).toContainText("step_tool");
+  await expect(page.locator("#dashboard-overview-resource-errors-0")).toHaveText("12.5% (1)");
+  await expect(page.locator("#dashboard-overview-resource-profile-reset-button")).toBeVisible();
+
+  await page.locator("#dashboard-overview-resource-profile-reset-button").click();
+  await expect(page.locator("#dashboard-overview-resource-total-metrics-value")).toHaveText("0");
 
   await expect(page.locator("#dashboard-overview-services-body")).toBeVisible();
   await page.locator("#dashboard-overview-services-collapse-toggle").click();

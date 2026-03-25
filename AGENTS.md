@@ -2,35 +2,36 @@
 
 ## Entry Point Routing {#entry-point-routing}
 
-Start every prompt with `[AREA: <keyword>]` to scope which sections of this file apply. Agents must read only the sections listed in the **Read** column and may skip the rest.
+Start every prompt with `[AREA: <keyword>]` to scope which policy files apply.
 
-| Keyword | Read These Sections | Skip These Sections |
+| Keyword | Read These Files | Skip These Files |
 |---|---|---|
-| `db` | Database Structure, Schema Rules, File Placement → Backend, Testing → Backend | All UI rules, Tool I/O Contract, Vite/Build |
-| `ui` | File Placement → Frontend, Shared Shell, UI Requirements, Collapsible Pattern, Text Density, Info Badge, Styles, Vite Build | DB structure, Tool I/O Contract, Backend file rules |
-| `tools` | Tool Registration, Tool I/O Contract, File Placement → Frontend Entry Rules, Vite Build | DB schema, Shell/badge/collapsible rules |
-| `api` | File Placement → Backend, Repo Map → Backend, Testing → Backend | UI rules, Tool I/O, Vite build |
-| `test` | Testing and Verification, Rules Matrix R-TEST-\*, Practical Do/Do Not | UI rules, Tool I/O Contract, Vite |
-| `automation` | Tool I/O Contract, Tool Registration, DB → Automation Tables, Testing | UI Shell rules, Styles, Vite |
-| `nav` | Shared Shell Requirements, UI Text Density, Info Badge Pattern, Styles | DB, Tool I/O, Backend file rules |
-| `scripts` | File Placement → Backend, Repo Map → Backend, Testing | UI rules, Tool I/O |
+| `db` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
+| `ui` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except connector boundary rules in root |
+| `tools` | `AGENTS.md` + `backend/AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | none |
+| `api` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
+| `test` | `AGENTS.md` + `tests/AGENTS.md` + matching domain file | unrelated domain files |
+| `automation` | `AGENTS.md` + `backend/AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | none |
+| `nav` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except global rules in root |
+| `scripts` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
 
-**If no `[AREA:]` prefix is present**, read the Quick Task → Where to Edit table in the Machine Reference Index first, then load only the sections that table points to.
+If no `[AREA:]` prefix is present, read Quick Task -> Where to Edit first, then load only the referenced domain files.
+
+### Domain Policy Files
+
+After reading root routing and machine index, load the closest domain AGENTS file when relevant:
+
+- `backend/AGENTS.md` for backend, schema, and tool/backend contract work
+- `ui/AGENTS.md` for frontend structure, shell, styles, and route wiring work
+- `tests/AGENTS.md` for verification workflow, smoke coverage, and startup/test triage
 
 ---
 
 ## Purpose
 
-Agents work best in this repo when they follow the real architecture instead of inventing parallel structure.
+Machine-only policy file.
 
-Malcom is a FastAPI application with:
-
-- a PostgreSQL runtime database
-- server-rendered HTML entry pages built by Vite
-- a mix of React pages and vanilla JavaScript pages
-- database-backed tool metadata, connector settings, scripts, and automation state
-
-This file is the operating manual for future agent changes.
+Primary objective: deterministic routing, file targeting, and enforcement rules for agent behavior in this repository.
 
 ---
 
@@ -73,37 +74,22 @@ It does not apply to direct questions, policy edits, meta-instructions, or reque
 
 ### Response Scope And Instruction Fidelity {#response-scope-and-instruction-fidelity}
 
-Agents must answer only the user's requested task and must not add adjacent rationale, implementation ideas, process guidance, summaries, or explanatory context unless the user explicitly asks for them.
+Response policy (normative):
 
-Rules:
-
-1. Do not add unprompted explainer text.
-   - If the user asks for a direct answer, give the direct answer only.
-   - Do not append extra "why," "how," "best practice," or "also consider" guidance unless requested.
-2. Do not expand scope.
-   - Do not perform, propose, or narrate extra work beyond the user's request.
-   - Do not infer that a broader workflow is desired unless the user clearly asked for it.
-3. Follow the latest user instruction literally when it conflicts with default helpfulness behavior.
-   - If the user says to be brief, be brief.
-   - If the user asks for only one thing, do not include additional sections.
-4. Default to minimal output.
-   - Prefer the shortest complete response that satisfies the request.
-   - Do not add summaries, next steps, testing instructions, verification steps, or notes unless requested or required by a higher-priority instruction that applies to the current task.
-5. Ask before elaborating.
-   - If extra context might help, ask a short permission question instead of including it automatically.
-6. Do not restate obvious instructions.
-   - Avoid repeating constraints the user already gave unless needed to resolve ambiguity.
-7. When the user is correcting agent behavior, address only the correction.
-   - Do not continue the previous workflow.
-   - Do not defend prior behavior.
-   - Do not add implementation side effects.
+1. Answer only the explicit user request.
+2. Do not add unrequested rationale, guidance, or adjacent tasks.
+3. Do not expand scope unless the user explicitly asks.
+4. When instructions conflict, follow the latest user instruction literally.
+5. Default to shortest complete response.
+6. Ask permission before adding optional elaboration.
+7. If user corrects behavior, address only the correction.
 
 ### Maintenance Sync Rule {#maintenance-sync-rule}
 
 When updating policy, agents must update all of the following in the same change when applicable:
 
 1. canonical prose rules
-2. `Quick Task → Where to Edit` reference table
+2. `Quick Task -> Where to Edit` reference table
 3. `Rules Matrix` entries
 4. machine index block between `MACHINE_INDEX_START` and `MACHINE_INDEX_END`
 
@@ -111,31 +97,47 @@ Do not leave machine reference content stale after changing source rules.
 
 ---
 
+## Connector And Tool Boundary {#connector-and-tool-boundary}
+
+Use one integration model per responsibility. Do not blur remote API access, HTTP request definitions, and machine-executed runtimes.
+
+### Routing Rule {#connector-boundary-routing-rule}
+
+When deciding where a new integration belongs, agents must:
+
+1. use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps for remote SaaS/API integrations, OAuth credentials, provider presets, reusable auth/base URL state, and provider-aware builder actions
+2. use the tool catalog only for locally executed binaries, managed runtimes, worker-bound services, or other non-HTTP machine capabilities
+3. when adding a connector provider, also decide whether it needs prebuilt workflow activities and define them in the connector activity system when appropriate
+4. keep generic HTTP steps available for raw/custom API usage instead of overfitting every remote action into the activity catalog
+5. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request or connector activity
+
+---
+
 ## Machine Reference Index {#machine-reference-index}
 
-Use this section as the first lookup for task routing. It accelerates file targeting but does not replace canonical rule text below.
+Machine-first routing index. Use for task-to-file targeting before consulting canonical rule text.
 
-### Quick Task → Where to Edit {#quick-task-where-to-edit}
+### Quick Task -> Where to Edit {#quick-task-where-to-edit}
 
 | Task | Primary Files | Also Check | Must Not Edit |
 |---|---|---|---|
-| Add backend API route | `backend/routes/api.py` | `backend/schemas/`, `tests/test_<feature>.py` | `ui/dist/**` |
-| Add served UI page route | `backend/routes/ui.py` | `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
-| Change DB schema | `backend/database.py` | related serializers + tests | runtime database objects directly |
-| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/schemas/settings.py`, `backend/schemas/apis.py`, `backend/schemas/automation.py`, `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/`, `ui/scripts/apis/`, `ui/src/automation/step-modals/http-step-form.tsx`, `ui/src/automation/step-modals/connector-activity-step-form.tsx`, `ui/e2e/` | `backend/tool_registry.py` unless a local runtime/executable is required |
-| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
-| Add or update tool registration | `backend/tool_registry.py` | `backend/services/support.py`, `scripts/generate-tools-manifest.mjs`, `ui/tools/<id>.html`, `ui/scripts/tools/<id>.js`, `ui/vite.config.ts`, `backend/routes/ui.py`, `ui/e2e/` | hardcoded tool cards/nav links |
-| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | matching HTML + styles in `ui/styles/pages/`, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
-| Add React page logic | `ui/src/<feature>/` | matching HTML entry + tests, `ui/e2e/` | unrelated section folders |
-| Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/scripts/navigation.js`, `ui/styles/components.css`, `ui/styles/base.css` | visible explanatory paragraphs in default page state |
-| Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or collapse states that leave empty layout space |
-| Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | shared modal utilities/patterns, `ui/styles/pages/**`, related tests | auto-open detail panes on load or permanent empty inline detail columns |
-| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
-| Implement or change behavior | feature source files + matching tests (`tests/`, `ui/src/**`, `ui/e2e/`) | `scripts/test-precommit.sh`, `scripts/test-full.sh` | shipping behavior changes without updating relevant automated tests |
-| Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `pytest.ini`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, `tests/api_smoke_registry/`, `tests/test_api_smoke_matrix.py` | `requirements.txt`, `ui/package.json`, `ui/playwright.config.ts`, `ui/e2e/`, `ui/e2e/README.md`, `README.md` | `ui/dist/**` |
-| Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `scripts/test-full.sh`, `backend/data/logs/`, `ui/e2e/README.md`, `README.md` | skipping infra diagnosis and reporting blockers as unresolved without checking active listeners/processes |
-| Update agent response policy or instruction-following rules | `AGENTS.md` | `Required Output For Development Work`, `Response Scope And Instruction Fidelity`, `Rules Matrix`, machine index block | unrelated app source files |
+| Add backend API route | `backend/routes/api.py` | `backend/AGENTS.md`, `tests/AGENTS.md`, `tests/test_<feature>.py` | `ui/dist/**` |
+| Add served UI page route | `backend/routes/ui.py` | `ui/AGENTS.md`, `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
+| Change DB schema | `backend/database.py` | `backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
+| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | `backend/tool_registry.py` unless local runtime/executable is required |
+| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
+| Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
+| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | `ui/AGENTS.md`, matching HTML + styles, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
+| Add React page logic | `ui/src/<feature>/` | `ui/AGENTS.md`, matching HTML entry + tests, `ui/e2e/` | unrelated section folders |
+| Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, style files | visible explanatory paragraphs in default page state |
+| Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/AGENTS.md`, `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or non-collapsing hidden states |
+| Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/AGENTS.md`, shared modal utilities, related tests | auto-open detail panes on load or permanent empty inline detail columns |
+| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
+| Implement or change behavior | feature source files + matching tests | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
+| Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
+| Improve testing workflow | `pytest.ini`, test scripts, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
+| Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
+| Update agent response policy or instruction-following rules | `AGENTS.md`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
 
@@ -169,91 +171,56 @@ Use this section as the first lookup for task routing. It accelerates file targe
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 14,
+  "version": 15,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
     "keywords": ["db", "ui", "tools", "api", "test", "automation", "nav", "scripts"],
-    "fallback": "Read Quick Task → Where to Edit table in #machine-reference-index first"
+    "fallback": "Read Quick Task -> Where to Edit table in #machine-reference-index first"
+  },
+  "domain_policies": {
+    "backend": ["backend/AGENTS.md"],
+    "frontend": ["ui/AGENTS.md"],
+    "testing": ["tests/AGENTS.md"]
   },
   "primary_sources": {
+    "global_routing": ["AGENTS.md"],
+    "backend_rules": ["backend/AGENTS.md"],
+    "ui_rules": ["ui/AGENTS.md"],
+    "test_rules": ["tests/AGENTS.md"],
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
-    "connector_registry": ["backend/routes/connectors.py", "backend/schemas/settings.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/"],
-    "connector_activity_catalog": ["backend/services/connector_activities.py", "backend/schemas/automation.py", "backend/routes/connectors.py", "ui/src/automation/step-modals/connector-activity-step-form.tsx"],
-    "outgoing_http_requests": ["backend/routes/apis.py", "backend/schemas/apis.py", "ui/apis/outgoing.html", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
-    "shared_shell": ["ui/scripts/shell-config.js", "ui/scripts/navigation.js"],
-    "ui_text_density": ["ui/<section>/<page>.html", "ui/scripts/navigation.js", "ui/styles/components.css"],
-    "ui_collapsible_controls": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**"],
-    "ui_selection_detail_modals": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/scripts/navigation.js"],
-    "test_workflow": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "ui/e2e/", "ui/e2e/README.md"],
-    "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"],
-    "browser_smoke": ["ui/playwright.config.ts", "ui/e2e/", "ui/e2e/README.md"],
-    "startup_diagnostics": ["scripts/dev.py", "scripts/run_playwright_server.sh", "ui/playwright.config.ts", "backend/data/logs/"]
+    "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
   },
   "task_routes": {
     "db_schema_change": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["backend/database.py"],
       "verify": ["tests/"]
     },
-    "connector_backed_remote_api_change": {
-      "edit": ["backend/routes/connectors.py", "backend/routes/apis.py", "backend/services/connector_activities.py", "backend/schemas/settings.py", "backend/schemas/apis.py", "backend/schemas/automation.py", "ui/settings/connectors.html", "ui/scripts/settings/connectors.js", "ui/scripts/settings/connectors/", "ui/scripts/apis/", "ui/src/automation/step-modals/http-step-form.tsx", "ui/src/automation/step-modals/connector-activity-step-form.tsx", "ui/e2e/"],
-      "check": ["connector_auth_storage", "base_url_reuse", "outgoing_request_reuse", "connector_activity_catalog_defined", "provider_activity_scopes_declared", "provider_activity_input_output_schemas_declared", "automation_builder_provider_aware_connector_actions", "workflow_builder_exposes_explicit_connector_actions", "remote_api_not_tool_catalog", "google_onboarding_starts_with_connect_provider", "no_prompt_based_oauth_credential_capture"],
-      "verify": ["settings/connectors.html", "apis/outgoing.html", "automation_http_step_connector_selector", "automation_connector_activity_selector", "npm run test:e2e"]
-    },
-    "new_ui_page": {
-      "edit": ["ui/<section>/<page>.html", "ui/vite.config.ts", "backend/routes/ui.py", "ui/e2e/"],
-      "verify": ["ui/dist/", "npm run test:e2e"]
-    },
-    "ui_text_density_cleanup": {
-      "edit": ["ui/<section>/<page>.html", "ui/styles/pages/**"],
-      "check": ["ui/scripts/navigation.js", "ui/styles/components.css", "ui/styles/base.css"],
-      "verify": ["manual_badge_toggle", "default_page_readability"]
-    },
-    "ui_collapsible_control_change": {
-      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/e2e/"],
-      "check": ["aria_expanded", "aria_controls", "hidden", "stable_ids", "top_strip_toggle", "display_none_layout_collapse"],
-      "verify": ["toggle_click", "toggle_keyboard", "indicator_plus_minus", "collapsed_body_not_in_layout", "npm run test:e2e"]
-    },
-    "ui_selection_detail_modal_change": {
-      "edit": ["ui/src/<feature>/", "ui/<section>/<page>.html", "ui/styles/pages/**", "ui/e2e/"],
-      "check": ["default_state_has_no_open_details", "no_reserved_empty_detail_space", "shared_modal_usage", "keyboard_access", "focus_management", "inline_exception_documented"],
-      "verify": ["selection_opens_modal", "initial_load_has_no_details", "focus_returns_to_trigger", "inline_detail_exception_reason_present_when_used", "npm run test:e2e"]
+    "ui_change": {
+      "read": ["AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["ui/", "backend/routes/ui.py", "ui/vite.config.ts"],
+      "verify": ["ui/e2e/", "ui/", "scripts/test-precommit.sh", "scripts/test-full.sh"]
     },
     "tool_change": {
-      "edit": [
-        "backend/tool_registry.py",
-        "backend/services/support.py",
-        "ui/tools/<id>.html",
-        "ui/scripts/tools/<id>.js",
-        "ui/vite.config.ts",
-        "backend/routes/ui.py",
-        "ui/e2e/"
-      ],
+      "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["backend/tool_registry.py", "backend/services/support.py", "ui/tools/", "ui/scripts/tools/", "ui/vite.config.ts", "backend/routes/ui.py"],
       "generate": ["scripts/generate-tools-manifest.mjs"],
-      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html", "npm run test:e2e"]
+      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html", "ui/e2e/"]
     },
     "test_workflow_change": {
+      "read": ["AGENTS.md", "tests/AGENTS.md"],
       "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
-      "check": ["requirements.txt", "ui/package.json", "ui/playwright.config.ts"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
-    "implementation_behavior_change": {
-      "edit": ["feature source files", "matching backend tests in tests/", "matching frontend unit tests in ui/src/**", "matching browser workflow tests in ui/e2e/ when user-visible"],
-      "check": ["scripts/test-precommit.sh", "scripts/test-full.sh"],
-      "verify": ["new_or_updated_tests_fail_before_fix_when_practical", "new_or_updated_tests_pass_after_fix", "no_behavior_change_ships_without_relevant_test_updates"]
-    },
-    "startup_or_playwright_blocker": {
-      "edit": ["scripts/dev.py", "scripts/run_playwright_server.sh", "ui/playwright.config.ts", "scripts/test-full.sh", "ui/e2e/README.md"],
-      "check": ["backend/data/logs/", "README.md"],
-      "verify": ["active_listener_check", "port_preflight", "retry_same_playwright_command"]
-    },
     "response_policy_update": {
-      "edit": ["AGENTS.md"],
+      "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#rules-matrix", "MACHINE_INDEX_START"],
-      "verify": ["policy text matches response behavior expectations"]
+      "verify": ["policy text and machine index stay synchronized"]
     }
   },
   "forbidden_paths": [
@@ -272,672 +239,6 @@ Use this section as the first lookup for task routing. It accelerates file targe
   }
 }
 MACHINE_INDEX_END -->
-
----
-
-## Repo Map {#repo-map}
-
-### Backend {#repo-map-backend}
-
-- `backend/main.py`
-  - FastAPI app factory
-  - router registration
-  - static mounts for built assets and raw shell scripts/styles
-- `backend/routes/api.py`
-  - JSON API endpoints
-- `backend/routes/ui.py`
-  - HTML page routes and redirect routes
-  - this is the source of truth for served UI URLs
-- `backend/database.py`
-  - database connection helpers
-  - schema initialization
-  - additive schema evolution via `_ensure_column`
-- `backend/tool_registry.py`
-  - default tool catalog
-  - tool manifest generation
-  - tool database sync logic
-- `backend/services/`
-  - backend business logic and service helpers
-- `backend/schemas.py`
-  - Pydantic request/response models
-- `backend/data/logs/`
-  - application log output
-
-### Frontend {#repo-map-frontend}
-
-- `ui/<section>/<page>.html`
-  - HTML entry pages
-- `ui/src/`
-  - React/TypeScript application entrypoints and components
-- `ui/scripts/`
-  - vanilla JavaScript controllers and shared shell/runtime helpers
-- `ui/styles/`
-  - shared and page-level CSS
-- `ui/assets/`
-  - source assets consumed by Vite imports
-- `ui/dist/`
-  - generated build output
-  - do not hand edit
-
-### Other {#repo-map-other}
-
-- `scripts/`
-  - developer and maintenance scripts
-- `tests/`
-  - backend/API tests
-- `tools/`
-  - reserved for tool-owned collateral if needed later
-  - not a registration source of truth
-- `media/`
-  - repo-level reference media only, not bundled frontend assets
-
----
-
-## Connector And Tool Boundary {#connector-and-tool-boundary}
-
-Use one integration model per responsibility. Do not blur remote API access, HTTP request definitions, and machine-executed runtimes.
-
-### Connectors {#connector-boundary-connectors}
-
-- Connectors store reusable provider credentials, auth state, scopes, and base URLs for remote services and HTTP APIs.
-- Connectors back remote API calls such as Gmail, Google Calendar, Google Sheets, GitHub, or similar SaaS APIs.
-- Connector records live in workspace settings and are reused by outgoing APIs, connector workflow activities, and automation HTTP steps.
-- Google connector setup must start from the Connect provider control in `ui/settings/connectors.html` and continue in the connector details modal.
-- Do not collect Google OAuth Client ID or Client secret with browser `prompt()` dialogs.
-
-### Connector Workflow Activities {#connector-boundary-activities}
-
-- Connector workflow activities are provider-aware, prebuilt actions exposed inside the automation builder from saved connectors.
-- New connector providers must define supported activities, required scopes, input schema, output schema, and execution mappings as part of the same implementation.
-- The automation builder must filter activities by the selected connector provider and show missing required scopes before runtime.
-- Connector workflow actions must be exposed in the workflow builder as explicit, selectable UI actions with action-specific inputs, validation, and expected outputs; do not leave provider capabilities hidden behind generic config blobs.
-- Use the connector activity system for common provider actions such as Gmail, Calendar, Sheets, GitHub issues, pull requests, repository lookups, or similar API-backed operations.
-- Keep activity definitions modular and backend-driven; do not hardcode provider activity catalogs into random UI files.
-
-### Outgoing APIs And Automation HTTP Steps {#connector-boundary-http}
-
-- Outgoing APIs and automation HTTP steps are the request-definition layer.
-- They own the actual destination URL, HTTP method, payload template, cadence, and request execution behavior.
-- They may reuse a connector for auth and base URL defaults when calling a remote API.
-- Generic HTTP steps remain available for raw API usage and custom endpoints that are not covered by a prebuilt connector activity.
-
-### Tools {#connector-boundary-tools}
-
-- Tools are machine-executed capabilities or managed runtimes that Malcom invokes locally or through a dedicated runtime or worker.
-- Use tools for capabilities such as local SMTP handling, local LLM execution, TTS, ffmpeg conversion, or other host/runtime-bound work.
-- Do not model Gmail-like API calls as tools unless Malcom must run a local executable, managed runtime, or worker-bound service to fulfill them.
-
-### Routing Rule {#connector-boundary-routing-rule}
-
-When deciding where a new integration belongs, agents must:
-
-1. use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps for remote SaaS/API integrations, OAuth credentials, provider presets, reusable auth/base URL state, and provider-aware builder actions
-2. use the tool catalog only for locally executed binaries, managed runtimes, worker-bound services, or other non-HTTP machine capabilities
-3. when adding a connector provider, also decide whether it needs prebuilt workflow activities and define them in the connector activity system when appropriate
-4. keep generic HTTP steps available for raw/custom API usage instead of overfitting every remote action into the activity catalog
-5. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request or connector activity
-
----
-
-## Database Structure {#database-structure}
-
-### Source Of Truth {#database-source-of-truth}
-
-The schema source of truth is `backend/database.py`, not any checked-in database file.
-
-Use the live database to inspect current state.
-Use `backend/database.py` to change structure.
-
-### Database Location {#database-location}
-
-- runtime DB: PostgreSQL (`MALCOM_DATABASE_URL`)
-- connection helper: `backend/database.py:connect`
-- initialization entrypoint: `backend/database.py:initialize`
-
-### Table Groups {#table-groups}
-
-#### API Registry Tables
-
-- `inbound_apis`
-  - inbound API definitions
-  - includes auth type, secret hash, enablement, mock flag, timestamps
-- `inbound_api_events`
-  - inbound request/event history tied to `inbound_apis`
-- `outgoing_scheduled_apis`
-  - scheduled outbound deliveries
-  - includes URL, auth config JSON, payload template, schedule, run timestamps
-- `outgoing_continuous_apis`
-  - continuous/repeating outbound deliveries
-- `webhook_apis`
-  - webhook publisher definitions and verification settings
-
-#### Tool Directory
-
-- `tools`
-  - persisted tool metadata
-  - stores seed metadata plus overrides and enablement
-  - frontend tool catalog and sidenav derive from this flow
-
-#### Workspace Settings
-
-- `settings`
-  - JSON settings payloads keyed by setting name
-
-#### Automation Tables
-
-- `automations`
-  - automation definitions and trigger configuration
-- `automation_steps`
-  - ordered steps for an automation
-- `automation_runs`
-  - execution history for automations
-- `automation_run_steps`
-  - per-step execution history for each run
-
-#### Script Library
-
-- `scripts`
-  - stored script definitions
-  - includes code, language, validation state, timestamps
-
-### Schema Rules {#schema-rules}
-
-When changing the DB schema, agents must:
-
-1. update `backend/database.py`
-2. add new `CREATE TABLE IF NOT EXISTS` definitions there if introducing a table
-3. use `_ensure_column(...)` for additive column changes to existing tables
-4. keep booleans as integer-compatible values (`0`/`1`) for cross-database compatibility
-5. keep structured payloads in `*_json` text columns unless there is a strong reason not to
-6. update API serialization/deserialization logic and tests in the same task
-
-Agents must not:
-
-- treat any runtime DB file as the schema source of truth
-- hand-edit runtime database tables/columns directly as a substitute for code changes
-- create ad hoc migration files unless the repo adopts a formal migration system first
-
----
-
-## File Placement Rules {#file-placement-rules}
-
-### Backend Files {#backend-files}
-
-Place new backend files by responsibility:
-
-- routes: `backend/routes/<feature>.py`
-- service/business logic: `backend/services/<feature>.py`
-- schema/model changes: `backend/schemas.py`
-- DB helpers and schema: `backend/database.py`
-- app wiring and mounts: `backend/main.py`
-- UI route wiring and redirects: `backend/routes/ui.py`
-- tests: `tests/test_<feature>.py`
-
-Backend rules:
-
-- do not put business logic directly in HTML routes unless it is route-only glue
-- do not put SQL in frontend files
-- do not add served HTML routes in `backend/main.py`; add them in `backend/routes/ui.py`
-
-### Frontend Entry Rules {#frontend-entry-rules}
-
-The repo uses two frontend entry styles.
-
-#### React Pages
-
-React pages mount from `ui/src/`.
-
-Current examples:
-
-- `ui/dashboard/home.html` -> `ui/src/dashboard/main.tsx`
-- `ui/dashboard/devices.html` -> `ui/src/dashboard/main.tsx`
-- `ui/dashboard/logs.html` -> `ui/src/dashboard/main.tsx`
-- `ui/automations/overview.html` -> `ui/src/automation/main.tsx`
-- `ui/scripts/library.html` -> `ui/src/scripts-library/main.ts`
-
-Rule:
-
-- if a page is React-driven, its HTML must load a `ui/src/<feature>/main.tsx` or `main.ts` entry
-- React components and tests stay under that same `ui/src/<feature>/` tree
-
-#### Vanilla Pages
-
-Vanilla pages must use page-specific entry files under `ui/scripts/<section>/`.
-
-Rule:
-
-- `ui/<section>/<page>.html` must load `ui/scripts/<section>/<page>.js`
-- page-specific DOM bindings, listeners, and page orchestration belong in that page module or modules under the same folder
-- shared code for a section belongs under the same section folder, not in a new random root-level script
-
-Examples:
-
-- `ui/apis/outgoing.html` -> `ui/scripts/apis/outgoing.js`
-- `ui/settings/workspace.html` -> `ui/scripts/settings/workspace.js`
-- `ui/tools/llm-deepl.html` -> `ui/scripts/tools/llm-deepl.js`
-
-Legacy note:
-
-- existing root-level files such as `ui/scripts/settings.js`, `ui/scripts/tool-config.js`, `ui/scripts/local-llm.js`, and `ui/scripts/tools.js` are shared controllers from the earlier structure
-- agents may import them from page-specific entry files
-- agents must not add new page entry files at the root of `ui/scripts/`
-
-### Shared Shell Requirements {#shared-shell-requirements}
-
-Navigation and brand markup are registered by shared shell convention, not by page-local copy/paste.
-
-Required shell sources:
-
-- `ui/scripts/shell-config.js`
-- `ui/scripts/navigation.js`
-
-When adding or changing UI pages that use the shell, agents must:
-
-1. update shared navigation or brand definitions in `ui/scripts/shell-config.js` when shell navigation changes
-2. use `data-section`, `data-sidenav-item`, and `data-shell-path-prefix` on shell pages
-3. render shell placeholders with `id="topnav"` and `id="sidenav"`
-4. keep the Malcom brand in the shared shell, not page-local markup
-5. avoid duplicating nav labels or hrefs inside individual pages
-
-Agents must not hardcode new topnav or sidenav markup into page HTML when the shared shell applies.
-
-### Selection-Driven Detail View Policy {#selection-driven-detail-view-policy}
-
-When a page presents a directory, list, or table of selectable records, keep record details hidden in the default state and reveal them on demand in a shared modal after explicit selection, unless a documented operational reason requires an inline detail pane.
-
-Rules:
-
-1. Do not auto-open, auto-select, or auto-populate a detail view during initial page load.
-2. Do not reserve persistent layout space for an empty detail pane before the user selects a record.
-3. Use the shared modal pattern for inspect, edit, and detail flows launched from row, card, or list selection.
-4. Preserve keyboard access for selection triggers and manage focus correctly when opening and closing the modal.
-5. Inline detail panes are exceptions and must be justified by a continuous monitoring, side-by-side comparison, or similarly documented workflow need.
-6. When an inline exception is approved, keep the justification near the implementation notes or policy-relevant page guidance so future changes do not normalize the exception.
-
-Agents must not:
-
-- show record details by default before the user selects a record
-- leave a permanently empty detail column or panel visible in the default state
-- replace the shared modal flow with a custom non-modal detail reveal pattern unless the inline exception is documented
-
-### UI Requirements {#ui-requirements}
-
-For UI-facing work:
-
-- every rendered structural or interactive element must have a stable, deterministic `id`
-- CSS classes must be semantic and purpose-based
-- utility-first or presentation-only class naming should be avoided
-- default page state must be concise and scannable; keep non-essential instructional copy hidden by default
-
-### Collapsible Element Pattern {#collapsible-element-pattern}
-
-Use a compact top-strip collapse control instead of a prominent action button.
-
-Rules:
-
-1. Collapsible sections must expose a full-width, low-visual-weight top strip with a centered or right-aligned `+` or `-` indicator.
-2. The top strip control must remain visible in both expanded and collapsed states.
-3. Keep the control as a real `<button type="button">` for keyboard and assistive-tech compatibility.
-4. Preserve accessibility state via `aria-expanded` and `aria-controls` on the control, and `hidden` on the controlled region.
-5. Keep deterministic IDs for the control, indicator element, and controlled panel.
-6. Hidden collapsed content must be removed from layout (`display: none`) so collapsing actually saves viewport space.
-7. Do not use primary/secondary CTA button styling for expand/collapse controls.
-
-Reference markup pattern:
-
-```html
-<button
-  id="section-collapse-toggle"
-  type="button"
-  class="section-collapse-top-strip"
-  aria-expanded="false"
-  aria-controls="section-body"
-  aria-label="Expand section"
->
-  <span id="section-title">Section title</span>
-  <span id="section-collapse-symbol" aria-hidden="true">+</span>
-  <span class="sr-only">Expand section</span>
-</button>
-<div id="section-body" hidden class="section-body section-body--collapsed">...</div>
-```
-
-```css
-.section-body[hidden],
-.section-body--collapsed {
-  display: none;
-}
-```
-
-### UI Text Density Policy {#ui-text-density-policy}
-
-Use minimal visible copy first, then progressive disclosure.
-
-Rules:
-
-1. Keep page-level visible text to titles, labels, and essential task guidance only.
-2. Move explanatory, educational, or “how this works” content behind info badges.
-3. Prefer one short sentence in visible state when context is necessary; place extended detail in badge-controlled content.
-4. Avoid stacked explanatory paragraphs in default state, especially above fold.
-5. Preserve accessibility state (`aria-expanded`, `aria-controls`, `hidden`) for any disclosed text.
-
-When modernizing existing pages with heavy copy, reduce on-screen paragraphs first and keep details discoverable through existing badge behavior (`initInfoBadges()`), instead of deleting useful guidance.
-
-### Info Badge Pattern For Explanatory Text {#info-badge-pattern-for-explanatory-text}
-
-Explanatory descriptions are hidden by default behind info badges. Titles remain visible; explanations are revealed on demand.
-
-**Rule:** Do not render explanatory text as visible paragraphs in the default page state. Instead, place descriptions behind an `.info-badge` toggle button that exposes an `.info-badge-content` panel when clicked.
-
-**Page-level description pattern:**
-
-```html
-<div class="page-header section-header--page" id="...">
-    <div class="title-row">
-        <h2 class="page-title section-header__title--page" id="page-title">Page Title</h2>
-        <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
-    </div>
-    <p class="page-description section-header__description--page" id="page-description" hidden>Description text.</p>
-</div>
-```
-
-**Section-level description pattern:**
-
-```html
-<div class="title-row">
-    <h3 id="section-title">Section title</h3>
-    <button type="button" id="section-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="section-description">i</button>
-</div>
-<p id="section-description" class="section-header__description" hidden>Description text.</p>
-```
-
-**CSS classes:**
-
-- `.info-badge` — circular `i` button (20 × 20 px, purple tones); defined in `ui/styles/components.css`
-- `.title-row` — flex row for title + badge alignment; defined in `ui/styles/base.css`
-
-**JavaScript:** Toggle behavior is handled globally by `initInfoBadges()` in `ui/scripts/navigation.js`, which runs on every shell page. No per-page wiring is needed. Clicking outside an open badge (and not inside its controlled element) automatically closes it.
-
-**Badge IDs:** Use `{description-element-id}-badge` for badge button IDs.
-
-Agents must not:
-
-- render explanatory text as always-visible paragraphs under headings
-- add visible `<p>` descriptions to new pages without the info-badge toggle
-- duplicate the toggle binding in page-specific scripts (navigation.js handles it)
-- keep multiple long helper paragraphs visible in the default page state when badge disclosure can be used
-
-### Styles {#styles}
-
-Style placement rules:
-
-- shared shell/layout styles: `ui/styles/shell.css`, `ui/styles/base.css`, `ui/styles/components.css`
-- section/page styles: `ui/styles/pages/`
-- stylesheet aggregation: `ui/styles/styles.css`
-
-When adding styles:
-
-- extend an existing section stylesheet first if the new UI belongs clearly to that section
-- if a page needs its own stylesheet, place it under `ui/styles/pages/` with a clear section-oriented name
-- wire new page styles through `ui/styles/styles.css`
-
-### Assets And Media {#assets-and-media}
-
-Current frontend asset source of truth is `ui/assets/`, not `ui/media/`.
-
-Rules:
-
-- Vite-consumed frontend assets go in `ui/assets/`
-- repo reference media that is not part of the app bundle may go in `media/`
-- do not create a parallel `ui/media/` convention unless the repo is explicitly migrated to it
-
----
-
-## Vite Build And UI Routing {#vite-build-and-ui-routing}
-
-### Build Requirements {#build-requirements}
-
-For a new UI page to exist correctly:
-
-1. create the HTML file under `ui/`
-2. add the HTML file to the `input` object in `ui/vite.config.ts`
-3. ensure the page loads the correct page entry script or React entrypoint
-4. run `npm run build` in `ui/`
-5. verify the generated file appears in `ui/dist/`
-
-### Route Requirements {#route-requirements}
-
-Served HTML routes live in `backend/routes/ui.py`.
-
-When adding a new page, agents must:
-
-1. add the built page route to `UI_HTML_ROUTES` in `backend/routes/ui.py`
-2. add redirect routes there if the section needs a root redirect or a legacy alias
-3. avoid putting page route registration into `backend/main.py`
-
-Agents must not assume a built HTML file is automatically served just because it exists in `ui/dist/`.
-
----
-
-## Tool Input/Output Contract {#tool-input-output-contract}
-
-Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:
-- DB sync (stored in `inputs_schema_json` and `outputs_schema_json` on the `tools` table)
-- Frontend tool manifest (`ui/scripts/tools-manifest.js`) for dynamic form rendering in the automation canvas
-- Backend validation in `validate_automation_definition()`
-- Execution engine dispatch and `inputs_json` tracking in `automation_run_steps`
-
-### Field Descriptor Format {#field-descriptor-format}
-
-Each entry in `inputs` and `outputs` is a dict with:
-
-```python
-{
-    "key": "text",          # machine-readable key, used in tool_inputs dict and template vars
-    "label": "Text to Speak",  # human-readable label shown in the workflow canvas
-    "type": "text",         # string | text | number | select
-    "required": True,       # inputs only; omit or False for optional
-    "options": ["a", "b"],  # select type only
-}
-```
-
-### Supported Types {#supported-types}
-
-- `string` — single-line text input
-- `text` — multiline textarea
-- `number` — numeric input
-- `select` — dropdown; requires `options` list
-
-### Adding a New Tool with I/O Contract {#adding-a-new-tool-with-io-contract}
-
-1. Add the tool to `DEFAULT_TOOL_CATALOG` in `backend/tool_registry.py` with `inputs` and `outputs` lists
-2. Add the execution handler in `backend/services/support.py`:
-   - Read inputs via `_get_tool_input(step, "key", context)`
-   - Return `RuntimeExecutionResult` with `output` as a dict keyed by output field keys
-   - Add dispatch in `execute_automation_step()` tool handler
-3. Add required-input validation in `validate_automation_definition()`
-4. Run `node scripts/generate-tools-manifest.mjs` and `npm run build` in `ui/`
-
-### Tool Step in a Workflow (User Perspective) {#tool-step-in-a-workflow-user-perspective}
-
-- Step type `"tool"` with `tool_id` set to the tool's catalog id
-- Inputs stored in `config.tool_inputs: { key: value }` (template variables supported)
-- Outputs available as `{{steps.<step_name>.<output_key>}}` in downstream steps
-- Example: a coqui-tts step named `tts` exposes `{{steps.tts.audio_file_path}}`
-
-### Policy {#tool-io-policy}
-
-Only add tools to the catalog when:
-- A backend execution handler is designed and implemented
-- Input/output schemas are defined
-- The tool page (`ui/tools/<id>.html`) and script (`ui/scripts/tools/<id>.js`) exist
-
-Do not add placeholder tools. Remove tools from the catalog if their execution backend is removed.
-
-### Currently Implemented Tools {#currently-implemented-tools}
-
-| Tool ID | Inputs | Key Outputs |
-|---------|--------|-------------|
-| `coqui-tts` | text (req), output_filename, speaker, language | `audio_file_path` |
-| `llm-deepl` | user_prompt (req), system_prompt, model_identifier | `response_text`, `model_used` |
-| `smtp` | relay_host (req), relay_port (req), from_address (req), to (req), subject (req), body (req), relay_security, relay_username, relay_password | `status`, `message` |
-
----
-
-## Tool Registration Requirements {#tool-registration-requirements}
-
-Tools are registered by backend catalog plus database sync, not by static frontend markup and not by per-tool JSON files.
-
-### Source Of Truth {#tool-registration-source-of-truth}
-
-- `backend/tool_registry.py`
-  - default tool catalog seed data
-  - tool metadata validation
-  - sync into the runtime database
-- `tools` table in PostgreSQL
-  - persisted tool state, enablement, overrides
-- `ui/scripts/tools-manifest.js`
-  - generated frontend manifest
-- `scripts/generate-tools-manifest.mjs`
-  - manifest generation script
-
-### Required Metadata Fields {#required-metadata-fields}
-
-- `id`
-- `name`
-- `description`
-
-Validation rules:
-
-- every registered tool must have a backend catalog entry
-- all required fields must be non-empty strings
-- `id` values must remain stable because they map to DB rows, routes, pages, and sidenav items
-
-### Tool Folder Rules {#tool-folder-rules}
-
-The top-level `tools/` folder is not currently used for registration.
-
-If future tool-specific collateral is needed:
-
-- use `tools/<tool-id>/` for documentation, helper scripts, sample configs, or non-app collateral
-- do not create `tools/<tool-id>/tool.json` as a registration source
-- do not move frontend page logic there
-- do not move primary backend route/service logic there
-
-Primary app code still belongs in `backend/` and `ui/`.
-
-### Tool Change Workflow {#tool-change-workflow}
-
-When adding or changing tools, agents must:
-
-1. create or update the tool catalog entry in `backend/tool_registry.py`
-2. run `node scripts/generate-tools-manifest.mjs`
-3. verify that `ui/scripts/tools-manifest.js` changed as expected
-4. add or update `ui/tools/<tool-id>.html`
-5. add or update `ui/scripts/tools/<tool-id>.js`
-6. add the page to `ui/vite.config.ts`
-7. add the served HTML route in `backend/routes/ui.py`
-8. verify that `ui/tools/catalog.html` reflects the tool without manual card markup changes
-9. verify that the tools sidenav updates through the shared config/manifest flow
-
-Agents must not:
-
-- hardcode new tools directly into `ui/tools/catalog.html`
-- hardcode new tools directly into `ui/scripts/tools.js`
-- manually hardcode tool sidenav links on individual pages
-- add `tools/<tool-id>/tool.json` files for registration
-
-### Example Tool Metadata {#example-tool-metadata}
-
-```python
-{
-  "id": "rss-poller",
-  "name": "RSS Poller",
-  "description": "Fetch RSS feeds on a schedule and emit normalized entries for downstream automations.",
-}
-```
-
-### Example Verification Flow {#example-verification-flow}
-
-1. Add `rss-poller` to the default tool catalog in `backend/tool_registry.py`.
-2. Run `node scripts/generate-tools-manifest.mjs`.
-3. Run `npm run build` in `ui/`.
-4. Open `/tools/catalog.html`.
-5. Confirm the tool card and sidenav entry appear with the expected label and description.
-
----
-
-## Generated And Runtime Files {#generated-and-runtime-files}
-
-Agents must not hand-edit generated or runtime artifact files unless the task explicitly targets them:
-
-- `ui/dist/**`
-- `ui/scripts/tools-manifest.js` without also regenerating it from the script
-- runtime database objects directly as a substitute for schema/code changes
-- `ui/node_modules/**`
-- `node_modules/**`
-
-If a generated file is expected to change, regenerate it from its source workflow and mention that in verification.
-
----
-
-## Testing And Verification {#testing-and-verification}
-
-Every meaningful code change should include the smallest relevant verification set.
-
-Build tests as implementation progresses rather than deferring all coverage to a follow-up task.
-
-Behavior-changing work is incomplete unless relevant automated tests are added or updated in the same change, except for strictly non-behavioral edits.
-
-User-visible workflow changes are not complete until `./scripts/test-full.sh` succeeds or the agent explicitly reports that full verification could not be completed.
-
-### Backend {#testing-backend}
-
-- run targeted `pytest` files in `tests/`
-- add or update API tests for route, schema, or DB behavior changes
-- use `scripts/test-precommit.sh` as the fast local backend/frontend iteration gate before commits
-- use `scripts/test-full.sh` as the completion gate when backend route smoke coverage, browser coverage, or shared test infrastructure changes are involved
-- keep `/health` and every `/api/v1/**` route represented in `tests/test_api_smoke_matrix.py`, with scenarios sourced from `tests/api_smoke_registry/`
-
-### Frontend {#testing-frontend}
-
-- run `npm run build` in `ui/` for page wiring, Vite input, or asset changes
-- run `npm run test` in `ui/` for React test coverage when React code changes
-- add or update `ui/e2e/` coverage whenever a user-visible workflow changes unless the change is strictly non-behavioral
-- run `npm run test:e2e` in `ui/` for browser workflow coverage when validating the full gate
-- ensure Playwright assertions cover the changed workflow behavior, not only route load or static render
-- manually verify the served page route if HTML/script wiring changed
-
-### Startup And Port Conflict Triage {#startup-and-port-conflict-triage}
-
-When startup, test server launch, or Playwright execution fails, confirm what is already running before declaring a blocker unresolved.
-
-Required triage steps:
-
-1. check active listeners/processes on expected ports (for example app, Vite, or Playwright web server ports)
-2. inspect `backend/data/logs/` for startup/runtime failures that accompany listener conflicts or partial startup
-3. report the specific conflicting process or listener in the task output
-4. remediate the conflict and rerun the same failing command to confirm recovery
-
-Do not stop at a generic startup timeout message when listener/process diagnostics are available.
-
-### Test Retirement {#test-retirement}
-
-When removing or rewriting tests:
-
-1. confirm the original behavior or contract was actually removed or replaced
-2. remove the stale test in the same change that removes the covered behavior
-3. add or update replacement coverage when the behavior still exists in a new shape
-4. update `tests/test_api_smoke_matrix.py` and the `tests/api_smoke_registry/` package when an internal API route is added, removed, or renamed
-
-Do not delete tests only because they are inconvenient or currently failing. Fix stale assertions, missing fixtures, or changed contracts explicitly.
-
-### Verification Minimum {#verification-minimum}
-
-For code changes, agent responses must tell the user:
-
-- what to run
-- what should happen
-- what to click or inspect to confirm the result
 
 ---
 

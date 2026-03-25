@@ -176,6 +176,13 @@ class ImageMagicExecuteResponse(BaseModel):
     worker_name: str
 
 
+class WorkerRpcSmtpSyncRequest(BaseModel):
+    enabled: bool
+    bind_host: str = Field(min_length=1, max_length=255)
+    port: int = Field(ge=0, le=65535)
+    recipient_email: str | None = Field(default=None, max_length=320)
+
+
 class LocalLlmChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str = Field(min_length=1, max_length=20000)
@@ -284,4 +291,5 @@ __all__ = [
     "ToolDirectoryUpdate",
     "ToolMetadataResponse",
     "ToolMetadataUpdate",
+    "WorkerRpcSmtpSyncRequest",
 ]

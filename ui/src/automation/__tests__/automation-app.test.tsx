@@ -505,7 +505,7 @@ describe("AutomationApp", () => {
     expect(container.querySelector("#automations-canvas-panel")).toBeInTheDocument();
     expect(container.querySelector("#automations-inspector-panel")).not.toBeInTheDocument();
     expect(container.querySelector("#automations-run-history-panel")).not.toBeInTheDocument();
-    expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
+    expect(container.querySelector("#automations-test-results-modal")).not.toBeInTheDocument();
   });
 
   it("collapses and expands the workflow settings bar", async () => {
@@ -537,7 +537,7 @@ describe("AutomationApp", () => {
     expect(symbol).toHaveTextContent("-");
   });
 
-  it("opens node actions and the step drawer from the selected canvas node", async () => {
+  it("opens node actions and the step modal from the selected canvas node", async () => {
     const { container } = renderAutomationApp();
 
     await waitFor(() => {
@@ -554,7 +554,7 @@ describe("AutomationApp", () => {
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
       expect(document.querySelector("#log-step-form-root")).toBeInTheDocument();
     });
   });
@@ -649,28 +649,31 @@ describe("AutomationApp", () => {
       expect(screen.getByLabelText("Automation name")).toBeInTheDocument();
     });
 
-    expect(container.querySelector("#automations-test-results-drawer")).not.toBeInTheDocument();
+    expect(container.querySelector("#automations-test-results-modal")).not.toBeInTheDocument();
 
     fireEvent.click(document.querySelector("#mock-select-trigger-node") as HTMLElement);
     fireEvent.click(document.querySelector("#automation-canvas-node-trigger-actions-button") as HTMLElement);
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
-    const drawer = document.querySelector("#automations-editor-drawer") as HTMLElement;
-    expect(within(drawer).queryByLabelText("Automation name")).not.toBeInTheDocument();
-    expect(within(drawer).getByText("Manual")).toBeInTheDocument();
-    expect(within(drawer).getByText("Schedule")).toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("radio", { name: /schedule/i }));
-    expect(within(drawer).getByRole("button", { name: "Select time" })).toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("button", { name: "Close editor drawer" }));
+    const modal = document.querySelector("#automations-editor-modal") as HTMLElement;
+    expect(within(modal).queryByLabelText("Automation name")).not.toBeInTheDocument();
+    expect(within(modal).queryByText("Manual")).not.toBeInTheDocument();
+    expect(within(modal).getByLabelText("Back to trigger types")).toBeInTheDocument();
+    fireEvent.click(within(modal).getByLabelText("Back to trigger types"));
+    expect(within(modal).getByText("Manual")).toBeInTheDocument();
+    expect(within(modal).getByText("Schedule")).toBeInTheDocument();
+    fireEvent.click(within(modal).getByRole("radio", { name: /schedule/i }));
+    expect(within(modal).getByRole("button", { name: "Select time" })).toBeInTheDocument();
+    fireEvent.click(within(modal).getByLabelText("Close editor"));
 
     fireEvent.click(screen.getByRole("button", { name: "Run now" }));
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-test-results-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-test-results-modal")).toBeInTheDocument();
       expect(
         document.querySelector("#automations-validation-results") ||
         document.querySelector("#automations-run-results")
@@ -695,11 +698,11 @@ describe("AutomationApp", () => {
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
-    const drawer = document.querySelector("#automations-editor-drawer") as HTMLElement;
-    expect(within(drawer).getByText("The selected inbound API is no longer available. Choose another API to continue.")).toBeInTheDocument();
+    const modal = document.querySelector("#automations-editor-modal") as HTMLElement;
+    expect(within(modal).getByText("The selected inbound API is no longer available. Choose another API to continue.")).toBeInTheDocument();
 
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
 
@@ -720,14 +723,15 @@ describe("AutomationApp", () => {
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
-    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-type-option-schedule") as HTMLElement);
-    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-schedule-input") as HTMLElement);
-    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-hour-input") as HTMLElement, { target: { value: "1" } });
-    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-minute-input") as HTMLElement, { target: { value: "07" } });
-    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-schedule-period-input") as HTMLElement, { target: { value: "PM" } });
+    fireEvent.click(document.querySelector("#automations-editor-modal-trigger-back") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-trigger-modal-trigger-type-option-schedule") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-trigger-modal-trigger-schedule-input") as HTMLElement);
+    fireEvent.change(document.querySelector("#automations-trigger-modal-trigger-schedule-hour-input") as HTMLElement, { target: { value: "1" } });
+    fireEvent.change(document.querySelector("#automations-trigger-modal-trigger-schedule-minute-input") as HTMLElement, { target: { value: "07" } });
+    fireEvent.change(document.querySelector("#automations-trigger-modal-trigger-schedule-period-input") as HTMLElement, { target: { value: "PM" } });
 
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
 
@@ -738,7 +742,7 @@ describe("AutomationApp", () => {
     });
   });
 
-  it("loads script options and applies sample input in the step drawer", async () => {
+  it("loads script options and applies sample input in the step modal", async () => {
     const { container } = renderAutomationApp({
       initialAutomation: {
         steps: [
@@ -785,10 +789,11 @@ describe("AutomationApp", () => {
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
-    fireEvent.click(document.querySelector("#automations-trigger-drawer-trigger-type-option-smtp_email") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-editor-modal-trigger-back") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-trigger-modal-trigger-type-option-smtp_email") as HTMLElement);
     expect(screen.getByText("Leave both filters blank to trigger on any inbound email. Matching is exact for now.")).toBeInTheDocument();
 
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
@@ -799,7 +804,7 @@ describe("AutomationApp", () => {
       expect(patchRequest?.body?.trigger_config).toEqual({});
     });
 
-    fireEvent.change(document.querySelector("#automations-trigger-drawer-trigger-smtp-recipient-input") as HTMLElement, {
+    fireEvent.change(document.querySelector("#automations-trigger-modal-trigger-smtp-recipient-input") as HTMLElement, {
       target: { value: "alerts@example.com" }
     });
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
@@ -846,7 +851,7 @@ describe("AutomationApp", () => {
     fireEvent.click(document.querySelector("#automations-node-menu-edit") as HTMLElement);
 
     await waitFor(() => {
-      expect(document.querySelector("#automations-editor-drawer")).toBeInTheDocument();
+      expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
     expect(document.querySelector("#automations-step-tool-input-relay_host-input")).toHaveValue("smtp.example.com");

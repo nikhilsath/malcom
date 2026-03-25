@@ -463,6 +463,54 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         call_payload = execute_conversion.call_args.args[0]
         self.assertEqual(call_payload.resize, "1024x768")
 
+    def test_executes_image_magic_through_remote_worker_rpc(self) -> None:
+        self.client.post(
+            "/api/v1/workers/register",
+            json={
+                "worker_id": "worker_remote_image",
+                "name": "Remote Image Worker",
+                "hostname": "remote-image.local",
+                "address": "http://192.168.1.55:8000",
+                "capabilities": ["image-magic-execution"],
+            },
+        )
+
+        self.client.patch(
+            "/api/v1/tools/image-magic",
+            json={
+                "enabled": True,
+                "target_worker_id": "worker_remote_image",
+                "command": "magick",
+            },
+        )
+
+        mocked_response = mock.Mock()
+        mocked_response.json.return_value = {
+            "ok": True,
+            "output_file_path": "backend/data/generated/image-magic/remote-output.png",
+            "worker_id": "worker_remote_image",
+            "worker_name": "Remote Image Worker",
+        }
+
+        with mock.patch("backend.routes.tools.call_worker_rpc", return_value=mocked_response) as rpc_call, mock.patch(
+            "backend.routes.tools.execute_image_magic_conversion_request"
+        ) as execute_local:
+            response = self.client.post(
+                "/api/v1/tools/image-magic/execute",
+                json={
+                    "input_file": "input.jpg",
+                    "output_format": "png",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["worker_id"], "worker_remote_image")
+        self.assertTrue(body["output_file_path"].endswith("remote-output.png"))
+        rpc_call.assert_called_once()
+        execute_local.assert_not_called()
+
     def test_updates_tool_metadata_via_generic_patch_endpoint(self) -> None:
         response = self.client.patch(
             "/api/v1/tools/image-magic",

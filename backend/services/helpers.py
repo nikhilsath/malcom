@@ -82,6 +82,7 @@ from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
     write_application_log as write_application_log_core,
 )
+from backend.services.metrics import get_metrics_collector, snapshot_process_memory_mb
 from backend.services.automation_runs import (
     assign_automation_run_worker as assign_automation_run_worker_core,
     calculate_duration_ms as calculate_duration_ms_core,
@@ -260,6 +261,23 @@ def get_connector_protection_secret(*, root_dir: Path | None = None, db_path: st
         "malcom-connectors",
     ]
     return "|".join(seed_parts)
+
+
+def get_cluster_shared_secret() -> str:
+    configured = os.environ.get("MALCOM_CLUSTER_SECRET", "").strip()
+    return configured or "malcom-lan-shared-secret"
+
+
+def build_worker_rpc_headers() -> dict[str, str]:
+    return {"X-Malcom-Cluster-Secret": get_cluster_shared_secret()}
+
+
+def assert_worker_rpc_authorized(request: Request) -> None:
+    provided_secret = str(request.headers.get("x-malcom-cluster-secret") or "").strip()
+    if not provided_secret or not hmac.compare_digest(provided_secret, get_cluster_shared_secret()):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cluster secret.")
+
+
 def derive_connector_protection_key(protection_secret: str) -> bytes:
     return hashlib.sha256(protection_secret.encode("utf-8")).digest()
 
@@ -515,6 +533,13 @@ def row_to_simple_api_resource(
     api_type: str,
     endpoint_path: str | None = None,
 ) -> dict[str, Any]:
+    webhook_signing_payload: dict[str, Any] = {}
+    if "webhook_signing_json" in row.keys():
+        try:
+            webhook_signing_payload = json.loads(row["webhook_signing_json"] or "{}")
+        except json.JSONDecodeError:
+            webhook_signing_payload = {}
+
     return {
         "id": row["id"],
         "type": api_type,
@@ -532,16 +557,29 @@ def row_to_simple_api_resource(
         "repeat_enabled": bool(row["repeat_enabled"]) if "repeat_enabled" in row.keys() else None,
         "repeat_interval_minutes": row["repeat_interval_minutes"] if "repeat_interval_minutes" in row.keys() else None,
         "payload_template": row["payload_template"] if "payload_template" in row.keys() else None,
+        "webhook_signing": OutgoingWebhookSigningConfig(**webhook_signing_payload) if webhook_signing_payload else None,
         "scheduled_time": row["scheduled_time"] if "scheduled_time" in row.keys() else None,
         "schedule_expression": row["schedule_expression"] if "schedule_expression" in row.keys() else None,
         "stream_mode": row["stream_mode"] if "stream_mode" in row.keys() else None,
+        "last_run_at": row["last_run_at"] if "last_run_at" in row.keys() else None,
+        "next_run_at": row["next_run_at"] if "next_run_at" in row.keys() else None,
+        "last_error": row["last_error"] if "last_error" in row.keys() else None,
         "callback_path": row["callback_path"] if "callback_path" in row.keys() else None,
         "signature_header": row["signature_header"] if "signature_header" in row.keys() else None,
         "event_filter": row["event_filter"] if "event_filter" in row.keys() else None,
         "has_verification_token": bool(row["verification_token"]) if "verification_token" in row.keys() else None,
         "has_signing_secret": bool(row["signing_secret"]) if "signing_secret" in row.keys() else None,
+        "last_received_at": row["last_received_at"] if "last_received_at" in row.keys() else None,
+        "last_delivery_status": row["last_delivery_status"] if "last_delivery_status" in row.keys() else None,
+        "events_count": int(row["events_count"]) if "events_count" in row.keys() and row["events_count"] is not None else None,
     }
-def row_to_outgoing_detail_response(row: DatabaseRow, *, api_type: str, endpoint_path: str) -> OutgoingApiDetailResponse:
+def row_to_outgoing_detail_response(
+    row: DatabaseRow,
+    *,
+    api_type: str,
+    endpoint_path: str,
+    connection: DatabaseConnection | None = None,
+) -> OutgoingApiDetailResponse:
     resource = row_to_simple_api_resource(row, api_type=api_type, endpoint_path=endpoint_path)
     auth_config_json = row["auth_config_json"] if "auth_config_json" in row.keys() else "{}"
 
@@ -551,7 +589,81 @@ def row_to_outgoing_detail_response(row: DatabaseRow, *, api_type: str, endpoint
       auth_config_payload = {}
 
     resource["auth_config"] = OutgoingAuthConfig(**auth_config_payload)
+    resource["recent_deliveries"] = (
+        list_outgoing_delivery_history(connection, resource_id=row["id"], resource_type=api_type)
+        if connection is not None
+        else []
+    )
     return OutgoingApiDetailResponse(**resource)
+
+
+def list_outgoing_delivery_history(
+    connection: DatabaseConnection | None,
+    *,
+    resource_id: str,
+    resource_type: str,
+    limit: int = 10,
+) -> list[OutgoingDeliveryHistoryEntry]:
+    if connection is None:
+        return []
+
+    rows = fetch_all(
+        connection,
+        """
+        SELECT delivery_id, resource_type, resource_id, status, http_status_code, request_summary,
+               response_summary, error_summary, started_at, finished_at
+        FROM outgoing_delivery_history
+        WHERE resource_id = ? AND resource_type = ?
+        ORDER BY started_at DESC
+        LIMIT ?
+        """,
+        (resource_id, resource_type, limit),
+    )
+    return [OutgoingDeliveryHistoryEntry(**dict(row)) for row in rows]
+
+
+def record_outgoing_delivery_history(
+    connection: DatabaseConnection,
+    *,
+    delivery_id: str,
+    resource_type: str,
+    resource_id: str,
+    status_value: str,
+    http_status_code: int | None,
+    request_summary: str | None,
+    response_summary: str | None,
+    error_summary: str | None,
+    started_at: str,
+    finished_at: str | None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO outgoing_delivery_history (
+            delivery_id,
+            resource_type,
+            resource_id,
+            status,
+            http_status_code,
+            request_summary,
+            response_summary,
+            error_summary,
+            started_at,
+            finished_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            delivery_id,
+            resource_type,
+            resource_id,
+            status_value,
+            http_status_code,
+            request_summary,
+            response_summary,
+            error_summary,
+            started_at,
+            finished_at,
+        ),
+    )
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "general": {
         "environment": "live",
@@ -1521,6 +1633,33 @@ def _resolve_worker_base_url(address: str) -> str:
     return f"http://{value}:8000"
 
 
+def call_worker_rpc(
+    worker: RegisteredWorker,
+    *,
+    method: str,
+    path: str,
+    json_body: dict[str, Any] | None = None,
+    timeout: float = 10.0,
+) -> httpx.Response:
+    base_url = _resolve_worker_base_url(worker.address)
+    response = httpx.request(
+        method,
+        f"{base_url}{path}",
+        json=json_body,
+        headers=build_worker_rpc_headers(),
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return response
+
+
+def get_runtime_worker_or_error(worker_id: str) -> RegisteredWorker:
+    worker = next((item for item in runtime_event_bus.list_workers() if item.worker_id == worker_id), None)
+    if worker is None:
+        raise RuntimeError(f"Target worker '{worker_id}' is not connected.")
+    return worker
+
+
 def _build_image_magic_output_path(
     *,
     input_file: str,
@@ -1634,14 +1773,12 @@ def execute_image_magic_tool_step(
             worker_name = get_local_worker_name()
 
             if target_worker_id and target_worker_id != worker_id:
-                worker = next((item for item in runtime_event_bus.list_workers() if item.worker_id == target_worker_id), None)
-                if worker is None:
-                    raise RuntimeError(f"Target worker '{target_worker_id}' is not connected.")
-
-                base_url = _resolve_worker_base_url(worker.address)
-                response = httpx.post(
-                    f"{base_url}/api/v1/tools/image-magic/execute",
-                    json={
+                worker = get_runtime_worker_or_error(target_worker_id)
+                response = call_worker_rpc(
+                    worker,
+                    method="POST",
+                    path="/api/v1/internal/workers/tools/image-magic/execute",
+                    json_body={
                         "input_file": input_file,
                         "output_format": output_format,
                         "output_filename": output_filename,
@@ -1649,7 +1786,6 @@ def execute_image_magic_tool_step(
                     },
                     timeout=120.0,
                 )
-                response.raise_for_status()
                 payload = response.json()
                 outputs = {
                     "output_file_path": str(payload.get("output_file_path") or ""),
@@ -2040,6 +2176,7 @@ class OutgoingApiResourceBase(ApiResourceBase):
     http_method: str = Field(pattern=r"^(GET|POST|PUT|PATCH|DELETE)$")
     auth_type: str = Field(default="none", pattern=r"^(none|bearer|basic|header)$")
     auth_config: OutgoingAuthConfig | None = None
+    webhook_signing: OutgoingWebhookSigningConfig | None = None
     payload_template: str = Field(default="{}", max_length=10000)
     connector_id: str | None = Field(default=None, max_length=120)
 class ScheduledApiResourceCreate(OutgoingApiResourceBase):
@@ -2057,6 +2194,7 @@ class WebhookApiResourceCreate(ApiResourceBase):
     event_filter: str = Field(default="", max_length=200)
 class OutgoingApiDetailResponse(ApiResourceResponse):
     auth_config: OutgoingAuthConfig = Field(default_factory=OutgoingAuthConfig)
+    recent_deliveries: list[OutgoingDeliveryHistoryEntry] = Field(default_factory=list)
 class InboundApiCreated(InboundApiResponse):
     secret: str
     endpoint_url: str
@@ -2146,7 +2284,7 @@ def list_runtime_machine_assignments() -> list[SmtpMachineAssignment]:
         address=get_local_worker_address(),
         status="healthy",
         is_local=True,
-        capabilities=("runtime-trigger-execution", "smtp-server"),
+        capabilities=("runtime-trigger-execution", "smtp-server", "image-magic-execution"),
     )
     machines: dict[str, SmtpMachineAssignment] = {local_worker_id: local_machine}
 
@@ -2160,7 +2298,7 @@ def list_runtime_machine_assignments() -> list[SmtpMachineAssignment]:
                 address=worker.address,
                 status=worker.status,
                 is_local=True,
-                capabilities=tuple(dict.fromkeys((*capabilities, "smtp-server"))),
+                capabilities=tuple(dict.fromkeys((*capabilities, "smtp-server", "image-magic-execution"))),
             )
             continue
 
@@ -2281,17 +2419,90 @@ def sync_smtp_tool_runtime(app: FastAPI, connection: DatabaseConnection) -> None
     smtp_manager: SmtpRuntimeManager = app.state.smtp_manager
     config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
     machines = list_runtime_machine_assignments()
+    machine = get_selected_smtp_machine(config, machines)
+    if machine is None:
+        smtp_manager.sync(
+            enabled=False,
+            bind_host=config["bind_host"],
+            port=config["port"],
+            recipient_email=config.get("recipient_email"),
+            machine=None,
+        )
+        return
+
+    if not machine.is_local:
+        smtp_manager.stop()
+        try:
+            worker = get_runtime_worker_or_error(machine.worker_id)
+            call_worker_rpc(
+                worker,
+                method="POST",
+                path="/api/v1/internal/workers/tools/smtp/sync",
+                json_body={
+                    "enabled": config["enabled"],
+                    "bind_host": config["bind_host"],
+                    "port": config["port"],
+                    "recipient_email": config.get("recipient_email"),
+                },
+                timeout=2.0,
+            )
+        except Exception:
+            return
+        return
+
     smtp_manager.sync(
         enabled=config["enabled"],
         bind_host=config["bind_host"],
         port=config["port"],
         recipient_email=config.get("recipient_email"),
-        machine=get_selected_smtp_machine(config, machines),
+        machine=machine,
     )
+
+
+def fetch_remote_smtp_tool_state(connection: DatabaseConnection, worker_id: str) -> dict[str, Any]:
+    worker = get_runtime_worker_or_error(worker_id)
+    response = call_worker_rpc(
+        worker,
+        method="GET",
+        path="/api/v1/internal/workers/tools/smtp/status",
+        timeout=2.0,
+    )
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise RuntimeError("Remote SMTP status response was invalid.")
+    return payload
+
+
 def build_smtp_tool_response(app: FastAPI, connection: DatabaseConnection) -> SmtpToolResponse:
     config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
     machines = list_runtime_machine_assignments()
     runtime = app.state.smtp_manager.snapshot()
+    inbound_identity = build_smtp_inbound_identity(config, runtime)
+
+    selected_machine = get_selected_smtp_machine(config, machines)
+    if selected_machine is not None and not selected_machine.is_local:
+        try:
+            remote_state = fetch_remote_smtp_tool_state(connection, selected_machine.worker_id)
+            runtime = remote_state.get("runtime") or runtime
+            inbound_identity_payload = remote_state.get("inbound_identity") or {}
+            inbound_identity = SmtpInboundIdentityResponse(**{
+                "display_address": inbound_identity_payload.get("display_address") or inbound_identity.display_address,
+                "configured_recipient_email": inbound_identity_payload.get("configured_recipient_email"),
+                "accepts_any_recipient": bool(inbound_identity_payload.get("accepts_any_recipient")),
+                "listening_host": inbound_identity_payload.get("listening_host"),
+                "listening_port": inbound_identity_payload.get("listening_port"),
+                "connection_hint": inbound_identity_payload.get("connection_hint") or inbound_identity.connection_hint,
+            })
+        except Exception as error:
+            runtime = {
+                **runtime,
+                "status": "assigned",
+                "message": f"Remote SMTP worker sync failed: {error}",
+                "selected_machine_id": selected_machine.worker_id,
+                "selected_machine_name": selected_machine.name,
+                "last_error": str(error),
+            }
+
     return SmtpToolResponse(
         tool_id="smtp",
         config=SmtpToolConfigResponse(
@@ -2302,7 +2513,7 @@ def build_smtp_tool_response(app: FastAPI, connection: DatabaseConnection) -> Sm
             recipient_email=config.get("recipient_email"),
         ),
         runtime=SmtpToolRuntimeResponse(**runtime),
-        inbound_identity=build_smtp_inbound_identity(config, runtime),
+        inbound_identity=inbound_identity,
         machines=[machine_assignment_to_response(machine) for machine in machines],
     )
 def build_local_llm_tool_response(connection: DatabaseConnection) -> LocalLlmToolResponse:
@@ -3335,7 +3546,7 @@ def run_remote_worker_loop(app: FastAPI, stop_event: threading.Event, coordinato
         "name": worker_name,
         "hostname": get_runtime_hostname(),
         "address": get_local_worker_address(),
-        "capabilities": ["runtime-trigger-execution"],
+        "capabilities": ["runtime-trigger-execution", "smtp-server", "image-magic-execution"],
     }
 
     while not stop_event.is_set():
@@ -3480,6 +3691,33 @@ def refresh_outgoing_schedule(connection: DatabaseConnection, api_id: str) -> No
         next_run_at = next_daily_run_at(row["scheduled_time"])
     connection.execute(
         "UPDATE outgoing_scheduled_apis SET next_run_at = ?, updated_at = ? WHERE id = ?",
+        (next_run_at, utc_now_iso(), api_id),
+    )
+    connection.commit()
+
+
+def refresh_continuous_outgoing_schedule(connection: DatabaseConnection, api_id: str) -> None:
+    row = fetch_one(
+        connection,
+        """
+        SELECT enabled, repeat_enabled, repeat_interval_minutes, next_run_at
+        FROM outgoing_continuous_apis
+        WHERE id = ?
+        """,
+        (api_id,),
+    )
+    if row is None:
+        return
+
+    next_run_at: str | None = None
+    if bool(row["enabled"]) and bool(row["repeat_enabled"]) and row["repeat_interval_minutes"]:
+        existing = parse_iso_datetime(row["next_run_at"])
+        if existing is not None:
+            next_run_at = existing.isoformat()
+        else:
+            next_run_at = utc_now_iso()
+    connection.execute(
+        "UPDATE outgoing_continuous_apis SET next_run_at = ?, updated_at = ? WHERE id = ?",
         (next_run_at, utc_now_iso(), api_id),
     )
     connection.commit()
@@ -3799,6 +4037,7 @@ def _execute_outbound_request_delivery(
     step: AutomationStepDefinition,
     context: dict[str, Any],
     root_dir: Path,
+    history_resource_id: str | None = None,
     delivery_executor: Callable[[OutgoingApiTestRequest], OutgoingApiTestResponse] | None = None,
 ) -> tuple[OutgoingApiTestResponse, Any | None, dict[str, Any]]:
     protection_secret = get_connector_protection_secret(root_dir=root_dir)
@@ -3811,6 +4050,7 @@ def _execute_outbound_request_delivery(
         protection_secret=protection_secret,
     )
     executor = delivery_executor or execute_outgoing_test_delivery
+    started_at = utc_now_iso()
     delivery = executor(
         OutgoingApiTestRequest(
             type="outgoing_scheduled",
@@ -3818,10 +4058,27 @@ def _execute_outbound_request_delivery(
             http_method=step.config.http_method or "POST",
             auth_type=auth_type,
             auth_config=auth_config,
+            webhook_signing=step.config.webhook_signing,
             payload_template=parse_template_json(step.config.payload_template, context),
             connector_id=step.config.connector_id,
         )
     )
+    finished_at = utc_now_iso()
+    if history_resource_id:
+        record_outgoing_delivery_history(
+            connection,
+            delivery_id=f"delivery_{uuid4().hex}",
+            resource_type="automation_http_step",
+            resource_id=history_resource_id,
+            status_value="completed" if delivery.ok else "failed",
+            http_status_code=delivery.status_code,
+            request_summary=f"{step.config.http_method or 'POST'} {destination_url}",
+            response_summary=(delivery.response_body or "")[:500] or f"{delivery.status_code} {delivery.destination_url}",
+            error_summary=None if delivery.ok else (delivery.response_body or "")[:500],
+            started_at=started_at,
+            finished_at=finished_at,
+        )
+        connection.commit()
     response_body_json = try_parse_json_response_body(delivery.response_body)
     extracted_fields = extract_response_fields(response_body_json, step.config.response_mappings)
     return delivery, response_body_json, extracted_fields
@@ -3846,6 +4103,7 @@ def finalize_non_blocking_http_step(
             step=step,
             context=context,
             root_dir=root_dir,
+            history_resource_id=run_step_id,
             delivery_executor=delivery_executor,
         )
         detail = delivery.model_dump()
@@ -3981,7 +4239,7 @@ def _execute_log_db_write(
     )
 
 
-def execute_automation_step(
+def _execute_automation_step_impl(
     connection: DatabaseConnection,
     logger: logging.Logger,
     *,
@@ -4037,6 +4295,7 @@ def execute_automation_step(
             step=step,
             context=context,
             root_dir=root_dir,
+            history_resource_id=run_step_id,
         )
         output_payload = delivery.model_dump()
         output_payload.update(extracted_fields)
@@ -4142,6 +4401,60 @@ def execute_automation_step(
         detail={"expression": step.config.expression, "result": result, "stop_on_false": step.config.stop_on_false},
         output=result,
     )
+
+
+def execute_automation_step(
+    connection: DatabaseConnection,
+    logger: logging.Logger,
+    *,
+    automation_id: str,
+    run_step_id: str | None = None,
+    step: AutomationStepDefinition,
+    context: dict[str, Any],
+    root_dir: Path,
+    database_url: str | None = None,
+) -> RuntimeExecutionResult:
+    started_at = time.perf_counter()
+    start_memory_mb = snapshot_process_memory_mb()
+    component = "automation_executor"
+    operation = f"step_{(step.type or 'unknown').strip() or 'unknown'}"
+    collector = get_metrics_collector()
+
+    try:
+        result = _execute_automation_step_impl(
+            connection,
+            logger,
+            automation_id=automation_id,
+            run_step_id=run_step_id,
+            step=step,
+            context=context,
+            root_dir=root_dir,
+            database_url=database_url,
+        )
+    except Exception:
+        duration_ms = (time.perf_counter() - started_at) * 1000.0
+        memory_delta_mb = max(0.0, snapshot_process_memory_mb() - start_memory_mb)
+        collector.record_execution(
+            component=component,
+            operation=operation,
+            duration_ms=duration_ms,
+            memory_mb=memory_delta_mb,
+            error=True,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - started_at) * 1000.0
+    memory_delta_mb = max(0.0, snapshot_process_memory_mb() - start_memory_mb)
+    collector.record_execution(
+        component=component,
+        operation=operation,
+        duration_ms=duration_ms,
+        memory_mb=memory_delta_mb,
+        error=result.status == "failed",
+    )
+    return result
+
+
 def fetch_run_detail(connection: DatabaseConnection, run_id: str) -> AutomationRunDetailResponse:
     run_row = fetch_one(connection, "SELECT run_id, automation_id, trigger_type, status, started_at, finished_at, duration_ms, error_summary FROM automation_runs WHERE run_id = ?", (run_id,))
     if run_row is None:
@@ -4303,8 +4616,15 @@ def execute_automation_definition(
         )
     connection.commit()
     return fetch_run_detail(connection, run_id)
-def execute_scheduled_api(connection: DatabaseConnection, logger: logging.Logger, *, api_id: str) -> None:
-    row = fetch_one(connection, "SELECT * FROM outgoing_scheduled_apis WHERE id = ?", (api_id,))
+def _execute_outgoing_api_delivery(
+    connection: DatabaseConnection,
+    logger: logging.Logger,
+    *,
+    api_id: str,
+    api_type: Literal["outgoing_scheduled", "outgoing_continuous"],
+) -> None:
+    table_name = "outgoing_scheduled_apis" if api_type == "outgoing_scheduled" else "outgoing_continuous_apis"
+    row = fetch_one(connection, f"SELECT * FROM {table_name} WHERE id = ?", (api_id,))
     if row is None:
         return
 
@@ -4316,22 +4636,35 @@ def execute_scheduled_api(connection: DatabaseConnection, logger: logging.Logger
         connection,
         step_id=runtime_step_id,
         run_id=run_id,
-        step_name="outgoing_scheduled_delivery",
+        step_name=f"{api_type}_delivery",
         status_value="running",
         request_summary=row["destination_url"],
         started_at=started_at,
     )
+    try:
+        webhook_signing_payload = json.loads(row.get("webhook_signing_json") or "{}")
+    except (TypeError, json.JSONDecodeError):
+        webhook_signing_payload = {}
     result = execute_outgoing_test_delivery(
         OutgoingApiTestRequest(
-            type="outgoing_scheduled",
+            type=api_type,
             destination_url=row["destination_url"],
             http_method=row["http_method"],
             auth_type=row["auth_type"],
             auth_config=OutgoingAuthConfig(**json.loads(row["auth_config_json"])),
+            webhook_signing=OutgoingWebhookSigningConfig(**webhook_signing_payload),
             payload_template=row["payload_template"],
         )
     )
     finished_at = utc_now_iso()
+    next_run_at: str | None = None
+    last_error = None if result.ok else (result.response_body or "")[:500]
+    if api_type == "outgoing_scheduled":
+        next_run_at = next_daily_run_at(row["scheduled_time"])
+    elif bool(row.get("enabled")) and bool(row.get("repeat_enabled")) and row.get("repeat_interval_minutes"):
+        next_run = parse_iso_datetime(finished_at) or datetime.now(UTC)
+        next_run_at = (next_run + timedelta(minutes=int(row["repeat_interval_minutes"]))).isoformat()
+
     finalize_automation_run_step(
         connection,
         step_id=runtime_step_id,
@@ -4344,15 +4677,44 @@ def execute_scheduled_api(connection: DatabaseConnection, logger: logging.Logger
         connection,
         run_id=run_id,
         status_value="completed" if result.ok else "failed",
-        error_summary=None if result.ok else result.response_body,
+        error_summary=last_error,
         finished_at=finished_at,
     )
     connection.execute(
-        "UPDATE outgoing_scheduled_apis SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE id = ?",
-        (finished_at, next_daily_run_at(row["scheduled_time"]), finished_at, api_id),
+        f"UPDATE {table_name} SET last_run_at = ?, next_run_at = ?, last_error = ?, updated_at = ? WHERE id = ?",
+        (finished_at, next_run_at, last_error, finished_at, api_id),
+    )
+    record_outgoing_delivery_history(
+        connection,
+        delivery_id=f"delivery_{uuid4().hex}",
+        resource_type=api_type,
+        resource_id=api_id,
+        status_value="completed" if result.ok else "failed",
+        http_status_code=result.status_code,
+        request_summary=f"{row['http_method']} {row['destination_url']}",
+        response_summary=(result.response_body or "")[:500] or f"{result.status_code} {result.destination_url}",
+        error_summary=last_error,
+        started_at=started_at,
+        finished_at=finished_at,
     )
     connection.commit()
-    write_application_log(logger, logging.INFO if result.ok else logging.WARNING, "scheduled_outgoing_api_executed", api_id=api_id, status_code=result.status_code)
+    write_application_log(
+        logger,
+        logging.INFO if result.ok else logging.WARNING,
+        "scheduled_outgoing_api_executed" if api_type == "outgoing_scheduled" else "continuous_outgoing_api_executed",
+        api_id=api_id,
+        status_code=result.status_code,
+    )
+
+
+def execute_scheduled_api(connection: DatabaseConnection, logger: logging.Logger, *, api_id: str) -> None:
+    _execute_outgoing_api_delivery(connection, logger, api_id=api_id, api_type="outgoing_scheduled")
+
+
+def execute_continuous_api(connection: DatabaseConnection, logger: logging.Logger, *, api_id: str) -> None:
+    _execute_outgoing_api_delivery(connection, logger, api_id=api_id, api_type="outgoing_continuous")
+
+
 def refresh_scheduler_jobs(connection: DatabaseConnection) -> list[dict[str, Any]]:
     jobs: list[dict[str, Any]] = []
     for row in fetch_all(connection, "SELECT id, name, trigger_config_json, next_run_at FROM automations WHERE enabled = 1 AND trigger_type = 'schedule' ORDER BY created_at ASC"):
@@ -4375,6 +4737,25 @@ def refresh_scheduler_jobs(connection: DatabaseConnection) -> list[dict[str, Any
                 "name": row["name"],
                 "schedule_time": row["scheduled_time"],
                 "next_run_at": row["next_run_at"] or next_daily_run_at(row["scheduled_time"]),
+            }
+        )
+
+    for row in fetch_all(
+        connection,
+        """
+        SELECT id, name, repeat_interval_minutes, next_run_at
+        FROM outgoing_continuous_apis
+        WHERE enabled = 1 AND repeat_enabled = 1 AND repeat_interval_minutes IS NOT NULL
+        ORDER BY created_at ASC
+        """,
+    ):
+        jobs.append(
+            {
+                "id": row["id"],
+                "kind": "outgoing_continuous",
+                "name": row["name"],
+                "schedule_time": f"every {row['repeat_interval_minutes']}m",
+                "next_run_at": row["next_run_at"] or utc_now_iso(),
             }
         )
     runtime_scheduler.update_jobs(jobs)
@@ -4402,3 +4783,15 @@ def run_scheduler_tick(app: FastAPI) -> None:
         scheduled_at = parse_iso_datetime(row["next_run_at"])
         if scheduled_at is not None and scheduled_at <= now:
             execute_scheduled_api(connection, logger, api_id=row["id"])
+
+    for row in fetch_all(
+        connection,
+        """
+        SELECT id, next_run_at
+        FROM outgoing_continuous_apis
+        WHERE enabled = 1 AND repeat_enabled = 1 AND next_run_at IS NOT NULL
+        """,
+    ):
+        scheduled_at = parse_iso_datetime(row["next_run_at"])
+        if scheduled_at is not None and scheduled_at <= now:
+            execute_continuous_api(connection, logger, api_id=row["id"])

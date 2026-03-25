@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from .builders import action_case, list_case
 from .core import RouteSmokeCase, assert_json_response
-from .resources import create_inbound_event, create_worker_job
-from .resolvers import worker_complete_payload
+from .external_mocks import invoke_worker_image_magic_mock, invoke_worker_smtp_send_mock
+from .resources import configure_image_magic_tool, configure_smtp_tool, create_inbound_event, create_worker_job
+from .resolvers import worker_complete_payload, worker_rpc_headers
 
 RUNTIME_WORKERS_CASES: tuple[RouteSmokeCase, ...] = (
     list_case("healthcheck", "GET", "/health", response_assert=assert_json_response),
@@ -12,6 +13,20 @@ RUNTIME_WORKERS_CASES: tuple[RouteSmokeCase, ...] = (
     list_case("dashboard-summary", "GET", "/api/v1/dashboard/summary", response_assert=assert_json_response),
     list_case("dashboard-devices", "GET", "/api/v1/dashboard/devices", response_assert=assert_json_response),
     list_case("dashboard-queue", "GET", "/api/v1/dashboard/queue", response_assert=assert_json_response),
+    list_case("resource-profile", "GET", "/api/v1/debug/resource-profile", response_assert=assert_json_response),
+    list_case(
+        "resource-profile-component",
+        "GET",
+        "/api/v1/debug/resource-profile/automation_executor",
+        route_path="/api/v1/debug/resource-profile/{component}",
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "resource-profile-reset",
+        "POST",
+        "/api/v1/debug/resource-profile/reset",
+        204,
+    ),
     action_case("dashboard-queue-pause", "POST", "/api/v1/dashboard/queue/pause", 200, response_assert=assert_json_response),
     action_case("dashboard-queue-unpause", "POST", "/api/v1/dashboard/queue/unpause", 200, response_assert=assert_json_response),
     list_case("runtime-triggers", "GET", "/api/v1/runtime/triggers", setup=create_inbound_event, response_assert=assert_json_response),
@@ -47,5 +62,57 @@ RUNTIME_WORKERS_CASES: tuple[RouteSmokeCase, ...] = (
         setup=create_worker_job,
         payload=worker_complete_payload,
         response_assert=assert_json_response,
+    ),
+    action_case(
+        "workers-smtp-sync",
+        "POST",
+        "/api/v1/internal/workers/tools/smtp/sync",
+        200,
+        headers=worker_rpc_headers,
+        payload={
+            "enabled": True,
+            "bind_host": "127.0.0.1",
+            "port": 2525,
+            "recipient_email": "recipient@example.com",
+        },
+        response_assert=assert_json_response,
+    ),
+    list_case(
+        "workers-smtp-status",
+        "GET",
+        "/api/v1/internal/workers/tools/smtp/status",
+        setup=configure_smtp_tool,
+        headers=worker_rpc_headers,
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "workers-smtp-send-test",
+        "POST",
+        "/api/v1/internal/workers/tools/smtp/send-test",
+        200,
+        setup=configure_smtp_tool,
+        headers=worker_rpc_headers,
+        payload={
+            "mail_from": "smoke@example.com",
+            "recipients": ["recipient@example.com"],
+            "subject": "Smoke test",
+            "body": "Smoke message",
+        },
+        response_assert=assert_json_response,
+        invoke=invoke_worker_smtp_send_mock,
+    ),
+    action_case(
+        "workers-image-magic-execute",
+        "POST",
+        "/api/v1/internal/workers/tools/image-magic/execute",
+        200,
+        setup=configure_image_magic_tool,
+        headers=worker_rpc_headers,
+        payload={
+            "input_file": "input.png",
+            "output_format": "jpg",
+        },
+        response_assert=assert_json_response,
+        invoke=invoke_worker_image_magic_mock,
     ),
 )

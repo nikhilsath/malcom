@@ -8,6 +8,8 @@ import type {
   DashboardLogsResponse,
   DashboardQueueJob,
   DashboardQueueResponse,
+  DashboardResourceMetric,
+  DashboardResourceProfileResponse,
   DashboardRunSummary,
   DashboardSummaryResponse,
   MalcomLogStore
@@ -130,6 +132,26 @@ type DashboardQueueApiResponse = {
   jobs: DashboardQueueApiJob[];
 };
 
+type DashboardResourceMetricApi = {
+  component: string;
+  operation: string;
+  executions: number;
+  avg_duration_ms: number;
+  max_duration_ms: number;
+  min_duration_ms: number;
+  total_duration_ms: number;
+  memory_peak_mb: number;
+  error_count: number;
+  error_rate_percent: number;
+  last_executed_at: string;
+};
+
+type DashboardResourceProfileApiResponse = {
+  collected_at: string;
+  total_metrics: number;
+  metrics: DashboardResourceMetricApi[];
+};
+
 type DashboardSummaryApiHealth = {
   id: string;
   status: DashboardSummaryResponse["health"]["status"];
@@ -236,6 +258,12 @@ const emptyQueueResponse: DashboardQueueResponse = {
   jobs: []
 };
 
+const emptyResourceProfileResponse: DashboardResourceProfileResponse = {
+  collectedAt: new Date().toISOString(),
+  totalMetrics: 0,
+  metrics: []
+};
+
 const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
   id: host.id,
   name: host.name,
@@ -291,6 +319,28 @@ const mapApiQueueResponse = (payload: DashboardQueueApiResponse): DashboardQueue
   pendingJobs: payload.pending_jobs,
   claimedJobs: payload.claimed_jobs,
   jobs: payload.jobs.map(mapApiQueueJob)
+});
+
+const mapApiResourceMetric = (metric: DashboardResourceMetricApi): DashboardResourceMetric => ({
+  component: metric.component,
+  operation: metric.operation,
+  executions: metric.executions,
+  avgDurationMs: metric.avg_duration_ms,
+  maxDurationMs: metric.max_duration_ms,
+  minDurationMs: metric.min_duration_ms,
+  totalDurationMs: metric.total_duration_ms,
+  memoryPeakMb: metric.memory_peak_mb,
+  errorCount: metric.error_count,
+  errorRatePercent: metric.error_rate_percent,
+  lastExecutedAt: metric.last_executed_at
+});
+
+const mapApiResourceProfileResponse = (
+  payload: DashboardResourceProfileApiResponse
+): DashboardResourceProfileResponse => ({
+  collectedAt: payload.collected_at,
+  totalMetrics: payload.total_metrics,
+  metrics: Array.isArray(payload.metrics) ? payload.metrics.map(mapApiResourceMetric) : []
 });
 
 const mapApiSummaryResponse = (payload: DashboardSummaryApiResponse): DashboardSummaryResponse => ({
@@ -528,6 +578,29 @@ export const dashboardApi = {
       return mapApiQueueResponse(payload);
     } catch {
       return { ...emptyQueueResponse };
+    }
+  },
+
+  async getResourceProfile(): Promise<DashboardResourceProfileResponse> {
+    try {
+      const response = await fetch("/api/v1/debug/resource-profile");
+
+      if (!response.ok) {
+        return { ...emptyResourceProfileResponse };
+      }
+
+      const payload = (await response.json()) as DashboardResourceProfileApiResponse;
+      return mapApiResourceProfileResponse(payload);
+    } catch {
+      return { ...emptyResourceProfileResponse };
+    }
+  },
+
+  async resetResourceProfile(): Promise<void> {
+    try {
+      await fetch("/api/v1/debug/resource-profile/reset", { method: "POST" });
+    } catch {
+      // best effort — do not block UI on reset failure
     }
   },
 

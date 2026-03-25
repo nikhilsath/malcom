@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from .builders import action_case, create_case, detail_case, list_case, patch_case
 from .core import RouteSmokeCase, assert_json_response
-from .external_mocks import invoke_with_urlopen_mock
-from .resources import create_inbound_api, create_outgoing_api
-from .resolvers import inbound_auth_headers, state_path
+from .external_mocks import invoke_webhook_callback, invoke_with_urlopen_mock
+from .resources import SMOKE_WEBHOOK_VERIFICATION_TOKEN, create_inbound_api, create_outgoing_api
+from .resolvers import inbound_auth_headers, state_path, webhook_callback_path, webhook_detail_path, webhook_setup
 
 INBOUND_DETAIL_PATH = state_path("inbound", prefix="/api/v1/inbound/")
 OUTGOING_DETAIL_PATH = state_path("api", prefix="/api/v1/outgoing/")
+
+
 def inbound_detail_setup(context):
     return {"inbound": create_inbound_api(context, slug="smoke-inbound-detail")}
 
@@ -68,6 +70,13 @@ INBOUND_OUTGOING_CASES: tuple[RouteSmokeCase, ...] = (
         response_assert=assert_json_response,
     ),
     list_case("webhooks-list", "GET", "/api/v1/webhooks", response_assert=assert_json_response),
+    detail_case(
+        "webhooks-detail",
+        webhook_detail_path,
+        "/api/v1/webhooks/{api_id}",
+        webhook_setup,
+        response_assert=assert_json_response,
+    ),
     create_case(
         "apis-create",
         "/api/v1/apis",
@@ -151,5 +160,16 @@ INBOUND_OUTGOING_CASES: tuple[RouteSmokeCase, ...] = (
         headers=inbound_auth_headers,
         payload={"smoke": True},
         response_assert=assert_json_response,
+    ),
+    action_case(
+        "webhooks-callback",
+        "POST",
+        webhook_callback_path,
+        202,
+        route_path="/api/v1/webhooks/callback/{callback_path:path}",
+        setup=webhook_setup,
+        params={"verification_token": SMOKE_WEBHOOK_VERIFICATION_TOKEN},
+        response_assert=assert_json_response,
+        invoke=invoke_webhook_callback,
     ),
 )

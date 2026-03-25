@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.services.helpers import build_worker_rpc_headers
+
 from .core import SmokeContext
-from .resources import create_automation, create_script, start_google_oauth
+from .resources import create_automation, create_script, create_webhook_api, start_google_oauth
 
 
 def state_path(key: str, field: str = "id", *, prefix: str) -> Any:
@@ -64,8 +66,25 @@ def connector_setup(context: SmokeContext) -> dict[str, Any]:
     return {"connector": create_connector_record(context)}
 
 
+def webhook_setup(context: SmokeContext) -> dict[str, Any]:
+    return {"webhook": create_webhook_api(context)}
+
+
 def oauth_callback_params(_context: SmokeContext, state: dict[str, Any]) -> dict[str, str]:
     return {"state": state["oauth"]["state"], "code": "demo"}
+
+
+def webhook_detail_path(_context: SmokeContext, state: dict[str, Any]) -> str:
+    return f"/api/v1/webhooks/{state['webhook']['id']}"
+
+
+def webhook_callback_path(_context: SmokeContext, state: dict[str, Any]) -> str:
+    callback_path = str(state["webhook"]["callback_path"]).lstrip("/")
+    return f"/api/v1/webhooks/callback/{callback_path}"
+
+
+def worker_rpc_headers(_context: SmokeContext, _state: dict[str, Any]) -> dict[str, str]:
+    return build_worker_rpc_headers()
 
 
 def refresh_setup(context: SmokeContext) -> dict[str, Any]:

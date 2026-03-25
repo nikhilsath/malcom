@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from backend.schemas import *
+from backend.services.metrics import get_metrics_collector
 from backend.services.support import *
 
 router = APIRouter()
@@ -61,3 +62,19 @@ def list_runtime_triggers() -> list[dict[str, Any]]:
         }
         for trigger in runtime_event_bus.history()
     ]
+
+
+@router.get("/api/v1/debug/resource-profile", response_model=dict[str, Any])
+def get_resource_profile() -> dict[str, Any]:
+    return get_metrics_collector().summary()
+
+
+@router.get("/api/v1/debug/resource-profile/{component}", response_model=dict[str, Any])
+def get_resource_profile_component(component: str) -> dict[str, Any]:
+    return get_metrics_collector().by_component(component)
+
+
+@router.post("/api/v1/debug/resource-profile/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_resource_profile() -> Response:
+    get_metrics_collector().clear()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -80,9 +80,16 @@ const applyToolState = (tool) => {
 
   if (imageMagicElements.statusMessage) {
     const selectedOption = imageMagicElements.machineInput?.selectedOptions?.[0];
-    imageMagicElements.statusMessage.textContent = selectedOption
-      ? `Conversions run on ${selectedOption.textContent}.`
-      : "Select a machine for conversions.";
+    const selectedMachine = (tool.machines || []).find((machine) => machine.id === tool.config.target_worker_id);
+    if (selectedMachine) {
+      imageMagicElements.statusMessage.textContent = selectedMachine.is_local
+        ? `Conversions run on ${selectedMachine.name} locally.`
+        : `Conversions are routed to ${selectedMachine.name}. Worker status: ${selectedMachine.status}.`;
+    } else {
+      imageMagicElements.statusMessage.textContent = selectedOption
+        ? `Conversions run on ${selectedOption.textContent}.`
+        : "Select a machine for conversions.";
+    }
   }
 };
 

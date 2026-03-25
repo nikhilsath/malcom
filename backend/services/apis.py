@@ -25,6 +25,7 @@ from backend.schemas.apis import (
     OutgoingApiDetailResponse,
     OutgoingApiUpdate,
     OutgoingAuthConfig,
+    OutgoingWebhookSigningConfig,
     ScheduledApiResourceCreate,
     WebhookApiResourceCreate,
 )
@@ -42,6 +43,12 @@ class OutgoingApiUpdateResult:
 
 @dataclass(frozen=True)
 class InboundReceiveResult:
+    accepted: InboundReceiveAccepted
+    event_id: str
+
+
+@dataclass(frozen=True)
+class WebhookReceiveResult:
     accepted: InboundReceiveAccepted
     event_id: str
 
@@ -184,7 +191,12 @@ def create_api_resource_response(
     )
     assert row is not None
 
-    endpoint_path = config["path_prefix"] if payload.type != "incoming" else f"/api/v1/inbound/{api_id}"
+    if payload.type == "incoming":
+        endpoint_path = f"/api/v1/inbound/{api_id}"
+    elif payload.type == "webhook":
+        endpoint_path = row["callback_path"]
+    else:
+        endpoint_path = config["path_prefix"]
     resource = row_to_simple_api_resource(row, api_type=payload.type, endpoint_path=endpoint_path)
     resource["endpoint_url"] = request_base_url.rstrip("/") + endpoint_path
 
@@ -208,7 +220,7 @@ def update_outgoing_api_response(
 
     if not changes:
         return OutgoingApiUpdateResult(
-            detail=row_to_outgoing_detail_response(current, api_type=payload.type, endpoint_path=endpoint_path),
+            detail=row_to_outgoing_detail_response(current, api_type=payload.type, endpoint_path=endpoint_path, connection=connection),
             changed_fields=[],
         )
 
@@ -220,10 +232,14 @@ def update_outgoing_api_response(
         tuple(values),
     )
     connection.commit()
+    if payload.type == "outgoing_scheduled":
+        refresh_outgoing_schedule(connection, api_id)
+    else:
+        refresh_continuous_outgoing_schedule(connection, api_id)
 
     updated = get_outgoing_api_or_404(connection, api_id, payload.type)
     return OutgoingApiUpdateResult(
-        detail=row_to_outgoing_detail_response(updated, api_type=payload.type, endpoint_path=endpoint_path),
+        detail=row_to_outgoing_detail_response(updated, api_type=payload.type, endpoint_path=endpoint_path, connection=connection),
         changed_fields=sorted(key for key in changes.keys() if key != "type"),
     )
 
@@ -269,6 +285,7 @@ def update_inbound_api_record(
         api_id=api_id,
         changed_fields=sorted(changes.keys()),
     )
+    refresh_continuous_outgoing_schedule(connection, api_id)
     return InboundApiResponse(**updated)
 
 
@@ -461,6 +478,283 @@ async def receive_inbound_api_event(
     )
 
 
+def get_webhook_api_or_404(connection: Any, api_id: str) -> dict[str, Any]:
+    row = fetch_one(connection, "SELECT * FROM webhook_apis WHERE id = ?", (api_id,))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook API not found.")
+    return dict(row)
+
+
+def _infer_webhook_event_name(headers: dict[str, str], payload: Any) -> str | None:
+    for header_name in ("x-event-name", "x-github-event", "x-event-type"):
+        if headers.get(header_name):
+            return str(headers[header_name])
+    if isinstance(payload, dict):
+        for key in ("event", "type", "event_name"):
+            if payload.get(key):
+                return str(payload[key])
+    return None
+
+
+def _normalize_signature_value(value: str) -> str:
+    normalized = str(value or "").strip()
+    if normalized.startswith("sha256="):
+        return normalized.split("=", 1)[1]
+    return normalized
+
+
+def log_webhook_event(
+    connection: Any,
+    *,
+    event_id: str,
+    api_id: str,
+    received_at: str,
+    status_value: str,
+    event_name: str | None,
+    verification_ok: bool,
+    signature_ok: bool,
+    headers: dict[str, str],
+    payload: Any,
+    raw_body: str,
+    source_ip: str | None,
+    error_message: str | None,
+    triggered_automation_count: int = 0,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO webhook_api_events (
+            event_id,
+            api_id,
+            received_at,
+            status,
+            event_name,
+            verification_ok,
+            signature_ok,
+            request_headers_subset,
+            payload_json,
+            raw_body,
+            source_ip,
+            error_message,
+            triggered_automation_count,
+            is_mock
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_id,
+            api_id,
+            received_at,
+            status_value,
+            event_name,
+            int(verification_ok),
+            int(signature_ok),
+            json.dumps(headers),
+            json.dumps(payload) if payload is not None else None,
+            raw_body,
+            source_ip,
+            error_message,
+            triggered_automation_count,
+            0,
+        ),
+    )
+    connection.commit()
+
+
+def _execute_matching_webhook_automations(
+    connection: Any,
+    logger: Any,
+    *,
+    api_id: str,
+    payload: dict[str, Any],
+    root_dir: Path,
+    database_url: str,
+) -> int:
+    matching_automations = []
+    for automation_row in fetch_all(
+        connection,
+        """
+        SELECT id, trigger_config_json
+        FROM automations
+        WHERE enabled = 1
+          AND trigger_type = 'inbound_api'
+        ORDER BY created_at ASC
+        """,
+    ):
+        try:
+            trigger_config = json.loads(automation_row["trigger_config_json"] or "{}")
+        except json.JSONDecodeError:
+            continue
+        if trigger_config.get("inbound_api_id") == api_id:
+            matching_automations.append(automation_row)
+
+    for automation_row in matching_automations:
+        execute_automation_definition(
+            connection,
+            logger,
+            automation_id=automation_row["id"],
+            trigger_type="inbound_api",
+            payload=payload,
+            root_dir=root_dir,
+            database_url=database_url,
+        )
+    return len(matching_automations)
+
+
+async def receive_webhook_event(
+    connection: Any,
+    *,
+    api_row: dict[str, Any],
+    request: Request,
+    logger: Any,
+    root_dir: Path,
+    database_url: str,
+) -> WebhookReceiveResult:
+    event_id = f"webhook_event_{uuid4().hex}"
+    received_at = utc_now_iso()
+    headers = {str(key).lower(): str(value) for key, value in request.headers.items()}
+    source_ip = request.client.host if request.client else None
+    raw_body_bytes = await request.body()
+    raw_body = raw_body_bytes.decode("utf-8", errors="replace")
+    payload: Any = None
+    error_message: str | None = None
+
+    content_type = str(request.headers.get("content-type") or "")
+    if content_type.split(";")[0].strip() == "application/json":
+        try:
+            payload = json.loads(raw_body) if raw_body else None
+        except json.JSONDecodeError as error:
+            error_message = f"Invalid JSON payload: {error}"
+
+    verification_token = str(api_row.get("verification_token") or "")
+    received_verification_token = (
+        str(request.headers.get("x-malcom-verification-token") or "").strip()
+        or str(request.query_params.get("verification_token") or "").strip()
+    )
+    verification_ok = bool(verification_token) and hmac.compare_digest(received_verification_token, verification_token)
+
+    signature_header_name = str(api_row.get("signature_header") or "").strip()
+    received_signature = str(request.headers.get(signature_header_name) or "").strip() if signature_header_name else ""
+    expected_signature = hmac.new(
+        str(api_row.get("signing_secret") or "").encode("utf-8"),
+        raw_body_bytes,
+        "sha256",
+    ).hexdigest()
+    signature_ok = bool(received_signature) and hmac.compare_digest(
+        _normalize_signature_value(received_signature),
+        expected_signature,
+    )
+    event_name = _infer_webhook_event_name(headers, payload)
+
+    if not verification_ok:
+        log_webhook_event(
+            connection,
+            event_id=event_id,
+            api_id=api_row["id"],
+            received_at=received_at,
+            status_value="invalid_verification",
+            event_name=event_name,
+            verification_ok=False,
+            signature_ok=signature_ok,
+            headers=header_subset(request.headers),
+            payload=payload,
+            raw_body=raw_body,
+            source_ip=source_ip,
+            error_message="Webhook verification token did not match.",
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Webhook verification token did not match.")
+
+    if not signature_ok:
+        log_webhook_event(
+            connection,
+            event_id=event_id,
+            api_id=api_row["id"],
+            received_at=received_at,
+            status_value="invalid_signature",
+            event_name=event_name,
+            verification_ok=True,
+            signature_ok=False,
+            headers=header_subset(request.headers),
+            payload=payload,
+            raw_body=raw_body,
+            source_ip=source_ip,
+            error_message="Webhook signature did not match.",
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Webhook signature did not match.")
+
+    event_filter = str(api_row.get("event_filter") or "").strip()
+    if event_filter and event_name != event_filter:
+        log_webhook_event(
+            connection,
+            event_id=event_id,
+            api_id=api_row["id"],
+            received_at=received_at,
+            status_value="ignored",
+            event_name=event_name,
+            verification_ok=True,
+            signature_ok=True,
+            headers=header_subset(request.headers),
+            payload=payload,
+            raw_body=raw_body,
+            source_ip=source_ip,
+            error_message=f"Event '{event_name or ''}' did not match filter '{event_filter}'.",
+        )
+        return WebhookReceiveResult(
+            event_id=event_id,
+            accepted=InboundReceiveAccepted(
+                status="ignored",
+                event_id=event_id,
+                trigger={"type": "webhook", "api_id": api_row["id"], "event_id": event_id, "payload": None, "received_at": received_at},
+            ),
+        )
+
+    webhook_payload = {
+        "headers": header_subset(request.headers),
+        "raw_body": raw_body,
+        "parsed_json": payload if isinstance(payload, (dict, list)) else None,
+        "event_name": event_name,
+        "verification_ok": verification_ok,
+        "signature_ok": signature_ok,
+        "callback_path": api_row.get("callback_path") or "",
+    }
+    triggered_automation_count = _execute_matching_webhook_automations(
+        connection,
+        logger,
+        api_id=api_row["id"],
+        payload=webhook_payload,
+        root_dir=root_dir,
+        database_url=database_url,
+    )
+    log_webhook_event(
+        connection,
+        event_id=event_id,
+        api_id=api_row["id"],
+        received_at=received_at,
+        status_value="accepted",
+        event_name=event_name,
+        verification_ok=True,
+        signature_ok=True,
+        headers=header_subset(request.headers),
+        payload=payload,
+        raw_body=raw_body,
+        source_ip=source_ip,
+        error_message=error_message,
+        triggered_automation_count=triggered_automation_count,
+    )
+    return WebhookReceiveResult(
+        event_id=event_id,
+        accepted=InboundReceiveAccepted(
+            status="accepted",
+            event_id=event_id,
+            trigger={
+                "type": "webhook",
+                "api_id": api_row["id"],
+                "event_id": event_id,
+                "payload": webhook_payload,
+                "received_at": received_at,
+            },
+        ),
+    )
+
+
 def _create_incoming_api_resource(
     connection: Any,
     api_id: str,
@@ -497,6 +791,7 @@ def _create_incoming_api_resource(
             now,
         ),
     )
+    refresh_continuous_outgoing_schedule(connection, api_id)
     return secret
 
 
@@ -531,12 +826,16 @@ def _create_outgoing_scheduled_api_resource(
             http_method,
             auth_type,
             auth_config_json,
+            webhook_signing_json,
             payload_template,
             scheduled_time,
             schedule_expression,
+            last_run_at,
+            next_run_at,
+            last_error,
             created_at,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             api_id,
@@ -551,9 +850,13 @@ def _create_outgoing_scheduled_api_resource(
             payload.http_method,
             auth_type,
             json.dumps((auth_config or OutgoingAuthConfig()).model_dump()),
+            json.dumps((payload.webhook_signing or OutgoingWebhookSigningConfig()).model_dump()),
             payload.payload_template,
             payload.scheduled_time,
             build_schedule_expression(payload.scheduled_time),
+            None,
+            None,
+            None,
             now,
             now,
         ),
@@ -592,11 +895,15 @@ def _create_outgoing_continuous_api_resource(
             http_method,
             auth_type,
             auth_config_json,
+            webhook_signing_json,
             payload_template,
             stream_mode,
+            last_run_at,
+            next_run_at,
+            last_error,
             created_at,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             api_id,
@@ -611,8 +918,12 @@ def _create_outgoing_continuous_api_resource(
             payload.http_method,
             auth_type,
             json.dumps((auth_config or OutgoingAuthConfig()).model_dump()),
+            json.dumps((payload.webhook_signing or OutgoingWebhookSigningConfig()).model_dump()),
             payload.payload_template,
             "continuous",
+            None,
+            None,
+            None,
             now,
             now,
         ),
@@ -682,6 +993,14 @@ def _build_outgoing_update_statement(
                 values.append(json.dumps(value))
             else:
                 values.append(json.dumps((value or OutgoingAuthConfig()).model_dump()))
+            continue
+
+        if key == "webhook_signing":
+            assignments.append("webhook_signing_json = ?")
+            if isinstance(value, dict):
+                values.append(json.dumps(value))
+            else:
+                values.append(json.dumps((value or OutgoingWebhookSigningConfig()).model_dump()))
             continue
 
         if key == "repeat_enabled":
@@ -830,11 +1149,15 @@ def _execute_matching_inbound_automations(
 __all__ = [
     "InboundReceiveResult",
     "OutgoingApiUpdateResult",
+    "WebhookReceiveResult",
     "create_api_resource_record",
     "create_api_resource_response",
     "create_inbound_api_record",
+    "get_webhook_api_or_404",
+    "log_webhook_event",
     "receive_inbound_api_event",
     "receive_inbound_event_result",
+    "receive_webhook_event",
     "update_inbound_api_record",
     "update_outgoing_api_record",
     "update_outgoing_api_response",

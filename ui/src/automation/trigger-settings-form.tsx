@@ -24,6 +24,9 @@ type Props = {
   showEnabledField?: boolean;
   inboundApiOptions?: Array<{ id: string; name: string }>;
   inboundApiMissingSelection?: boolean;
+  modalFlow?: boolean;
+  modalScreen?: "picker" | "detail";
+  onModalScreenChange?: (screen: "picker" | "detail") => void;
 };
 
 const triggerDescriptions: Record<TriggerType, string> = {
@@ -79,7 +82,10 @@ export const TriggerSettingsForm = ({
   showWorkflowFields = true,
   showEnabledField = true,
   inboundApiOptions = [],
-  inboundApiMissingSelection = false
+  inboundApiMissingSelection = false,
+  modalFlow = false,
+  modalScreen = "detail",
+  onModalScreenChange
 }: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
   const schedulePickerLabelId = id("trigger-schedule-picker-title");
@@ -139,80 +145,44 @@ export const TriggerSettingsForm = ({
     onPatch({ trigger_config: { ...value.trigger_config, schedule_time: scheduleTime } });
   };
 
-  return (
-    <div id={id("form")} className="automation-form">
-      {showWorkflowFields ? (
-        <>
-          <label id={id("name-field")} className="automation-field automation-field--full">
-            <span id={id("name-label")} className="automation-field__label">Name</span>
-            <input
-              id={id("name-input")}
-              className="automation-input"
-              value={value.name}
-              onChange={(event) => onPatch({ name: event.target.value })}
-            />
-          </label>
+  const selectTriggerType = (triggerType: TriggerType) => {
+    setSchedulePickerOpen(false);
+    onPatch({ trigger_type: triggerType, trigger_config: {} });
+    onModalScreenChange?.("detail");
+  };
 
-          <label id={id("description-field")} className="automation-field automation-field--full">
-            <span id={id("description-label")} className="automation-field__label">Description</span>
-            <textarea
-              id={id("description-input")}
-              className="automation-textarea"
-              rows={4}
-              value={value.description}
-              onChange={(event) => onPatch({ description: event.target.value })}
-            />
-          </label>
-        </>
-      ) : null}
-
-      {showEnabledField ? (
-        <div id={id("enabled-field")} className="automation-switch-field">
-          <div id={id("enabled-copy")} className="automation-switch-field__copy">
-            <span id={id("enabled-label")} className="automation-field__label">Enabled</span>
-            <span id={id("enabled-description")} className="automation-switch-field__description">
-              {value.enabled ? "The runtime can execute this automation." : "The automation stays visible but will not execute."}
-            </span>
-          </div>
-          <Switch.Root
-            id={id("enabled-input")}
-            checked={value.enabled}
-            onCheckedChange={(checked) => onPatch({ enabled: checked })}
-            className="automation-switch"
-          >
-            <Switch.Thumb id={id("enabled-thumb")} className="automation-switch__thumb" />
-          </Switch.Root>
-        </div>
-      ) : null}
-
-      <div id={id("trigger-type-field")} className="automation-field automation-field--full">
-        <span id={id("trigger-type-label")} className="automation-field__label">Trigger type</span>
-        <div id={id("trigger-type-options")} className="automation-trigger-options" role="radiogroup" aria-labelledby={id("trigger-type-label")}>
-          {triggerTypeOptions.map((option) => {
-            const selected = value.trigger_type === option.value;
-            return (
-              <button
-                key={option.value}
-                id={id(`trigger-type-option-${option.value}`)}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                className={`automation-trigger-option${selected ? " automation-trigger-option--selected" : ""}`}
-                onClick={() => onPatch({ trigger_type: option.value, trigger_config: {} })}
-              >
-                <span id={id(`trigger-type-option-${option.value}-label`)} className="automation-trigger-option__label">
-                  {option.label}
-                </span>
-                <span id={id(`trigger-type-option-${option.value}-description`)} className="automation-trigger-option__description">
-                  {triggerDescriptions[option.value]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+  const renderTriggerTypeOptions = () => (
+    <div id={id("trigger-type-field")} className="automation-field automation-field--full">
+      <span id={id("trigger-type-label")} className="automation-field__label">Trigger type</span>
+      <div id={id("trigger-type-options")} className="automation-trigger-options" role="radiogroup" aria-labelledby={id("trigger-type-label")}>
+        {triggerTypeOptions.map((option) => {
+          const selected = value.trigger_type === option.value;
+          return (
+            <button
+              key={option.value}
+              id={id(`trigger-type-option-${option.value}`)}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className={`automation-trigger-option${selected ? " automation-trigger-option--selected" : ""}`}
+              onClick={() => selectTriggerType(option.value)}
+            >
+              <span id={id(`trigger-type-option-${option.value}-label`)} className="automation-trigger-option__label">
+                {option.label}
+              </span>
+              <span id={id(`trigger-type-option-${option.value}-description`)} className="automation-trigger-option__description">
+                {triggerDescriptions[option.value]}
+              </span>
+            </button>
+          );
+        })}
       </div>
+    </div>
+  );
 
-      {value.trigger_type === "schedule" ? (
+  const renderTriggerTypeDetail = () => {
+    if (value.trigger_type === "schedule") {
+      return (
         <div id={id("trigger-schedule-field")} className="automation-field automation-field--full automation-time-picker" ref={schedulePickerRef}>
           <span id={id("trigger-schedule-label")} className="automation-field__label">Daily run time</span>
           <button
@@ -230,7 +200,7 @@ export const TriggerSettingsForm = ({
           {schedulePickerOpen ? (
             <div
               id={id("trigger-schedule-picker")}
-              className="automation-time-picker__panel"
+              className={`automation-time-picker__panel${modalFlow ? " automation-time-picker__panel--upward" : ""}`}
               role="dialog"
               aria-labelledby={schedulePickerLabelId}
             >
@@ -294,9 +264,11 @@ export const TriggerSettingsForm = ({
             </div>
           ) : null}
         </div>
-      ) : null}
+      );
+    }
 
-      {value.trigger_type === "inbound_api" ? (
+    if (value.trigger_type === "inbound_api") {
+      return (
         <label id={id("trigger-api-field")} className="automation-field automation-field--full">
           <span id={id("trigger-api-label")} className="automation-field__label">Inbound API</span>
           <select
@@ -318,9 +290,11 @@ export const TriggerSettingsForm = ({
             </span>
           ) : null}
         </label>
-      ) : null}
+      );
+    }
 
-      {value.trigger_type === "smtp_email" ? (
+    if (value.trigger_type === "smtp_email") {
+      return (
         <>
           <label id={id("trigger-smtp-subject-field")} className="automation-field automation-field--full">
             <span id={id("trigger-smtp-subject-label")} className="automation-field__label">Subject match</span>
@@ -346,7 +320,68 @@ export const TriggerSettingsForm = ({
             Leave both filters blank to trigger on any inbound email. Matching is exact for now.
           </span>
         </>
+      );
+    }
+
+    return (
+      <div id={id("trigger-manual-help")} className="automation-switch-field__description">
+        Manual triggers do not need additional settings. Run the automation directly when you are ready.
+      </div>
+    );
+  };
+
+  return (
+    <div id={id("form")} className="automation-form">
+      {showWorkflowFields ? (
+        <>
+          <label id={id("name-field")} className="automation-field automation-field--full">
+            <span id={id("name-label")} className="automation-field__label">Name</span>
+            <input
+              id={id("name-input")}
+              className="automation-input"
+              value={value.name}
+              onChange={(event) => onPatch({ name: event.target.value })}
+            />
+          </label>
+
+          <label id={id("description-field")} className="automation-field automation-field--full">
+            <span id={id("description-label")} className="automation-field__label">Description</span>
+            <textarea
+              id={id("description-input")}
+              className="automation-textarea"
+              rows={4}
+              value={value.description}
+              onChange={(event) => onPatch({ description: event.target.value })}
+            />
+          </label>
+        </>
       ) : null}
+
+      {showEnabledField ? (
+        <div id={id("enabled-field")} className="automation-switch-field">
+          <div id={id("enabled-copy")} className="automation-switch-field__copy">
+            <span id={id("enabled-label")} className="automation-field__label">Enabled</span>
+            <span id={id("enabled-description")} className="automation-switch-field__description">
+              {value.enabled ? "The runtime can execute this automation." : "The automation stays visible but will not execute."}
+            </span>
+          </div>
+          <Switch.Root
+            id={id("enabled-input")}
+            checked={value.enabled}
+            onCheckedChange={(checked) => onPatch({ enabled: checked })}
+            className="automation-switch"
+          >
+            <Switch.Thumb id={id("enabled-thumb")} className="automation-switch__thumb" />
+          </Switch.Root>
+        </div>
+      ) : null}
+
+      {modalFlow ? (modalScreen === "picker" ? renderTriggerTypeOptions() : renderTriggerTypeDetail()) : (
+        <>
+          {renderTriggerTypeOptions()}
+          {renderTriggerTypeDetail()}
+        </>
+      )}
     </div>
   );
 };

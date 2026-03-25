@@ -9,6 +9,8 @@ test("webhook registry creates records and copies callback metadata", async ({ p
 
   await page.goto("/apis/webhooks.html");
   await expect(page.locator("#apis-webhooks-list-card-webhook-orders")).toBeVisible();
+  await expect(page.locator("#apis-webhooks-list-meta-label-3-webhook-orders")).toHaveText("Last result");
+  await expect(page.locator("#apis-webhooks-list-meta-value-4-webhook-orders")).toHaveText("3");
 
   await page.locator("#apis-webhooks-list-copy-callback-webhook-orders").click();
   await expect(await readClipboardTracker(page)).toContain("/publisher/orders");
@@ -31,4 +33,3 @@ test("webhook registry creates records and copies callback metadata", async ({ p
   await expect(page.locator("#apis-webhooks-list-card-webhook-shipment-webhook")).toBeVisible();
   await expect(page.locator("#apis-create-modal")).not.toHaveClass(/modal--open/);
 });
-

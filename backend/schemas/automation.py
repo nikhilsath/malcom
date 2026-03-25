@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from .apis import OutgoingAuthConfig
+from .apis import OutgoingAuthConfig, OutgoingWebhookSigningConfig
 
 _IDENTIFIER_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
@@ -66,6 +66,7 @@ class AutomationStepConfig(BaseModel):
     http_method: str | None = Field(default="POST", pattern=r"^(GET|POST|PUT|PATCH|DELETE)$")
     auth_type: str | None = Field(default="none", pattern=r"^(none|bearer|basic|header)$")
     auth_config: OutgoingAuthConfig | None = None
+    webhook_signing: OutgoingWebhookSigningConfig | None = None
     connector_id: str | None = Field(default=None, max_length=120)
     payload_template: str | None = Field(default=None, max_length=10000)
     wait_for_response: bool = True

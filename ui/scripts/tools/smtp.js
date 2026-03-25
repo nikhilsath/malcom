@@ -191,9 +191,9 @@ const renderRuntimeBanner = (data, uiState) => {
     title = "SMTP listener is running locally";
     body = data.inbound_identity.connection_hint;
   } else if (uiState.isRemoteAssignment) {
-    tone = "warning";
+    tone = data.runtime.last_error ? "error" : "warning";
     title = "SMTP is assigned remotely";
-    body = "Remote execution is visible for planning purposes, but only local listener execution is wired today.";
+    body = data.runtime.last_error || data.runtime.message || "Controller is waiting for the remote SMTP worker.";
   } else if (data.runtime.status === "error") {
     tone = "error";
     title = "SMTP listener failed to start";

@@ -48,9 +48,13 @@ CREATE TABLE IF NOT EXISTS outgoing_scheduled_apis (
     http_method TEXT NOT NULL DEFAULT 'POST',
     auth_type TEXT NOT NULL DEFAULT 'none',
     auth_config_json TEXT NOT NULL DEFAULT '{}',
+    webhook_signing_json TEXT NOT NULL DEFAULT '{}',
     payload_template TEXT NOT NULL DEFAULT '{}',
     scheduled_time TEXT NOT NULL DEFAULT '09:00',
     schedule_expression TEXT NOT NULL,
+    last_run_at TEXT,
+    next_run_at TEXT,
+    last_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -68,8 +72,12 @@ CREATE TABLE IF NOT EXISTS outgoing_continuous_apis (
     http_method TEXT NOT NULL DEFAULT 'POST',
     auth_type TEXT NOT NULL DEFAULT 'none',
     auth_config_json TEXT NOT NULL DEFAULT '{}',
+    webhook_signing_json TEXT NOT NULL DEFAULT '{}',
     payload_template TEXT NOT NULL DEFAULT '{}',
     stream_mode TEXT NOT NULL DEFAULT 'continuous',
+    last_run_at TEXT,
+    next_run_at TEXT,
+    last_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -89,6 +97,36 @@ CREATE TABLE IF NOT EXISTS webhook_apis (
     event_filter TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS webhook_api_events (
+    event_id TEXT PRIMARY KEY,
+    api_id TEXT NOT NULL REFERENCES webhook_apis(id) ON DELETE CASCADE,
+    received_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    event_name TEXT,
+    verification_ok INTEGER NOT NULL DEFAULT 0,
+    signature_ok INTEGER NOT NULL DEFAULT 0,
+    request_headers_subset TEXT NOT NULL DEFAULT '{}',
+    payload_json TEXT,
+    raw_body TEXT,
+    source_ip TEXT,
+    error_message TEXT,
+    triggered_automation_count INTEGER NOT NULL DEFAULT 0,
+    is_mock INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS outgoing_delivery_history (
+    delivery_id TEXT PRIMARY KEY,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    http_status_code INTEGER,
+    request_summary TEXT,
+    response_summary TEXT,
+    error_summary TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tools (
@@ -281,28 +319,49 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "outgoing_scheduled_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_continuous_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "webhook_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "webhook_api_events", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_scheduled_apis", "status", "TEXT NOT NULL DEFAULT 'active'")
     _ensure_column(connection, "outgoing_scheduled_apis", "repeat_enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_scheduled_apis", "destination_url", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "outgoing_scheduled_apis", "http_method", "TEXT NOT NULL DEFAULT 'POST'")
     _ensure_column(connection, "outgoing_scheduled_apis", "auth_type", "TEXT NOT NULL DEFAULT 'none'")
     _ensure_column(connection, "outgoing_scheduled_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_scheduled_apis", "webhook_signing_json", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_scheduled_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_scheduled_apis", "scheduled_time", "TEXT NOT NULL DEFAULT '09:00'")
     _ensure_column(connection, "outgoing_scheduled_apis", "last_run_at", "TEXT")
     _ensure_column(connection, "outgoing_scheduled_apis", "next_run_at", "TEXT")
+    _ensure_column(connection, "outgoing_scheduled_apis", "last_error", "TEXT")
     _ensure_column(connection, "outgoing_continuous_apis", "repeat_enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "outgoing_continuous_apis", "repeat_interval_minutes", "INTEGER")
     _ensure_column(connection, "outgoing_continuous_apis", "destination_url", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "outgoing_continuous_apis", "http_method", "TEXT NOT NULL DEFAULT 'POST'")
     _ensure_column(connection, "outgoing_continuous_apis", "auth_type", "TEXT NOT NULL DEFAULT 'none'")
     _ensure_column(connection, "outgoing_continuous_apis", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_continuous_apis", "webhook_signing_json", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "outgoing_continuous_apis", "payload_template", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "outgoing_continuous_apis", "last_run_at", "TEXT")
+    _ensure_column(connection, "outgoing_continuous_apis", "next_run_at", "TEXT")
+    _ensure_column(connection, "outgoing_continuous_apis", "last_error", "TEXT")
     _ensure_column(connection, "webhook_apis", "callback_path", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "verification_token", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "signing_secret", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "signature_header", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(connection, "webhook_apis", "event_filter", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "webhook_api_events", "event_name", "TEXT")
+    _ensure_column(connection, "webhook_api_events", "verification_ok", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "webhook_api_events", "signature_ok", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "webhook_api_events", "request_headers_subset", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "webhook_api_events", "payload_json", "TEXT")
+    _ensure_column(connection, "webhook_api_events", "raw_body", "TEXT")
+    _ensure_column(connection, "webhook_api_events", "source_ip", "TEXT")
+    _ensure_column(connection, "webhook_api_events", "error_message", "TEXT")
+    _ensure_column(connection, "webhook_api_events", "triggered_automation_count", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "outgoing_delivery_history", "http_status_code", "INTEGER")
+    _ensure_column(connection, "outgoing_delivery_history", "request_summary", "TEXT")
+    _ensure_column(connection, "outgoing_delivery_history", "response_summary", "TEXT")
+    _ensure_column(connection, "outgoing_delivery_history", "error_summary", "TEXT")
+    _ensure_column(connection, "outgoing_delivery_history", "finished_at", "TEXT")
     _ensure_column(connection, "tools", "enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "tools", "inputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "tools", "outputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")

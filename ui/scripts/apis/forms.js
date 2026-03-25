@@ -528,6 +528,28 @@ export const createApiFormBindings = ({
     syncOutgoingRepeatFields();
     syncPayloadVariablePreview();
 
+    form.addEventListener("create-modal-open", () => {
+      const selectedType = state.createModalType || "incoming";
+
+      form.reset();
+      typeInput.value = selectedType;
+      enabledInput.checked = true;
+      delete slugInput.dataset.userEdited;
+      setFormMessage(feedback, "", "info");
+
+      if (isOutgoingType(selectedType)) {
+        resetOutgoingFields();
+      } else {
+        syncOutgoingAuthFields();
+        syncOutgoingRepeatFields();
+        syncPayloadVariablePreview();
+        setFormMessage(testFeedback, "", "info");
+      }
+
+      resetWebhookFields();
+      syncCreateModalType(selectedType);
+    });
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       setFormMessage(feedback, "", "info");

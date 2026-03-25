@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.services.support import run_scheduler_tick
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -366,6 +370,131 @@ class ApiResourcesTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         self.assertIn("require an interval", response.json()["detail"])
+
+    def test_webhook_callback_records_history_and_triggers_matching_automation(self) -> None:
+        webhook_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "webhook",
+                "name": "orders webhook",
+                "description": "Receives order updates.",
+                "path_slug": "orders-webhook",
+                "enabled": True,
+                "callback_path": "/hooks/orders",
+                "verification_token": "verify-orders",
+                "signing_secret": "orders-secret",
+                "signature_header": "X-Orders-Signature",
+                "event_filter": "order.created",
+            },
+        )
+        self.assertEqual(webhook_response.status_code, 201)
+        webhook = webhook_response.json()
+
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Webhook automation",
+                "description": "Runs when webhook arrives.",
+                "enabled": True,
+                "trigger_type": "inbound_api",
+                "trigger_config": {"inbound_api_id": webhook["id"]},
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Record webhook",
+                        "config": {"message": "Webhook event received"},
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+
+        body = json.dumps({"event": "order.created", "order_id": "ord_123"})
+        signature = hmac.new(b"orders-secret", body.encode("utf-8"), hashlib.sha256).hexdigest()
+        callback_response = self.client.post(
+            "/api/v1/webhooks/callback/hooks/orders?verification_token=verify-orders",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Orders-Signature": f"sha256={signature}",
+                "X-Event-Name": "order.created",
+            },
+        )
+        self.assertEqual(callback_response.status_code, 202)
+        self.assertEqual(callback_response.json()["status"], "accepted")
+
+        detail_response = self.client.get(f"/api/v1/webhooks/{webhook['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["events_count"], 1)
+        self.assertEqual(detail["last_delivery_status"], "accepted")
+        self.assertEqual(detail["recent_events"][0]["event_name"], "order.created")
+        self.assertTrue(detail["recent_events"][0]["verification_ok"])
+        self.assertTrue(detail["recent_events"][0]["signature_ok"])
+        self.assertEqual(detail["recent_events"][0]["triggered_automation_count"], 1)
+
+        runs_response = self.client.get("/api/v1/runs")
+        self.assertEqual(runs_response.status_code, 200)
+        run = next((item for item in runs_response.json() if item["automation_id"] == automation_response.json()["id"]), None)
+        self.assertIsNotNone(run)
+        self.assertEqual(run["trigger_type"], "inbound_api")
+
+    def test_continuous_runtime_updates_next_run_and_delivery_history(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "outgoing_continuous",
+                "name": "continuous heartbeat",
+                "description": "Repeats every five minutes.",
+                "path_slug": "continuous-heartbeat",
+                "enabled": True,
+                "repeat_enabled": True,
+                "repeat_interval_minutes": 5,
+                "destination_url": "https://example.com/hooks/continuous",
+                "http_method": "POST",
+                "auth_type": "none",
+                "payload_template": "{\"event\":\"heartbeat\"}",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        created = create_response.json()
+        app.state.connection.execute(
+            "UPDATE outgoing_continuous_apis SET next_run_at = ? WHERE id = ?",
+            ("2000-01-01T00:00:00+00:00", created["id"]),
+        )
+        app.state.connection.commit()
+
+        class FakeDeliveryResult:
+            ok = True
+            status_code = 202
+            response_body = "{\"accepted\":true}"
+            destination_url = "https://example.com/hooks/continuous"
+            sent_headers = {"Content-Type": "application/json"}
+
+            def model_dump(self) -> dict[str, object]:
+                return {
+                    "ok": self.ok,
+                    "status_code": self.status_code,
+                    "response_body": self.response_body,
+                    "destination_url": self.destination_url,
+                    "sent_headers": self.sent_headers,
+                }
+
+        with patch(
+            "backend.services.helpers.execute_outgoing_test_delivery",
+            return_value=FakeDeliveryResult(),
+        ):
+            run_scheduler_tick(app)
+
+        detail_response = self.client.get(f"/api/v1/outgoing/{created['id']}", params={"api_type": "outgoing_continuous"})
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertIsNotNone(detail["last_run_at"])
+        self.assertIsNotNone(detail["next_run_at"])
+        self.assertIsNone(detail["last_error"])
+        self.assertEqual(len(detail["recent_deliveries"]), 1)
+        self.assertEqual(detail["recent_deliveries"][0]["resource_type"], "outgoing_continuous")
+        self.assertEqual(detail["recent_deliveries"][0]["http_status_code"], 202)
 
 
 if __name__ == "__main__":

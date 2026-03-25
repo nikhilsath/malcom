@@ -12,8 +12,9 @@ def assert_redirect_to_connectors(response: object, _: SmokeContext, __: dict[st
 
 def invoke_without_redirect(case: RouteSmokeCase, context: SmokeContext, state: dict[str, object]) -> object:
     path = resolve_value(case.path, context, state)
+    headers = resolve_value(case.headers, context, state)
     params = resolve_value(case.params, context, state)
-    return context.client.request(case.method.upper(), path, params=params, follow_redirects=False)
+    return context.client.request(case.method.upper(), path, headers=headers, params=params, follow_redirects=False)
 
 
 SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
