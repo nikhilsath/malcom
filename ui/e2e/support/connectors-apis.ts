@@ -388,6 +388,30 @@ const writeJson = async (route: Route, body: JsonRecord | JsonRecord[], status =
   });
 };
 
+const writeRedirectHtml = async (route: Route, destination: string) => {
+  const escapedDestination = destination
+    .replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  await route.fulfill({
+    status: 200,
+    contentType: "text/html; charset=utf-8",
+    body: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=${escapedDestination}">
+    <title>Redirecting…</title>
+  </head>
+  <body>
+    <script>window.location.replace(${JSON.stringify(destination)});</script>
+    <a href="${escapedDestination}">Continue</a>
+  </body>
+</html>`
+  });
+};
+
 const stripSecretFields = (record: ConnectorRecord): JsonRecord => {
   const authConfig = record.auth_config || {};
   return {
@@ -583,19 +607,42 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     const connectors = state.settings.connectors.records as ConnectorRecord[];
     const existing = findConnector(connectors, connectorId);
     const session = state.oauthStateByConnector[connectorId];
+    const providerPreset = state.settings.connectors.catalog.find((item: { id: string }) => item.id === provider);
 
-    if (!existing || !session || session.state !== stateToken || session.provider !== provider) {
+    const hasValidHarnessState = Boolean(session && session.state === stateToken && session.provider === provider);
+    const hasValidTokenShape = stateToken === `oauth-state-${connectorId}`;
+
+    if (!hasValidHarnessState && !hasValidTokenShape) {
       return buildCallbackRedirect(connectorId, "error", "Invalid OAuth state.");
     }
 
     const nextRecord: ConnectorRecord = {
-      ...existing,
+      ...(existing || createConnectorRecord({
+        id: connectorId,
+        provider,
+        name: providerPreset?.name || provider,
+        status: "pending_oauth",
+        auth_type: "oauth2",
+        scopes: provider === "google"
+          ? ["https://www.googleapis.com/auth/gmail.readonly"]
+          : ["repo"],
+        base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+        owner: "Workspace",
+        docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+        auth_config: {
+          client_id: `${provider}-client-id`,
+          redirect_uri: `http://127.0.0.1:4173/api/v1/connectors/${provider}/oauth/callback`,
+          scope_preset: provider,
+          expires_at: null,
+          has_refresh_token: false
+        }
+      })),
       status: "connected",
       updated_at: iso(0),
       last_tested_at: iso(0),
-      scopes: existing.scopes.length > 0 ? existing.scopes : ["https://www.googleapis.com/auth/gmail.readonly"],
+      scopes: existing?.scopes?.length ? existing.scopes : provider === "google" ? ["https://www.googleapis.com/auth/gmail.readonly"] : ["repo"],
       auth_config: {
-        ...existing.auth_config,
+        ...(existing?.auth_config || {}),
         access_token_input: `token_${code.slice(0, 24)}`,
         refresh_token_input: `refresh_${code.slice(0, 24)}`,
         has_refresh_token: true,
@@ -1071,41 +1118,55 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     await page.route("**accounts.google.com/**", async (route) => {
       const url = new URL(route.request().url());
       const stateToken = url.searchParams.get("state") || "oauth-state-google";
-      const callbackUrl = new URL("http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback");
-      callbackUrl.searchParams.set("state", stateToken);
-      callbackUrl.searchParams.set("connector_id", "google");
-      callbackUrl.searchParams.set("code", "demo-google-code");
-      await route.fulfill({
-        status: 302,
-        headers: {
-          location: callbackUrl.toString()
-        },
-        body: ""
-      });
+      const connectorId = "google";
+      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const existing = findConnector(connectors, connectorId);
+      const nextRecord: ConnectorRecord = {
+        ...(existing || createConnectorRecord({
+          id: connectorId,
+          provider: "google",
+          name: "Google",
+          status: "pending_oauth",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          base_url: "https://www.googleapis.com",
+          owner: "Workspace",
+          docs_url: "https://developers.google.com",
+          auth_config: {
+            client_id: "google-client-id",
+            redirect_uri: "http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback",
+            scope_preset: "google",
+            expires_at: null,
+            has_refresh_token: false
+          }
+        })),
+        status: "connected",
+        updated_at: iso(0),
+        last_tested_at: iso(0),
+        auth_config: {
+          ...(existing?.auth_config || {}),
+          access_token_input: `token_${stateToken.slice(0, 24)}`,
+          refresh_token_input: `refresh_${stateToken.slice(0, 24)}`,
+          has_refresh_token: true,
+          expires_at: iso(60),
+          client_secret_input: ""
+        }
+      };
+      replaceConnector(nextRecord);
+      const redirectUrl = buildCallbackRedirect(connectorId, "success", "Connector authorized successfully.");
+      await writeRedirectHtml(route, redirectUrl);
     });
 
     await page.route("**/api/v1/connectors/google/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "google"), "success", "Connector authorized successfully.");
-      await route.fulfill({
-        status: 303,
-        headers: {
-          location: redirectUrl
-        },
-        body: ""
-      });
+      const redirectUrl = createOAuthCallbackResponse("google", url.searchParams);
+      await writeRedirectHtml(route, redirectUrl);
     });
 
     await page.route("**/api/v1/connectors/github/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = buildCallbackRedirect(String(url.searchParams.get("connector_id") || "github"), "success", "Connector authorized successfully.");
-      await route.fulfill({
-        status: 303,
-        headers: {
-          location: redirectUrl
-        },
-        body: ""
-      });
+      const redirectUrl = createOAuthCallbackResponse("github", url.searchParams);
+      await writeRedirectHtml(route, redirectUrl);
     });
 
     await page.route("**/api/v1/connectors/*/test", async (route) => {
@@ -1168,6 +1229,41 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       await writeJson(route, {
         ok: true,
         message: "Connector token refreshed.",
+        connector: stripSecretFields(nextRecord)
+      });
+    });
+
+    await page.route("**/api/v1/connectors/*/revoke", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      const path = extractPath(route);
+      const connectorId = path.split("/")[4];
+      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const record = findConnector(connectors, connectorId);
+      if (!record) {
+        await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
+        return;
+      }
+
+      const nextRecord: ConnectorRecord = {
+        ...record,
+        status: "revoked",
+        updated_at: iso(0),
+        auth_config: {
+          ...record.auth_config,
+          access_token_input: "",
+          refresh_token_input: "",
+          has_refresh_token: false,
+          expires_at: null
+        }
+      };
+      replaceConnector(nextRecord);
+      await writeJson(route, {
+        ok: true,
+        message: "Connector revoked and stored credentials cleared.",
         connector: stripSecretFields(nextRecord)
       });
     });

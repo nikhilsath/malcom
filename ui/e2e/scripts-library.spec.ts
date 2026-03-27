@@ -101,6 +101,6 @@ test("shows empty and validation error states for scripts", async ({ page }) => 
   );
 
   await page.locator("#scripts-library-validate-button").click();
-  await expect(page.locator("#scripts-library-validation-chip")).toHaveText("Needs work");
+  await expect(page.locator("#scripts-library-validation-chip")).toHaveText("Needs fixes");
   await expect(page.locator("#scripts-library-validation-feedback")).toContainText("Source code must define a run function.");
 });

@@ -62,13 +62,13 @@ export const AutomationDataApp = () => {
     loadTables();
   }, []);
 
-  const handleSelectTable = (tableId: string, triggerId?: string) => {
+  const handleSelectTable = (tableId: string, triggerId?: string, requestedLimit = limit) => {
     setSelectedTableId(tableId);
     setReturnFocusId(triggerId || null);
     setRowsData(null);
     setRowsError(null);
     setRowsLoading(true);
-    fetchJson(`/api/v1/log-tables/${tableId}/rows?limit=${limit}`)
+    fetchJson(`/api/v1/log-tables/${tableId}/rows?limit=${requestedLimit}`)
       .then((data) => {
         setRowsData(data);
         setRowsLoading(false);
@@ -243,7 +243,7 @@ export const AutomationDataApp = () => {
                   onChange={(e) => {
                     const next = Number(e.target.value);
                     setLimit(next);
-                    if (selectedTableId) handleSelectTable(selectedTableId, returnFocusId || undefined);
+                    if (selectedTableId) handleSelectTable(selectedTableId, returnFocusId || undefined, next);
                   }}
                 >
                   <option value={50}>50</option>

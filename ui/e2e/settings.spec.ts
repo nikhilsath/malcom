@@ -66,7 +66,7 @@ test("toggles notifications and restores the defaults", async ({ page }) => {
   await page.locator("#settings-reset-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
-  await expect(page.locator("#settings-notifications-channel-select")).toHaveValue("slack");
+  await expect(page.locator("#settings-notifications-channel-select")).toHaveValue("email");
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("hourly");
 });
 

@@ -179,8 +179,12 @@ export const createApiModalController = ({
     elements.detailModal.setAttribute("aria-hidden", "true");
     syncModalBodyState();
 
-    if (state.detailReturnFocusElement instanceof HTMLElement) {
-      state.detailReturnFocusElement.focus();
+    const returnFocusElement = state.detailReturnFocusElement instanceof HTMLElement
+      ? document.getElementById(state.detailReturnFocusElement.id) || state.detailReturnFocusElement
+      : null;
+
+    if (returnFocusElement instanceof HTMLElement) {
+      returnFocusElement.focus();
     }
   };
 

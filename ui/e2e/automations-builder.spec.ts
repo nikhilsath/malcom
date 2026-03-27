@@ -59,7 +59,8 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Order sync");
   await expect(page.locator("#automation-canvas-node-step-step-fetch-order-title")).toHaveText("Fetch order");
 
-  await page.locator("#automation-canvas-node-trigger").dblclick();
+  await page.locator("#automation-canvas-node-trigger-actions-button").click({ force: true });
+  await page.locator("#automations-node-menu-edit").click();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
   await expect(page.locator("#automations-editor-modal-trigger-back")).toBeVisible();
   await page.locator("#automations-editor-modal-trigger-back").click();

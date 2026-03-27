@@ -11,7 +11,7 @@ test("filters saved automations and opens the builder deep link", async ({ page 
   await expect(page.locator("#automations-library-runtime-jobs-value")).toHaveText("4");
 
   await page.locator("#automations-library-list-description-badge").click();
-  await expect(page.locator("#automations-library-list-description")).toBeVisible();
+  await expect(page.locator("#info-badge-popover")).toContainText("Search and select an automation to open in Builder");
 
   await page.locator("#automations-library-search-input").fill("weekly");
   await expect(page.locator("#automations-library-item-automation-weekly-summary")).toBeVisible();

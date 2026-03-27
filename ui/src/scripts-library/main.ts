@@ -502,7 +502,7 @@ scriptElements.searchInput?.addEventListener("input", () => {
 scriptElements.languageInput?.addEventListener("change", () => {
   const language = (scriptElements.languageInput?.value || "python") as ScriptLanguage;
   setEditorLanguage(language);
-  if (!scriptElements.scriptIdInput?.value && !getEditorCode().trim()) {
+  if (!scriptElements.scriptIdInput?.value) {
     setEditorCode(defaultTemplates[language]);
   }
   setValidationChip("unknown", "Not validated");
