@@ -43,7 +43,7 @@ Primary objective: deterministic routing, file targeting, and enforcement rules 
 2. Validate each step before moving to the next.
 3. Build or update the smallest relevant automated tests in the same change as behavior changes.
 4. Log intermediate outcomes when a task has multiple stages.
-5. Include testing instructions whenever code or behavior changes.
+5. Include expected behavior whenever code or behavior changes.
 6. Match existing repo structure before introducing a new pattern.
 7. Prefer extending the current source of truth over creating a second one.
 
@@ -65,9 +65,7 @@ Rules:
 
 Every development-oriented response must include:
 
-- testing instructions
 - expected behavior
-- verification steps
 
 This requirement applies only when the user asked for implementation, debugging, code changes, behavior changes, or verification of changed behavior.
 It does not apply to direct questions, policy edits, meta-instructions, or requests for brief answers unless the user also asked for development workflow detail.
@@ -157,7 +155,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
 | R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
-| R-TEST-001 | Development work responses include test instructions, expected behavior, and verification steps, but only for implementation-oriented tasks | All implementation responses |
+| R-TEST-001 | Development work responses include expected behavior, but only for implementation-oriented tasks | All implementation responses |
 | R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
@@ -171,7 +169,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 15,
+  "version": 17,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -230,9 +228,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
   ],
   "response_requirements": {
     "implementation_tasks_only": [
-      "testing_instructions",
-      "expected_behavior",
-      "verification_steps"
+      "expected_behavior"
     ],
     "test_creation_policy": "For behavior-changing implementation tasks, add or update relevant automated tests in the same change unless strictly non-behavioral.",
     "general_rule": "For non-implementation requests, respond with only the directly requested content unless the user asks for more detail."

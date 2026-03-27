@@ -79,7 +79,7 @@ export const AddStepModal = ({
       case "outbound_request":
         return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "connector_activity":
-        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} onChange={setDraft} />;
+        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "script":
         return <ScriptStepForm draft={draft} scripts={scripts} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "tool":

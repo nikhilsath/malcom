@@ -133,6 +133,9 @@ type AutomationBrowserState = {
   rowsByTableId: Record<string, Array<Record<string, unknown>>>;
   validateResponses: Record<string, { valid: boolean; issues: string[] }>;
   runResponses: Record<string, AutomationRunFixture>;
+  executeResponseDelayMs: number;
+  executeRefreshResponseDelayMs: number;
+  pendingExecuteRefreshResponseDelayMs: number;
   nextAutomationSequence: number;
   nextScriptSequence: number;
   nextTableSequence: number;
@@ -513,6 +516,9 @@ export function createAutomationSuiteState(overrides: Partial<AutomationBrowserS
     rowsByTableId: overrides.rowsByTableId || defaultRowsByTableId(),
     validateResponses: overrides.validateResponses || {},
     runResponses: overrides.runResponses || {},
+    executeResponseDelayMs: overrides.executeResponseDelayMs ?? 0,
+    executeRefreshResponseDelayMs: overrides.executeRefreshResponseDelayMs ?? 0,
+    pendingExecuteRefreshResponseDelayMs: 0,
     nextAutomationSequence: overrides.nextAutomationSequence || 1,
     nextScriptSequence: overrides.nextScriptSequence || scripts.length + 1,
     nextTableSequence: overrides.nextTableSequence || logTables.length + 1
@@ -604,6 +610,7 @@ const mapAutomationRoute = (state: AutomationBrowserState, requestUrl: string, m
   if (action === "execute" && method === "POST") {
     const response = state.runResponses[automationId] || buildRunResponse(automation, `run-${automationId}`);
     state.runResponses[automationId] = response;
+    state.pendingExecuteRefreshResponseDelayMs = state.executeRefreshResponseDelayMs;
     return { status: 200, body: response };
   }
 
@@ -878,11 +885,22 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
   });
 
   await page.route(/\/api\/v1\/automations(?:\/.*)?$/, async (route) => {
-    const body = route.request().method() === "GET" ? undefined : await readRequestBody(route);
-    const response = mapAutomationRoute(state, route.request().url(), route.request().method(), body);
+    const requestMethod = route.request().method();
+    const requestUrl = route.request().url();
+    const pathname = new URL(requestUrl).pathname;
+    const body = requestMethod === "GET" ? undefined : await readRequestBody(route);
+    const response = mapAutomationRoute(state, requestUrl, requestMethod, body);
     if (!response) {
       await route.fallback();
       return;
+    }
+    if (requestMethod === "POST" && /\/api\/v1\/automations\/[^/]+\/execute$/.test(pathname) && state.executeResponseDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, state.executeResponseDelayMs));
+    }
+    if (requestMethod === "GET" && /^\/api\/v1\/automations\/[^/]+$/.test(pathname) && state.pendingExecuteRefreshResponseDelayMs > 0) {
+      const delayMs = state.pendingExecuteRefreshResponseDelayMs;
+      state.pendingExecuteRefreshResponseDelayMs = 0;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     await writeJsonResponse(route, response.status, response.body);
   });

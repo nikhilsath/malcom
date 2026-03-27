@@ -173,6 +173,38 @@ Style placement rules:
 - section/page styles: `ui/styles/pages/`
 - stylesheet aggregation: `ui/styles/styles.css`
 
+## Brand Color Design System
+
+All UI work must use the shared brand token system in `ui/styles/base.css`.
+
+Canonical palette tokens:
+
+- Primary deep purple: `--brand-deep` = `#341475`
+- Primary purple: `--brand-primary` = `#441D81`
+- Mid purple: `--brand-main` = `#5631BA`
+- Bright purple: `--brand-bright` = `#783AD0`
+- Highlight purple: `--brand-highlight` = `#AF50E6`
+- Sky blue accent: `--accent-sky` = `#4FA8F4`
+- Electric blue accent: `--accent-electric` = `#304DF5`
+- Light surface neutral: `--neutral-surface` = `#E0DAED`
+- Muted neutral: `--neutral-muted` = `#B4ADCD`
+- Secondary text grey: `--neutral-secondary-text` = `#7A759A`
+
+Required semantic usage:
+
+1. Main brand/buttons/selected states must use `--brand-main` (or semantic aliases mapped to it).
+2. Hover/strong emphasis must use `--brand-primary`.
+3. Hero highlights/gradients must use `--brand-bright` and `--brand-highlight`.
+4. Technical accent/active connector/focus states must use `--accent-sky`.
+5. Stronger active blue emphasis must use `--accent-electric`.
+
+Enforcement rules:
+
+1. Do not introduce new hardcoded hex colors in UI CSS, HTML, JS, or TS for these roles.
+2. Prefer existing semantic tokens like `--primary`, `--primary-focus`, and `--topnav-bg` that map to this palette.
+3. If a new semantic color role is needed, define it in `ui/styles/base.css` as a token alias that maps to the canonical palette.
+4. Keep color source of truth centralized in `ui/styles/base.css`; do not create parallel per-page palette definitions.
+
 When adding styles:
 
 - extend an existing section stylesheet first if the new UI belongs clearly to that section

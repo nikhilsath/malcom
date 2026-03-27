@@ -112,7 +112,9 @@ export const handleOauthQueryState = async (renderAll) => {
     if (selected) {
       connectorState.selectedConnectorId = selected.id;
       renderAll();
-      openDetailModal();
+      if (oauthStatus && oauthStatus !== "success") {
+        openDetailModal();
+      }
     }
   }
 

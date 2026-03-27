@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { flushSync } from "react-dom";
 import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
 import { Select } from "@base-ui/react/select";
@@ -628,9 +629,13 @@ export const AutomationApp = () => {
   const [nodeMenu, setNodeMenu] = useState<NodeMenuState | null>(null);
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);
+  const [runInFlight, setRunInFlight] = useState(false);
+  const [runCompletedFlash, setRunCompletedFlash] = useState(false);
   const [advancedLabelOpen, setAdvancedLabelOpen] = useState(false);
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
+  const runCompletedFlashTimeoutRef = useRef<number | null>(null);
+  const activeAutomationIdRef = useRef(currentAutomation.id);
 
   // Derived: any condition step with explicit branch targets locks drag-reorder and widens canvas
   const hasBranchSteps = useMemo(
@@ -659,6 +664,38 @@ export const AutomationApp = () => {
   const triggerReady = isTriggerConfigured(currentAutomation) && !isInboundApiSelectionMissing(currentAutomation, inboundApis);
   const hasAtLeastOneStep = currentAutomation.steps.length > 0;
   const hasPersistedDraft = Boolean(currentAutomation.id);
+
+  const clearRunCompletedFlashTimeout = () => {
+    if (runCompletedFlashTimeoutRef.current !== null) {
+      window.clearTimeout(runCompletedFlashTimeoutRef.current);
+      runCompletedFlashTimeoutRef.current = null;
+    }
+  };
+
+  const resetRunCompletedFlash = () => {
+    clearRunCompletedFlashTimeout();
+    setRunCompletedFlash(false);
+  };
+
+  const getGuidedRunButtonLabel = () => {
+    if (runInFlight) {
+      return "Running...";
+    }
+    if (runCompletedFlash) {
+      return "Done";
+    }
+    return "Test run";
+  };
+
+  const getCanvasRunButtonLabel = () => {
+    if (runInFlight) {
+      return "Running...";
+    }
+    if (runCompletedFlash) {
+      return "Done";
+    }
+    return "Run now";
+  };
 
   const guidedNextAction = useMemo(() => {
     if (!hasName) {
@@ -844,6 +881,8 @@ export const AutomationApp = () => {
   };
 
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
+    activeAutomationIdRef.current = "";
+    resetRunCompletedFlash();
     startTransition(() => {
       setCurrentAutomation(emptyDetail());
       setSelectedNodeId("trigger-node");
@@ -862,8 +901,10 @@ export const AutomationApp = () => {
   };
 
   const selectAutomation = async (automationId: string) => {
+    activeAutomationIdRef.current = automationId;
     const detail = await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${automationId}`);
 
+    resetRunCompletedFlash();
     startTransition(() => {
       setCurrentAutomation(sanitizeAutomationDetail(detail));
       setSelectedNodeId("trigger-node");
@@ -942,6 +983,13 @@ export const AutomationApp = () => {
     }
   }, [currentAutomation.steps, editorDrawer]);
 
+  useEffect(() => () => {
+    if (runCompletedFlashTimeoutRef.current !== null) {
+      window.clearTimeout(runCompletedFlashTimeoutRef.current);
+      runCompletedFlashTimeoutRef.current = null;
+    }
+  }, []);
+
   const saveAutomation = async () => {
     const issues = validateAutomationDefinition(currentAutomation, inboundApis, activityCatalog, connectors);
     if (issues.length > 0) {
@@ -992,20 +1040,49 @@ export const AutomationApp = () => {
   };
 
   const executeAutomation = async () => {
-    if (!currentAutomation.id) {
+    if (runInFlight) {
+      return;
+    }
+    const automationId = currentAutomation.id;
+    if (!automationId) {
       setFeedback("Save the automation before running it.");
       setFeedbackTone("error");
       return;
     }
-    const run = await requestJsonCompat<AutomationRunDetail>(`/api/v1/automations/${currentAutomation.id}/execute`, { method: "POST" });
-    setFeedback("Automation executed.");
-    setFeedbackTone("success");
-    setTestResults({ kind: "run", run });
-    const refreshed = await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${currentAutomation.id}`);
-    setCurrentAutomation((current) => ({
-      ...sanitizeAutomationDetail(refreshed),
-      steps: current.steps
-    }));
+    setRunCompletedFlash(false);
+    clearRunCompletedFlashTimeout();
+    setRunInFlight(true);
+    let shouldFlashCompletion = false;
+    try {
+      const run = await requestJsonCompat<AutomationRunDetail>(`/api/v1/automations/${automationId}/execute`, { method: "POST" });
+      if (activeAutomationIdRef.current !== automationId) {
+        return;
+      }
+      setFeedback("Automation executed.");
+      setFeedbackTone("success");
+      setTestResults({ kind: "run", run });
+      const refreshed = await requestJsonCompat<AutomationDetail>(`/api/v1/automations/${automationId}`);
+      if (activeAutomationIdRef.current !== automationId) {
+        return;
+      }
+      setCurrentAutomation((current) => ({
+        ...sanitizeAutomationDetail(refreshed),
+        steps: current.steps
+      }));
+      shouldFlashCompletion = true;
+    } finally {
+      flushSync(() => {
+        setRunInFlight(false);
+        if (shouldFlashCompletion) {
+          clearRunCompletedFlashTimeout();
+          setRunCompletedFlash(true);
+          runCompletedFlashTimeoutRef.current = window.setTimeout(() => {
+            setRunCompletedFlash(false);
+            runCompletedFlashTimeoutRef.current = null;
+          }, 1500);
+        }
+      });
+    }
   };
 
   const deleteAutomation = async () => {
@@ -1520,8 +1597,15 @@ export const AutomationApp = () => {
                 <button id="automations-guided-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
                   Validate
                 </button>
-                <button id="automations-guided-run-button" type="button" className="button button--secondary" disabled={!currentAutomation.id} onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-                  Test run
+                <button
+                  id="automations-guided-run-button"
+                  type="button"
+                  className={`button button--secondary automation-run-button${runInFlight ? " automation-run-button--running" : ""}${runCompletedFlash ? " automation-run-button--done" : ""}`}
+                  aria-busy={runInFlight}
+                  disabled={!currentAutomation.id || runInFlight}
+                  onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}
+                >
+                  {getGuidedRunButtonLabel()}
                 </button>
               </div>
             </article>
@@ -1598,8 +1682,15 @@ export const AutomationApp = () => {
             <button id="automations-validate-button" type="button" className="button button--secondary" onClick={() => validateAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
               Validate
             </button>
-            <button id="automations-run-button" type="button" className="button button--secondary" onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}>
-              Run now
+            <button
+              id="automations-run-button"
+              type="button"
+              className={`button button--secondary automation-run-button${runInFlight ? " automation-run-button--running" : ""}${runCompletedFlash ? " automation-run-button--done" : ""}`}
+              aria-busy={runInFlight}
+              disabled={runInFlight}
+              onClick={() => executeAutomation().catch((error: Error) => { setFeedback(error.message); setFeedbackTone("error"); })}
+            >
+              {getCanvasRunButtonLabel()}
             </button>
             <button id="automations-new-button" type="button" className="button button--secondary" onClick={() => applyNewAutomationDraft()}>
               New draft

@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { TokenPicker } from "../token-picker";
+import type { DataFlowToken } from "../data-flow";
 import type { AutomationStep, ConnectorActivityDefinition, ConnectorActivitySchemaField, ConnectorRecord } from "../types";
 
 type Props = {
@@ -5,6 +8,7 @@ type Props = {
   connectors: ConnectorRecord[];
   activityCatalog: ConnectorActivityDefinition[];
   onChange: (step: AutomationStep) => void;
+  dataFlowTokens?: DataFlowToken[];
   idPrefix?: string;
 };
 
@@ -69,8 +73,10 @@ export const ConnectorActivityStepForm = ({
   connectors,
   activityCatalog,
   onChange,
+  dataFlowTokens = [],
   idPrefix = "add-step-connector-activity",
 }: Props) => {
+  const [showTokenPicker, setShowTokenPicker] = useState(false);
   const selectedConnector = connectors.find((connector) => connector.id === (draft.config.connector_id || ""));
   const providerActivities = selectedConnector ? activityCatalog.filter((activity) => activity.provider_id === selectedConnector.provider) : [];
   const selectedActivity = providerActivities.find((activity) => activity.activity_id === draft.config.activity_id);
@@ -181,15 +187,47 @@ export const ConnectorActivityStepForm = ({
           nextInputs[field.key] = field.type === "integer" && typeof nextValue === "string" && nextValue ? Number(nextValue) : nextValue;
           updateConfig({ ...draft.config, activity_inputs: nextInputs });
         };
+        const supportsTokenInsertion = ["string", "text", "textarea", "json"].includes(field.type);
 
         return (
           <label key={field.key} id={`${fieldId}-field`} className="automation-field automation-field--full automation-field--inline-label">
             <span id={`${fieldId}-label`} className="automation-field__label">{field.label}</span>
             {renderFieldInput(field, fieldId, value, setFieldValue)}
             {getFieldDescription(field) ? <span id={`${fieldId}-help`} className="automation-field__help-text">{getFieldDescription(field)}</span> : null}
+            {supportsTokenInsertion && dataFlowTokens.length > 0 && (
+              <button
+                id={`${fieldId}-token-button`}
+                type="button"
+                className="button button--outline button--small"
+                onClick={() => setShowTokenPicker(!showTokenPicker)}
+              >
+                {showTokenPicker ? "Hide available data" : "Show available data"}
+              </button>
+            )}
           </label>
         );
       })}
+
+      {showTokenPicker && dataFlowTokens.length > 0 && selectedActivity ? (
+        <div id={`${idPrefix}-available-data-panel`} className="automation-field automation-field--full automation-available-data-panel">
+          <div id={`${idPrefix}-available-data-title`} className="automation-field__label">Available step outputs</div>
+          <TokenPicker
+            idPrefix={`${idPrefix}-token-picker`}
+            tokens={dataFlowTokens}
+            onInsert={(token) => {
+              // Find the last focused text-like input and insert the token
+              const inputs = document.querySelectorAll(`[id^="${idPrefix}-input-"]`);
+              const lastInput = inputs[inputs.length - 1] as HTMLTextAreaElement | HTMLInputElement | null;
+              if (lastInput && ["string", "text", "textarea", "json"].includes((lastInput as any).type || lastInput.tagName)) {
+                const currentValue = lastInput.value || "";
+                lastInput.value = currentValue + token;
+                lastInput.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+            }}
+            description="Insert any available step output as a variable reference into the selected field."
+          />
+        </div>
+      ) : null}
 
       {selectedActivity ? (
         <div id={`${idPrefix}-outputs`} className="automation-field automation-field--full automation-field__info">

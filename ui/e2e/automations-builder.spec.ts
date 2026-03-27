@@ -7,7 +7,7 @@ import {
 } from "./support/automations-scripts";
 
 test("creates a new automation draft, adds a connector activity step, edits it, and saves", async ({ page }) => {
-  const state = createAutomationSuiteState();
+  const state = createAutomationSuiteState({ executeResponseDelayMs: 250 });
   await installAutomationSuiteRoutes(page, state);
 
   await page.goto("/automations/builder.html?new=true");
@@ -24,6 +24,7 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await page.locator("#automations-workflow-description-input").fill("Sends an email when a customer event occurs.");
   await page.locator("#automations-guided-settings-modal-done").click();
 
+  await expect(page.locator("#automation-canvas-insert-0-button")).toBeVisible();
   await page.locator("#automation-canvas-insert-0-button").click();
   await expect(page.locator("#add-step-modal")).toBeVisible();
   await page.locator("#add-step-type-connector_activity").click();
@@ -46,10 +47,23 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await page.locator("#automations-save-button").click();
   await expect(page.locator("#automations-feedback-banner")).toContainText("Automation created.");
   await expect(page).toHaveURL(/builder\.html\?id=/);
+
+  await page.locator("#automations-builder-mode-guided").click();
+  await expect(page.locator("#automations-guided-panel")).toBeVisible();
+  await page.locator("#automations-guided-run-button").click();
+  await expect(page.locator("#automations-guided-run-button")).toHaveText("Running...");
+  await expect(page.locator("#automations-guided-run-button")).toBeDisabled();
+  await expect(page.locator("#automations-test-results-modal")).toBeVisible();
+  await expect(page.locator("#automations-guided-run-button")).toHaveText("Done");
+  await page.locator("#automations-test-results-close").click();
+
+  await page.locator("#automations-new-button").click();
+  await expect(page.locator("#automations-guided-run-button")).toHaveText("Test run");
+  await expect(page.locator("#automations-guided-run-button")).toBeDisabled();
 });
 
 test("edits an existing automation, validates, runs, and deletes it", async ({ page }) => {
-  const state = createAutomationSuiteState();
+  const state = createAutomationSuiteState({ executeResponseDelayMs: 250, executeRefreshResponseDelayMs: 2000 });
   state.runResponses["automation-order-sync"] = buildAutomationRun(state, "automation-order-sync", "run-order-sync");
   await installAutomationSuiteRoutes(page, state);
   await acceptDialogs(page);
@@ -59,7 +73,8 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Order sync");
   await expect(page.locator("#automation-canvas-node-step-step-fetch-order-title")).toHaveText("Fetch order");
 
-  await page.locator("#automation-canvas-node-trigger-actions-button").click({ force: true });
+  await page.locator("#automation-canvas-node-trigger").click({ button: "right" });
+  await expect(page.locator("#automations-node-menu-edit")).toBeVisible();
   await page.locator("#automations-node-menu-edit").click();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
   await expect(page.locator("#automations-editor-modal-trigger-back")).toBeVisible();
@@ -98,10 +113,13 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await page.locator("#automations-test-results-close").click();
 
   await page.locator("#automations-run-button").click();
+  await expect(page.locator("#automations-run-button")).toHaveText("Running...");
+  await expect(page.locator("#automations-run-button")).toBeDisabled();
   await expect(page.locator("#automations-test-results-modal")).toBeVisible();
   await expect(page.locator("#automations-test-results-title")).toHaveText("Test run results");
   await expect(page.locator("#automations-run-results-status-value")).toHaveText("completed");
   await expect(page.locator("#automations-run-step-step-fetch-order")).toBeVisible();
+  await expect(page.locator("#automations-run-button")).toHaveText("Done");
   await page.locator("#automations-test-results-close").click();
 
   await page.locator("#automations-delete-button").click();
@@ -109,6 +127,23 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await page.locator("#automations-delete-dialog-confirm").click();
   await expect(page.locator("#automations-feedback-banner")).toContainText("Automation deleted.");
   await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Weekly summary");
+  await expect(page.locator("#automations-run-button")).toHaveText("Run now");
+});
+
+test("keeps a new draft intact when a prior run finishes later", async ({ page }) => {
+  const state = createAutomationSuiteState({ executeResponseDelayMs: 1500 });
+  state.runResponses["automation-order-sync"] = buildAutomationRun(state, "automation-order-sync", "run-order-sync");
+  await installAutomationSuiteRoutes(page, state);
+
+  await page.goto("/automations/builder.html?id=automation-order-sync");
+
+  await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Order sync");
+
+  await page.locator("#automations-run-button").click();
+  await page.locator("#automations-new-button").click({ force: true });
+
+  await expect(page.locator("#automations-run-button")).toBeEnabled();
+  await expect(page.locator("#automations-workflow-name-input")).toHaveValue("");
 });
 
 test("defaults to guided mode for new drafts and allows switching to canvas mode", async ({ page }) => {

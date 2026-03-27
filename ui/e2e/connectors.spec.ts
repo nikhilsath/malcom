@@ -28,9 +28,6 @@ test("google OAuth draft can be created and returned through the callback UX", a
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Connector authorized successfully.");
   await expect(page.locator("#settings-connectors-row-google")).toBeVisible();
   await expect(page.locator("#settings-connectors-row-status-google")).toContainText("Connected");
-  await expect(page.locator("#settings-connectors-detail-modal")).toHaveClass(/modal--open/);
-
-  await page.keyboard.press("Escape");
   await expect(page.locator("#settings-connectors-detail-modal")).not.toHaveClass(/modal--open/);
 });
 

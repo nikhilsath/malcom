@@ -1,6 +1,10 @@
 import { getSectionConfig, resolveShellHref, shellBrand, topNavItems } from "./shell-config.js";
 import { requestJson } from "./request.js";
 
+let _topNavIndicatorFrame = null;
+let _topNavResizeObserver = null;
+const TOP_NAV_INDICATOR_STORAGE_KEY = "topNavIndicatorState";
+
 const createElement = (tagName, attributes = {}, textContent = "") => {
   const element = document.createElement(tagName);
 
@@ -64,6 +68,170 @@ const getTopNavActiveId = () => {
   const section = document.body?.dataset.section;
   const activeItem = topNavItems.find((item) => item.section === section);
   return activeItem?.id || null;
+};
+
+const readStoredTopNavIndicatorState = () => {
+  try {
+    const rawValue = sessionStorage.getItem(TOP_NAV_INDICATOR_STORAGE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+
+    if (
+      typeof parsedValue?.activeId !== "string" ||
+      typeof parsedValue?.left !== "number" ||
+      typeof parsedValue?.top !== "number" ||
+      typeof parsedValue?.width !== "number" ||
+      typeof parsedValue?.height !== "number"
+    ) {
+      return null;
+    }
+
+    return parsedValue;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredTopNavIndicatorState = (state) => {
+  try {
+    sessionStorage.setItem(TOP_NAV_INDICATOR_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures so navigation still works in restricted environments.
+  }
+};
+
+const clearStoredTopNavIndicatorState = () => {
+  try {
+    sessionStorage.removeItem(TOP_NAV_INDICATOR_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures so navigation still works in restricted environments.
+  }
+};
+
+const measureTopNavLink = (nav, link) => {
+  if (!(nav instanceof HTMLElement) || !(link instanceof HTMLElement)) {
+    return null;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const linkRect = link.getBoundingClientRect();
+
+  if (!navRect.width || !linkRect.width || !linkRect.height) {
+    return null;
+  }
+
+  return {
+    left: linkRect.left - navRect.left,
+    top: linkRect.top - navRect.top,
+    width: linkRect.width,
+    height: linkRect.height
+  };
+};
+
+const applyTopNavIndicatorPosition = (indicator, position) => {
+  if (!(indicator instanceof HTMLElement) || !position) {
+    return;
+  }
+
+  indicator.style.width = `${position.width}px`;
+  indicator.style.height = `${position.height}px`;
+  indicator.style.transform = `translate(${position.left}px, ${position.top}px)`;
+};
+
+const seedTopNavIndicatorFromStoredState = (nav, indicator, activeId) => {
+  const storedState = readStoredTopNavIndicatorState();
+
+  if (
+    !(nav instanceof HTMLElement) ||
+    !(indicator instanceof HTMLElement) ||
+    !storedState ||
+    storedState.activeId === activeId
+  ) {
+    return false;
+  }
+
+  applyTopNavIndicatorPosition(indicator, storedState);
+  nav.dataset.indicatorReady = "true";
+  nav.dataset.indicatorSeeded = "true";
+  return true;
+};
+
+const syncTopNavIndicator = () => {
+  const nav = document.getElementById("topnav-primary");
+  const indicator = document.getElementById("topnav-active-indicator");
+  const activeLink = nav?.querySelector(".topnav__link[aria-current=\"page\"]");
+
+  if (!(nav instanceof HTMLElement) || !(indicator instanceof HTMLElement) || !(activeLink instanceof HTMLElement)) {
+    nav?.removeAttribute("data-indicator-ready");
+    return;
+  }
+
+  const activePosition = measureTopNavLink(nav, activeLink);
+
+  if (!activePosition) {
+    nav.removeAttribute("data-indicator-ready");
+    return;
+  }
+
+  applyTopNavIndicatorPosition(indicator, activePosition);
+  nav.dataset.indicatorReady = "true";
+  writeStoredTopNavIndicatorState({
+    activeId: activeLink.id,
+    ...activePosition
+  });
+};
+
+const scheduleTopNavIndicatorSync = () => {
+  if (_topNavIndicatorFrame !== null) {
+    window.cancelAnimationFrame(_topNavIndicatorFrame);
+  }
+
+  _topNavIndicatorFrame = window.requestAnimationFrame(() => {
+    _topNavIndicatorFrame = null;
+    syncTopNavIndicator();
+  });
+};
+
+const bindTopNavIndicator = () => {
+  const nav = document.getElementById("topnav-primary");
+
+  if (!(nav instanceof HTMLElement)) {
+    return;
+  }
+
+  if (_topNavResizeObserver) {
+    _topNavResizeObserver.disconnect();
+    _topNavResizeObserver = null;
+  }
+
+  if (typeof ResizeObserver === "function") {
+    _topNavResizeObserver = new ResizeObserver(() => {
+      scheduleTopNavIndicatorSync();
+    });
+    _topNavResizeObserver.observe(nav);
+  }
+
+  const activeLink = nav.querySelector(".topnav__link[aria-current=\"page\"]");
+  const activeId = activeLink instanceof HTMLElement ? activeLink.id : null;
+  const seededFromStoredState = seedTopNavIndicatorFromStoredState(nav, document.getElementById("topnav-active-indicator"), activeId);
+
+  if (seededFromStoredState) {
+    window.requestAnimationFrame(() => {
+      scheduleTopNavIndicatorSync();
+    });
+  } else {
+    nav.dataset.indicatorReady = "false";
+    scheduleTopNavIndicatorSync();
+  }
+
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      scheduleTopNavIndicatorSync();
+    }).catch(() => {});
+  }
 };
 
 const getToolItemsWithEnabledState = async () => {
@@ -144,12 +312,29 @@ const renderTopNav = () => {
   const container = createElement("div", { className: "container" });
   const inner = createElement("div", { className: "topnav__inner", id: "topnav-inner" });
   const nav = createElement("nav", { className: "topnav__nav", id: "topnav-primary" });
+  const indicator = createElement("div", {
+    id: "topnav-active-indicator",
+    className: "topnav__indicator",
+    "aria-hidden": "true"
+  });
+  const indicatorLeft = createElement("span", {
+    className: "topnav__indicator-side topnav__indicator-side--left",
+    "aria-hidden": "true"
+  });
+  const indicatorRight = createElement("span", {
+    className: "topnav__indicator-side topnav__indicator-side--right",
+    "aria-hidden": "true"
+  });
+
+  indicator.append(indicatorLeft, indicatorRight);
+  nav.appendChild(indicator);
 
   topNavItems.forEach((item) => {
     const link = createElement(
       "a",
       {
         id: item.id,
+        className: "topnav__link",
         href: resolveShellHref(pathPrefix, item.href)
       },
       item.label
@@ -159,6 +344,21 @@ const renderTopNav = () => {
       link.setAttribute("aria-current", "page");
     }
 
+    link.addEventListener("click", () => {
+      const activeLink = nav.querySelector(".topnav__link[aria-current=\"page\"]");
+      const currentPosition = measureTopNavLink(nav, activeLink);
+
+      if (activeLink instanceof HTMLElement && currentPosition) {
+        writeStoredTopNavIndicatorState({
+          activeId: activeLink.id,
+          ...currentPosition
+        });
+        return;
+      }
+
+      clearStoredTopNavIndicatorState();
+    });
+
     nav.appendChild(link);
   });
 
@@ -167,6 +367,7 @@ const renderTopNav = () => {
 
   topNavRoot.className = "topnav";
   topNavRoot.replaceChildren(container);
+  bindTopNavIndicator();
 };
 
 const renderSidebarFooter = (sectionConfig) => {
@@ -468,11 +669,16 @@ const initInfoBadges = () => {
 
 renderTopNav();
 renderSideNav();
+window.addEventListener("resize", () => {
+  scheduleTopNavIndicatorSync();
+});
 window.addEventListener("hashchange", () => {
   renderSideNav();
+  scheduleTopNavIndicatorSync();
 });
 window.addEventListener("malcom:tools-directory-updated", () => {
   renderSideNav();
+  scheduleTopNavIndicatorSync();
 });
 initInfoBadges();
 logPageView();

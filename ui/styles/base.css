@@ -1,20 +1,63 @@
 :root {
-  --bg: #f8fafc;
+  /* Canonical brand design system palette. */
+  --brand-deep: #341475;
+  --brand-primary: #441d81;
+  --brand-main: #5631ba;
+  --brand-bright: #783ad0;
+  --brand-highlight: #af50e6;
+
+  /* Accent palette. */
+  --accent-sky: #4fa8f4;
+  --accent-electric: #304df5;
+
+  /* Supporting neutrals from logo. */
+  --neutral-surface: #e0daed;
+  --neutral-muted: #b4adcd;
+  --neutral-secondary-text: #7a759a;
+
+  /* Backward-compatible brand scale aliases used across existing UI styles. */
+  --brand-50: color-mix(in srgb, var(--brand-highlight) 12%, #ffffff);
+  --brand-100: color-mix(in srgb, var(--brand-highlight) 22%, #ffffff);
+  --brand-200: color-mix(in srgb, var(--brand-highlight) 35%, #ffffff);
+  --brand-300: color-mix(in srgb, var(--brand-bright) 45%, #ffffff);
+  --brand-400: color-mix(in srgb, var(--brand-bright) 70%, #ffffff);
+  --brand-500: var(--brand-highlight);
+  --brand-600: var(--brand-bright);
+  --brand-700: var(--brand-main);
+  --brand-800: var(--brand-primary);
+  --brand-900: var(--brand-deep);
+  --brand-contrast: #ffffff;
+  --brand-surface: color-mix(in srgb, var(--neutral-surface) 62%, #ffffff);
+  --brand-focus: color-mix(in srgb, var(--accent-sky) 32%, transparent);
+  --brand-shadow-sm: 0 8px 20px color-mix(in srgb, var(--brand-main) 22%, transparent);
+  --brand-shadow-md: 0 10px 24px color-mix(in srgb, var(--brand-primary) 30%, transparent);
+
+  --bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-100) 28%, #ffffff) 0px,
+    color-mix(in srgb, var(--neutral-surface) 24%, #ffffff) 150px,
+    color-mix(in srgb, var(--neutral-surface) 20%, #ffffff) 100%
+  );
   --panel: #ffffff;
-  --border: #e5e7eb;
+  --border: color-mix(in srgb, var(--neutral-muted) 62%, #ffffff);
   --text: #111827;
-  --muted: #4b5563;
-  --surface: #f3f4f6;
-  --surface-accent: #eff6ff;
+  --muted: var(--neutral-secondary-text);
+  --surface: color-mix(in srgb, var(--neutral-surface) 55%, #ffffff);
+  --surface-accent: var(--brand-surface);
   --success: #16a34a;
   --success-dark: #15803d;
   --danger: #dc2626;
   --danger-dark: #b91c1c;
-  --primary: #2563eb;
-  --primary-soft: #93c5fd;
-  --primary-focus: rgba(37, 99, 235, 0.2);
-  --primary-shadow-sm: 0 8px 20px rgba(37, 99, 235, 0.08);
-  --primary-shadow-md: 0 10px 24px rgba(37, 99, 235, 0.14);
+  --primary: var(--brand-main);
+  --primary-hover: var(--brand-primary);
+  --primary-soft: color-mix(in srgb, var(--brand-bright) 26%, #ffffff);
+  --hero-gradient-start: var(--brand-bright);
+  --hero-gradient-end: var(--brand-highlight);
+  --technical-accent: var(--accent-sky);
+  --technical-accent-strong: var(--accent-electric);
+  --primary-focus: var(--brand-focus);
+  --primary-shadow-sm: var(--brand-shadow-sm);
+  --primary-shadow-md: var(--brand-shadow-md);
   --overlay: rgba(15, 23, 42, 0.48);
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   --space-1: 4px;
@@ -30,7 +73,23 @@
   --radius-lg: 14px;
   --sidebar-width: 220px;
   --sidebar-collapsed-width: 84px;
-  --topnav-height: 52px;
+  --topnav-height: 68px;
+  --topnav-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brand-deep) 92%, #ffffff) 0%,
+    color-mix(in srgb, var(--brand-main) 88%, #ffffff) 55%,
+    color-mix(in srgb, var(--brand-bright) 84%, #ffffff) 100%
+  );
+  --topnav-bg-solid: color-mix(in srgb, var(--brand-main) 90%, #ffffff);
+  --topnav-text: color-mix(in srgb, var(--brand-contrast) 96%, var(--brand-100));
+  --topnav-text-muted: color-mix(in srgb, var(--brand-contrast) 72%, var(--brand-200));
+  --topnav-indicator-bg: var(--brand-contrast);
+  --topnav-indicator-border: rgba(255, 255, 255, 0.22);
+  --topnav-surface: transparent;
+  --topnav-shadow: 0 14px 30px color-mix(in srgb, var(--brand-main) 18%, transparent);
+  --shell-surface: color-mix(in srgb, var(--brand-50) 56%, #ffffff);
+  --shell-surface-strong: color-mix(in srgb, var(--brand-100) 60%, #ffffff);
+  --shell-border: color-mix(in srgb, var(--brand-300) 28%, var(--border));
 }
 
 *,

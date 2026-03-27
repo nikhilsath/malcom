@@ -64,7 +64,6 @@ Do not delete tests only because they are inconvenient or currently failing. Fix
 
 For code changes, agent responses must tell the user:
 
-- what to run
 - what should happen
 - what to click or inspect to confirm the result
 
