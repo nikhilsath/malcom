@@ -43,15 +43,16 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
 
-    def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
+    def test_get_settings_reads_connector_catalog_from_connectors_table(self) -> None:
         connection = connect(database_url=self.database_url)
         try:
             now_value = "2026-03-20T00:00:00+00:00"
             connection.execute(
                 """
-                INSERT INTO integration_presets (
+                INSERT INTO connectors (
                     id,
                     integration_type,
+                    provider,
                     name,
                     description,
                     category,
@@ -61,8 +62,9 @@ class SettingsApiTestCase(unittest.TestCase):
                     base_url,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
+                    provider = excluded.provider,
                     name = excluded.name,
                     description = excluded.description,
                     category = excluded.category,
@@ -73,8 +75,9 @@ class SettingsApiTestCase(unittest.TestCase):
                     updated_at = excluded.updated_at
                 """,
                 (
-                    "mailchimp",
+                    "provider_mailchimp",
                     "connector_provider",
+                    "mailchimp",
                     "Mailchimp",
                     "Sync campaigns and audiences.",
                     "marketing",
@@ -183,6 +186,14 @@ class SettingsApiTestCase(unittest.TestCase):
             row = fetch_all(
                 connection,
                 """
+                SELECT auth_config_json
+                FROM connectors
+                WHERE integration_type = 'saved_connector' AND id = 'google-calendar-primary'
+                """,
+            )[0]
+            settings_row = fetch_all(
+                connection,
+                """
                 SELECT value_json
                 FROM settings
                 WHERE key = 'connectors'
@@ -191,9 +202,45 @@ class SettingsApiTestCase(unittest.TestCase):
         finally:
             connection.close()
 
-        stored_value = row["value_json"]
+        stored_value = row["auth_config_json"]
         self.assertNotIn("calendar-client-secret", stored_value)
         self.assertNotIn("calendar-access-token", stored_value)
+        self.assertEqual(json.loads(settings_row["value_json"]), {"auth_policy": body["connectors"]["auth_policy"]})
+
+    def test_list_connectors_reads_saved_records_from_connectors_table(self) -> None:
+        patch_response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "connectors": {
+                    "records": [
+                        {
+                            "id": "github-primary",
+                            "provider": "github",
+                            "name": "GitHub Primary",
+                            "status": "enabled",
+                            "auth_type": "bearer",
+                            "scopes": ["repo"],
+                            "base_url": "https://api.github.com",
+                            "owner": "Workspace",
+                            "auth_config": {
+                                "access_token_input": "ghp_secret_token",
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200)
+
+        response = self.client.get("/api/v1/connectors")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["id"], "github-primary")
+        self.assertEqual(body[0]["name"], "GitHub Primary")
+        self.assertEqual(body[0]["status"], "enabled")
+        self.assertNotIn("ghp_secret_token", json.dumps(body))
 
     def test_get_settings_tolerates_malformed_protected_connector_secret(self) -> None:
         patch_response = self.client.patch(
@@ -227,23 +274,22 @@ class SettingsApiTestCase(unittest.TestCase):
             row = fetch_all(
                 connection,
                 """
-                SELECT value_json
-                FROM settings
-                WHERE key = 'connectors'
+                SELECT auth_config_json
+                FROM connectors
+                WHERE integration_type = 'saved_connector' AND id = 'google-calendar-primary'
                 """,
             )[0]
-            settings_payload = json.loads(row["value_json"])
-            auth_config = settings_payload["records"][0].setdefault("auth_config", {})
+            auth_config = json.loads(row["auth_config_json"])
             protected_secrets = auth_config.setdefault("protected_secrets", {})
             protected_secrets["client_secret"] = "enc_v1:not-base64"
             now_value = "2026-03-20T00:00:00+00:00"
             connection.execute(
                 """
-                UPDATE settings
-                SET value_json = ?, updated_at = ?
-                WHERE key = 'connectors'
+                UPDATE connectors
+                SET auth_config_json = ?, updated_at = ?
+                WHERE integration_type = 'saved_connector' AND id = 'google-calendar-primary'
                 """,
-                (json.dumps(settings_payload), now_value),
+                (json.dumps(auth_config), now_value),
             )
             connection.commit()
         finally:

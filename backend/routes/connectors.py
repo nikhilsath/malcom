@@ -15,6 +15,15 @@ from backend.services.support import *
 router = APIRouter()
 
 
+@router.get("/api/v1/connectors", response_model=list[ConnectorRecordResponse])
+def list_saved_connectors(request: Request) -> list[ConnectorRecordResponse]:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    migrate_legacy_connector_settings(connection)
+    records = list_stored_connector_records(connection)
+    return [ConnectorRecordResponse(**sanitize_connector_record_for_response(record, protection_secret)) for record in records]
+
+
 @router.get("/api/v1/connectors/activity-catalog", response_model=list[ConnectorActivityDefinitionResponse])
 def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionResponse]:
     return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog()]
@@ -172,8 +181,7 @@ def _revoke_google_token(*, token: str) -> None:
 def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -202,7 +210,8 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         record.get("auth_config") or {},
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    upsert_connector_record(connection, record)
+    connection.commit()
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector revoked and credentials cleared.", connector=ConnectorRecordResponse(**sanitized))
 
@@ -211,8 +220,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
 def test_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -236,7 +244,8 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
 
     record["last_tested_at"] = utc_now_iso()
     record["updated_at"] = record["last_tested_at"]
-    write_settings_section(connection, "connectors", settings)
+    upsert_connector_record(connection, record)
+    connection.commit()
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=ok, message=message, connector=ConnectorRecordResponse(**sanitized))
 
@@ -307,8 +316,8 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
         protection_secret=protection_secret,
         timestamp=now,
     )
-    settings["records"] = [item for item in settings["records"] if item.get("id") != payload.connector_id] + [next_record]
-    write_settings_section(connection, "connectors", settings)
+    upsert_connector_record(connection, next_record)
+    connection.commit()
     request.app.state.connector_oauth_states[state] = {
         "provider": provider,
         "connector_id": payload.connector_id,
@@ -387,9 +396,8 @@ def _complete_connector_oauth_result(
 
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
     connector_id = state_payload["connector_id"]
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         oauth_states.pop(state, None)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
@@ -397,7 +405,8 @@ def _complete_connector_oauth_result(
     if error:
         record["status"] = "needs_attention"
         record["updated_at"] = utc_now_iso()
-        write_settings_section(connection, "connectors", settings)
+        upsert_connector_record(connection, record)
+        connection.commit()
         oauth_states.pop(state, None)
         sanitized_error = sanitize_connector_record_for_response(record, protection_secret)
         return ConnectorOAuthCallbackResponse(
@@ -463,7 +472,8 @@ def _complete_connector_oauth_result(
         auth_config,
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    upsert_connector_record(connection, record)
+    connection.commit()
     oauth_states.pop(state, None)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorOAuthCallbackResponse(
@@ -477,8 +487,7 @@ def _complete_connector_oauth_result(
 def refresh_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -525,6 +534,7 @@ def refresh_connector(connector_id: str, request: Request) -> ConnectorActionRes
         auth_config,
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    upsert_connector_record(connection, record)
+    connection.commit()
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector token refreshed.", connector=ConnectorRecordResponse(**sanitized))

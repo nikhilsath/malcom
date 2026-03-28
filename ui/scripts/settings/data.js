@@ -30,7 +30,7 @@ const CONNECTOR_STORAGE_PROVIDER_LABELS = {
     s3: "Amazon S3"
 };
 
-const CONNECTOR_ACTIVE_STATUSES = new Set(["connected", "pending_oauth", "needs_attention"]);
+const CONNECTOR_ACTIVE_STATUSES = new Set(["enabled", "connected", "pending_oauth", "needs_attention"]);
 
 const toTitleCase = (value) => value
     .replaceAll("_", " ")
@@ -249,4 +249,3 @@ async function loadLogTableStats() {
 }
 
 bindStorageLocations();
-

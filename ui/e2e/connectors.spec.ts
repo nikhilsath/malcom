@@ -43,12 +43,14 @@ test("non-Google connector lifecycle actions update the registry", async ({ page
   await expect(page.locator("#settings-connectors-detail-title")).toHaveText("GitHub Primary");
 
   await page.locator("#settings-connectors-name-input").fill("GitHub Primary Updated");
+  await page.locator("#settings-connectors-status-input").selectOption("disabled");
   await page.locator("#settings-connectors-base-url-input").fill("https://api.github.com/rest");
   await page.locator("#settings-connectors-scopes-input").fill("repo, workflow");
   await page.locator("#settings-connectors-save-button").click();
 
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Connector saved.");
   await expect(page.locator("#settings-connectors-row-name-value-github-oauth")).toHaveText("GitHub Primary Updated");
+  await expect(page.locator("#settings-connectors-row-status-github-oauth")).toContainText("Disabled");
 
   await page.locator("#settings-connectors-test-button").click();
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Connector credentials look complete.");

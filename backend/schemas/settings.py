@@ -70,7 +70,7 @@ class ConnectorRecordResponse(BaseModel):
     id: str
     provider: str = Field(pattern=r"^[a-z0-9_]+$")
     name: str = Field(min_length=1, max_length=120)
-    status: str = Field(pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
+    status: str = Field(pattern=r"^(draft|enabled|disabled|pending_oauth|connected|needs_attention|expired|revoked)$")
     auth_type: str = Field(pattern=r"^(oauth2|bearer|api_key|basic|header)$")
     scopes: list[str] = Field(default_factory=list)
     base_url: str | None = Field(default=None, max_length=2000)
@@ -110,7 +110,7 @@ class ConnectorRecordUpdate(BaseModel):
     id: str = Field(min_length=1, max_length=120)
     provider: str = Field(pattern=r"^[a-z0-9_]+$")
     name: str = Field(min_length=1, max_length=120)
-    status: str = Field(default="draft", pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
+    status: str = Field(default="draft", pattern=r"^(draft|enabled|disabled|pending_oauth|connected|needs_attention|expired|revoked)$")
     auth_type: str = Field(pattern=r"^(oauth2|bearer|api_key|basic|header)$")
     scopes: list[str] = Field(default_factory=list)
     base_url: str | None = Field(default=None, max_length=2000)

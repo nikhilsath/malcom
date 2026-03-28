@@ -31,7 +31,7 @@ type Props = {
   dataFlowTokens?: DataFlowToken[];
 };
 
-const HIDDEN_CONNECTOR_STATUSES = new Set(["draft", "revoked", "expired"]);
+const HIDDEN_CONNECTOR_STATUSES = new Set(["draft", "disabled", "revoked", "expired"]);
 
 export const AddStepModal = ({
   open,

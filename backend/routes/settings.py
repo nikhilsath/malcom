@@ -23,17 +23,20 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
     logger = get_application_logger(request)
     changes = payload.model_dump(exclude_unset=True)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    connectors_change = None
 
     if not changes:
         return AppSettingsResponse(**get_settings_payload(connection, protection_secret=protection_secret))
 
     if "connectors" in changes:
-        changes["connectors"] = normalize_connector_settings_for_storage(
+        connectors_change = normalize_connector_settings_for_storage(
             changes["connectors"],
             existing_settings=get_stored_connector_settings(connection),
             connection=connection,
             protection_secret=protection_secret,
         )
+        changes.pop("connectors", None)
+    changed_sections = sorted({*changes.keys(), *(["connectors"] if connectors_change is not None else [])})
 
     now = utc_now_iso()
 
@@ -50,6 +53,9 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
             (key, json.dumps(value), now, now),
         )
 
+    if connectors_change is not None:
+        persist_connector_settings(connection, connectors_change)
+
     connection.commit()
     settings_payload = get_settings_payload(connection, protection_secret=protection_secret)
     if "logging" in changes:
@@ -63,7 +69,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
         logger,
         logging.INFO,
         "settings_updated",
-        changed_sections=sorted(changes.keys()),
+        changed_sections=changed_sections,
         logging=settings_payload.get("logging"),
     )
     return AppSettingsResponse(**settings_payload)

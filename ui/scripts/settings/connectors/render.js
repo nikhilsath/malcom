@@ -151,6 +151,11 @@ export const renderDirectory = (onSelectRecord) => {
   connectorElements.tableBody.textContent = "";
 
   records.forEach((record) => {
+    const badgeTone = record.status === "connected" || record.status === "enabled"
+      ? "status-badge--success"
+      : record.status === "needs_attention" || record.status === "expired"
+        ? "status-badge--warning"
+        : "status-badge--muted";
     const row = document.createElement("tr");
     row.id = `settings-connectors-row-${record.id}`;
     row.className = "api-directory-row";
@@ -164,7 +169,7 @@ export const renderDirectory = (onSelectRecord) => {
         <span id="settings-connectors-row-name-meta-${record.id}" class="api-directory-description">${record.docs_url || "No provider docs recorded."}</span>
       </td>
       <td id="settings-connectors-row-provider-${record.id}" class="api-directory-cell">${titleCase(record.provider)}</td>
-      <td id="settings-connectors-row-status-${record.id}" class="api-directory-cell"><span class="status-badge ${record.status === "connected" ? "status-badge--success" : record.status === "needs_attention" || record.status === "expired" ? "status-badge--warning" : "status-badge--muted"}">${titleCase(record.status)}</span></td>
+      <td id="settings-connectors-row-status-${record.id}" class="api-directory-cell"><span class="status-badge ${badgeTone}">${titleCase(record.status)}</span></td>
       <td id="settings-connectors-row-auth-${record.id}" class="api-directory-cell">${titleCase(record.auth_type)}</td>
       <td id="settings-connectors-row-owner-${record.id}" class="api-directory-cell">${record.owner || "Workspace"}</td>
     `;

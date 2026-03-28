@@ -848,14 +848,14 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const [settings, inbound, scriptItems, activityItems, presetItems] = await Promise.all([
-      requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
+    const [connectorItems, inbound, scriptItems, activityItems, presetItems] = await Promise.all([
+      requestJsonCompat<ConnectorRecord[]>("/api/v1/connectors"),
       requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
       requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts"),
       requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog"),
       requestJsonCompat<HttpPreset[]>("/api/v1/connectors/http-presets")
     ]);
-    setConnectors(settings.connectors?.records || []);
+    setConnectors(connectorItems || []);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
     setScripts(scriptItems);
     setActivityCatalog(activityItems);

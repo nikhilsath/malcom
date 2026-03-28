@@ -147,18 +147,26 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS integration_presets (
+CREATE TABLE IF NOT EXISTS connectors (
     id TEXT PRIMARY KEY,
     integration_type TEXT NOT NULL DEFAULT 'connector_provider',
+    provider TEXT,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     category TEXT NOT NULL DEFAULT 'general',
+    status TEXT NOT NULL DEFAULT 'draft',
+    auth_type TEXT NOT NULL DEFAULT 'bearer',
     auth_types_json TEXT NOT NULL DEFAULT '[]',
+    scopes_json TEXT NOT NULL DEFAULT '[]',
     default_scopes_json TEXT NOT NULL DEFAULT '[]',
     docs_url TEXT NOT NULL DEFAULT '',
     base_url TEXT NOT NULL DEFAULT '',
+    owner TEXT,
+    credential_ref TEXT,
+    auth_config_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    last_tested_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS automation_runs (
@@ -313,6 +321,7 @@ def is_unique_violation(error: Exception) -> bool:
 
 
 def initialize(connection: Any) -> None:
+    _rename_legacy_connectors_table(connection)
     connection.executescript(CREATE_SCHEMA_SQL)
     _ensure_column(connection, "inbound_apis", "is_mock", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "inbound_api_events", "is_mock", "INTEGER NOT NULL DEFAULT 0")
@@ -370,6 +379,14 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "automation_run_steps", "extracted_fields_json", "TEXT")
     _ensure_column(connection, "automation_runs", "worker_id", "TEXT")
     _ensure_column(connection, "automation_runs", "worker_name", "TEXT")
+    _ensure_column(connection, "connectors", "provider", "TEXT")
+    _ensure_column(connection, "connectors", "status", "TEXT NOT NULL DEFAULT 'draft'")
+    _ensure_column(connection, "connectors", "auth_type", "TEXT NOT NULL DEFAULT 'bearer'")
+    _ensure_column(connection, "connectors", "scopes_json", "TEXT NOT NULL DEFAULT '[]'")
+    _ensure_column(connection, "connectors", "owner", "TEXT")
+    _ensure_column(connection, "connectors", "credential_ref", "TEXT")
+    _ensure_column(connection, "connectors", "auth_config_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "connectors", "last_tested_at", "TEXT")
     _ensure_column(connection, "scripts", "validation_status", "TEXT NOT NULL DEFAULT 'unknown'")
     _ensure_column(connection, "scripts", "validation_message", "TEXT")
     _ensure_column(connection, "scripts", "last_validated_at", "TEXT")
@@ -387,6 +404,32 @@ def initialize(connection: Any) -> None:
             ELSE 'paused'
         END
         WHERE status IS NULL OR TRIM(status) = ''
+        """
+    )
+    connection.execute(
+        """
+        UPDATE connectors
+        SET provider = id
+        WHERE integration_type = 'connector_provider'
+          AND (provider IS NULL OR TRIM(provider) = '')
+        """
+    )
+    connection.execute(
+        """
+        UPDATE connectors
+        SET id = CONCAT('provider_', provider)
+        WHERE integration_type = 'connector_provider'
+          AND provider IS NOT NULL
+          AND TRIM(provider) <> ''
+          AND LEFT(id, 9) <> 'provider_'
+        """
+    )
+    connection.execute(
+        """
+        UPDATE connectors
+        SET status = 'enabled'
+        WHERE integration_type = 'connector_provider'
+          AND (status IS NULL OR TRIM(status) = '')
         """
     )
     connection.commit()
@@ -459,6 +502,28 @@ def _quote_identifier(identifier: str) -> str:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", identifier):
         raise ValueError(f"Invalid SQL identifier: {identifier}")
     return f'"{identifier}"'
+
+
+def _table_exists(connection: Any, table_name: str) -> bool:
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = ?
+        LIMIT 1
+        """,
+        (table_name,),
+    ).fetchone()
+    return row is not None
+
+
+def _rename_legacy_connectors_table(connection: Any) -> None:
+    if _table_exists(connection, "connectors"):
+        return
+    if not _table_exists(connection, "integration_presets"):
+        return
+    connection.execute('ALTER TABLE "integration_presets" RENAME TO "connectors"')
 
 
 def _ensure_column(connection: Any, table_name: str, column_name: str, definition: str) -> None:

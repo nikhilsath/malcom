@@ -72,12 +72,11 @@ export const getAppSettings = () => window.MalcomLogStore?.getAppSettings?.() ||
 
 export const loadConnectorEntries = async () => {
   try {
-    await window.MalcomLogStore?.ready?.();
+    const response = await window.Malcom?.requestJson?.("/api/v1/connectors");
+    return Array.isArray(response) ? response : getAppSettings().connectors?.records || [];
   } catch {
     return getAppSettings().connectors?.records || [];
   }
-
-  return getAppSettings().connectors?.records || [];
 };
 
 export const emitApiLog = ({

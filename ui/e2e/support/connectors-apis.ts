@@ -775,6 +775,11 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           return text ? JSON.parse(text) : null;
         }
 
+        if (pathname === "/api/v1/connectors" && method === "GET") {
+          const connectors = (((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records as Array<Record<string, unknown>>) || [];
+          return respond(connectors.map((record) => stripConnectorSecrets(record)));
+        }
+
         const connectorStartMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)\/oauth\/start$/);
         if (connectorStartMatch && method === "POST") {
           const provider = connectorStartMatch[1];

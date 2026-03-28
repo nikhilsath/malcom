@@ -791,6 +791,9 @@ const mapMetadataRoute = (state: AutomationBrowserState, requestUrl: string, met
   if (url.pathname === "/api/v1/inbound" && method === "GET") {
     return { status: 200, body: state.inboundApis };
   }
+  if (url.pathname === "/api/v1/connectors" && method === "GET") {
+    return { status: 200, body: state.settings.connectors.records };
+  }
   if (url.pathname === "/api/v1/connectors/activity-catalog" && method === "GET") {
     return { status: 200, body: state.activityCatalog };
   }
@@ -861,6 +864,15 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
   });
 
   await page.route("**/api/v1/inbound", async (route) => {
+    const response = mapMetadataRoute(state, route.request().url(), route.request().method());
+    if (!response) {
+      await route.fallback();
+      return;
+    }
+    await writeJsonResponse(route, response.status, response.body);
+  });
+
+  await page.route("**/api/v1/connectors", async (route) => {
     const response = mapMetadataRoute(state, route.request().url(), route.request().method());
     if (!response) {
       await route.fallback();

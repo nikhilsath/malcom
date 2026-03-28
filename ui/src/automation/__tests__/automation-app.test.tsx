@@ -147,20 +147,16 @@ const renderAutomationApp = (options?: {
     const body = requestOptions?.body ? JSON.parse(String(requestOptions.body)) : null;
     requestLog.push({ path, method, body });
 
-    if (path === "/api/v1/settings") {
-      return {
-        connectors: {
-          records: options?.connectors || [
-            {
-              id: "connector-main",
-              provider: "http",
-              name: "Main webhook",
-              auth_type: "none",
-              base_url: "https://example.com"
-            }
-          ]
+    if (path === "/api/v1/connectors") {
+      return options?.connectors || [
+        {
+          id: "connector-main",
+          provider: "http",
+          name: "Main webhook",
+          auth_type: "none",
+          base_url: "https://example.com"
         }
-      };
+      ];
     }
 
     if (path === "/api/v1/inbound") {

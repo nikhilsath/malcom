@@ -128,8 +128,10 @@ SUPPORTED_CONNECTOR_PROVIDERS = {
     "trello",
     "generic_http",
 }
+CONNECTOR_PROVIDER_ROW_TYPE = "connector_provider"
+CONNECTOR_SAVED_ROW_TYPE = "saved_connector"
 SUPPORTED_CONNECTOR_AUTH_TYPES = {"oauth2", "bearer", "api_key", "basic", "header"}
-SUPPORTED_CONNECTOR_STATUSES = {"draft", "pending_oauth", "connected", "needs_attention", "expired", "revoked"}
+SUPPORTED_CONNECTOR_STATUSES = {"draft", "enabled", "disabled", "pending_oauth", "connected", "needs_attention", "expired", "revoked"}
 CONNECTOR_SECRET_FIELD_INPUTS = {
     "client_secret": "client_secret_input",
     "access_token": "access_token_input",
@@ -701,64 +703,100 @@ def get_default_settings() -> dict[str, Any]:
 def seed_default_settings(connection: DatabaseConnection) -> None:
     now = utc_now_iso()
 
-    seed_integration_presets(connection, timestamp=now)
+    seed_connectors_table(connection, timestamp=now)
+    migrate_legacy_connector_settings(connection)
     seed_default_scripts(connection, timestamp=now)
 
     for key, value in get_default_settings().items():
+        stored_value = value
+        if key == "connectors":
+            stored_value = {
+                "auth_policy": value["auth_policy"],
+            }
         connection.execute(
             """
             INSERT INTO settings (key, value_json, created_at, updated_at)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(key) DO NOTHING
             """,
-            (key, json.dumps(value), now, now),
+            (key, json.dumps(stored_value), now, now),
         )
 
     connection.commit()
-def seed_integration_presets(connection: DatabaseConnection, *, timestamp: str | None = None) -> None:
+def _provider_row_id(provider_id: str) -> str:
+    return f"provider_{provider_id}"
+
+
+def seed_connectors_table(connection: DatabaseConnection, *, timestamp: str | None = None) -> None:
     now = timestamp or utc_now_iso()
 
     for preset in DEFAULT_CONNECTOR_CATALOG:
         connection.execute(
             """
-            INSERT INTO integration_presets (
+            INSERT INTO connectors (
                 id,
                 integration_type,
+                provider,
                 name,
                 description,
                 category,
+                status,
+                auth_type,
                 auth_types_json,
+                scopes_json,
                 default_scopes_json,
                 docs_url,
                 base_url,
+                owner,
+                credential_ref,
+                auth_config_json,
                 created_at,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                updated_at,
+                last_tested_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 integration_type = excluded.integration_type,
+                provider = excluded.provider,
                 name = excluded.name,
                 description = excluded.description,
                 category = excluded.category,
+                status = excluded.status,
+                auth_type = excluded.auth_type,
                 auth_types_json = excluded.auth_types_json,
+                scopes_json = excluded.scopes_json,
                 default_scopes_json = excluded.default_scopes_json,
                 docs_url = excluded.docs_url,
                 base_url = excluded.base_url,
+                auth_config_json = excluded.auth_config_json,
                 updated_at = excluded.updated_at
             """,
             (
+                _provider_row_id(preset["id"]),
+                CONNECTOR_PROVIDER_ROW_TYPE,
                 preset["id"],
-                "connector_provider",
                 preset["name"],
                 preset["description"],
                 preset["category"],
+                "enabled",
+                preset.get("auth_types", ["bearer"])[0],
                 json.dumps(preset.get("auth_types", [])),
+                json.dumps([]),
                 json.dumps(preset.get("default_scopes", [])),
                 preset.get("docs_url") or "",
                 preset.get("base_url") or "",
+                None,
+                None,
+                "{}",
                 now,
                 now,
+                None,
             ),
         )
+
+
+def _connector_row_to_provider_id(row: DatabaseRow) -> str:
+    provider = canonicalize_connector_provider(row.get("provider"))
+    return provider or row["id"].removeprefix("provider_")
 def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, Any]:
     defaults = get_default_connector_settings()["auth_policy"]
     payload = defaults | (value or {})
@@ -784,7 +822,7 @@ def _get_default_connector_preset(provider: str) -> dict[str, Any] | None:
 
 
 def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
-    canonical_id = canonicalize_connector_provider(row.get("id"))
+    canonical_id = _connector_row_to_provider_id(row)
     if canonical_id == "google":
         google_preset = _get_default_connector_preset("google")
         if google_preset is not None:
@@ -817,11 +855,12 @@ def build_connector_catalog(connection: DatabaseConnection | None = None) -> lis
     rows = fetch_all(
         connection,
         """
-        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
-        FROM integration_presets
-        WHERE integration_type = 'connector_provider'
+        SELECT id, provider, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
+        FROM connectors
+        WHERE integration_type = ?
         ORDER BY name ASC
         """,
+        (CONNECTOR_PROVIDER_ROW_TYPE,),
     )
     if not rows:
         return _clone_connector_catalog_defaults()
@@ -844,11 +883,11 @@ def get_connector_preset(provider: str, *, connection: DatabaseConnection | None
     row = fetch_one(
         connection,
         """
-        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
-        FROM integration_presets
-        WHERE integration_type = 'connector_provider' AND id = ?
+        SELECT id, provider, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
+        FROM connectors
+        WHERE integration_type = ? AND provider = ?
         """,
-        (canonical_provider,),
+        (CONNECTOR_PROVIDER_ROW_TYPE, canonical_provider),
     )
     if row is None:
         return _get_default_connector_preset(canonical_provider or provider)
@@ -888,7 +927,8 @@ def normalize_connector_auth_config_for_storage(
     next_auth_config = dict(existing_auth_config or {})
     incoming_auth_config = auth_config or {}
     existing_secret_map = extract_connector_secret_map(existing_auth_config or {}, protection_secret)
-    protected_secrets: dict[str, str] = {}
+    incoming_protected_secrets = incoming_auth_config.get("protected_secrets")
+    protected_secrets = dict(incoming_protected_secrets) if isinstance(incoming_protected_secrets, dict) else {}
 
     clear_credentials = bool(incoming_auth_config.get("clear_credentials"))
 
@@ -911,6 +951,202 @@ def normalize_connector_auth_config_for_storage(
         next_auth_config["has_refresh_token"] = bool(protected_secrets.get("refresh_token")) or bool(next_auth_config.get("has_refresh_token"))
 
     return next_auth_config
+
+
+def _row_to_connector_record(row: DatabaseRow) -> dict[str, Any]:
+    try:
+        scopes = json.loads(row.get("scopes_json") or "[]")
+    except json.JSONDecodeError:
+        scopes = []
+
+    try:
+        auth_config = json.loads(row.get("auth_config_json") or "{}")
+    except json.JSONDecodeError:
+        auth_config = {}
+
+    provider = canonicalize_connector_provider(row.get("provider")) or "generic_http"
+    preset = _get_default_connector_preset(provider) or {}
+
+    return {
+        "id": row["id"],
+        "provider": provider,
+        "name": row["name"],
+        "status": row.get("status") or "draft",
+        "auth_type": row.get("auth_type") or (preset.get("auth_types") or ["bearer"])[0],
+        "scopes": [item for item in scopes if isinstance(item, str)],
+        "base_url": row.get("base_url") or preset.get("base_url"),
+        "owner": row.get("owner") or "Workspace",
+        "docs_url": row.get("docs_url") or preset.get("docs_url"),
+        "credential_ref": row.get("credential_ref") or f"connector/{row['id']}",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "last_tested_at": row.get("last_tested_at"),
+        "auth_config": auth_config if isinstance(auth_config, dict) else {},
+    }
+
+
+def list_stored_connector_records(connection: DatabaseConnection) -> list[dict[str, Any]]:
+    rows = fetch_all(
+        connection,
+        """
+        SELECT id, provider, name, status, auth_type, scopes_json, base_url, owner, docs_url, credential_ref, auth_config_json, created_at, updated_at, last_tested_at
+        FROM connectors
+        WHERE integration_type = ?
+        ORDER BY updated_at DESC, name ASC
+        """,
+        (CONNECTOR_SAVED_ROW_TYPE,),
+    )
+    return [_row_to_connector_record(row) for row in rows]
+
+
+def upsert_connector_record(connection: DatabaseConnection, record: dict[str, Any]) -> None:
+    preset = get_connector_preset(record.get("provider") or "", connection=connection) or {}
+    connection.execute(
+        """
+        INSERT INTO connectors (
+            id,
+            integration_type,
+            provider,
+            name,
+            description,
+            category,
+            status,
+            auth_type,
+            auth_types_json,
+            scopes_json,
+            default_scopes_json,
+            docs_url,
+            base_url,
+            owner,
+            credential_ref,
+            auth_config_json,
+            created_at,
+            updated_at,
+            last_tested_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            integration_type = excluded.integration_type,
+            provider = excluded.provider,
+            name = excluded.name,
+            description = excluded.description,
+            category = excluded.category,
+            status = excluded.status,
+            auth_type = excluded.auth_type,
+            auth_types_json = excluded.auth_types_json,
+            scopes_json = excluded.scopes_json,
+            default_scopes_json = excluded.default_scopes_json,
+            docs_url = excluded.docs_url,
+            base_url = excluded.base_url,
+            owner = excluded.owner,
+            credential_ref = excluded.credential_ref,
+            auth_config_json = excluded.auth_config_json,
+            updated_at = excluded.updated_at,
+            last_tested_at = excluded.last_tested_at
+        """,
+        (
+            record["id"],
+            CONNECTOR_SAVED_ROW_TYPE,
+            record.get("provider") or "generic_http",
+            record["name"],
+            preset.get("description") or "",
+            preset.get("category") or "general",
+            record.get("status") or "draft",
+            record.get("auth_type") or "bearer",
+            json.dumps(preset.get("auth_types", [])),
+            json.dumps(record.get("scopes", [])),
+            json.dumps(preset.get("default_scopes", [])),
+            record.get("docs_url") or preset.get("docs_url") or "",
+            record.get("base_url") or preset.get("base_url") or "",
+            record.get("owner"),
+            record.get("credential_ref"),
+            json.dumps(record.get("auth_config") or {}),
+            record["created_at"],
+            record["updated_at"],
+            record.get("last_tested_at"),
+        ),
+    )
+
+
+def replace_connector_records(connection: DatabaseConnection, records: list[dict[str, Any]]) -> None:
+    desired_ids = {record["id"] for record in records}
+    existing_ids = {
+        row["id"]
+        for row in fetch_all(
+            connection,
+            """
+            SELECT id
+            FROM connectors
+            WHERE integration_type = ?
+            """,
+            (CONNECTOR_SAVED_ROW_TYPE,),
+        )
+    }
+
+    for record in records:
+        upsert_connector_record(connection, record)
+
+    for connector_id in existing_ids - desired_ids:
+        connection.execute(
+            """
+            DELETE FROM connectors
+            WHERE integration_type = ? AND id = ?
+            """,
+            (CONNECTOR_SAVED_ROW_TYPE, connector_id),
+        )
+
+
+def delete_connector_record(connection: DatabaseConnection, connector_id: str) -> None:
+    connection.execute(
+        """
+        DELETE FROM connectors
+        WHERE integration_type = ? AND id = ?
+        """,
+        (CONNECTOR_SAVED_ROW_TYPE, connector_id),
+    )
+
+
+def _write_connector_settings_row(connection: DatabaseConnection, auth_policy: dict[str, Any]) -> None:
+    now = utc_now_iso()
+    connection.execute(
+        """
+        INSERT INTO settings (key, value_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+            value_json = excluded.value_json,
+            updated_at = excluded.updated_at
+        """,
+        ("connectors", json.dumps({"auth_policy": normalize_connector_auth_policy(auth_policy)}), now, now),
+    )
+
+
+def migrate_legacy_connector_settings(connection: DatabaseConnection) -> None:
+    stored_value = read_stored_settings_section(connection, "connectors")
+    if not isinstance(stored_value, dict):
+        return
+
+    legacy_records = [item for item in stored_value.get("records", []) if isinstance(item, dict)]
+    if not legacy_records:
+        return
+
+    protection_secret = get_connector_protection_secret()
+    existing_records = {item["id"]: item for item in list_stored_connector_records(connection)}
+    now = utc_now_iso()
+    next_records = [
+        normalize_connector_record_for_storage(
+            item,
+            existing_record=existing_records.get(item.get("id")),
+            connection=connection,
+            protection_secret=protection_secret,
+            timestamp=now,
+        )
+        for item in legacy_records
+        if item.get("id")
+    ]
+    replace_connector_records(connection, next_records)
+    _write_connector_settings_row(connection, stored_value.get("auth_policy"))
+    connection.commit()
+
+
 def normalize_connector_record_for_storage(
     record: dict[str, Any],
     *,
@@ -1003,6 +1239,20 @@ def normalize_connector_settings_for_storage(
         "records": next_records,
         "auth_policy": normalize_connector_auth_policy(payload.get("auth_policy") or current_settings.get("auth_policy")),
     }
+
+
+def persist_connector_settings(connection: DatabaseConnection, settings: dict[str, Any]) -> None:
+    replace_connector_records(
+        connection,
+        [
+            item
+            for item in settings.get("records", [])
+            if isinstance(item, dict) and item.get("id")
+        ],
+    )
+    _write_connector_settings_row(connection, settings.get("auth_policy"))
+
+
 def sanitize_connector_settings_for_response(
     value: dict[str, Any] | None,
     protection_secret: str,
@@ -1015,28 +1265,35 @@ def sanitize_connector_settings_for_response(
         "catalog": build_connector_catalog(connection),
         "records": [
             sanitize_connector_record_for_response(item, protection_secret)
-            for item in current.get("records", [])
+            for item in (list_stored_connector_records(connection) if connection is not None else current.get("records", []))
             if isinstance(item, dict)
         ],
         "auth_policy": normalize_connector_auth_policy(current.get("auth_policy")),
     }
 def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
+    migrate_legacy_connector_settings(connection)
     stored_value = read_stored_settings_section(connection, "connectors")
-    if not isinstance(stored_value, dict):
-        return {
-            "catalog": build_connector_catalog(connection),
-            "records": [],
-            "auth_policy": normalize_connector_auth_policy(None),
-        }
+    auth_policy = None
+    if isinstance(stored_value, dict):
+        auth_policy = stored_value.get("auth_policy")
 
     return {
         "catalog": build_connector_catalog(connection),
-        "records": [item for item in stored_value.get("records", []) if isinstance(item, dict)],
-        "auth_policy": normalize_connector_auth_policy(stored_value.get("auth_policy")),
+        "records": list_stored_connector_records(connection),
+        "auth_policy": normalize_connector_auth_policy(auth_policy),
     }
 def find_stored_connector_record(connection: DatabaseConnection, connector_id: str) -> dict[str, Any] | None:
-    settings = get_stored_connector_settings(connection)
-    return next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    migrate_legacy_connector_settings(connection)
+    row = fetch_one(
+        connection,
+        """
+        SELECT id, provider, name, status, auth_type, scopes_json, base_url, owner, docs_url, credential_ref, auth_config_json, created_at, updated_at, last_tested_at
+        FROM connectors
+        WHERE integration_type = ? AND id = ?
+        """,
+        (CONNECTOR_SAVED_ROW_TYPE, connector_id),
+    )
+    return _row_to_connector_record(row) if row is not None else None
 def build_outgoing_auth_config_from_connector(record: dict[str, Any], protection_secret: str) -> OutgoingAuthConfig:
     auth_config = record.get("auth_config") or {}
     secrets_map = extract_connector_secret_map(auth_config, protection_secret)
@@ -1172,6 +1429,7 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
 def get_settings_payload(connection: DatabaseConnection, *, protection_secret: str | None = None) -> dict[str, Any]:
     settings = get_default_settings()
     connector_secret = protection_secret or get_connector_protection_secret()
+    migrate_legacy_connector_settings(connection)
     rows = fetch_all(
         connection,
         """
