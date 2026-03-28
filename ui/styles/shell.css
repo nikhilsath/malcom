@@ -77,38 +77,15 @@
 }
 
 .topnav__indicator-side {
-  position: absolute;
-  bottom: 0;
-  width: 24px;
-  height: 24px;
-  background: var(--topnav-indicator-bg);
-}
-
-.topnav__indicator-side::before {
-  content: "";
-  position: absolute;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--topnav-bg);
+  display: none;
 }
 
 .topnav__indicator-side--left {
   left: -24px;
 }
 
-.topnav__indicator-side--left::before {
-  left: -24px;
-  bottom: 0;
-}
-
 .topnav__indicator-side--right {
   right: -24px;
-}
-
-.topnav__indicator-side--right::before {
-  right: -24px;
-  bottom: 0;
 }
 
 .topnav__nav[data-indicator-ready="true"] .topnav__indicator {

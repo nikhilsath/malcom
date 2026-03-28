@@ -42,13 +42,6 @@ export interface DashboardAlert {
   createdAt: string;
 }
 
-export interface DashboardQuickLink {
-  id: string;
-  label: string;
-  href: string;
-  count: number;
-}
-
 export interface DashboardDevice {
   id: string;
   name: string;
@@ -98,7 +91,6 @@ export interface DashboardSummaryResponse {
   runCounts: Record<RunStatus, number>;
   recentRuns: DashboardRunSummary[];
   alerts: DashboardAlert[];
-  quickLinks: DashboardQuickLink[];
   runtimeOverview: {
     schedulerActive: boolean;
     queueStatus: QueueRuntimeStatus;

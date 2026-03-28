@@ -194,13 +194,6 @@ type DashboardSummaryApiAlert = {
   created_at: string;
 };
 
-type DashboardSummaryApiQuickLink = {
-  id: string;
-  label: string;
-  href: string;
-  count: number;
-};
-
 type DashboardSummaryApiRuntimeOverview = {
   scheduler_active: boolean;
   queue_status: DashboardQueueResponse["status"];
@@ -241,7 +234,6 @@ type DashboardSummaryApiResponse = {
   run_counts: DashboardSummaryApiRunCounts;
   recent_runs: DashboardSummaryApiRun[];
   alerts: DashboardSummaryApiAlert[];
-  quick_links: DashboardSummaryApiQuickLink[];
   runtime_overview: DashboardSummaryApiRuntimeOverview;
   worker_health: DashboardSummaryApiWorkerHealth;
   api_performance: DashboardSummaryApiApiPerformance;
@@ -381,12 +373,6 @@ const mapApiSummaryResponse = (payload: DashboardSummaryApiResponse): DashboardS
     source: alert.source,
     createdAt: alert.created_at
   })),
-  quickLinks: payload.quick_links.map((link) => ({
-    id: link.id,
-    label: link.label,
-    href: link.href,
-    count: link.count
-  })),
   runtimeOverview: {
     schedulerActive: payload.runtime_overview.scheduler_active,
     queueStatus: payload.runtime_overview.queue_status,
@@ -493,7 +479,6 @@ export const dashboardApi = {
       },
       recentRuns: [],
       alerts: [],
-      quickLinks: [],
       runtimeOverview: {
         schedulerActive: false,
         queueStatus: "running",

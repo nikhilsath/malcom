@@ -80,6 +80,7 @@ from backend.services.network import (
 from backend.services.connector_activities import execute_connector_activity
 from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
+    write_application_exception_log as write_application_exception_log_core,
     write_application_log as write_application_log_core,
 )
 from backend.services.metrics import get_metrics_collector, snapshot_process_memory_mb
@@ -243,6 +244,15 @@ def get_application_logger(request: Request) -> logging.Logger:
     return logger
 def write_application_log(logger: logging.Logger, level: int, event: str, **fields: Any) -> None:
     write_application_log_core(logger, level, event, **fields)
+def write_application_exception_log(
+    logger: logging.Logger,
+    level: int,
+    event: str,
+    *,
+    error: Exception,
+    **fields: Any,
+) -> None:
+    write_application_exception_log_core(logger, level, event, error=error, **fields)
 def get_built_ui_file(root_dir: Path, relative_path: str) -> Path:
     return get_ui_dist_dir(root_dir) / relative_path
 def hash_secret(secret: str) -> str:

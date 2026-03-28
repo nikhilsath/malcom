@@ -6,7 +6,6 @@ import type {
   DashboardDevice,
   DashboardHost,
   DashboardLogEntry,
-  DashboardQuickLink,
   HealthStatus,
   QueueStatus,
   RuntimeServiceStatus,
@@ -170,28 +169,6 @@ export const AlertsPanel = ({ alerts }: { alerts: DashboardAlert[] }) => (
         ))}
       </div>
     )}
-    </CollapsibleSection>
-);
-
-export const QuickLinksPanel = ({ quickLinks }: { quickLinks: DashboardQuickLink[] }) => (
-  <CollapsibleSection id="dashboard-overview-links" label="Quick links" description="Shortcuts to related pages.">
-    <div id="dashboard-overview-links-grid" className="dashboard-quick-links-grid">
-      {quickLinks.map((link) => (
-        <a
-          id={`dashboard-quick-link-${link.id}`}
-          key={link.id}
-          className="dashboard-quick-link-card"
-          href={link.href}
-        >
-          <span id={`dashboard-quick-link-label-${link.id}`} className="dashboard-quick-link-card__label">
-            {link.label}
-          </span>
-          <span id={`dashboard-quick-link-count-${link.id}`} className="dashboard-quick-link-card__count">
-            {link.count}
-          </span>
-        </a>
-      ))}
-    </div>
     </CollapsibleSection>
 );
 

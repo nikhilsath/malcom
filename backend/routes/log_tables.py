@@ -21,6 +21,7 @@ from backend.services.support import (
     get_application_logger,
     get_connection,
     utc_now_iso,
+    write_application_exception_log,
     write_application_log,
 )
 from uuid import uuid4
@@ -289,15 +290,14 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
         col_names = _list_data_table_columns(connection, data_table)
     except Exception as error:
         # Fallback for environments where information_schema lookups fail.
-        write_application_log(
+        write_application_exception_log(
             logger,
             logging.WARNING,
             "log_table_columns_fallback",
+            error=error,
             table_id=table_id,
             table_name=row["name"],
             data_table=data_table,
-            error_type=type(error).__name__,
-            error=str(error),
         )
         col_rows = fetch_all(
             connection,
@@ -313,16 +313,15 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
             (limit,),
         )
     except Exception as error:
-        write_application_log(
+        write_application_exception_log(
             logger,
             logging.WARNING,
             "log_table_rows_query_failed",
+            error=error,
             table_id=table_id,
             table_name=row["name"],
             data_table=data_table,
             limit=limit,
-            error_type=type(error).__name__,
-            error=str(error),
         )
         data_rows = []
 
@@ -330,15 +329,14 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
         count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
         total = count_row["cnt"] if count_row else 0
     except Exception as error:
-        write_application_log(
+        write_application_exception_log(
             logger,
             logging.WARNING,
             "log_table_total_count_failed",
+            error=error,
             table_id=table_id,
             table_name=row["name"],
             data_table=data_table,
-            error_type=type(error).__name__,
-            error=str(error),
         )
         total = 0
 

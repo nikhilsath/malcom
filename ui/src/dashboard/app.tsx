@@ -24,7 +24,6 @@ import {
   EmptyState,
   LogEntryDetailsModal,
   LogEntryList,
-  QuickLinksPanel,
   RecentLogsPreview,
   ReportBuilderPanel,
   SectionToolbar,
@@ -479,7 +478,6 @@ const HomePage = () => {
 
       <ServiceStatusStrip services={summary.services} />
       <AlertsPanel alerts={summary.alerts} />
-      <QuickLinksPanel quickLinks={summary.quickLinks} />
       <RecentLogsPreview entries={getPreviewLogs(logs.entries)} />
     </div>
   );

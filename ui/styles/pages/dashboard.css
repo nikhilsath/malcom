@@ -272,8 +272,7 @@
   font-size: 0.8125rem;
 }
 
-.dashboard-service-grid,
-.dashboard-quick-links-grid {
+.dashboard-service-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
@@ -301,29 +300,6 @@
   margin: 0 0 6px;
   font-size: 0.875rem;
   font-weight: 700;
-}
-
-.dashboard-quick-link-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  text-decoration: none;
-}
-
-.dashboard-quick-link-card:hover {
-  border-color: var(--primary-soft);
-  background: #f8fbff;
-  text-decoration: none;
-}
-
-.dashboard-quick-link-card__label {
-  font-weight: 700;
-}
-
-.dashboard-quick-link-card__count {
-  color: var(--muted);
-  font-size: 0.8125rem;
 }
 
 .dashboard-alert-list,
@@ -369,7 +345,6 @@
   .dashboard-log-details__overview,
   .dashboard-log-details__grid,
   .dashboard-service-grid,
-  .dashboard-quick-links-grid,
   .dashboard-host-card__metadata,
   .dashboard-report-builder-card__metadata {
     grid-template-columns: 1fr;

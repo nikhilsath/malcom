@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from fastapi import Request
 
-from backend.services.support import get_application_logger, write_application_log
+from backend.services.support import get_application_logger, write_application_exception_log, write_application_log
 
 
 async def log_http_requests(request: Request, call_next):
@@ -18,10 +18,11 @@ async def log_http_requests(request: Request, call_next):
     except Exception as error:
         logger = get_application_logger(request)
         duration_ms = max(int((datetime.now(UTC) - started_at).total_seconds() * 1000), 0)
-        write_application_log(
+        write_application_exception_log(
             logger,
             logging.ERROR,
             "http_request_failed",
+            error=error,
             request_id=request_id,
             method=request.method,
             path=request.url.path,
@@ -29,8 +30,6 @@ async def log_http_requests(request: Request, call_next):
             duration_ms=duration_ms,
             client_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent", ""),
-            error_type=type(error).__name__,
-            error=str(error),
         )
         raise
 

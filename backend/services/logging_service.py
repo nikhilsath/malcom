@@ -95,6 +95,25 @@ def write_application_log(logger: logging.Logger, level: int, event: str, /, **c
     logger.log(level, json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
+def write_application_exception_log(
+    logger: logging.Logger,
+    level: int,
+    event: str,
+    /,
+    *,
+    error: Exception,
+    **context: Any,
+) -> None:
+    write_application_log(
+        logger,
+        level,
+        event,
+        error_type=type(error).__name__,
+        error=str(error),
+        **context,
+    )
+
+
 __all__ = [
     "DEFAULT_LOG_BACKUP_COUNT",
     "DEFAULT_LOG_FILE_NAME",
@@ -105,5 +124,6 @@ __all__ = [
     "get_log_file_path",
     "json_safe",
     "mb_to_bytes",
+    "write_application_exception_log",
     "write_application_log",
 ]
