@@ -25,6 +25,41 @@ test("saves and resets workspace defaults", async ({ page }) => {
   await expect(page.locator("#settings-workspace-tool-retries-input")).toHaveValue("2");
 });
 
+test("preserves saved connectors when workspace settings are saved before settings finish loading", async ({ page }) => {
+  await installDashboardSettingsFixtures(page, {
+    settingsGetDelayMs: 1500,
+    settings: {
+      connectors: {
+        records: [
+          {
+            id: "google-drive-primary",
+            provider: "google",
+            name: "Google Drive",
+            status: "connected",
+            auth_type: "oauth2",
+            scopes: ["https://www.googleapis.com/auth/drive"],
+            base_url: "https://www.googleapis.com/drive/v3",
+            owner: "Workspace",
+            auth_config: {
+              client_id: "google-client-id",
+              client_secret_masked: "••••••••",
+              access_token_masked: "••••••••"
+            }
+          }
+        ]
+      }
+    }
+  });
+
+  await page.goto("/settings/workspace.html");
+
+  await page.locator("#settings-save-button").click();
+  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
+
+  await page.goto("/settings/data.html");
+  await expect(page.locator("#settings-storage-connector-google-drive")).toBeVisible();
+});
+
 test("saves logging thresholds and clears stored logs", async ({ page }) => {
   await installDashboardSettingsFixtures(page);
 

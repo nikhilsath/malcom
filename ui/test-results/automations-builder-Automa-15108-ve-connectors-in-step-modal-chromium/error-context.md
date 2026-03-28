@@ -1,0 +1,117 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e5]:
+    - link "Dashboard" [ref=e6] [cursor=pointer]:
+      - /url: ../dashboard/home.html
+    - link "Automations" [ref=e7] [cursor=pointer]:
+      - /url: ../automations/overview.html
+    - link "APIs" [ref=e8] [cursor=pointer]:
+      - /url: ../apis/registry.html
+    - link "Tools" [ref=e9] [cursor=pointer]:
+      - /url: ../tools/catalog.html
+    - link "Scripts" [ref=e10] [cursor=pointer]:
+      - /url: ../scripts.html
+    - link "Settings" [ref=e11] [cursor=pointer]:
+      - /url: ../settings/workspace.html
+  - complementary [ref=e12]:
+    - generic [ref=e13]:
+      - link "Malcom home" [ref=e14] [cursor=pointer]:
+        - /url: ../dashboard/home.html
+        - img "Malcom icon" [ref=e15]
+        - generic [ref=e16]: Malcom
+      - button "Collapse sidebar" [expanded] [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]: <
+    - navigation [ref=e19]:
+      - list [ref=e20]:
+        - listitem [ref=e21]:
+          - link "Overview" [ref=e22] [cursor=pointer]:
+            - /url: ../automations/overview.html
+        - listitem [ref=e23]:
+          - link "Library" [ref=e24] [cursor=pointer]:
+            - /url: ../automations/library.html
+        - listitem [ref=e25]:
+          - link "Builder" [ref=e26] [cursor=pointer]:
+            - /url: ../automations/builder.html
+        - listitem [ref=e27]:
+          - link "Log Data" [ref=e28] [cursor=pointer]:
+            - /url: ../automations/data.html
+    - button "Create +" [ref=e30] [cursor=pointer]
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e34]:
+        - heading "Automation Builder" [level=2] [ref=e35]
+        - button "Page information" [ref=e36] [cursor=pointer]: i
+      - generic [ref=e39]:
+        - region "Builder mode selector" [ref=e40]:
+          - generic [ref=e41]:
+            - paragraph [ref=e42]: Build mode
+            - heading "Guided Mode" [level=3] [ref=e43]
+            - paragraph [ref=e44]: Follow a focused sequence for trigger setup, first actions, and validation.
+          - group "Builder mode" [ref=e45]:
+            - button "Guided" [pressed] [ref=e46] [cursor=pointer]
+            - button "Canvas" [ref=e47] [cursor=pointer]
+        - region "Guided workflow setup" [ref=e48]:
+          - generic [ref=e50]:
+            - paragraph [ref=e51]: Guided checklist
+            - heading "Build your first successful run" [level=3] [ref=e52]
+            - paragraph [ref=e53]: Name your automation so it can be saved and found later.
+          - generic [ref=e54]:
+            - article [ref=e55]:
+              - generic [ref=e56]: Pending
+              - generic [ref=e57]:
+                - heading "Name and describe automation" [level=4] [ref=e58]
+                - paragraph [ref=e59]: Set a clear name and short purpose in the settings popup.
+              - button "Edit metadata" [ref=e60] [cursor=pointer]
+            - article [ref=e61]:
+              - generic [ref=e62]: Done
+              - generic [ref=e63]:
+                - heading "Configure trigger" [level=4] [ref=e64]
+                - paragraph [ref=e65]: Open trigger settings and define when this automation starts.
+              - button "Edit trigger" [ref=e66] [cursor=pointer]
+            - article [ref=e67]:
+              - generic [ref=e68]: Pending
+              - generic [ref=e69]:
+                - heading "Add workflow actions" [level=4] [ref=e70]
+                - paragraph [ref=e71]: Start with one action, then expand and branch in Canvas Mode when needed.
+              - button "Add step" [active] [ref=e72] [cursor=pointer]
+            - article [ref=e73]:
+              - generic [ref=e74]: Pending
+              - generic [ref=e75]:
+                - heading "Save, validate, and test" [level=4] [ref=e76]
+                - paragraph [ref=e77]: Persist your draft, check validation, then run a test execution.
+              - generic [ref=e78]:
+                - button "Save draft" [ref=e79] [cursor=pointer]
+                - button "Validate" [ref=e80] [cursor=pointer]
+                - button "Test run" [disabled] [ref=e81] [cursor=pointer]
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - paragraph [ref=e85]: Builder
+              - generic [ref=e86]:
+                - heading "Automation canvas" [level=3] [ref=e87]
+                - button "More information" [ref=e88] [cursor=pointer]: i
+            - generic [ref=e90]: "Selected: Trigger"
+            - generic [ref=e91]:
+              - button "Save" [ref=e92] [cursor=pointer]
+              - button "Validate" [ref=e93] [cursor=pointer]
+              - button "Run now" [ref=e94] [cursor=pointer]
+              - button "New draft" [ref=e95] [cursor=pointer]
+              - button "Delete" [ref=e96] [cursor=pointer]
+          - application [ref=e98]:
+            - generic [ref=e100]:
+              - generic:
+                - generic:
+                  - img
+                  - img:
+                    - img "Edge from trigger-node to insert-node-0" [ref=e101] [cursor=pointer]
+                - generic:
+                  - group [ref=e104] [cursor=pointer]:
+                    - generic [ref=e106]:
+                      - generic [ref=e108]: Trigger:manual
+                      - button "Open node actions" [ref=e109]: ...
+                  - group [ref=e110]:
+                    - button "Add your first step" [ref=e112] [cursor=pointer]
+            - img
+```

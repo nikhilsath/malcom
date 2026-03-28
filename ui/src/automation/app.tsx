@@ -625,7 +625,7 @@ export const AutomationApp = () => {
   const [addStepModalOpen, setAddStepModalOpen] = useState(false);
   const [guidedSettingsDialogOpen, setGuidedSettingsDialogOpen] = useState(false);
   const [editorDrawer, setEditorDrawer] = useState<EditorDrawerState>(null);
-  const [triggerEditorScreen, setTriggerEditorScreen] = useState<TriggerEditorScreen>("detail");
+  const [triggerEditorScreen, setTriggerEditorScreen] = useState<TriggerEditorScreen>("picker");
   const [nodeMenu, setNodeMenu] = useState<NodeMenuState | null>(null);
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);

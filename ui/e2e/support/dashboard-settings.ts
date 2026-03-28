@@ -395,6 +395,7 @@ export type DashboardSettingsFixtureOptions = {
   logs?: Array<RouteObject>;
   freezeTimeIso?: string;
   collapsedSidebar?: boolean;
+  settingsGetDelayMs?: number;
 };
 
 export async function installDashboardSettingsFixtures(page: Page, options: DashboardSettingsFixtureOptions = {}) {
@@ -405,7 +406,8 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
     resourceProfile: clone(deepMerge(defaultDashboardResourceProfileResponse, options.resourceProfile || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
-    freezeTimeIso: options.freezeTimeIso || fixedNowIso
+    freezeTimeIso: options.freezeTimeIso || fixedNowIso,
+    settingsGetDelayMs: options.settingsGetDelayMs || 0
   };
 
   await page.addInitScript(
@@ -434,6 +436,9 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     const method = route.request().method();
 
     if (method === "GET") {
+      if (state.settingsGetDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, state.settingsGetDelayMs));
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",

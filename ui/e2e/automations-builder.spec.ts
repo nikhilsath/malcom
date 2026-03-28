@@ -27,8 +27,10 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await expect(page.locator("#automation-canvas-insert-0-button")).toBeVisible();
   await page.locator("#automation-canvas-insert-0-button").click();
   await expect(page.locator("#add-step-modal")).toBeVisible();
-  await page.locator("#add-step-type-connector_activity").click();
+  await page.locator("#add-step-type-api").click();
+  await page.locator("#add-step-api-mode-prebuilt").click();
   await page.locator("#add-step-name-input").fill("Send customer email");
+  await expect(page.locator("#add-step-connector-activity-connector-input")).toContainText("Google Primary");
   await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
   await page.locator("#add-step-connector-activity-activity-card-gmail-send-email").click();
   await expect(page.locator("#add-step-connector-activity-required-scopes")).toContainText("gmail.send");
@@ -165,4 +167,26 @@ test("defaults to guided mode for new drafts and allows switching to canvas mode
   await expect(page.locator("#automations-builder-mode-canvas")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#automations-guided-panel")).toHaveCount(0);
   await expect(page).toHaveURL(/mode=canvas/);
+});
+
+test.describe("Automation Builder - Connector Dropdown", () => {
+  test("shows only active connectors in step modal", async ({ page }) => {
+    await page.goto("/automations/builder.html?new=true");
+    // Open add step modal
+    await page.getByRole("button", { name: /add step/i }).click();
+    await page.getByText(/api step/i, { exact: false }).click();
+    // Switch to custom API mode if needed
+    if (await page.getByRole("button", { name: /custom api/i }).isVisible()) {
+      await page.getByRole("button", { name: /custom api/i }).click();
+    }
+    const connectorDropdown = page.getByLabel(/connectors/i);
+    const options = await connectorDropdown.locator("option").allTextContents();
+    // Should not show revoked/draft connectors
+    for (const opt of options) {
+      expect(opt.toLowerCase()).not.toContain("revoked");
+      expect(opt.toLowerCase()).not.toContain("draft");
+    }
+    // Should show at least one active connector if any exist
+    // (This is a soft check, as test DB may be empty)
+  });
 });

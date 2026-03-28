@@ -195,6 +195,11 @@ describe("DashboardApp", () => {
     expectTextById("dashboard-overview-resource-operation-0", "step_tool");
     expectTextById("dashboard-overview-resource-memory-0", "12.75 MB");
     expectTextById("dashboard-overview-resource-errors-0", "12.5% (1)");
+    expect(document.querySelector("#dashboard-overview-summary-visible-logs")).not.toBeInTheDocument();
+    expect(document.querySelector("#dashboard-overview-layout")?.firstElementChild).toHaveAttribute(
+      "id",
+      "dashboard-overview-resource-profile"
+    );
     expect(screen.getByRole("button", { name: "Reset metrics" })).toBeInTheDocument();
   });
 

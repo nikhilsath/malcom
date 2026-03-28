@@ -77,6 +77,28 @@ const writeStoredJson = (storageKey, value) => {
   localStorage.setItem(storageKey, JSON.stringify(value));
 };
 
+const mergeJsonValue = (base, override) => {
+  if (Array.isArray(base) || Array.isArray(override)) {
+    return override ?? base;
+  }
+
+  if (base && override && typeof base === "object" && typeof override === "object") {
+    const mergedEntries = new Map();
+
+    for (const [key, value] of Object.entries(base)) {
+      mergedEntries.set(key, value);
+    }
+
+    for (const [key, value] of Object.entries(override)) {
+      mergedEntries.set(key, mergeJsonValue(mergedEntries.get(key), value));
+    }
+
+    return Object.fromEntries(mergedEntries);
+  }
+
+  return override ?? base;
+};
+
 const createDefaultAppSettings = () => cloneJsonValue(malcomDefaultAppSettings);
 
 const sanitizeLoggingSettings = (loggingSettings = {}) => ({
@@ -108,6 +130,7 @@ const sanitizeLoggingSettings = (loggingSettings = {}) => ({
 
 let cachedAppSettings = createDefaultAppSettings();
 let pendingSettingsRequest = null;
+let hasLoadedAppSettings = false;
 
 const normalizeAppSettings = (settings = {}) => ({
   general: {
@@ -163,6 +186,7 @@ const loadAppSettings = async ({ force = false } = {}) => {
   pendingSettingsRequest = window.Malcom?.requestJson?.("/api/v1/settings")
     .then((settings) => {
       cachedAppSettings = normalizeAppSettings(settings);
+      hasLoadedAppSettings = true;
       emitSettingsUpdated();
       return cloneJsonValue(cachedAppSettings);
     })
@@ -178,12 +202,23 @@ const loadAppSettings = async ({ force = false } = {}) => {
 };
 
 const updateAppSettings = async (settings) => {
-  const nextSettings = normalizeAppSettings(settings);
+  let baseSettings = getAppSettings();
+
+  if (!hasLoadedAppSettings) {
+    try {
+      baseSettings = await loadAppSettings();
+    } catch {
+      baseSettings = getAppSettings();
+    }
+  }
+
+  const nextSettings = normalizeAppSettings(mergeJsonValue(baseSettings, settings));
   const response = await window.Malcom?.requestJson?.("/api/v1/settings", {
     method: "PATCH",
     body: JSON.stringify(nextSettings)
   });
   cachedAppSettings = normalizeAppSettings(response);
+  hasLoadedAppSettings = true;
   emitSettingsUpdated();
   const entries = readLogEntries();
   writeLogEntries(entries);

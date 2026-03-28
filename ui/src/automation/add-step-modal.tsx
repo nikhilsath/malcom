@@ -31,6 +31,8 @@ type Props = {
   dataFlowTokens?: DataFlowToken[];
 };
 
+const ACTIVE_CONNECTOR_STATUSES = ["connected", "pending_oauth", "needs_attention"];
+
 export const AddStepModal = ({
   open,
   onClose,
@@ -42,44 +44,64 @@ export const AddStepModal = ({
   scripts,
   dataFlowTokens = []
 }: Props) => {
+  // Only show connectors with active statuses
+  const activeConnectors = connectors.filter(c => ACTIVE_CONNECTOR_STATUSES.includes((c.status || "").toLowerCase()));
+
   const [pickedType, setPickedType] = useState<StepType | null>(null);
+  const [apiMode, setApiMode] = useState<"prebuilt" | "custom" | null>(null);
   const [draft, setDraft] = useState<AutomationStep | null>(null);
 
   const handlePickType = (type: StepType) => {
     setPickedType(type);
-    setDraft({ ...cloneStepTemplate(type), name: "" });
+    if (type === "api") {
+      setApiMode(null);
+      setDraft({ ...cloneStepTemplate(type), name: "" });
+    } else {
+      setDraft({ ...cloneStepTemplate(type), name: "" });
+    }
   };
-
-  const handleBack = () => {
+  return (
+    <Dialog open={open} onClose={onClose}>
+      {/* ...existing code... */}
+      {pickedType === "api" && apiMode === "custom" && draft && (
+        <HttpStepForm
+          draft={draft}
+          connectors={activeConnectors}
+          httpPresets={httpPresets}
+          dataFlowTokens={dataFlowTokens}
+          onChange={setDraft}
+        />
+      )}
+      {pickedType === "api" && apiMode === "prebuilt" && draft && (
+        <ConnectorActivityStepForm
+          draft={draft}
+          connectors={activeConnectors}
+          activityCatalog={activityCatalog}
+          dataFlowTokens={dataFlowTokens}
+          onChange={setDraft}
+        />
+      )}
+      {/* ...existing code... */}
+    </Dialog>
+  );
     setPickedType(null);
-    setDraft(null);
-  };
-
-  const handleClose = () => {
-    setPickedType(null);
-    setDraft(null);
-    onClose();
-  };
-
-  const handleAdd = () => {
-    if (!draft) return;
-    onAdd({
-      ...draft,
-      name: draft.name.trim() || getDefaultStepName(draft.type)
-    });
-    setPickedType(null);
+    setApiMode(null);
     setDraft(null);
   };
 
   const renderDetailForm = () => {
     if (!draft || !pickedType) return null;
+    if (pickedType === "api") {
+      if (apiMode === "prebuilt") {
+        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })} />;
+      } else if (apiMode === "custom") {
+        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
+      }
+      return null;
+    }
     switch (pickedType) {
       case "log":
         return <LogStepForm draft={draft} onChange={setDraft} />;
-      case "outbound_request":
-        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
-      case "connector_activity":
-        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "script":
         return <ScriptStepForm draft={draft} scripts={scripts} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "tool":
@@ -103,6 +125,8 @@ export const AddStepModal = ({
           className="automation-dialog automation-dialog--wide"
           aria-labelledby={popupTitleId}
           aria-describedby={popupDescriptionId}
+          data-modal-id="add-step-modal"
+          data-source="ui/src/automation/add-step-modal.tsx"
         >
           <div id="add-step-modal-dismiss-row" className="automation-dialog__dismiss-row">
             <Dialog.Close
@@ -130,92 +154,46 @@ export const AddStepModal = ({
                     id={`add-step-type-${opt.value}`}
                     type="button"
                     className={`add-step-type-card add-step-type-card--${opt.value}`}
-                    style={opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" || opt.value === "outbound_request" || opt.value === "condition"
-                      ? {
-                        minHeight: "200px",
-                        padding: "10px",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        textAlign: "center"
-                      }
-                      : undefined}
+                    style={{
+                      minHeight: "200px",
+                      padding: "10px",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      background: "var(--neutral-surface)",
+                      border: "2px solid var(--brand-main)",
+                      color: "var(--brand-main)",
+                      transition: "border-color 0.2s, color 0.2s"
+                    }}
                     onClick={() => handlePickType(opt.value)}
+                    onMouseOver={e => (e.currentTarget.style.borderColor = "var(--brand-primary)")}
+                    onMouseOut={e => (e.currentTarget.style.borderColor = "var(--brand-main)")}
                   >
-                    {opt.value === "log" || opt.value === "llm_chat" || opt.value === "tool" || opt.value === "script" || opt.value === "outbound_request" || opt.value === "condition" ? (
-                      <span
-                        id={`add-step-type-${opt.value}-icon-stack`}
-                        className="add-step-type-card__icon-stack"
-                        style={{ gap: "10px" }}
-                      >
-                        {opt.value === "log" ? (
-                          <img
-                            id="add-step-type-log-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/logs_icon.png"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        ) : opt.value === "llm_chat" ? (
-                          <img
-                            id="add-step-type-llm_chat-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/bot_icon"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        ) : opt.value === "tool" ? (
-                          <img
-                            id="add-step-type-tool-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/tools_icon.png"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        ) : opt.value === "outbound_request" ? (
-                          <img
-                            id="add-step-type-outbound_request-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/api_icon.png"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        ) : opt.value === "condition" ? (
-                          <img
-                            id="add-step-type-condition-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/conditional_icon.png"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        ) : (
-                          <img
-                            id="add-step-type-script-icon"
-                            className="add-step-type-card__icon"
-                            src="/media/script_icon.png"
-                            alt=""
-                            aria-hidden="true"
-                            style={{ width: "128px", height: "128px", flex: "0 0 128px" }}
-                          />
-                        )}
-                        <span id={`add-step-type-${opt.value}-label`} className="add-step-type-card__label add-step-type-card__label--below">
-                          {opt.value === "log" ? "Write" : opt.label}
-                        </span>
+                    <span
+                      id={`add-step-type-${opt.value}-icon-stack`}
+                      className="add-step-type-card__icon-stack"
+                      style={{ gap: "10px" }}
+                    >
+                      {opt.value === "log" ? (
+                        <img id="add-step-type-log-icon" className="add-step-type-card__icon" src="/media/logs_icon.png" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      ) : opt.value === "llm_chat" ? (
+                        <img id="add-step-type-llm_chat-icon" className="add-step-type-card__icon" src="/media/bot_icon" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      ) : opt.value === "tool" ? (
+                        <img id="add-step-type-tool-icon" className="add-step-type-card__icon" src="/media/tools_icon.png" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      ) : opt.value === "api" ? (
+                        <img id="add-step-type-api-icon" className="add-step-type-card__icon" src="/media/api_icon.png" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      ) : opt.value === "condition" ? (
+                        <img id="add-step-type-condition-icon" className="add-step-type-card__icon" src="/media/conditional_icon.png" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      ) : (
+                        <img id="add-step-type-script-icon" className="add-step-type-card__icon" src="/media/script_icon.png" alt="" aria-hidden="true" style={{ width: "128px", height: "128px", flex: "0 0 128px" }} />
+                      )}
+                      <span id={`add-step-type-${opt.value}-label`} className="add-step-type-card__label add-step-type-card__label--below">
+                        {opt.value === "log" ? "Write" : opt.label}
                       </span>
-                    ) : (
-                      <>
-                        <span id={`add-step-type-${opt.value}-label`} className="add-step-type-card__label">
-                          {opt.label}
-                        </span>
-                        <span id={`add-step-type-${opt.value}-description`} className="add-step-type-card__description">
-                          {opt.description}
-                        </span>
-                      </>
-                    )}
+                    </span>
+                    <span id={`add-step-type-${opt.value}-description`} className="add-step-type-card__description">
+                      {opt.description}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -248,6 +226,56 @@ export const AddStepModal = ({
                     }
                   />
                 </label>
+
+                {/* API step branching menu */}
+                {pickedType === "api" && !apiMode && (
+                  <div id="add-step-api-mode-picker" style={{ display: "flex", gap: 24, margin: "32px 0" }}>
+                    <button
+                      type="button"
+                      id="add-step-api-mode-prebuilt"
+                      style={{
+                        flex: 1,
+                        background: "var(--neutral-surface)",
+                        border: "2px solid var(--brand-main)",
+                        color: "var(--brand-main)",
+                        borderRadius: 8,
+                        padding: "32px 0",
+                        fontWeight: 600,
+                        fontSize: 18,
+                        cursor: "pointer",
+                        transition: "border-color 0.2s, color 0.2s"
+                      }}
+                      onClick={() => { setApiMode("prebuilt"); setDraft((prev) => prev ? { ...prev, config: { ...prev.config, api_mode: "prebuilt" } } : prev); }}
+                      onMouseOver={e => (e.currentTarget.style.borderColor = "var(--brand-primary)")}
+                      onMouseOut={e => (e.currentTarget.style.borderColor = "var(--brand-main)")}
+                    >
+                      <span style={{ display: "block", fontSize: 24, marginBottom: 8 }}>Prebuilt connector</span>
+                      <span style={{ color: "var(--neutral-secondary-text)", fontWeight: 400 }}>Provider-aware action (recommended)</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="add-step-api-mode-custom"
+                      style={{
+                        flex: 1,
+                        background: "var(--neutral-surface)",
+                        border: "2px solid var(--brand-main)",
+                        color: "var(--brand-main)",
+                        borderRadius: 8,
+                        padding: "32px 0",
+                        fontWeight: 600,
+                        fontSize: 18,
+                        cursor: "pointer",
+                        transition: "border-color 0.2s, color 0.2s"
+                      }}
+                      onClick={() => { setApiMode("custom"); setDraft((prev) => prev ? { ...prev, config: { ...prev.config, api_mode: "custom" } } : prev); }}
+                      onMouseOver={e => (e.currentTarget.style.borderColor = "var(--brand-primary)")}
+                      onMouseOut={e => (e.currentTarget.style.borderColor = "var(--brand-main)")}
+                    >
+                      <span style={{ display: "block", fontSize: 24, marginBottom: 8 }}>Custom HTTP request</span>
+                      <span style={{ color: "var(--neutral-secondary-text)", fontWeight: 400 }}>Raw HTTP call (advanced)</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* per-type config fields */}
                 {renderDetailForm()}

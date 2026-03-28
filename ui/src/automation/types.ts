@@ -2,7 +2,7 @@
 // Imported by app.tsx and all step-modal components.
 
 export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
-export type StepType = "log" | "outbound_request" | "connector_activity" | "script" | "tool" | "condition" | "llm_chat";
+export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_chat";
 
 declare global {
   interface Window {
@@ -133,6 +133,9 @@ export type AutomationStep = {
   on_false_step_id?: string | null;
   is_merge_target?: boolean;
   config: {
+    // API step branching
+    api_mode?: "prebuilt" | "custom";
+    // HTTP request fields
     message?: string;
     destination_url?: string;
     http_method?: string;
@@ -142,8 +145,10 @@ export type AutomationStep = {
     payload_template?: string;
     wait_for_response?: boolean;
     response_mappings?: Array<{ key: string; path: string }>;
+    // Connector activity fields
     activity_id?: string;
     activity_inputs?: Record<string, string | number | boolean>;
+    // Script/tool/condition/llm fields
     script_id?: string;
     script_input_template?: string;
     tool_id?: string;
@@ -161,8 +166,7 @@ export type AutomationStep = {
 
 export const stepTypeOptions: Array<{ value: StepType; label: string; description: string }> = [
   { value: "log", label: "Log", description: "Write a row to a managed database table." },
-  { value: "outbound_request", label: "HTTP request", description: "Send an HTTP request to a remote endpoint." },
-  { value: "connector_activity", label: "Connector activity", description: "Run a provider-aware prebuilt connector action." },
+  { value: "api", label: "API", description: "Call a prebuilt connector action or send a custom HTTP request." },
   { value: "script", label: "Script", description: "Run a stored script from the script library." },
   { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
   { value: "condition", label: "Condition", description: "Evaluate a guard expression and optionally halt the automation." },
@@ -171,26 +175,23 @@ export const stepTypeOptions: Array<{ value: StepType; label: string; descriptio
 
 export const stepTemplates: Record<StepType, AutomationStep> = {
   log: { type: "log", name: "Log step", config: { log_table_id: "", log_column_mappings: {} } },
-  outbound_request: {
-    type: "outbound_request",
-    name: "HTTP request",
+  api: {
+    type: "api",
+    name: "API step",
     config: {
+      api_mode: "prebuilt", // "prebuilt" or "custom"
+      // Prebuilt connector activity fields
+      connector_id: "",
+      activity_id: "",
+      activity_inputs: {},
+      // Custom HTTP request fields
       destination_url: "https://example.com/hooks/run",
       http_method: "POST",
       auth_type: "none",
-      connector_id: "",
       payload_template: "{\"automation_id\":\"{{automation.id}}\"}",
       wait_for_response: true,
-      response_mappings: []
-    }
-  },
-  connector_activity: {
-    type: "connector_activity",
-    name: "Connector activity",
-    config: {
-      connector_id: "",
-      activity_id: "",
-      activity_inputs: {}
+      response_mappings: [],
+      http_preset_id: ""
     }
   },
   script: { type: "script", name: "Script step", config: { script_id: "", script_input_template: "" } },

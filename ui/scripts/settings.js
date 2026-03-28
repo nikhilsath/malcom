@@ -151,10 +151,7 @@ const buildSectionPatch = (section, fallbackSettings) => {
 const buildSettingsPayload = () => {
   const currentSettings = getSettingsStore().getAppSettings();
 
-  return {
-    ...currentSettings,
-    ...buildSectionPatch(currentSettingsSection, currentSettings)
-  };
+  return buildSectionPatch(currentSettingsSection, currentSettings);
 };
 
 const applySettingsToPage = (settings) => {

@@ -1,13 +1,8 @@
 # Malcom
 
-Local-first automation middleware built with FastAPI, PostgreSQL, and a Vite-based web UI.
+Malcom is a self-hosted, local-first automation orchestration platform for running workflows, APIs, connectors, and runtime-managed tools on your own machine or network.
 
-For development policy and architecture rules, read `AGENTS.md` first.
-Then load only the relevant domain policy file for the task:
-
-- `backend/AGENTS.md` for backend, schema, and tool/backend contract work
-- `ui/AGENTS.md` for frontend structure, shell, styles, and route wiring work
-- `tests/AGENTS.md` for verification workflow and test execution policy
+It combines a FastAPI backend, PostgreSQL persistence, and a Vite-built, registry-driven multi-page web UI with both React/TypeScript and vanilla JavaScript pages.
 
 ## Table of Contents
 
@@ -24,20 +19,20 @@ Then load only the relevant domain policy file for the task:
 
 ## What Malcom Does
 
-Malcom is a self-hosted orchestration layer for automation workflows.
+Malcom provides the API, UI, and runtime needed to build and operate local-first automation workflows.
 
-It provides:
+It includes:
 
-- an API surface for managing automations, runs, APIs, connectors, tools, scripts, settings, log tables, workers, and runtime status
-- a browser UI for dashboard monitoring, automation authoring, API management, scripts, tools, and workspace settings
-- an in-process runtime with scheduled execution, trigger queueing, worker registration and claiming, and automation run coordination
-- connector-backed remote API integrations for outgoing APIs, automation HTTP steps, and provider-aware connector activities
-- a DB-backed tool catalog reflected into the UI shell through generated manifest data
-- persisted execution history and step-level run details in PostgreSQL
+- a FastAPI API for automations, runs, inbound and outgoing APIs, webhooks, connectors, tools, scripts, settings, log tables, workers, and runtime status
+- a browser UI for dashboard monitoring, automation authoring, API management, tools, scripts, connectors, and workspace settings
+- an in-process scheduler, trigger queue, and worker coordination runtime for executing and tracking automation runs, including inbound API and webhook-triggered flows
+- connector-backed outbound requests, reusable HTTP presets, and provider-specific connector activities
+- a PostgreSQL-backed tool and settings store that also feeds generated frontend manifest data
+- persisted run history and per-step execution details in PostgreSQL
 
 Primary goals:
 
-1. Run reliably on low-power local hardware.
+1. Run reliably on low-power local hardware, letting "tools" be run on any other connected machine for more intense tasks.
 2. Keep workflows local-first.
 3. Stay extensible for connectors and runtime-managed tools.
 
@@ -45,26 +40,27 @@ Primary goals:
 
 The current product UI is organized into these areas:
 
-- Dashboard: home, devices, logs, and queue
+- Dashboard: a shared dashboard app with home, devices, logs, and queue views
 - Automations: overview, library, builder, and log data
-- APIs: registry, incoming, outgoing, and webhooks
-- Tools: catalog plus tool-specific configuration pages
+- APIs: registry, incoming, outgoing, webhooks, and connector setup
+- Tools: catalog plus configuration pages for the current runtime-managed tools
 - Scripts: reusable script library
-- Settings: workspace, logging, notifications, access, connectors, and data
+- Settings: workspace, logging, notifications, access, and data
 
 ## Current Architecture
 
 ### Backend
 
-- FastAPI app with feature routers under `/api/v1/**` plus `/health`
+- FastAPI app serving feature routers under `/api/v1/**`, `/health`, and the built UI/static surface
 - Runtime scheduler, trigger queue, worker registration/claim flow, and automation execution services
-- Feature APIs for automations, runs, connectors, outgoing APIs, webhooks, tools, scripts, log tables, settings, workers, dashboard status, and runtime status
-- Registry-driven UI route registration via `backend/page_registry.py` and `ui/page-registry.json`
+- Feature APIs for automations, runs, inbound and outgoing APIs, webhooks, connectors, tools, scripts, log tables, settings, workers, dashboard status, runtime status, scheduler jobs, and trigger history
+- Registry-driven served and redirect UI route registration via `backend/page_registry.py` and `ui/page-registry.json`
 
 ### Frontend
 
-- Vite-built HTML entry pages driven by `ui/page-registry.json`
-- Mixed stack: React/TypeScript pages for dashboard, automations, and scripts library
+- Vite-built HTML entry pages and route metadata driven by `ui/page-registry.json`
+- Mixed stack: React/TypeScript pages for dashboard and automations
+- TypeScript/DOM page logic for the scripts library
 - Vanilla JavaScript pages for APIs, settings, and tool configuration
 - Shared shell/navigation contract for topnav/sidenav
 - Redirect and legacy alias support for canonical UI routes
@@ -73,7 +69,7 @@ The current product UI is organized into these areas:
 
 - PostgreSQL is the runtime database
 - Schema source of truth: `backend/database.py`
-- Tool metadata, connector settings, automation state, scripts, and log tables are persisted in PostgreSQL
+- Tool metadata, connector settings, automation state, scripts, log tables, API definitions, event histories, delivery history, and integration presets are persisted in PostgreSQL
 
 ## Repository Map
 
@@ -93,15 +89,17 @@ The current product UI is organized into these areas:
 - `ui/<section>/<page>.html` - page entry HTML
 - `ui/page-registry.json` - canonical served and redirect UI page registry
 - `ui/page-registry.ts` - Vite input generation from the page registry
-- `ui/src/` - React/TS features for dashboard, automations, and scripts library
+- `ui/src/` - React/TS features for dashboard and automations, plus TypeScript modules such as the scripts library and shared frontend helpers
 - `ui/scripts/` - vanilla page controllers plus shared shell logic for APIs, settings, and tools
+- `ui/modals/` - shared modal HTML fragments loaded by vanilla UI pages
 - `ui/styles/` - shared and page styles
 - `ui/vite.config.ts` - Vite config using registry-derived inputs
 
 ### Tooling and tests
 
 - `scripts/` - developer scripts and test runners
-- `tests/` - backend/API tests and smoke matrix
+- `tests/` - backend tests, API coverage, and smoke registry/matrix support
+- `ui/src/**/__tests__/` - frontend unit tests for React/TypeScript features
 - `ui/e2e/` - Playwright workflow coverage
 
 ## Quick Start
@@ -126,6 +124,11 @@ export MALCOM_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/malcom
 
 If omitted, the app falls back to `postgresql://postgres:postgres@127.0.0.1:5432/malcom`.
 
+Note:
+
+- The FastAPI app reads `MALCOM_DATABASE_URL`.
+- The `./malcom` launcher still checks for a PostgreSQL listener on `127.0.0.1:5432` before startup, regardless of that env var.
+
 ### 2) Start the app
 
 ```bash
@@ -142,6 +145,7 @@ What this launcher does:
 - checks PostgreSQL responsiveness on `127.0.0.1:5432`
 - attempts Homebrew PostgreSQL startup when needed on supported macOS setups
 - starts Uvicorn with `--reload` on `127.0.0.1:8000`
+- aborts if port `8000` is already occupied
 
 ### 3) Open the app
 
@@ -154,8 +158,13 @@ Malcom uses a two-tier test workflow.
 Before running the test scripts:
 
 - Run `./malcom` once first, or otherwise create `./.venv`, install `requirements.txt`, and install `ui/` dependencies.
-- Set `MALCOM_TEST_DATABASE_URL` to a dedicated PostgreSQL database when possible.
+- Set `MALCOM_TEST_DATABASE_URL` to a dedicated PostgreSQL database.
 - If `MALCOM_TEST_DATABASE_URL` is unset, tests fall back to `MALCOM_DATABASE_URL`, then `postgresql://postgres:postgres@127.0.0.1:5432/malcom_test`.
+
+Important:
+
+- Playwright and test reset helpers truncate core tables and drop dynamic log data tables in the resolved test database.
+- Do not point `MALCOM_TEST_DATABASE_URL` or fallback values at a database you want to keep.
 
 ### Fast local iteration
 
@@ -196,6 +205,11 @@ Targeted browser iteration:
 cd ui && npx playwright test <spec>
 ```
 
+Before using the targeted Playwright command:
+
+- install browser binaries once with `cd ui && npm run test:e2e:install`
+- make sure built UI assets already exist, for example by running `./malcom` once or `cd ui && npm run build`
+
 ### Test policy
 
 - Behavior-changing implementation work must add or update relevant automated tests in the same change.
@@ -218,16 +232,17 @@ Notes:
 - Do not hand-edit `ui/dist/**`.
 - Vite inputs and backend-served UI routes derive from the page registry.
 - The registry supports canonical served pages, redirect-only routes, and legacy aliases.
+- Page entry modules are checked by `scripts/check-ui-page-entry-modules.mjs`; new page wiring should stay within the page's section instead of adding arbitrary new root-level entry files.
 - Shared shell pages should use `id="topnav"`, `id="sidenav"`, `data-section`, and usually `data-sidenav-item` plus `data-shell-path-prefix`.
 - Dashboard subpages are routed as redirects into the main dashboard entry with hash-based subroutes.
-- The Tools section combines static catalog navigation with manifest-driven tool pages filtered by enabled tool state.
+- The Tools section combines static catalog navigation with manifest-driven tool entries; enabled state filters the shell nav, while tool page routes still come from the page registry.
 
 ## Connectors vs Tools
 
 Use the right integration model:
 
 - **Connectors**: saved provider auth, base URL, scopes, and reusable remote API settings (Google, GitHub, etc.).
-- **Outgoing APIs / HTTP steps**: request definitions for raw or custom remote API calls.
+- **Outgoing APIs / HTTP steps**: request definitions for raw or custom remote API calls, including connector-scoped preset-driven requests in automation steps.
 - **Connector activities**: provider-aware automation actions with explicit inputs, outputs, and required scopes.
 - **Tools**: local or worker-bound machine capabilities exposed through the managed tool catalog (for example SMTP, local LLM, Coqui TTS, and Image Magic).
 
@@ -256,6 +271,7 @@ Common ports:
 - `./malcom` requires `8000` to be free and aborts if it is occupied.
 - When available, `./malcom` prints existing listeners with `lsof` before exiting.
 - Playwright starts at `4173` and automatically selects the next free port if needed.
+- When startup or Playwright launch fails, check active listeners first and inspect `backend/data/logs/` for companion startup/runtime errors.
 
 ### Playwright/browser setup
 
@@ -280,4 +296,5 @@ cd ui && PLAYWRIGHT_PORT=4190 npx playwright test <spec>
 5. Use `./scripts/test-full.sh` for user-visible workflow changes, shared frontend or test-infra changes, and browser workflow validation.
 6. Update `ui/e2e/` when user-visible workflows change.
 7. Keep `/health` and `/api/v1/**` smoke coverage aligned with `tests/test_api_smoke_matrix.py` and `tests/api_smoke_registry/`.
-8. Do not hand-edit generated outputs such as `ui/dist/**`; regenerate artifacts like the tools manifest from source.
+8. Manually verify the served route when HTML/script wiring changes, in addition to build and test coverage.
+9. Do not hand-edit generated outputs such as `ui/dist/**`; regenerate artifacts like the tools manifest from source.

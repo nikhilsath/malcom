@@ -3,7 +3,7 @@ import { buildSettingsResponse, defaultToolsDirectory, stubSettings } from "./co
 
 export type AutomationStepFixture = {
   id: string;
-  type: "log" | "outbound_request" | "connector_activity" | "script" | "tool" | "condition" | "llm_chat";
+  type: "log" | "api" | "script" | "tool" | "condition" | "llm_chat";
   name: string;
   on_true_step_id?: string | null;
   on_false_step_id?: string | null;
@@ -182,12 +182,14 @@ const buildRunResponse = (automation: AutomationFixture, runId: string): Automat
       run_id: runId,
       step_name: step.name,
       status: "completed",
-      request_summary: step.type === "outbound_request" ? `Sent ${String(step.config.destination_url || "request")}` : `Executed ${step.name}`,
-      response_summary: step.type === "outbound_request"
+      request_summary: step.type === "api" && step.config.api_mode === "custom"
+        ? `Sent ${String(step.config.destination_url || "request")}`
+        : `Executed ${step.name}`,
+      response_summary: step.type === "api" && step.config.api_mode === "custom"
         ? "Response received."
         : step.type === "script"
           ? "Script executed successfully."
-          : step.type === "connector_activity"
+          : step.type === "api" && step.config.api_mode === "prebuilt"
             ? "Connector activity completed."
             : "Step completed.",
       started_at: iso(`2026-03-23T09:00:0${index}.000Z`),
@@ -197,7 +199,7 @@ const buildRunResponse = (automation: AutomationFixture, runId: string): Automat
         step_type: step.type,
         step_name: step.name
       },
-      response_body_json: step.type === "outbound_request"
+      response_body_json: step.type === "api" && step.config.api_mode === "custom"
         ? {
             data: {
               customer: {
@@ -209,7 +211,7 @@ const buildRunResponse = (automation: AutomationFixture, runId: string): Automat
             }
           }
         : null,
-      extracted_fields_json: step.type === "outbound_request"
+      extracted_fields_json: step.type === "api" && step.config.api_mode === "custom"
         ? {
             customer_name: "Ava",
             order_status: "queued"
@@ -264,9 +266,10 @@ const defaultAutomationFixtures = (): AutomationFixture[] => ([
     steps: [
       {
         id: "step-fetch-order",
-        type: "outbound_request",
+        type: "api",
         name: "Fetch order",
         config: {
+          api_mode: "custom",
           destination_url: "https://api.example.com/orders/42",
           http_method: "POST",
           auth_type: "none",
