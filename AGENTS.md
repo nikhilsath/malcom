@@ -117,6 +117,22 @@ When deciding where a new integration belongs, agents must:
 4. keep generic HTTP steps available for raw/custom API usage instead of overfitting every remote action into the activity catalog
 5. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request or connector activity
 
+### Workflow Builder Connector Source Of Truth {#workflow-builder-connector-source-of-truth}
+
+Workflow-builder connector dropdown/options must follow one explicit resolver path:
+
+1. persistence source: `settings.connectors.records`
+2. backend resolver: `backend/services/workflow_builder.py:list_workflow_builder_connectors`
+3. API surface: `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py`
+4. UI consumer: automation builder support loading in `ui/src/automation/app.tsx`
+
+Rules:
+
+1. Do not source workflow-builder connector options directly from generic settings payloads in the UI when a dedicated resolver endpoint exists.
+2. Do not add parallel hardcoded connector availability lists in UI or route handlers.
+3. Canonical provider normalization for builder options must happen in the backend resolver, not ad hoc in multiple UI components.
+4. Any mismatch between DB connector records, backend builder option responses, and rendered builder options is an architectural failure and must be fixed in the same task.
+
 ---
 
 ## Database Schema {#database-schema}
@@ -148,6 +164,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Change DB schema | `backend/database.py` | `backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
 | Document database schema | `AGENTS.md`, `README.md` | `backend/database.py`, `backend/AGENTS.md`, `scripts/check-policy.sh` | runtime database objects directly |
 | Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | `backend/tool_registry.py` unless local runtime/executable is required |
+| Refactor workflow-builder connector option flow | `backend/services/workflow_builder.py`, `backend/routes/automations.py`, `ui/src/automation/app.tsx` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md`, `README.md` | duplicate connector option lists in UI components |
 | Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | `ui/AGENTS.md`, matching HTML + styles, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
@@ -171,6 +188,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
+| R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from `settings.connectors.records`; do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
@@ -197,7 +215,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 20,
+  "version": 21,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -225,6 +243,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
+    ,"workflow_builder_connectors": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx"]
   },
   "task_routes": {
     "db_schema_change": {
@@ -258,6 +277,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "edit": ["AGENTS.md", "scripts/check-policy.sh", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#maintenance-sync-rule", "#rules-matrix", "MACHINE_INDEX_START"],
       "verify": ["policy text, machine index, and scripts/check-policy.sh stay synchronized"]
+    },
+    "workflow_builder_connector_refactor": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx", "README.md"],
+      "verify": ["tests/test_automations_api.py", "ui/src/automation/__tests__/", "ui/e2e/"]
     }
   },
   "forbidden_paths": [

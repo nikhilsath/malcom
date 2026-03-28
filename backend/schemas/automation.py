@@ -169,6 +169,23 @@ class ConnectorActivityDefinitionResponse(BaseModel):
     execution: dict[str, Any]
 
 
+class WorkflowBuilderConnectorOptionResponse(BaseModel):
+    id: str
+    name: str
+    provider: str
+    provider_name: str
+    status: str
+    auth_type: str
+    scopes: list[str]
+    owner: str | None = None
+    base_url: str | None = None
+    docs_url: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    last_tested_at: str | None = None
+    source_path: str
+
+
 class RuntimeStatusResponse(BaseModel):
     active: bool
     last_tick_started_at: str | None = None
@@ -260,6 +277,7 @@ __all__ = [
     "AutomationValidationResponse",
     "ConnectorActivityDefinitionResponse",
     "ConnectorActivitySchemaField",
+    "WorkflowBuilderConnectorOptionResponse",
     "LogDbColumnDefinition",
     "LogDbColumnResponse",
     "LogDbRowsResponse",

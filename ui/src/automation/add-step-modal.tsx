@@ -31,8 +31,6 @@ type Props = {
   dataFlowTokens?: DataFlowToken[];
 };
 
-const HIDDEN_CONNECTOR_STATUSES = new Set(["draft", "revoked", "expired"]);
-
 export const AddStepModal = ({
   open,
   onClose,
@@ -44,13 +42,6 @@ export const AddStepModal = ({
   scripts,
   dataFlowTokens = []
 }: Props) => {
-  // Older saved connectors can arrive without a normalized status; keep them selectable
-  // unless the record is clearly inactive for step configuration.
-  const activeConnectors = connectors.filter((connector) => {
-    const normalizedStatus = (connector.status || "").toLowerCase().trim();
-    return normalizedStatus === "" || !HIDDEN_CONNECTOR_STATUSES.has(normalizedStatus);
-  });
-
   const [pickedType, setPickedType] = useState<StepType | null>(null);
   const [apiMode, setApiMode] = useState<"prebuilt" | "custom" | null>(null);
   const [draft, setDraft] = useState<AutomationStep | null>(null);
@@ -108,9 +99,9 @@ export const AddStepModal = ({
     if (!draft || !pickedType) return null;
     if (pickedType === "api") {
       if (apiMode === "prebuilt") {
-        return <ConnectorActivityStepForm draft={draft} connectors={activeConnectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })} />;
+        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })} />;
       } else if (apiMode === "custom") {
-        return <HttpStepForm draft={draft} connectors={activeConnectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
+        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
       }
       return null;
     }

@@ -277,6 +277,17 @@ Google-specific onboarding:
 - Start from the Connect provider control on the Connectors page.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.
 
+### Workflow builder connector option source of truth
+
+Connector options shown in the automation builder are resolved through one backend path:
+
+1. Persisted connector records are stored in `settings.connectors.records`.
+2. `backend/services/workflow_builder.py:list_workflow_builder_connectors` normalizes provider IDs and enriches provider display metadata.
+3. `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py` returns the normalized option list.
+4. `ui/src/automation/app.tsx` loads that endpoint directly and passes those options to HTTP and connector-activity step forms.
+
+This flow is authoritative for builder connector availability. Do not add parallel hardcoded connector option lists in UI components.
+
 ## Troubleshooting
 
 ### Port conflicts

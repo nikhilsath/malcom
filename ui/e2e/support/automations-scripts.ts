@@ -101,6 +101,7 @@ type AutomationBrowserState = {
     page_href: string;
   }>;
   inboundApis: Array<{ id: string; name: string }>;
+  httpPresets: Array<Record<string, unknown>>;
   activityCatalog: Array<{
     provider_id: string;
     activity_id: string;
@@ -512,6 +513,7 @@ export function createAutomationSuiteState(overrides: Partial<AutomationBrowserS
       { id: "inbound-orders", name: "Orders webhook" },
       { id: "inbound-invoices", name: "Invoices webhook" }
     ],
+    httpPresets: overrides.httpPresets || [],
     activityCatalog: overrides.activityCatalog || defaultActivityCatalog(),
     automations,
     scripts,
@@ -791,8 +793,22 @@ const mapMetadataRoute = (state: AutomationBrowserState, requestUrl: string, met
   if (url.pathname === "/api/v1/inbound" && method === "GET") {
     return { status: 200, body: state.inboundApis };
   }
+  if (url.pathname === "/api/v1/automations/workflow-connectors" && method === "GET") {
+    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || []);
+    return {
+      status: 200,
+      body: connectorRecords.map((record) => ({
+        ...record,
+        provider_name: record.provider === "google" ? "Google" : record.provider === "github" ? "GitHub" : String(record.provider || ""),
+        source_path: "settings.connectors.records"
+      }))
+    };
+  }
   if (url.pathname === "/api/v1/connectors/activity-catalog" && method === "GET") {
     return { status: 200, body: state.activityCatalog };
+  }
+  if (url.pathname === "/api/v1/connectors/http-presets" && method === "GET") {
+    return { status: 200, body: state.httpPresets };
   }
   if (url.pathname === "/api/v1/apis/test-delivery" && method === "POST") {
     return {
@@ -869,7 +885,25 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
     await writeJsonResponse(route, response.status, response.body);
   });
 
+  await page.route("**/api/v1/automations/workflow-connectors", async (route) => {
+    const response = mapMetadataRoute(state, route.request().url(), route.request().method());
+    if (!response) {
+      await route.fallback();
+      return;
+    }
+    await writeJsonResponse(route, response.status, response.body);
+  });
+
   await page.route("**/api/v1/connectors/activity-catalog", async (route) => {
+    const response = mapMetadataRoute(state, route.request().url(), route.request().method());
+    if (!response) {
+      await route.fallback();
+      return;
+    }
+    await writeJsonResponse(route, response.status, response.body);
+  });
+
+  await page.route("**/api/v1/connectors/http-presets", async (route) => {
     const response = mapMetadataRoute(state, route.request().url(), route.request().method());
     if (!response) {
       await route.fallback();
