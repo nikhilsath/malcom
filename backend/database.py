@@ -7,6 +7,7 @@ from typing import Any
 
 
 DEFAULT_POSTGRES_URL = "postgresql://postgres:postgres@127.0.0.1:5432/malcom"
+DatabaseConnection = Any
 
 
 CREATE_SCHEMA_SQL = """
