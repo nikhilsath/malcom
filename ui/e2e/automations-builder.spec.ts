@@ -24,8 +24,8 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await page.locator("#automations-workflow-description-input").fill("Sends an email when a customer event occurs.");
   await page.locator("#automations-guided-settings-modal-done").click();
 
-  await expect(page.locator("#automation-canvas-insert-0-button")).toBeVisible();
-  await page.locator("#automation-canvas-insert-0-button").click();
+  await expect(page.locator("#automations-guided-item-step-action")).toBeVisible();
+  await page.locator("#automations-guided-item-step-action").click();
   await expect(page.locator("#add-step-modal")).toBeVisible();
   await page.locator("#add-step-type-api").click();
   await page.locator("#add-step-api-mode-prebuilt").click();
@@ -170,23 +170,155 @@ test("defaults to guided mode for new drafts and allows switching to canvas mode
 });
 
 test.describe("Automation Builder - Connector Dropdown", () => {
-  test("shows only active connectors in step modal", async ({ page }) => {
+  test("filters Google connector actions behind a Google app dropdown", async ({ page }) => {
+    const state = createAutomationSuiteState({
+      activityCatalog: [
+        {
+          provider_id: "google",
+          activity_id: "gmail-send-email",
+          service: "gmail",
+          operation_type: "write",
+          label: "Send email",
+          description: "Send an email using a saved Google connector.",
+          required_scopes: ["https://www.googleapis.com/auth/gmail.send"],
+          input_schema: [
+            {
+              key: "to",
+              label: "To",
+              type: "string",
+              required: true,
+              placeholder: "someone@example.com"
+            }
+          ],
+          output_schema: [
+            { key: "message_id", label: "Message ID", type: "string" }
+          ],
+          execution: { provider: "google", action: "send-email" }
+        },
+        {
+          provider_id: "google",
+          activity_id: "drive-list-files",
+          service: "drive",
+          operation_type: "read",
+          label: "List files",
+          description: "List Drive files.",
+          required_scopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+          input_schema: [],
+          output_schema: [
+            { key: "files", label: "Files", type: "array" }
+          ],
+          execution: { provider: "google", action: "list-files" }
+        },
+        {
+          provider_id: "google",
+          activity_id: "calendar-list-events",
+          service: "calendar",
+          operation_type: "read",
+          label: "List events",
+          description: "List calendar events.",
+          required_scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+          input_schema: [],
+          output_schema: [
+            { key: "events", label: "Events", type: "array" }
+          ],
+          execution: { provider: "google", action: "list-events" }
+        },
+        {
+          provider_id: "google",
+          activity_id: "sheets-update-range",
+          service: "sheets",
+          operation_type: "write",
+          label: "Update range",
+          description: "Write values into a Google Sheet.",
+          required_scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+          input_schema: [],
+          output_schema: [
+            { key: "updated_cells", label: "Updated cells", type: "integer" }
+          ],
+          execution: { provider: "google", action: "update-range" }
+        }
+      ]
+    });
+    await installAutomationSuiteRoutes(page, state);
+
     await page.goto("/automations/builder.html?new=true");
-    // Open add step modal
-    await page.getByRole("button", { name: /add step/i }).click();
-    await page.getByText(/api step/i, { exact: false }).click();
-    // Switch to custom API mode if needed
-    if (await page.getByRole("button", { name: /custom api/i }).isVisible()) {
-      await page.getByRole("button", { name: /custom api/i }).click();
-    }
-    const connectorDropdown = page.getByLabel(/connectors/i);
-    const options = await connectorDropdown.locator("option").allTextContents();
-    // Should not show revoked/draft connectors
+    await page.locator("#automations-guided-item-step-action").click();
+    await expect(page.locator("#add-step-modal")).toBeVisible();
+    await page.locator("#add-step-type-api").click({ force: true });
+    await page.locator("#add-step-api-mode-prebuilt").click();
+    await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
+
+    await expect(page.locator("#add-step-connector-activity-service-input")).toBeVisible();
+    await expect(page.locator("#add-step-connector-activity-activity-picker-empty")).toContainText("Choose a Google app");
+    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toHaveCount(0);
+
+    await page.locator("#add-step-connector-activity-service-input").selectOption("gmail");
+    await expect(page.locator("#add-step-connector-activity-group-gmail-write")).toBeVisible();
+    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toBeVisible();
+
+    await page.locator("#add-step-connector-activity-service-input").selectOption("sheets");
+    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toHaveCount(0);
+    await expect(page.locator("#add-step-connector-activity-activity-card-sheets-update-range")).toBeVisible();
+  });
+
+  test("shows only active connectors in step modal", async ({ page }) => {
+    const state = createAutomationSuiteState();
+    state.settings.connectors.records = [
+      {
+        id: "google-primary",
+        provider: "google",
+        name: "Google Primary",
+        status: "",
+        auth_type: "oauth2",
+        scopes: ["https://www.googleapis.com/auth/gmail.send"],
+        owner: "Workspace",
+        base_url: "https://www.googleapis.com"
+      },
+      {
+        id: "google-expired",
+        provider: "google",
+        name: "Google Expired",
+        status: "expired",
+        auth_type: "oauth2",
+        scopes: [],
+        owner: "Workspace",
+        base_url: "https://www.googleapis.com"
+      },
+      {
+        id: "google-revoked",
+        provider: "google",
+        name: "Google Revoked",
+        status: "revoked",
+        auth_type: "oauth2",
+        scopes: [],
+        owner: "Workspace",
+        base_url: "https://www.googleapis.com"
+      },
+      {
+        id: "github-draft",
+        provider: "github",
+        name: "GitHub Draft",
+        status: "draft",
+        auth_type: "bearer",
+        scopes: ["repo"],
+        owner: "Workspace",
+        base_url: "https://api.github.com"
+      }
+    ];
+    await installAutomationSuiteRoutes(page, state);
+
+    await page.goto("/automations/builder.html?new=true");
+    await page.locator("#automations-guided-item-step-action").click();
+    await expect(page.locator("#add-step-modal")).toBeVisible();
+    await page.locator("#add-step-type-api").click({ force: true });
+    await page.locator("#add-step-api-mode-custom").click();
+
+    const options = await page.locator("#add-step-http-connector-input option").allTextContents();
     for (const opt of options) {
+      expect(opt.toLowerCase()).not.toContain("expired");
       expect(opt.toLowerCase()).not.toContain("revoked");
       expect(opt.toLowerCase()).not.toContain("draft");
     }
-    // Should show at least one active connector if any exist
-    // (This is a soft check, as test DB may be empty)
+    await expect(page.locator("#add-step-http-connector-input")).toContainText("Google Primary");
   });
 });

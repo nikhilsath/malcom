@@ -97,6 +97,8 @@ When updating policy, agents must update all of the following in the same change
 3. `Rules Matrix` entries
 4. machine index block between `MACHINE_INDEX_START` and `MACHINE_INDEX_END`
 
+Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules.
+
 Do not leave machine reference content stale after changing source rules.
 
 ---
@@ -117,6 +119,22 @@ When deciding where a new integration belongs, agents must:
 
 ---
 
+## Database Schema {#database-schema}
+
+`backend/database.py` is the schema source of truth for structure changes and for repo-facing schema documentation.
+
+When schema tables or table groups change, update `AGENTS.md` and `README.md` in the same change so the documented structure stays aligned with `backend/database.py`.
+
+Current schema groups defined there:
+
+- API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
+- Workspace state: `tools`, `settings`, `integration_presets`
+- Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`
+- Script library: `scripts`
+- Log schema: `log_db_tables`, `log_db_columns`
+
+---
+
 ## Machine Reference Index {#machine-reference-index}
 
 Machine-first routing index. Use for task-to-file targeting before consulting canonical rule text.
@@ -128,6 +146,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Add backend API route | `backend/routes/api.py` | `backend/AGENTS.md`, `tests/AGENTS.md`, `tests/test_<feature>.py` | `ui/dist/**` |
 | Add served UI page route | `backend/routes/ui.py` | `ui/AGENTS.md`, `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
 | Change DB schema | `backend/database.py` | `backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
+| Document database schema | `AGENTS.md`, `README.md` | `backend/database.py`, `backend/AGENTS.md`, `scripts/check-policy.sh` | runtime database objects directly |
 | Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | `backend/tool_registry.py` unless local runtime/executable is required |
 | Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
@@ -139,9 +158,9 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
 | Implement or change behavior | feature source files + matching tests | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `pytest.ini`, test scripts, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
+| Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
-| Update agent response policy or instruction-following rules | `AGENTS.md`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
+| Update agent response policy or instruction-following rules | `AGENTS.md`, `scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
 
@@ -153,6 +172,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
+| R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
 | R-UI-003 | Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges | UI copy and page layout changes |
@@ -166,6 +186,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
+| R-POLICY-001 | Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules | Policy maintenance and enforcement automation |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
 | R-TEST-003 | Keep internal API smoke coverage in `tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
@@ -176,7 +197,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 18,
+  "version": 20,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -199,15 +220,22 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "test_rules": ["tests/AGENTS.md"],
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
+    "database_docs": ["AGENTS.md", "README.md"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
+    "policy_enforcement_script": ["scripts/check-policy.sh"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
   },
   "task_routes": {
     "db_schema_change": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["backend/database.py"],
-      "verify": ["tests/"]
+      "verify": ["AGENTS.md", "README.md", "tests/"]
+    },
+    "db_schema_documentation": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh"],
+      "verify": ["policy text and README stay aligned with backend/database.py"]
     },
     "ui_change": {
       "read": ["AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
@@ -222,14 +250,14 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     },
     "test_workflow_change": {
       "read": ["AGENTS.md", "tests/AGENTS.md"],
-      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
+      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "scripts/check-policy.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
     "response_policy_update": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
-      "edit": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
-      "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#rules-matrix", "MACHINE_INDEX_START"],
-      "verify": ["policy text and machine index stay synchronized"]
+      "edit": ["AGENTS.md", "scripts/check-policy.sh", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#maintenance-sync-rule", "#rules-matrix", "MACHINE_INDEX_START"],
+      "verify": ["policy text, machine index, and scripts/check-policy.sh stay synchronized"]
     }
   },
   "forbidden_paths": [
@@ -256,6 +284,8 @@ Do:
 - follow the existing DB-backed tool flow
 - keep page entrypoints matched to page paths
 - keep shared shell config centralized
+- keep schema documentation in `AGENTS.md` and `README.md` aligned with `backend/database.py`
+- keep `scripts/check-policy.sh` in sync with `AGENTS.md` policy requirements
 - place tests beside the backend feature area they cover or under the React feature they cover
 - add or update relevant automated tests in the same change when behavior changes
 - prefer additive schema evolution over one-off DB edits

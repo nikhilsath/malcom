@@ -217,6 +217,30 @@ const renderAutomationApp = (options?: {
         },
         {
           provider_id: "google",
+          activity_id: "drive_list_files",
+          service: "drive",
+          operation_type: "read",
+          label: "List files",
+          description: "List Drive files.",
+          required_scopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+          input_schema: [],
+          output_schema: [{ key: "files", label: "Files", type: "array" }],
+          execution: {}
+        },
+        {
+          provider_id: "google",
+          activity_id: "calendar_list_events",
+          service: "calendar",
+          operation_type: "read",
+          label: "List events",
+          description: "List calendar events.",
+          required_scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+          input_schema: [],
+          output_schema: [{ key: "events", label: "Events", type: "array" }],
+          execution: {}
+        },
+        {
+          provider_id: "google",
           activity_id: "sheets_update_range",
           service: "sheets",
           operation_type: "write",
@@ -399,7 +423,8 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-outbound_request") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-api-mode-custom") as HTMLElement);
 
     await waitFor(() => {
       expect(document.querySelector("#add-step-http-connector-input")).toBeInTheDocument();
@@ -425,7 +450,7 @@ describe("AutomationApp", () => {
     });
   });
 
-  it("shows grouped Google connector actions and dynamic inputs in the add-step modal", async () => {
+  it("filters Google connector actions by app before showing dynamic inputs in the add-step modal", async () => {
     renderAutomationApp({
       connectors: [
         {
@@ -445,12 +470,19 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(screen.getByRole("button", { name: /Connector activity/i }));
+    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
     fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
 
-    expect((await screen.findAllByText("GMAIL")).length).toBeGreaterThan(0);
-    expect(screen.getByText("READ")).toBeInTheDocument();
-    expect(screen.getAllByText("WRITE").length).toBeGreaterThan(0);
+    const serviceSelect = screen.getByLabelText("Google app");
+    expect(within(serviceSelect).getByRole("option", { name: "Gmail" })).toBeInTheDocument();
+    expect(within(serviceSelect).getByRole("option", { name: "Drive" })).toBeInTheDocument();
+    expect(within(serviceSelect).getByRole("option", { name: "Calendar" })).toBeInTheDocument();
+    expect(within(serviceSelect).getByRole("option", { name: "Sheets" })).toBeInTheDocument();
+    expect(screen.getByText("Choose a Google app to view its supported actions.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send email/i })).not.toBeInTheDocument();
+
+    fireEvent.change(serviceSelect, { target: { value: "gmail" } });
 
     fireEvent.click(screen.getByRole("button", { name: /send email/i }));
 
@@ -459,10 +491,75 @@ describe("AutomationApp", () => {
     expect(screen.getByLabelText("Body")).toBeInTheDocument();
     expect(screen.getByText(/message_id/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /update range/i }));
+    fireEvent.change(serviceSelect, { target: { value: "sheets" } });
+    expect(screen.queryByRole("button", { name: /send email/i })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /update range/i }));
     expect(await screen.findByLabelText("Spreadsheet ID")).toBeInTheDocument();
     expect(screen.getByLabelText("A1 range")).toBeInTheDocument();
     expect(screen.getByLabelText("Values payload")).toBeInTheDocument();
+  });
+
+  it("keeps saved connectors with blank statuses visible while hiding inactive records", async () => {
+    renderAutomationApp({
+      connectors: [
+        {
+          id: "google-primary",
+          provider: "google",
+          name: "Google Primary",
+          status: "",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          base_url: "https://www.googleapis.com"
+        },
+        {
+          id: "google-expired",
+          provider: "google",
+          name: "Google Expired",
+          status: "expired",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          base_url: "https://www.googleapis.com"
+        },
+        {
+          id: "google-revoked",
+          provider: "google",
+          name: "Google Revoked",
+          status: "revoked",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          base_url: "https://www.googleapis.com"
+        },
+        {
+          id: "github-draft",
+          provider: "github",
+          name: "GitHub Draft",
+          status: "draft",
+          auth_type: "bearer",
+          scopes: ["repo"],
+          base_url: "https://api.github.com"
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
+
+    const connectorSelect = await waitFor(() => {
+      const element = screen.getByLabelText("Saved connector") as HTMLSelectElement;
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+    const optionLabels = Array.from(connectorSelect.options).map((option) => option.textContent || "");
+
+    expect(optionLabels).toContain("Google Primary");
+    expect(optionLabels).not.toContain("Google Expired");
+    expect(optionLabels).not.toContain("Google Revoked");
+    expect(optionLabels).not.toContain("GitHub Draft");
   });
 
   it("validates required connector action inputs before save", async () => {
@@ -485,8 +582,10 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(screen.getByRole("button", { name: /Connector activity/i }));
+    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
     fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
+    fireEvent.change(screen.getByLabelText("Google app"), { target: { value: "gmail" } });
     fireEvent.click(screen.getByRole("button", { name: /send email/i }));
     fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);

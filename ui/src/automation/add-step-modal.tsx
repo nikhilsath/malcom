@@ -31,7 +31,7 @@ type Props = {
   dataFlowTokens?: DataFlowToken[];
 };
 
-const ACTIVE_CONNECTOR_STATUSES = ["connected", "pending_oauth", "needs_attention"];
+const HIDDEN_CONNECTOR_STATUSES = new Set(["draft", "revoked", "expired"]);
 
 export const AddStepModal = ({
   open,
@@ -44,8 +44,12 @@ export const AddStepModal = ({
   scripts,
   dataFlowTokens = []
 }: Props) => {
-  // Only show connectors with active statuses
-  const activeConnectors = connectors.filter(c => ACTIVE_CONNECTOR_STATUSES.includes((c.status || "").toLowerCase()));
+  // Older saved connectors can arrive without a normalized status; keep them selectable
+  // unless the record is clearly inactive for step configuration.
+  const activeConnectors = connectors.filter((connector) => {
+    const normalizedStatus = (connector.status || "").toLowerCase().trim();
+    return normalizedStatus === "" || !HIDDEN_CONNECTOR_STATUSES.has(normalizedStatus);
+  });
 
   const [pickedType, setPickedType] = useState<StepType | null>(null);
   const [apiMode, setApiMode] = useState<"prebuilt" | "custom" | null>(null);
@@ -60,42 +64,53 @@ export const AddStepModal = ({
       setDraft({ ...cloneStepTemplate(type), name: "" });
     }
   };
-  return (
-    <Dialog open={open} onClose={onClose}>
-      {/* ...existing code... */}
-      {pickedType === "api" && apiMode === "custom" && draft && (
-        <HttpStepForm
-          draft={draft}
-          connectors={activeConnectors}
-          httpPresets={httpPresets}
-          dataFlowTokens={dataFlowTokens}
-          onChange={setDraft}
-        />
-      )}
-      {pickedType === "api" && apiMode === "prebuilt" && draft && (
-        <ConnectorActivityStepForm
-          draft={draft}
-          connectors={activeConnectors}
-          activityCatalog={activityCatalog}
-          dataFlowTokens={dataFlowTokens}
-          onChange={setDraft}
-        />
-      )}
-      {/* ...existing code... */}
-    </Dialog>
-  );
+
+  const handleClose = () => {
     setPickedType(null);
     setApiMode(null);
     setDraft(null);
+    onClose();
+  };
+
+  const handleBack = () => {
+    if (pickedType === "api" && apiMode) {
+      setApiMode(null);
+      return;
+    }
+    setPickedType(null);
+    setApiMode(null);
+    setDraft(null);
+  };
+
+  const handleAdd = () => {
+    if (!draft || !pickedType) {
+      return;
+    }
+
+    if (pickedType === "api") {
+      if (apiMode === "prebuilt") {
+        onAdd({ ...draft, type: "connector_activity" as StepType });
+        handleClose();
+        return;
+      }
+      if (apiMode === "custom") {
+        onAdd({ ...draft, type: "outbound_request" as StepType });
+        handleClose();
+      }
+      return;
+    }
+
+    onAdd(draft);
+    handleClose();
   };
 
   const renderDetailForm = () => {
     if (!draft || !pickedType) return null;
     if (pickedType === "api") {
       if (apiMode === "prebuilt") {
-        return <ConnectorActivityStepForm draft={draft} connectors={connectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })} />;
+        return <ConnectorActivityStepForm draft={draft} connectors={activeConnectors} activityCatalog={activityCatalog} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })} />;
       } else if (apiMode === "custom") {
-        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
+        return <HttpStepForm draft={draft} connectors={activeConnectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
       }
       return null;
     }

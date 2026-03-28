@@ -9,6 +9,7 @@ It combines a FastAPI backend, PostgreSQL persistence, and a Vite-built, registr
 - [What Malcom Does](#what-malcom-does)
 - [UI Surface](#ui-surface)
 - [Current Architecture](#current-architecture)
+- [Database Schema](#database-schema)
 - [Repository Map](#repository-map)
 - [Quick Start](#quick-start)
 - [Testing Workflow](#testing-workflow)
@@ -70,6 +71,25 @@ The current product UI is organized into these areas:
 - PostgreSQL is the runtime database
 - Schema source of truth: `backend/database.py`
 - Tool metadata, connector settings, automation state, scripts, log tables, API definitions, event histories, delivery history, and integration presets are persisted in PostgreSQL
+
+## Database Schema
+
+`backend/database.py` is the only schema source of truth. The app initializes PostgreSQL tables there and applies additive column evolution from the same module.
+
+Current table groups:
+
+- API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
+- Workspace state: `tools`, `settings`, `integration_presets`
+- Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`
+- Script library: `scripts`
+- Log schema: `log_db_tables`, `log_db_columns`
+
+Schema conventions in `backend/database.py`:
+
+- additive table creation uses `CREATE TABLE IF NOT EXISTS`
+- additive column changes use `_ensure_column(...)`
+- boolean-like flags are stored as integer-compatible `0` and `1` values
+- structured payloads are typically persisted in `*_json` text columns
 
 ## Repository Map
 

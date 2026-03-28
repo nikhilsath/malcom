@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AutomationLibraryApp } from "../library";
 import { TriggerSettingsForm } from "../trigger-settings-form";
 import { ToolStepFields } from "../tool-step-fields";
+import { ConnectorActivityStepForm } from "../step-modals/connector-activity-step-form";
 import type { AutomationStep, ToolManifestEntry } from "../types";
 
 const requestJsonMock = vi.hoisted(() => vi.fn());
@@ -100,6 +101,66 @@ describe("automation UI ids", () => {
     expect(document.querySelector("#tool-step-tool-input-priority-option-high-priority")).toHaveTextContent("High priority");
     expect(document.querySelector("#tool-step-tool-output-message_id-key")).toHaveTextContent("{{steps.<step_name>.message_id}}");
     expect(document.querySelector("#tool-step-tool-output-message_id-description")).toHaveTextContent("Message ID");
+  });
+
+  it("renders deterministic ids for the Google app selector in connector actions", () => {
+    const step: AutomationStep = {
+      id: "step-google",
+      type: "api",
+      name: "Google step",
+      config: {
+        connector_id: "google-primary",
+        activity_id: "",
+        activity_inputs: {}
+      }
+    };
+
+    render(
+      <ConnectorActivityStepForm
+        idPrefix="connector-step"
+        draft={step}
+        connectors={[
+          {
+            id: "google-primary",
+            provider: "google",
+            name: "Google Primary",
+            status: "connected",
+            auth_type: "oauth2"
+          }
+        ]}
+        activityCatalog={[
+          {
+            provider_id: "google",
+            activity_id: "gmail_list_messages",
+            service: "gmail",
+            operation_type: "read",
+            label: "List emails",
+            description: "List Gmail messages.",
+            required_scopes: [],
+            input_schema: [],
+            output_schema: [],
+            execution: {}
+          },
+          {
+            provider_id: "google",
+            activity_id: "calendar_list_events",
+            service: "calendar",
+            operation_type: "read",
+            label: "List events",
+            description: "List calendar events.",
+            required_scopes: [],
+            input_schema: [],
+            output_schema: [],
+            execution: {}
+          }
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(document.querySelector("#connector-step-service-field")).toBeInTheDocument();
+    expect(document.querySelector("#connector-step-service-label")).toHaveTextContent("Google app");
+    expect(document.querySelector("#connector-step-service-input")).toBeInTheDocument();
   });
 
   it("renders deterministic ids for automation library title rows and detail stats", async () => {

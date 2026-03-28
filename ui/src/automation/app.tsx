@@ -181,12 +181,26 @@ const stepAccentByType: Record<StepType, WorkflowNodeData["accent"]> = {
   llm_chat: "llm"
 };
 
-const normalizeStep = (step: AutomationStep): AutomationStep => ({
-  ...step,
-  id: step.id || createDraftStepId(),
-  name: step.name || getDefaultStepName(step.type),
-  config: { ...step.config }
-});
+const normalizeLegacyApiStep = (step: AutomationStep): AutomationStep => {
+  if (step.type !== "api") {
+    return step;
+  }
+
+  return {
+    ...step,
+    type: step.config.api_mode === "prebuilt" ? "connector_activity" : "outbound_request"
+  };
+};
+
+const normalizeStep = (step: AutomationStep): AutomationStep => {
+  const normalizedStep = normalizeLegacyApiStep(step);
+  return {
+    ...normalizedStep,
+    id: normalizedStep.id || createDraftStepId(),
+    name: normalizedStep.name || getDefaultStepName(normalizedStep.type),
+    config: { ...normalizedStep.config }
+  };
+};
 
 const emptyDetail = (): AutomationDetail => ({
   id: "",
@@ -270,7 +284,12 @@ const formatDuration = (value?: number | null) => {
 
 const getTriggerTypeLabel = (value: TriggerType) => triggerTypeOptions.find((option) => option.value === value)?.label || value;
 
-const getStepTypeLabel = (value: StepType) => stepTypeOptions.find((option) => option.value === value)?.label || value;
+const getStepTypeLabel = (value: StepType) => {
+  if (value === "outbound_request" || value === "connector_activity") {
+    return "API";
+  }
+  return stepTypeOptions.find((option) => option.value === value)?.label || value;
+};
 
 const getRunStatusTone = (value: string) => {
   if (value === "success" || value === "completed") {
@@ -1228,6 +1247,8 @@ export const AutomationApp = () => {
 
   const renderStepEditor = (step: AutomationStep) => {
     const customLabelValue = step.name === getDefaultStepName(step.type) ? "" : step.name;
+    const usesCustomHttpMode = step.type === "outbound_request" || (step.type === "api" && step.config.api_mode === "custom");
+    const usesConnectorActivityMode = step.type === "connector_activity" || (step.type === "api" && step.config.api_mode !== "custom");
 
     return (
       <div id="automations-step-modal-form" className="automation-form">
@@ -1238,7 +1259,7 @@ export const AutomationApp = () => {
           />
         ) : null}
 
-        {step.type === "outbound_request" ? (
+        {usesCustomHttpMode ? (
           <HttpStepForm
             draft={step}
             connectors={connectors}
@@ -1249,7 +1270,7 @@ export const AutomationApp = () => {
           />
         ) : null}
 
-        {step.type === "connector_activity" ? (
+        {usesConnectorActivityMode ? (
           <ConnectorActivityStepForm
             draft={step}
             connectors={connectors}

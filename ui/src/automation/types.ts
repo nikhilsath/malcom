@@ -2,7 +2,7 @@
 // Imported by app.tsx and all step-modal components.
 
 export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
-export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_chat";
+export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_chat" | "outbound_request" | "connector_activity";
 
 declare global {
   interface Window {
@@ -192,6 +192,31 @@ export const stepTemplates: Record<StepType, AutomationStep> = {
       wait_for_response: true,
       response_mappings: [],
       http_preset_id: ""
+    }
+  },
+  outbound_request: {
+    type: "outbound_request",
+    name: "HTTP request",
+    config: {
+      api_mode: "custom",
+      connector_id: "",
+      http_preset_id: "",
+      destination_url: "https://example.com/hooks/run",
+      http_method: "POST",
+      auth_type: "none",
+      payload_template: "{\"automation_id\":\"{{automation.id}}\"}",
+      wait_for_response: true,
+      response_mappings: []
+    }
+  },
+  connector_activity: {
+    type: "connector_activity",
+    name: "Connector action",
+    config: {
+      api_mode: "prebuilt",
+      connector_id: "",
+      activity_id: "",
+      activity_inputs: {}
     }
   },
   script: { type: "script", name: "Script step", config: { script_id: "", script_input_template: "" } },
