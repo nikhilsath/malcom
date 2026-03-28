@@ -80,10 +80,11 @@ from backend.services.network import (
 from backend.services.connector_activities import execute_connector_activity
 from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
+    get_log_file_path as get_log_file_path_core,
     write_application_exception_log as write_application_exception_log_core,
     write_application_log as write_application_log_core,
 )
-from backend.services.metrics import get_metrics_collector, snapshot_process_memory_mb
+from backend.services.metrics import get_metrics_collector, snapshot_process_cpu_percent, snapshot_process_memory_mb
 from backend.services.automation_runs import (
     assign_automation_run_worker as assign_automation_run_worker_core,
     calculate_duration_ms as calculate_duration_ms_core,
@@ -174,6 +175,10 @@ DEFAULT_IMAGE_MAGIC_TOOL_CONFIG = {
 DEFAULT_TOOL_RETRY_SETTINGS = {
     "default_tool_retries": 2,
 }
+RESOURCE_SNAPSHOT_INTERVAL_SECONDS = 10.0
+RESOURCE_SNAPSHOT_DEFAULT_LIMIT = 30
+_RESOURCE_SNAPSHOT_LOCK = threading.Lock()
+_RESOURCE_SNAPSHOT_LAST_PERSISTED_AT_MONOTONIC = 0.0
 
 LOCAL_LLM_ENDPOINT_PRESETS: dict[str, dict[str, Any]] = {
     "custom": {
@@ -2648,6 +2653,303 @@ def build_tool_directory_response(request: Request) -> list[ToolDirectoryEntryRe
             entry["enabled"] = coqui_tts_enabled
 
     return [ToolDirectoryEntryResponse(**entry) for entry in entries]
+
+
+def _normalize_dashboard_log_level(level_value: str | None) -> Literal["debug", "info", "warning", "error"]:
+    normalized = str(level_value or "").strip().lower()
+    if normalized in {"critical", "fatal", "error"}:
+        return "error"
+    if normalized in {"warn", "warning"}:
+        return "warning"
+    if normalized == "debug":
+        return "debug"
+    return "info"
+
+
+def _coerce_int(value: Any, default: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, parsed))
+
+
+def _get_dashboard_log_settings(connection: DatabaseConnection) -> DashboardLogSettingsResponse:
+    defaults = dict(DEFAULT_APP_SETTINGS.get("logging") or {})
+    stored_settings = read_stored_settings_section(connection, "logging")
+    merged_settings = defaults | (stored_settings if isinstance(stored_settings, dict) else {})
+
+    return DashboardLogSettingsResponse(
+        max_stored_entries=_coerce_int(merged_settings.get("max_stored_entries"), 250, 50, 5000),
+        max_visible_entries=_coerce_int(merged_settings.get("max_visible_entries"), 50, 10, 500),
+        max_detail_characters=_coerce_int(merged_settings.get("max_detail_characters"), 4000, 500, 20000),
+    )
+
+
+def _parse_log_timestamp(date_part: str | None, time_part: str | None) -> str:
+    if not date_part or not time_part:
+        return utc_now_iso()
+    try:
+        parsed = datetime.strptime(f"{date_part} {time_part}", "%Y-%m-%d %H:%M:%S,%f")
+        return parsed.replace(tzinfo=UTC).isoformat()
+    except ValueError:
+        return utc_now_iso()
+
+
+def _normalize_dashboard_log_entry(
+    *,
+    line: str,
+    line_number: int,
+    date_part: str | None,
+    time_part: str | None,
+    level_part: str | None,
+    message_part: str,
+) -> DashboardLogEntryResponse:
+    timestamp = _parse_log_timestamp(date_part, time_part)
+    level = _normalize_dashboard_log_level(level_part)
+
+    parsed_payload: Any
+    try:
+        parsed_payload = json.loads(message_part)
+    except json.JSONDecodeError:
+        parsed_payload = None
+
+    event = "runtime_log"
+    source = "backend.runtime"
+    category = "runtime"
+    action = "log_line"
+    message = message_part.strip() or "Runtime log line recorded."
+    details: dict[str, Any] = {}
+    context: dict[str, Any] = {}
+
+    if isinstance(parsed_payload, dict):
+        payload = parsed_payload
+        event_value = payload.get("event")
+        if isinstance(event_value, str) and event_value.strip():
+            event = event_value.strip()
+            action = event
+
+        context_value = payload.get("context")
+        if isinstance(context_value, dict):
+            context = context_value
+
+        source_value = context.get("source") if isinstance(context.get("source"), str) else None
+        if source_value:
+            source = source_value
+
+        component_value = context.get("component") if isinstance(context.get("component"), str) else None
+        if component_value and not source_value:
+            source = component_value
+
+        category_value = context.get("category") if isinstance(context.get("category"), str) else None
+        if category_value:
+            category = category_value
+        elif "." in source:
+            category = source.split(".", 1)[0]
+
+        message_value = context.get("message") if isinstance(context.get("message"), str) else None
+        if message_value and message_value.strip():
+            message = message_value.strip()
+        elif isinstance(event_value, str) and event_value.strip():
+            message = event_value.strip().replace("_", " ")
+
+        details = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"event", "context"}
+        }
+    else:
+        details = {
+            "raw_line": line,
+        }
+
+    digest = hashlib.sha1(f"{line_number}:{line}".encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+    return DashboardLogEntryResponse(
+        id=f"log-{digest}",
+        timestamp=timestamp,
+        level=level,
+        source=source,
+        category=category,
+        action=action,
+        message=message,
+        details=details,
+        context=context,
+    )
+
+
+def get_runtime_dashboard_logs_response(connection: DatabaseConnection, root_dir: Path) -> DashboardLogsApiResponse:
+    settings = _get_dashboard_log_settings(connection)
+    log_file_path = get_log_file_path_core(root_dir)
+
+    if not log_file_path.exists() or not log_file_path.is_file():
+        return DashboardLogsApiResponse(settings=settings, entries=[])
+
+    try:
+        raw_lines = log_file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return DashboardLogsApiResponse(settings=settings, entries=[])
+
+    pattern = re.compile(
+        r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2},\d{3})\s+(?P<level>[A-Z]+)\s*(?P<message>.*)$"
+    )
+
+    entries: list[DashboardLogEntryResponse] = []
+    for line_number, line in enumerate(raw_lines, start=1):
+        if not line.strip():
+            continue
+
+        match = pattern.match(line)
+        if match is None:
+            entry = _normalize_dashboard_log_entry(
+                line=line,
+                line_number=line_number,
+                date_part=None,
+                time_part=None,
+                level_part=None,
+                message_part=line,
+            )
+        else:
+            entry = _normalize_dashboard_log_entry(
+                line=line,
+                line_number=line_number,
+                date_part=match.group("date"),
+                time_part=match.group("time"),
+                level_part=match.group("level"),
+                message_part=match.group("message") or "",
+            )
+
+        entries.append(entry)
+
+    if len(entries) > settings.max_stored_entries:
+        entries = entries[-settings.max_stored_entries:]
+
+    entries.reverse()
+    return DashboardLogsApiResponse(settings=settings, entries=entries)
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def persist_runtime_resource_history_snapshot(connection: DatabaseConnection, *, force: bool = False) -> None:
+    global _RESOURCE_SNAPSHOT_LAST_PERSISTED_AT_MONOTONIC
+
+    now_monotonic = time.monotonic()
+    if not force and now_monotonic - _RESOURCE_SNAPSHOT_LAST_PERSISTED_AT_MONOTONIC < RESOURCE_SNAPSHOT_INTERVAL_SECONDS:
+        return
+
+    with _RESOURCE_SNAPSHOT_LOCK:
+        now_monotonic = time.monotonic()
+        if not force and now_monotonic - _RESOURCE_SNAPSHOT_LAST_PERSISTED_AT_MONOTONIC < RESOURCE_SNAPSHOT_INTERVAL_SECONDS:
+            return
+
+        summary = get_metrics_collector().summary()
+        metrics = summary.get("metrics") if isinstance(summary, dict) else []
+        metrics = metrics if isinstance(metrics, list) else []
+
+        pending_jobs = 0
+        claimed_jobs = 0
+        for job in runtime_event_bus.pending_jobs():
+            if job.status == "claimed":
+                claimed_jobs += 1
+            else:
+                pending_jobs += 1
+
+        hottest_metric = metrics[0] if metrics else None
+        total_error_count = sum(_as_int(metric.get("error_count")) for metric in metrics if isinstance(metric, dict))
+        max_memory_peak_mb = max(
+            (_as_float(metric.get("memory_peak_mb")) for metric in metrics if isinstance(metric, dict)),
+            default=0.0,
+        )
+
+        snapshot_id = f"resource-snapshot-{uuid4().hex}"
+        captured_at = utc_now_iso()
+
+        connection.execute(
+            """
+            INSERT INTO runtime_resource_snapshots (
+                snapshot_id,
+                captured_at,
+                process_memory_mb,
+                process_cpu_percent,
+                queue_pending_jobs,
+                queue_claimed_jobs,
+                tracked_operations,
+                total_error_count,
+                hottest_operation,
+                hottest_total_duration_ms,
+                max_memory_peak_mb
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                snapshot_id,
+                captured_at,
+                round(max(0.0, snapshot_process_memory_mb()), 2),
+                round(max(0.0, snapshot_process_cpu_percent()), 2),
+                pending_jobs,
+                claimed_jobs,
+                _as_int(summary.get("total_metrics")) if isinstance(summary, dict) else 0,
+                total_error_count,
+                str(hottest_metric.get("operation")) if isinstance(hottest_metric, dict) and hottest_metric.get("operation") else None,
+                round(_as_float(hottest_metric.get("total_duration_ms")) if isinstance(hottest_metric, dict) else 0.0, 2),
+                round(max_memory_peak_mb, 2),
+            ),
+        )
+        connection.commit()
+        _RESOURCE_SNAPSHOT_LAST_PERSISTED_AT_MONOTONIC = now_monotonic
+
+
+def get_runtime_resource_history_response(
+    connection: DatabaseConnection,
+    *,
+    limit: int = RESOURCE_SNAPSHOT_DEFAULT_LIMIT,
+) -> DashboardResourceHistoryApiResponse:
+    safe_limit = max(1, min(limit, 200))
+
+    count_row = fetch_one(connection, "SELECT COUNT(*) AS total FROM runtime_resource_snapshots")
+    total_snapshots = _as_int((count_row or {}).get("total"))
+
+    rows = fetch_all(
+        connection,
+        """
+        SELECT
+            snapshot_id,
+            captured_at,
+            process_memory_mb,
+            process_cpu_percent,
+            queue_pending_jobs,
+            queue_claimed_jobs,
+            tracked_operations,
+            total_error_count,
+            hottest_operation,
+            hottest_total_duration_ms,
+            max_memory_peak_mb
+        FROM runtime_resource_snapshots
+        ORDER BY captured_at DESC
+        LIMIT ?
+        """,
+        (safe_limit,),
+    )
+
+    entries = [DashboardResourceHistoryEntryResponse(**dict(row)) for row in rows]
+    return DashboardResourceHistoryApiResponse(
+        collected_at=utc_now_iso(),
+        total_snapshots=total_snapshots,
+        entries=entries,
+    )
+
+
 def get_runtime_devices_response() -> DashboardDevicesApiResponse:
     sampled_at = utc_now_iso()
     hostname = platform.node() or "Unknown host"

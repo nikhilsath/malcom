@@ -129,6 +129,20 @@ CREATE TABLE IF NOT EXISTS outgoing_delivery_history (
     finished_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS runtime_resource_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    captured_at TEXT NOT NULL,
+    process_memory_mb REAL NOT NULL DEFAULT 0,
+    process_cpu_percent REAL NOT NULL DEFAULT 0,
+    queue_pending_jobs INTEGER NOT NULL DEFAULT 0,
+    queue_claimed_jobs INTEGER NOT NULL DEFAULT 0,
+    tracked_operations INTEGER NOT NULL DEFAULT 0,
+    total_error_count INTEGER NOT NULL DEFAULT 0,
+    hottest_operation TEXT,
+    hottest_total_duration_ms REAL NOT NULL DEFAULT 0,
+    max_memory_peak_mb REAL NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS tools (
     id TEXT PRIMARY KEY,
     source_name TEXT NOT NULL,
@@ -248,6 +262,27 @@ CREATE TABLE IF NOT EXISTS log_db_columns (
     created_at TEXT NOT NULL,
     UNIQUE(table_id, column_name)
 );
+
+CREATE INDEX IF NOT EXISTS automations_enabled_trigger_type_next_run_at_idx
+    ON automations (enabled, trigger_type, next_run_at);
+
+CREATE INDEX IF NOT EXISTS outgoing_scheduled_apis_enabled_next_run_at_idx
+    ON outgoing_scheduled_apis (enabled, next_run_at);
+
+CREATE INDEX IF NOT EXISTS outgoing_continuous_apis_enabled_repeat_enabled_next_run_at_idx
+    ON outgoing_continuous_apis (enabled, repeat_enabled, next_run_at);
+
+CREATE INDEX IF NOT EXISTS automation_runs_automation_id_started_at_idx
+    ON automation_runs (automation_id, started_at);
+
+CREATE INDEX IF NOT EXISTS connectors_provider_status_idx
+    ON connectors (provider, status);
+
+CREATE INDEX IF NOT EXISTS runtime_resource_snapshots_captured_at_idx
+    ON runtime_resource_snapshots (captured_at DESC);
+
+CREATE INDEX IF NOT EXISTS runtime_resource_snapshots_queue_idx
+    ON runtime_resource_snapshots (queue_pending_jobs, queue_claimed_jobs);
 """
 
 
@@ -362,6 +397,15 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "outgoing_delivery_history", "response_summary", "TEXT")
     _ensure_column(connection, "outgoing_delivery_history", "error_summary", "TEXT")
     _ensure_column(connection, "outgoing_delivery_history", "finished_at", "TEXT")
+    _ensure_column(connection, "runtime_resource_snapshots", "process_memory_mb", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "process_cpu_percent", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "queue_pending_jobs", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "queue_claimed_jobs", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "tracked_operations", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "total_error_count", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "hottest_operation", "TEXT")
+    _ensure_column(connection, "runtime_resource_snapshots", "hottest_total_duration_ms", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(connection, "runtime_resource_snapshots", "max_memory_peak_mb", "REAL NOT NULL DEFAULT 0")
     _ensure_column(connection, "tools", "enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "tools", "inputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "tools", "outputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")

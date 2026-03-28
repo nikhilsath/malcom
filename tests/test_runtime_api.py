@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import time
 import unittest
@@ -99,6 +100,65 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertIn("inbound_total_24h", body["api_performance"])
         self.assertIn("needs_attention", body["connector_health"])
 
+    def test_dashboard_logs_endpoint_returns_normalized_entries(self) -> None:
+        logs_dir = Path(self.tempdir.name) / "backend" / "data" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+
+        structured_payload = {
+            "event": "http_request_completed",
+            "context": {
+                "source": "api.runtime",
+                "category": "http",
+                "message": "Request completed successfully.",
+                "path": "/api/v1/runtime/status",
+            },
+            "status_code": 200,
+            "duration_ms": 4,
+        }
+
+        (logs_dir / "malcom.log").write_text(
+            "\n".join(
+                [
+                    f"2026-03-28 10:00:00,123 INFO {json.dumps(structured_payload)}",
+                    "this is not a structured log line",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        response = self.client.get("/api/v1/dashboard/logs")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertIn("settings", payload)
+        self.assertIn("entries", payload)
+        self.assertGreaterEqual(len(payload["entries"]), 2)
+
+        first_entry = payload["entries"][0]
+        self.assertEqual(first_entry["source"], "backend.runtime")
+        self.assertEqual(first_entry["category"], "runtime")
+        self.assertIn("raw_line", first_entry["details"])
+
+        structured_entry = payload["entries"][1]
+        self.assertEqual(structured_entry["action"], "http_request_completed")
+        self.assertEqual(structured_entry["source"], "api.runtime")
+        self.assertEqual(structured_entry["category"], "http")
+        self.assertEqual(structured_entry["level"], "info")
+        self.assertEqual(structured_entry["details"]["status_code"], 200)
+
+    def test_dashboard_logs_endpoint_handles_missing_log_file(self) -> None:
+        log_file = Path(self.tempdir.name) / "backend" / "data" / "logs" / "malcom.log"
+        if log_file.exists():
+            log_file.unlink()
+
+        response = self.client.get("/api/v1/dashboard/logs")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        self.assertIn("settings", payload)
+        self.assertIn("entries", payload)
+        self.assertEqual(payload["entries"], [])
+
     def test_resource_profile_endpoints_expose_and_reset_metrics(self) -> None:
         # Execute a lightweight runtime call to populate baseline metrics in normal execution paths.
         self.assertEqual(self.client.get("/api/v1/runtime/status").status_code, 200)
@@ -123,6 +183,29 @@ class RuntimeApiTestCase(unittest.TestCase):
         post_reset_profile = self.client.get("/api/v1/debug/resource-profile")
         self.assertEqual(post_reset_profile.status_code, 200)
         self.assertEqual(post_reset_profile.json().get("total_metrics"), 0)
+
+    def test_dashboard_resource_history_endpoint_returns_persisted_snapshots(self) -> None:
+        self.assertEqual(self.client.get("/api/v1/runtime/status").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/debug/resource-profile").status_code, 200)
+
+        response = self.client.get("/api/v1/dashboard/resource-history")
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertIn("collected_at", payload)
+        self.assertIn("total_snapshots", payload)
+        self.assertIn("entries", payload)
+        self.assertIsInstance(payload["entries"], list)
+        self.assertGreaterEqual(payload["total_snapshots"], len(payload["entries"]))
+
+        if payload["entries"]:
+            latest = payload["entries"][0]
+            self.assertIn("snapshot_id", latest)
+            self.assertIn("captured_at", latest)
+            self.assertIn("process_memory_mb", latest)
+            self.assertIn("process_cpu_percent", latest)
+            self.assertIn("queue_pending_jobs", latest)
+            self.assertIn("queue_claimed_jobs", latest)
 
 
 if __name__ == "__main__":

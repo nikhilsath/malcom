@@ -48,9 +48,11 @@ The current product UI is organized into these areas:
 - Scripts: reusable script library
 - Settings: workspace, logging, notifications, access, and data
 
-## Current Architecture
+## Dashboard Data Sources
 
-### Backend
+- Runtime telemetry: `runtime_resource_snapshots`
+- Dashboard logs (`/api/v1/dashboard/logs`) are backend-backed and sourced from application runtime log files.
+- Resource profile (`/api/v1/debug/resource-profile`) is backend-backed and remains in-memory for live metrics.
 
 - FastAPI app serving feature routers under `/api/v1/**`, `/health`, and the built UI/static surface
 - Runtime scheduler, trigger queue, worker registration/claim flow, and automation execution services
@@ -58,38 +60,347 @@ The current product UI is organized into these areas:
 - Registry-driven served and redirect UI route registration via `backend/page_registry.py` and `ui/page-registry.json`
 
 ### Frontend
-
 - Vite-built HTML entry pages and route metadata driven by `ui/page-registry.json`
 - Mixed stack: React/TypeScript pages for dashboard and automations
-- TypeScript/DOM page logic for the scripts library
-- Vanilla JavaScript pages for APIs, settings, and tool configuration
-- Shared shell/navigation contract for topnav/sidenav
-- Redirect and legacy alias support for canonical UI routes
+| `repeat_interval_minutes` | `integer` | Optional repeat interval in minutes. |
+| `destination_url` | `text` | Fully resolved outbound destination URL. |
+| `http_method` | `text` | HTTP method used for delivery. |
+| `auth_type` | `text` | Auth mode used when sending the request. |
+| `auth_config_json` | `text` | JSON text for inline outbound auth settings. |
+| `payload_template` | `text` | Request payload template stored as text. |
+| `stream_mode` | `text` | Stored mode label for the continuous resource. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `webhook_signing_json` | `text` | JSON text for optional outbound signing headers/verification config. |
+| `last_run_at` | `text` | Optional timestamp for the most recent delivery attempt. |
+| `next_run_at` | `text` | Optional timestamp for the next queued delivery. |
+| `last_error` | `text` | Optional last delivery failure summary. |
 
-### Data
+#### `webhook_apis`
 
-- PostgreSQL is the runtime database
-- Schema source of truth: `backend/database.py`
-- Tool metadata, connector settings, automation state, scripts, log tables, API definitions, event histories, delivery history, and integration presets are persisted in PostgreSQL
+Webhook receiver definitions used for event-driven inbound integrations.
 
-## Database Schema
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the webhook definition. |
+| `name` | `text` | Human-readable webhook name. |
+| `description` | `text` | Optional description shown in the UI. |
+| `path_slug` | `text` | Unique slug for the webhook. |
+| `is_mock` | `integer` | `0`/`1` flag indicating mock/test mode. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the webhook is active. |
+| `delivery_mode` | `text` | Stored mode label for the resource. Current live data uses `webhook`. |
+| `callback_path` | `text` | Receive path served by the webhook endpoint. |
+| `verification_token` | `text` | Shared verification token used during webhook validation. |
+| `signing_secret` | `text` | Secret used for HMAC signature validation. |
+| `signature_header` | `text` | Header name expected to carry the webhook signature. |
+| `event_filter` | `text` | Optional event-name filter applied before automation triggering. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
 
-`backend/database.py` is the only schema source of truth. The app initializes PostgreSQL tables there and applies additive column evolution from the same module.
+#### `webhook_api_events`
 
-Current table groups:
+Webhook delivery history tied to `webhook_apis`.
 
-- API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `settings`, `integration_presets`
-- Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`
-- Script library: `scripts`
-- Log schema: `log_db_tables`, `log_db_columns`
+| Column | Type | Meaning |
+|---|---|---|
+| `event_id` | `text` | Primary key for the received webhook event. |
+| `api_id` | `text` | Foreign key to [`webhook_apis`](#webhook_apis)`.`id`. |
+| `received_at` | `text` | Timestamp when the webhook arrived. |
+| `status` | `text` | Result of webhook processing. |
+| `event_name` | `text` | Optional event name extracted from the payload/headers. |
+| `verification_ok` | `integer` | `0`/`1` flag showing whether token verification succeeded. |
+| `signature_ok` | `integer` | `0`/`1` flag showing whether signature verification succeeded. |
+| `request_headers_subset` | `text` | JSON text containing the stored subset of request headers. |
+| `payload_json` | `text` | Optional JSON text payload body. |
+| `raw_body` | `text` | Optional raw request body string. |
+| `source_ip` | `text` | Optional client IP captured for the request. |
+| `error_message` | `text` | Optional processing error detail. |
+| `triggered_automation_count` | `integer` | Number of automations triggered by the event. |
+| `is_mock` | `integer` | `0`/`1` flag indicating a mock/test event. |
 
-Schema conventions in `backend/database.py`:
+#### `outgoing_delivery_history`
 
-- additive table creation uses `CREATE TABLE IF NOT EXISTS`
-- additive column changes use `_ensure_column(...)`
-- boolean-like flags are stored as integer-compatible `0` and `1` values
-- structured payloads are typically persisted in `*_json` text columns
+Delivery attempt history for outbound API resources and outbound automation HTTP steps.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `delivery_id` | `text` | Primary key for the delivery history row. |
+| `resource_type` | `text` | Polymorphic source type such as `outgoing_scheduled` or `automation_http_step`. |
+| `resource_id` | `text` | Source record identifier for the delivery. |
+| `status` | `text` | Delivery result status. |
+| `http_status_code` | `integer` | Optional HTTP response code. |
+| `request_summary` | `text` | Optional request summary captured for logs/UI. |
+| `response_summary` | `text` | Optional response summary captured for logs/UI. |
+| `error_summary` | `text` | Optional error summary captured for failures. |
+| `started_at` | `text` | Timestamp when the request started. |
+| `finished_at` | `text` | Optional timestamp when the request finished. |
+
+#### `runtime_resource_snapshots`
+
+Persisted runtime telemetry snapshots used by dashboard resource history.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `snapshot_id` | `text` | Primary key for the telemetry snapshot row. |
+| `captured_at` | `text` | Timestamp when the snapshot was captured. |
+| `process_memory_mb` | `real` | Best-effort runtime process RSS memory at capture time. |
+| `process_cpu_percent` | `real` | Best-effort runtime process CPU percentage at capture time. |
+| `queue_pending_jobs` | `integer` | Number of pending runtime trigger jobs when captured. |
+| `queue_claimed_jobs` | `integer` | Number of claimed runtime trigger jobs when captured. |
+| `tracked_operations` | `integer` | Number of currently tracked in-memory resource metrics. |
+| `total_error_count` | `integer` | Aggregate error count across tracked operations at capture time. |
+| `hottest_operation` | `text` | Operation name with the highest total latency when captured. |
+| `hottest_total_duration_ms` | `real` | Total latency for the hottest operation at capture time. |
+| `max_memory_peak_mb` | `real` | Highest operation-level memory peak observed in tracked metrics at capture time. |
+
+### Workspace State
+
+#### `tools`
+
+Persisted tool catalog metadata. This stores seeded tool definitions plus user overrides and enablement state.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key and stable tool identifier. |
+| `source_name` | `text` | Canonical tool name seeded from the backend catalog. |
+| `source_description` | `text` | Canonical tool description seeded from the backend catalog. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the tool is enabled. |
+| `name_override` | `text` | Optional user override for the tool display name. |
+| `description_override` | `text` | Optional user override for the tool description. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `inputs_schema_json` | `text` | JSON text describing workflow-step input fields for the tool. |
+| `outputs_schema_json` | `text` | JSON text describing workflow-step output fields for the tool. |
+
+#### `settings`
+
+Named JSON settings sections for workspace configuration.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `key` | `text` | Primary key for the settings section name. |
+| `value_json` | `text` | JSON text payload for the settings section. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `integration_presets`
+
+Provider-preset catalog for connectors. This is the intended authoritative store for provider metadata shown in connector setup flows.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key and canonical provider identifier such as `google` or `github`. |
+| `integration_type` | `text` | Preset type discriminator. Current provider catalog rows use `connector_provider`. |
+| `name` | `text` | Human-readable provider name. |
+| `description` | `text` | Provider description shown in setup flows. |
+| `category` | `text` | Catalog grouping used for provider organization. |
+| `auth_types_json` | `text` | JSON text array of supported auth types for the provider. |
+| `default_scopes_json` | `text` | JSON text array of default OAuth scopes for the provider. |
+| `docs_url` | `text` | Provider documentation URL. |
+| `base_url` | `text` | Default provider API base URL. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `connectors`
+
+Saved connector instance records. The active connector read/write path uses instance columns such as `provider`, `status`, `auth_type`, `scopes_json`, `credential_ref`, and `auth_config_json`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the saved connector instance. |
+| `provider` | `text` | Canonical provider id for the connector instance. |
+| `name` | `text` | Display name for the connector. |
+| `status` | `text` | Connector auth/runtime status such as `draft`, `connected`, or `revoked`. |
+| `auth_type` | `text` | Selected auth strategy for the connector instance. |
+| `scopes_json` | `text` | JSON text array of granted/requested scopes for the connector instance. |
+| `base_url` | `text` | Base API URL for the connector/provider. |
+| `owner` | `text` | Human-readable owner label. |
+| `docs_url` | `text` | Provider docs URL or connector docs reference. |
+| `credential_ref` | `text` | Secret-storage reference for the connector. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `auth_config_json` | `text` | JSON text for protected auth configuration and stored credential metadata. |
+| `last_tested_at` | `text` | Optional timestamp of the last credential test/check. |
+
+#### `connector_endpoint_definitions`
+
+Provider-aware endpoint/action catalog for connector activities, HTTP presets, and OAuth endpoint flows.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `endpoint_id` | `text` | Primary key and stable endpoint/action identifier. |
+| `provider_id` | `text` | Provider id owning the endpoint definition. This references `integration_presets.id`. |
+| `endpoint_kind` | `text` | Kind of definition such as `activity`, `http_preset`, or OAuth endpoint type. |
+| `service` | `text` | Provider sub-service grouping such as `gmail`, `drive`, or `oauth`. |
+| `operation_type` | `text` | Action verb or semantic operation category. |
+| `label` | `text` | Human-readable label shown in UI flows. |
+| `description` | `text` | Human-readable description of the endpoint/action. |
+| `http_method` | `text` | HTTP method used for the request. |
+| `endpoint_path_template` | `text` | Path template relative to the provider base URL. |
+| `query_params_json` | `text` | JSON text of static query parameters/defaults owned by the endpoint definition. |
+| `required_scopes_json` | `text` | JSON text array of scopes required for this endpoint/action. |
+| `input_schema_json` | `text` | JSON text schema describing the user-editable inputs exposed by the builder. |
+| `output_schema_json` | `text` | JSON text schema describing structured outputs returned by the action. |
+| `payload_template` | `text` | Stored request-body template used by the action. |
+| `execution_json` | `text` | JSON text mapping used by the runtime execution layer. |
+| `metadata_json` | `text` | JSON text for extra endpoint metadata not modeled in first-class columns. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+### Automation Runtime
+
+#### `automations`
+
+Top-level automation definitions and trigger configuration.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the automation. |
+| `name` | `text` | Human-readable automation name. |
+| `description` | `text` | Optional automation description. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the automation can run. |
+| `trigger_type` | `text` | Trigger mode such as manual, schedule, inbound API, or webhook. |
+| `trigger_config_json` | `text` | JSON text trigger configuration payload. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `last_run_at` | `text` | Optional timestamp for the most recent completed run. |
+| `next_run_at` | `text` | Optional timestamp for the next scheduled run. |
+| `default_storage_location_id` | `text` | Optional default storage destination id for run artifacts. This points into storage settings, not a dedicated table. |
+
+#### `automation_steps`
+
+Ordered step definitions for each automation.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `step_id` | `text` | Primary key for the automation step definition. |
+| `automation_id` | `text` | Foreign key to [`automations`](#automations)`.`id`. |
+| `position` | `integer` | Ordered position within the automation; unique per automation. |
+| `step_type` | `text` | Step kind such as tool, API, condition, or script. |
+| `name` | `text` | Human-readable step name. |
+| `config_json` | `text` | JSON text configuration payload for the step. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `on_true_step_id` | `text` | Optional branch target step id used for condition true paths. |
+| `on_false_step_id` | `text` | Optional branch target step id used for condition false paths. |
+| `is_merge_target` | `integer` | `0`/`1` flag indicating the step is intended as a branch merge target. |
+
+#### `automation_runs`
+
+Execution-history rows for automation runs.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `run_id` | `text` | Primary key for the automation run. |
+| `automation_id` | `text` | Parent automation id for the run. The live schema does not currently enforce this with a foreign key. |
+| `trigger_type` | `text` | Trigger mode that started the run. |
+| `status` | `text` | Run status such as queued, running, succeeded, or failed. |
+| `worker_id` | `text` | Optional worker id assigned to the run. |
+| `worker_name` | `text` | Optional worker display name recorded for the run. |
+| `started_at` | `text` | Run start timestamp stored as ISO text. |
+| `finished_at` | `text` | Optional run completion timestamp stored as ISO text. |
+| `duration_ms` | `integer` | Optional computed run duration in milliseconds. |
+| `error_summary` | `text` | Optional top-level error summary for failed runs. |
+
+#### `automation_run_steps`
+
+Per-step execution history for a run.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `step_id` | `text` | Primary key for the run-step history row. |
+| `run_id` | `text` | Foreign key to [`automation_runs`](#automation_runs)`.`run_id`. |
+| `step_name` | `text` | Step name snapshot recorded at execution time. |
+| `status` | `text` | Step execution status. |
+| `request_summary` | `text` | Optional request/input summary for the step. |
+| `response_summary` | `text` | Optional response/output summary for the step. |
+| `started_at` | `text` | Step start timestamp stored as ISO text. |
+| `finished_at` | `text` | Optional step completion timestamp stored as ISO text. |
+| `duration_ms` | `integer` | Optional computed duration in milliseconds. |
+| `detail_json` | `text` | Optional JSON text with step-specific detail payloads. |
+| `inputs_json` | `text` | JSON text snapshot of resolved step inputs. |
+| `response_body_json` | `text` | Optional JSON text copy of parsed response bodies for supported step types. |
+| `extracted_fields_json` | `text` | Optional JSON text of extracted response-mapping fields. |
+
+#### `storage_artifacts`
+
+Stored artifact metadata produced by automation steps. This table tracks logical artifact records; the actual file may live in a local folder or provider-backed destination.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `artifact_id` | `text` | Primary key for the artifact row. |
+| `storage_location_id` | `text` | Logical storage location id. This references the storage settings payload, not a dedicated relational table. |
+| `storage_kind` | `text` | Storage backend kind such as `local_folder` or `google_drive_folder`. |
+| `byte_size` | `integer` | Artifact size in bytes. |
+| `reference_key` | `text` | Local path or provider reference key for the stored artifact. |
+| `automation_id` | `text` | Optional automation id that produced the artifact. |
+| `run_id` | `text` | Optional run id that produced the artifact. |
+| `step_id` | `text` | Optional step id that produced the artifact. |
+| `provider_path` | `text` | Optional provider-native destination path/identifier. |
+| `metadata_json` | `text` | JSON text with extra artifact metadata such as MIME type or display name. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `deleted_at` | `text` | Optional soft-delete timestamp. `NULL` means the artifact is active. |
+
+### Script Library
+
+#### `scripts`
+
+Reusable script definitions stored in the library.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the script. |
+| `name` | `text` | Human-readable script name. |
+| `description` | `text` | Optional script description. |
+| `language` | `text` | Script language/runtime identifier. |
+| `code` | `text` | Stored script source code. |
+| `validation_status` | `text` | Current validation state such as `unknown`, `valid`, or `invalid`. |
+| `validation_message` | `text` | Optional validation error/warning detail. |
+| `last_validated_at` | `text` | Optional timestamp of the last validation pass. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+| `sample_input` | `text` | Stored sample input used for testing or authoring help. |
+
+### Log Schema Metadata
+
+`log_db_tables` and `log_db_columns` define dynamic `log_data_*` tables created at runtime for write-to-DB/log workflows. The metadata tables below are fixed; generated `log_data_*` tables are not listed here because their shape depends on user-created definitions.
+
+#### `log_db_tables`
+
+Managed metadata for user-defined log tables.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the managed log table definition. |
+| `name` | `text` | Unique logical table name used to derive the physical `log_data_<name>` table. |
+| `description` | `text` | Optional description of the table's purpose. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `log_db_columns`
+
+Managed metadata for columns belonging to a `log_db_tables` definition.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the managed column definition. |
+| `table_id` | `text` | Foreign key to [`log_db_tables`](#log_db_tables)`.`id`. |
+| `column_name` | `text` | Column name that will be created on the physical `log_data_*` table. |
+| `data_type` | `text` | Logical type selected for the managed column. |
+| `nullable` | `integer` | `0`/`1` flag indicating whether the generated column allows `NULL`. |
+| `default_value` | `text` | Optional literal default value applied to the generated column. |
+| `position` | `integer` | Stable display/creation order for the column within the table definition. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+
+### Schema Health Notes
+
+The current schema is serviceable for a single-environment local-first app, but it is not fully aligned with stricter relational database best practices yet.
+
+- Good: primary keys exist for every documented table, unique constraints exist where identity matters (`path_slug`, tool ids, managed log names), and key child tables such as `automation_steps`, `automation_run_steps`, `inbound_api_events`, `webhook_api_events`, and `log_db_columns` already use foreign keys.
+- Good: connector source-of-truth is split cleanly by responsibility: `integration_presets` for provider catalog rows, `connectors` for saved connector instances, and `connector_endpoint_definitions` for provider action/endpoint metadata.
+- Good: scheduler-heavy query paths now have dedicated composite indexes for the runtime lookups used by automations, outbound APIs, runs, and connectors.
+- Needs improvement: most timestamps are stored as `text` instead of `timestamptz`, most booleans are stored as `integer` instead of `boolean`, and most structured payloads are stored as `text` instead of `jsonb`.
+- Needs improvement: several important reference columns intentionally remain soft references today, including `automation_runs.automation_id`, `storage_artifacts.automation_id`, `storage_artifacts.run_id`, and `storage_artifacts.step_id`, because current deletion/retention behavior preserves historical records.
 
 ## Repository Map
 

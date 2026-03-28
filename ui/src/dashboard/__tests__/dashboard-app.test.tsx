@@ -12,6 +12,65 @@ const expectTextById = (id: string, text: string) => {
   expect(document.querySelector(`#${id}`)).toHaveTextContent(text);
 };
 
+const defaultDashboardLogsPayload = {
+  settings: {
+    max_stored_entries: 250,
+    max_visible_entries: 50,
+    max_detail_characters: 4000
+  },
+  entries: [
+    {
+      id: "log-runtime-bootstrap",
+      timestamp: "2026-03-14T09:20:00.000Z",
+      level: "info",
+      source: "system.bootstrap",
+      category: "runtime",
+      action: "startup",
+      message: "Client-side runtime logging initialized.",
+      details: {
+        storage: "localStorage",
+        filters: ["level", "source", "category", "time", "search"]
+      },
+      context: {
+        environment: "browser"
+      }
+    },
+    {
+      id: "log-settings-defaults",
+      timestamp: "2026-03-14T09:25:00.000Z",
+      level: "info",
+      source: "system.settings",
+      category: "configuration",
+      action: "defaults_loaded",
+      message: "Default logging thresholds applied.",
+      details: {
+        maxStoredEntries: 250,
+        maxVisibleEntries: 50,
+        maxDetailCharacters: 4000
+      },
+      context: {
+        boot: true
+      }
+    },
+    {
+      id: "log-api-retry",
+      timestamp: "2026-03-14T09:28:00.000Z",
+      level: "warning",
+      source: "api.webhooks",
+      category: "delivery",
+      action: "verification_retry",
+      message: "Webhook signature verification retried against the local secret store.",
+      details: {
+        attempts: 2,
+        endpoint: "/webhooks/inbound/weather"
+      },
+      context: {
+        path: "/dashboard/home"
+      }
+    }
+  ]
+};
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.stubGlobal(
@@ -30,6 +89,35 @@ beforeEach(() => {
             pending_jobs: 0,
             claimed_jobs: 0,
             jobs: []
+          })
+        };
+      }
+
+      if (url.includes("/api/v1/dashboard/logs")) {
+        return {
+          ok: true,
+          json: async () => defaultDashboardLogsPayload
+        };
+      }
+
+      if (url.includes("/api/v1/debug/resource-profile")) {
+        return {
+          ok: true,
+          json: async () => ({
+            collected_at: "2026-03-20T09:00:00.000Z",
+            total_metrics: 0,
+            metrics: []
+          })
+        };
+      }
+
+      if (url.includes("/api/v1/dashboard/resource-history")) {
+        return {
+          ok: true,
+          json: async () => ({
+            collected_at: "2026-03-20T09:00:00.000Z",
+            total_snapshots: 0,
+            entries: []
           })
         };
       }
@@ -177,6 +265,31 @@ describe("DashboardApp", () => {
           };
         }
 
+        if (url.includes("/api/v1/dashboard/resource-history")) {
+          return {
+            ok: true,
+            json: async () => ({
+              collected_at: "2026-03-21T12:00:00.000Z",
+              total_snapshots: 2,
+              entries: [
+                {
+                  snapshot_id: "resource-snapshot-1",
+                  captured_at: "2026-03-21T12:00:00.000Z",
+                  process_memory_mb: 188.25,
+                  process_cpu_percent: 17.4,
+                  queue_pending_jobs: 2,
+                  queue_claimed_jobs: 1,
+                  tracked_operations: 2,
+                  total_error_count: 1,
+                  hottest_operation: "step_tool",
+                  hottest_total_duration_ms: 961.2,
+                  max_memory_peak_mb: 12.75
+                }
+              ]
+            })
+          };
+        }
+
         return {
           ok: true,
           json: async () => ({ host: null, devices: [] })
@@ -195,6 +308,10 @@ describe("DashboardApp", () => {
     expectTextById("dashboard-overview-resource-operation-0", "step_tool");
     expectTextById("dashboard-overview-resource-memory-0", "12.75 MB");
     expectTextById("dashboard-overview-resource-errors-0", "12.5% (1)");
+    expectTextById("dashboard-overview-resource-history-total-value", "2");
+    expectTextById("dashboard-overview-resource-history-memory-value", "188.25 MB");
+    expectTextById("dashboard-overview-resource-history-cpu-value", "17.4%");
+    expectTextById("dashboard-overview-resource-history-queue-value", "3");
     expect(document.querySelector("#dashboard-overview-summary-visible-logs")).not.toBeInTheDocument();
     expect(document.querySelector("#dashboard-overview-layout")?.firstElementChild).toHaveAttribute(
       "id",
@@ -259,6 +376,10 @@ describe("DashboardApp", () => {
 
     const sourceSelect = await screen.findByLabelText("Source");
     fireEvent.change(sourceSelect, { target: { value: "api.webhooks" } });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/v1/dashboard/logs");
+    });
 
     expect(document.querySelector("#dashboard-logs-results-count")?.textContent).toContain("1 matching logs");
     expect(screen.getAllByText("Webhook signature verification retried against the local secret store.").length).toBeGreaterThan(0);

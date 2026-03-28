@@ -40,6 +40,18 @@ def get_dashboard_queue() -> DashboardQueueApiResponse:
     return get_runtime_queue_response()
 
 
+@router.get("/api/v1/dashboard/logs", response_model=DashboardLogsApiResponse)
+def get_dashboard_logs(request: Request) -> DashboardLogsApiResponse:
+    return get_runtime_dashboard_logs_response(get_connection(request), get_root_dir(request))
+
+
+@router.get("/api/v1/dashboard/resource-history", response_model=DashboardResourceHistoryApiResponse)
+def get_dashboard_resource_history(request: Request) -> DashboardResourceHistoryApiResponse:
+    connection = get_connection(request)
+    persist_runtime_resource_history_snapshot(connection)
+    return get_runtime_resource_history_response(connection)
+
+
 @router.post("/api/v1/dashboard/queue/pause", response_model=DashboardQueueApiResponse)
 def pause_dashboard_queue() -> DashboardQueueApiResponse:
     return set_runtime_queue_pause_state(True)
@@ -65,12 +77,14 @@ def list_runtime_triggers() -> list[dict[str, Any]]:
 
 
 @router.get("/api/v1/debug/resource-profile", response_model=dict[str, Any])
-def get_resource_profile() -> dict[str, Any]:
+def get_resource_profile(request: Request) -> dict[str, Any]:
+    persist_runtime_resource_history_snapshot(get_connection(request))
     return get_metrics_collector().summary()
 
 
 @router.get("/api/v1/debug/resource-profile/{component}", response_model=dict[str, Any])
-def get_resource_profile_component(component: str) -> dict[str, Any]:
+def get_resource_profile_component(component: str, request: Request) -> dict[str, Any]:
+    persist_runtime_resource_history_snapshot(get_connection(request))
     return get_metrics_collector().by_component(component)
 
 

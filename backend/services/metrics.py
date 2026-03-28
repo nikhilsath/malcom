@@ -26,6 +26,16 @@ def _read_process_memory_mb() -> float:
         return 0.0
 
 
+def _read_process_cpu_percent() -> float:
+    """Best-effort process CPU percentage."""
+    try:
+        import psutil  # type: ignore
+
+        return float(psutil.Process().cpu_percent(interval=None))
+    except Exception:
+        return 0.0
+
+
 @dataclass
 class ComponentMetric:
     component: str
@@ -134,9 +144,14 @@ def snapshot_process_memory_mb() -> float:
     return _read_process_memory_mb()
 
 
+def snapshot_process_cpu_percent() -> float:
+    return _read_process_cpu_percent()
+
+
 __all__ = [
     "ComponentMetric",
     "MetricsCollector",
     "get_metrics_collector",
+    "snapshot_process_cpu_percent",
     "snapshot_process_memory_mb",
 ]

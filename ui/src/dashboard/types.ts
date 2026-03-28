@@ -178,6 +178,26 @@ export interface DashboardResourceProfileResponse {
   metrics: DashboardResourceMetric[];
 }
 
+export interface DashboardResourceHistoryEntry {
+  snapshotId: string;
+  capturedAt: string;
+  processMemoryMb: number;
+  processCpuPercent: number;
+  queuePendingJobs: number;
+  queueClaimedJobs: number;
+  trackedOperations: number;
+  totalErrorCount: number;
+  hottestOperation: string | null;
+  hottestTotalDurationMs: number;
+  maxMemoryPeakMb: number;
+}
+
+export interface DashboardResourceHistoryResponse {
+  collectedAt: string;
+  totalSnapshots: number;
+  entries: DashboardResourceHistoryEntry[];
+}
+
 export interface MalcomLogStore {
   defaults: DashboardLogSettings;
   getSettings: () => DashboardLogSettings;

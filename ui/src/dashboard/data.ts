@@ -8,11 +8,12 @@ import type {
   DashboardLogsResponse,
   DashboardQueueJob,
   DashboardQueueResponse,
+  DashboardResourceHistoryEntry,
+  DashboardResourceHistoryResponse,
   DashboardResourceMetric,
   DashboardResourceProfileResponse,
   DashboardRunSummary,
-  DashboardSummaryResponse,
-  MalcomLogStore
+  DashboardSummaryResponse
 } from "./types";
 
 const sidebarStorageKey = "sidebarCollapsed";
@@ -152,6 +153,49 @@ type DashboardResourceProfileApiResponse = {
   metrics: DashboardResourceMetricApi[];
 };
 
+type DashboardResourceHistoryApiEntry = {
+  snapshot_id: string;
+  captured_at: string;
+  process_memory_mb: number;
+  process_cpu_percent: number;
+  queue_pending_jobs: number;
+  queue_claimed_jobs: number;
+  tracked_operations: number;
+  total_error_count: number;
+  hottest_operation: string | null;
+  hottest_total_duration_ms: number;
+  max_memory_peak_mb: number;
+};
+
+type DashboardResourceHistoryApiResponse = {
+  collected_at: string;
+  total_snapshots: number;
+  entries: DashboardResourceHistoryApiEntry[];
+};
+
+type DashboardLogsApiSettings = {
+  max_stored_entries: number;
+  max_visible_entries: number;
+  max_detail_characters: number;
+};
+
+type DashboardLogsApiEntry = {
+  id: string;
+  timestamp: string;
+  level: DashboardLogEntry["level"];
+  source: string;
+  category: string;
+  action: string;
+  message: string;
+  details: Record<string, unknown>;
+  context: Record<string, unknown>;
+};
+
+type DashboardLogsApiResponse = {
+  settings: DashboardLogsApiSettings;
+  entries: DashboardLogsApiEntry[];
+};
+
 type DashboardSummaryApiHealth = {
   id: string;
   status: DashboardSummaryResponse["health"]["status"];
@@ -256,6 +300,12 @@ const emptyResourceProfileResponse: DashboardResourceProfileResponse = {
   metrics: []
 };
 
+const emptyResourceHistoryResponse: DashboardResourceHistoryResponse = {
+  collectedAt: new Date().toISOString(),
+  totalSnapshots: 0,
+  entries: []
+};
+
 const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
   id: host.id,
   name: host.name,
@@ -335,6 +385,49 @@ const mapApiResourceProfileResponse = (
   metrics: Array.isArray(payload.metrics) ? payload.metrics.map(mapApiResourceMetric) : []
 });
 
+const mapApiResourceHistoryEntry = (entry: DashboardResourceHistoryApiEntry): DashboardResourceHistoryEntry => ({
+  snapshotId: entry.snapshot_id,
+  capturedAt: entry.captured_at,
+  processMemoryMb: entry.process_memory_mb,
+  processCpuPercent: entry.process_cpu_percent,
+  queuePendingJobs: entry.queue_pending_jobs,
+  queueClaimedJobs: entry.queue_claimed_jobs,
+  trackedOperations: entry.tracked_operations,
+  totalErrorCount: entry.total_error_count,
+  hottestOperation: entry.hottest_operation,
+  hottestTotalDurationMs: entry.hottest_total_duration_ms,
+  maxMemoryPeakMb: entry.max_memory_peak_mb
+});
+
+const mapApiResourceHistoryResponse = (
+  payload: DashboardResourceHistoryApiResponse
+): DashboardResourceHistoryResponse => ({
+  collectedAt: payload.collected_at,
+  totalSnapshots: payload.total_snapshots,
+  entries: Array.isArray(payload.entries) ? payload.entries.map(mapApiResourceHistoryEntry) : []
+});
+
+const mapApiLogsResponse = (payload: DashboardLogsApiResponse): DashboardLogsResponse => ({
+  settings: {
+    maxStoredEntries: payload.settings.max_stored_entries,
+    maxVisibleEntries: payload.settings.max_visible_entries,
+    maxDetailCharacters: payload.settings.max_detail_characters
+  },
+  entries: Array.isArray(payload.entries)
+    ? payload.entries.map((entry) => ({
+      id: entry.id,
+      timestamp: entry.timestamp,
+      level: entry.level,
+      source: entry.source,
+      category: entry.category,
+      action: entry.action,
+      message: entry.message,
+      details: entry.details,
+      context: entry.context
+    }))
+    : []
+});
+
 const mapApiSummaryResponse = (payload: DashboardSummaryApiResponse): DashboardSummaryResponse => ({
   health: {
     id: payload.health.id,
@@ -404,55 +497,6 @@ const mapApiSummaryResponse = (payload: DashboardSummaryApiResponse): DashboardS
     pendingOauth: payload.connector_health.pending_oauth
   }
 });
-
-const createFallbackLogStore = (): MalcomLogStore => {
-  let settings = { ...defaultLogSettings };
-  let logs = [...defaultLogEntries];
-
-  return {
-    defaults: { ...defaultLogSettings },
-    getSettings: () => ({ ...settings }),
-    updateSettings(nextSettings) {
-      settings = {
-        maxStoredEntries: nextSettings.maxStoredEntries ?? settings.maxStoredEntries,
-        maxVisibleEntries: nextSettings.maxVisibleEntries ?? settings.maxVisibleEntries,
-        maxDetailCharacters: nextSettings.maxDetailCharacters ?? settings.maxDetailCharacters
-      };
-      return { ...settings };
-    },
-    resetSettings() {
-      settings = { ...defaultLogSettings };
-      return { ...settings };
-    },
-    getLogs: () => [...logs],
-    log(entry) {
-      const createdEntry: DashboardLogEntry = {
-        id: entry.id || `log_${Date.now()}`,
-        timestamp: entry.timestamp || new Date().toISOString(),
-        level: entry.level || "info",
-        source: entry.source || "ui.dashboard",
-        category: entry.category || "system",
-        action: entry.action || "event",
-        message: entry.message || "Dashboard event recorded.",
-        details: (entry.details as Record<string, unknown>) || {},
-        context: (entry.context as Record<string, unknown>) || {}
-      };
-      logs = [createdEntry, ...logs];
-      return createdEntry;
-    },
-    clearLogs() {
-      logs = [];
-    }
-  };
-};
-
-const getLogStore = (): MalcomLogStore => {
-  if (!window.MalcomLogStore) {
-    window.MalcomLogStore = createFallbackLogStore();
-  }
-
-  return window.MalcomLogStore;
-};
 
 export const isSidebarCollapsed = () => sessionStorage.getItem(sidebarStorageKey) === "true";
 
@@ -544,11 +588,31 @@ export const dashboardApi = {
   },
 
   async getLogs(): Promise<DashboardLogsResponse> {
-    const store = getLogStore();
-    return {
-      settings: store.getSettings(),
-      entries: store.getLogs()
-    };
+    try {
+      const response = await fetch("/api/v1/dashboard/logs");
+
+      if (!response.ok) {
+        return {
+          settings: { ...defaultLogSettings },
+          entries: [...defaultLogEntries]
+        };
+      }
+
+      const payload = (await response.json()) as Partial<DashboardLogsApiResponse>;
+      if (!payload.settings || !Array.isArray(payload.entries)) {
+        return {
+          settings: { ...defaultLogSettings },
+          entries: [...defaultLogEntries]
+        };
+      }
+
+      return mapApiLogsResponse(payload as DashboardLogsApiResponse);
+    } catch {
+      return {
+        settings: { ...defaultLogSettings },
+        entries: [...defaultLogEntries]
+      };
+    }
   },
 
   async getQueue(): Promise<DashboardQueueResponse> {
@@ -578,6 +642,25 @@ export const dashboardApi = {
       return mapApiResourceProfileResponse(payload);
     } catch {
       return { ...emptyResourceProfileResponse };
+    }
+  },
+
+  async getResourceHistory(): Promise<DashboardResourceHistoryResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/resource-history");
+
+      if (!response.ok) {
+        return { ...emptyResourceHistoryResponse };
+      }
+
+      const payload = (await response.json()) as Partial<DashboardResourceHistoryApiResponse>;
+      if (!Array.isArray(payload.entries)) {
+        return { ...emptyResourceHistoryResponse };
+      }
+
+      return mapApiResourceHistoryResponse(payload as DashboardResourceHistoryApiResponse);
+    } catch {
+      return { ...emptyResourceHistoryResponse };
     }
   },
 

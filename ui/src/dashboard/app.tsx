@@ -35,6 +35,7 @@ import type {
   DashboardDevicesResponse,
   DashboardLogsResponse,
   DashboardQueueResponse,
+  DashboardResourceHistoryResponse,
   DashboardResourceProfileResponse,
   DashboardSummaryResponse
 } from "./types";
@@ -195,6 +196,35 @@ const useResourceProfileData = () => {
   return [state, refresh] as const;
 };
 
+const useResourceHistoryData = () => {
+  const [state, setState] = useState<DashboardResourceHistoryResponse | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    let intervalId: number | null = null;
+
+    const loadResourceHistory = () => {
+      dashboardApi.getResourceHistory().then((response) => {
+        if (isActive) {
+          setState(response);
+        }
+      });
+    };
+
+    loadResourceHistory();
+    intervalId = window.setInterval(loadResourceHistory, 10_000);
+
+    return () => {
+      isActive = false;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, []);
+
+  return state;
+};
+
 const DashboardLayout = () => {
   const routeHandle = useRouteHandle();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isSidebarCollapsed);
@@ -259,14 +289,18 @@ const HomePage = () => {
   const logs = useLogsData();
   const queue = useQueueData();
   const [resourceProfile, refreshResourceProfile] = useResourceProfileData();
+  const resourceHistory = useResourceHistoryData();
 
-  if (!summary || !logs || !queue || !resourceProfile) {
+  if (!summary || !logs || !queue || !resourceProfile || !resourceHistory) {
     return null;
   }
 
   const runSummary = getRunStatusSummary(summary.recentRuns);
   const alertSummary = getAlertSeveritySummary(summary.alerts);
   const topResourceMetrics = resourceProfile.metrics.slice(0, 5);
+  const recentHistory = resourceHistory.entries.slice(0, 5);
+  const latestHistory = recentHistory[0] || null;
+  const latestQueueDepth = latestHistory ? latestHistory.queuePendingJobs + latestHistory.queueClaimedJobs : 0;
 
   return (
     <div id="dashboard-overview-layout" className="stacked-card-layout">
@@ -315,6 +349,26 @@ const HomePage = () => {
             label="Highest memory delta"
             value={topResourceMetrics[0] ? `${topResourceMetrics[0].memoryPeakMb.toFixed(2)} MB` : "0.00 MB"}
           />
+          <SummaryCard
+            id="dashboard-overview-resource-history-total"
+            label="Persisted snapshots"
+            value={resourceHistory.totalSnapshots}
+          />
+          <SummaryCard
+            id="dashboard-overview-resource-history-memory"
+            label="Latest process memory"
+            value={latestHistory ? `${latestHistory.processMemoryMb.toFixed(2)} MB` : "0.00 MB"}
+          />
+          <SummaryCard
+            id="dashboard-overview-resource-history-cpu"
+            label="Latest process CPU"
+            value={latestHistory ? `${latestHistory.processCpuPercent.toFixed(1)}%` : "0.0%"}
+          />
+          <SummaryCard
+            id="dashboard-overview-resource-history-queue"
+            label="Latest queue depth"
+            value={latestQueueDepth}
+          />
         </div>
         {topResourceMetrics.length === 0 ? (
           <EmptyState
@@ -349,6 +403,41 @@ const HomePage = () => {
                     <td id={`dashboard-overview-resource-errors-${index}`}>
                       {metric.errorRatePercent.toFixed(1)}% ({metric.errorCount})
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {recentHistory.length === 0 ? (
+          <EmptyState
+            id="dashboard-overview-resource-history-empty"
+            title="No persisted history yet"
+            description="Resource snapshots are captured periodically while the runtime is active."
+          />
+        ) : (
+          <div id="dashboard-overview-resource-history-table-shell" className="api-table-shell">
+            <table id="dashboard-overview-resource-history-table" className="api-directory-table dashboard-table">
+              <thead>
+                <tr>
+                  <th id="dashboard-overview-resource-history-header-captured">Captured</th>
+                  <th id="dashboard-overview-resource-history-header-memory">Process memory</th>
+                  <th id="dashboard-overview-resource-history-header-cpu">Process CPU</th>
+                  <th id="dashboard-overview-resource-history-header-queue">Queue depth</th>
+                  <th id="dashboard-overview-resource-history-header-errors">Errors</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentHistory.map((entry) => (
+                  <tr id={`dashboard-overview-resource-history-row-${entry.snapshotId}`} key={entry.snapshotId}>
+                    <td id={`dashboard-overview-resource-history-captured-${entry.snapshotId}`}>{formatDateTime(entry.capturedAt)}</td>
+                    <td id={`dashboard-overview-resource-history-memory-${entry.snapshotId}`}>{entry.processMemoryMb.toFixed(2)} MB</td>
+                    <td id={`dashboard-overview-resource-history-cpu-${entry.snapshotId}`}>{entry.processCpuPercent.toFixed(1)}%</td>
+                    <td id={`dashboard-overview-resource-history-queue-${entry.snapshotId}`}>
+                      {entry.queuePendingJobs + entry.queueClaimedJobs}
+                    </td>
+                    <td id={`dashboard-overview-resource-history-errors-${entry.snapshotId}`}>{entry.totalErrorCount}</td>
                   </tr>
                 ))}
               </tbody>

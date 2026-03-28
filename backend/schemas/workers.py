@@ -68,6 +68,49 @@ class DashboardQueueApiResponse(BaseModel):
     jobs: list[DashboardQueueJobResponse]
 
 
+class DashboardLogSettingsResponse(BaseModel):
+    max_stored_entries: int
+    max_visible_entries: int
+    max_detail_characters: int
+
+
+class DashboardLogEntryResponse(BaseModel):
+    id: str
+    timestamp: str
+    level: Literal["debug", "info", "warning", "error"]
+    source: str
+    category: str
+    action: str
+    message: str
+    details: dict[str, Any]
+    context: dict[str, Any]
+
+
+class DashboardLogsApiResponse(BaseModel):
+    settings: DashboardLogSettingsResponse
+    entries: list[DashboardLogEntryResponse]
+
+
+class DashboardResourceHistoryEntryResponse(BaseModel):
+    snapshot_id: str
+    captured_at: str
+    process_memory_mb: float
+    process_cpu_percent: float
+    queue_pending_jobs: int
+    queue_claimed_jobs: int
+    tracked_operations: int
+    total_error_count: int
+    hottest_operation: str | None
+    hottest_total_duration_ms: float
+    max_memory_peak_mb: float
+
+
+class DashboardResourceHistoryApiResponse(BaseModel):
+    collected_at: str
+    total_snapshots: int
+    entries: list[DashboardResourceHistoryEntryResponse]
+
+
 class DashboardSummaryRunCountsResponse(BaseModel):
     success: int
     warning: int
@@ -242,6 +285,11 @@ __all__ = [
     "DashboardSummaryRuntimeOverviewResponse",
     "DashboardSummaryServiceResponse",
     "DashboardSummaryWorkerHealthResponse",
+    "DashboardLogEntryResponse",
+    "DashboardLogsApiResponse",
+    "DashboardLogSettingsResponse",
+    "DashboardResourceHistoryApiResponse",
+    "DashboardResourceHistoryEntryResponse",
     "DashboardQueueApiResponse",
     "DashboardQueueJobResponse",
     "HostMachineSummary",

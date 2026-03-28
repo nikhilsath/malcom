@@ -356,6 +356,39 @@ export const defaultDashboardResourceProfileResponse = {
   ]
 } satisfies RouteObject;
 
+export const defaultDashboardResourceHistoryResponse = {
+  collected_at: fixedNowIso,
+  total_snapshots: 3,
+  entries: [
+    {
+      snapshot_id: "resource-snapshot-1",
+      captured_at: fixedNowIso,
+      process_memory_mb: 180.25,
+      process_cpu_percent: 12.4,
+      queue_pending_jobs: 1,
+      queue_claimed_jobs: 1,
+      tracked_operations: 3,
+      total_error_count: 1,
+      hottest_operation: "step_tool",
+      hottest_total_duration_ms: 961.2,
+      max_memory_peak_mb: 12.75
+    },
+    {
+      snapshot_id: "resource-snapshot-2",
+      captured_at: "2026-03-21T11:58:00.000Z",
+      process_memory_mb: 178.9,
+      process_cpu_percent: 8.1,
+      queue_pending_jobs: 0,
+      queue_claimed_jobs: 1,
+      tracked_operations: 3,
+      total_error_count: 1,
+      hottest_operation: "step_tool",
+      hottest_total_duration_ms: 940.1,
+      max_memory_peak_mb: 12.75
+    }
+  ]
+} satisfies RouteObject;
+
 export const defaultLogTablesResponse = [
   {
     id: "log-table-1",
@@ -391,6 +424,7 @@ export type DashboardSettingsFixtureOptions = {
   devices?: RouteObject;
   queue?: RouteObject;
   resourceProfile?: RouteObject;
+  resourceHistory?: RouteObject;
   logTables?: Array<RouteObject>;
   logs?: Array<RouteObject>;
   freezeTimeIso?: string;
@@ -404,7 +438,10 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     summary: clone(deepMerge(defaultDashboardSummaryResponse, options.summary || {})),
     devices: clone(deepMerge(defaultDashboardDevicesResponse, options.devices || {})),
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
+    logs: clone(options.logs || dashboardLogEntries),
+    publicProxy: clone(deepMerge(defaultPublicProxyResponse, options.publicProxy || {})),
     resourceProfile: clone(deepMerge(defaultDashboardResourceProfileResponse, options.resourceProfile || {})),
+    resourceHistory: clone(deepMerge(defaultDashboardResourceHistoryResponse, options.resourceHistory || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
     freezeTimeIso: options.freezeTimeIso || fixedNowIso,
     settingsGetDelayMs: options.settingsGetDelayMs || 0
@@ -500,6 +537,59 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     });
   });
 
+  await page.route("**/api/v1/dashboard/logs", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    const loggingSettings = (state.settings as Record<string, unknown>).logging as Record<string, unknown> | undefined;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        settings: {
+          max_stored_entries: Number(loggingSettings?.max_stored_entries || 250),
+          max_visible_entries: Number(loggingSettings?.max_visible_entries || 50),
+          max_detail_characters: Number(loggingSettings?.max_detail_characters || 4000)
+        },
+        entries: state.logs
+      })
+    });
+  });
+
+  await page.route("**/api/v1/runtime/public-proxy", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state.publicProxy)
+      });
+      return;
+    }
+
+    if (method === "POST") {
+      const payload = route.request().postDataJSON() as { enabled?: boolean };
+      state.publicProxy = {
+        ...state.publicProxy,
+        enabled: Boolean(payload.enabled),
+        running: Boolean(payload.enabled),
+        last_error: null,
+        updated_at: state.freezeTimeIso
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(state.publicProxy)
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
   await page.route("**/api/v1/debug/resource-profile", async (route) => {
     if (route.request().method() !== "GET") {
       await route.fallback();
@@ -526,6 +616,19 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     };
 
     await route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route("**/api/v1/dashboard/resource-history", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(state.resourceHistory)
+    });
   });
 
   await page.route("**/api/v1/dashboard/queue/pause", async (route) => {
