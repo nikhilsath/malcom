@@ -2,7 +2,7 @@
 
 ## Entry Point Routing {#entry-point-routing}
 
-Start every prompt with `[AREA: <keyword>]` to scope which policy files apply.
+Prefer starting prompts with `[AREA: <keyword>]` to scope which policy files apply.
 
 | Keyword | Read These Files | Skip These Files |
 |---|---|---|
@@ -15,7 +15,9 @@ Start every prompt with `[AREA: <keyword>]` to scope which policy files apply.
 | `nav` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except global rules in root |
 | `scripts` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
 
-If no `[AREA:]` prefix is present, read Quick Task -> Where to Edit first, then load only the referenced domain files.
+If no `[AREA:]` prefix is present, read Quick Task -> Where to Edit first.
+If the task clearly maps to one area, infer the closest matching area and load only the referenced domain files.
+If the task is ambiguous across multiple areas, stop before loading domain-specific policy files, list the supported area keywords, and ask the user to choose one.
 
 ### Domain Policy Files
 
@@ -51,9 +53,13 @@ Primary objective: deterministic routing, file targeting, and enforcement rules 
 
 When the user says to "update github", agents must use this git workflow:
 
-1. run `git add .`
+1. stage only the files relevant to the requested change
 2. run `git commit -m "<logical, task-specific message>"`
 3. run `git push`
+
+This may be run as a single terminal line:
+
+`git add <relevant-files> && git commit -m "<logical, task-specific message>" && git push`
 
 Rules:
 
@@ -141,6 +147,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
+| R-ROUTE-001 | If no `[AREA:]` prefix is provided, infer the area only when the task is clearly scoped; otherwise stop before domain-specific work and ask the user to choose from the supported area keywords | Prompt routing and policy loading |
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
@@ -169,12 +176,16 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 17,
+  "version": 18,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
     "keywords": ["db", "ui", "tools", "api", "test", "automation", "nav", "scripts"],
-    "fallback": "Read Quick Task -> Where to Edit table in #machine-reference-index first"
+    "fallback": "Read Quick Task -> Where to Edit table in #machine-reference-index first",
+    "missing_prefix_behavior": {
+      "if_clearly_scoped": "Infer the closest matching area and continue with only the referenced domain files.",
+      "if_ambiguous": "Stop before loading domain-specific policy files, list the supported area keywords, and ask the user to choose one."
+    }
   },
   "domain_policies": {
     "backend": ["backend/AGENTS.md"],
