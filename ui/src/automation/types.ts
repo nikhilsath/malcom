@@ -58,6 +58,13 @@ export type ConnectorRecord = {
   updated_at?: string;
 };
 
+export type WorkflowBuilderConnectorOption = ConnectorRecord & {
+  provider_name?: string;
+  docs_url?: string | null;
+  source_path: string;
+  last_tested_at?: string | null;
+};
+
 export type ConnectorActivitySchemaField = {
   key: string;
   label: string;

@@ -21,6 +21,7 @@ import type {
   StepType,
   AutomationStep,
   ConnectorRecord,
+  WorkflowBuilderConnectorOption,
   ConnectorActivityDefinition,
   ToolManifestEntry,
   InboundApiOption,
@@ -848,14 +849,14 @@ export const AutomationApp = () => {
   };
 
   const loadBuilderSupportData = async () => {
-    const [settings, inbound, scriptItems, activityItems, presetItems] = await Promise.all([
-      requestJsonCompat<{ connectors?: { records?: ConnectorRecord[] } }>("/api/v1/settings"),
+    const [connectorOptions, inbound, scriptItems, activityItems, presetItems] = await Promise.all([
+      requestJsonCompat<WorkflowBuilderConnectorOption[]>("/api/v1/automations/workflow-connectors"),
       requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
       requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts"),
       requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog"),
       requestJsonCompat<HttpPreset[]>("/api/v1/connectors/http-presets")
     ]);
-    setConnectors(settings.connectors?.records || []);
+    setConnectors(connectorOptions);
     setInboundApis(inbound.map((api) => ({ id: api.id, name: api.name })));
     setScripts(scriptItems);
     setActivityCatalog(activityItems);

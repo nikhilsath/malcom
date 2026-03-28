@@ -14,6 +14,7 @@ from .network import *
 from .scripts import *
 from .settings import *
 from .tool_integration import *
+from .workflow_builder import *
 from .utils import *
 from .validation import *
 from . import helpers as _helpers

@@ -190,6 +190,28 @@ check_tool_manifest_sync() {
   printf 'Tool catalog changes include the regenerated manifest.\n'
 }
 
+check_workflow_builder_connector_path_sync() {
+  local service_changed=0
+  local route_changed=0
+  local ui_changed=0
+
+  path_changed "backend/services/workflow_builder.py" && service_changed=1
+  path_changed "backend/routes/automations.py" && route_changed=1
+  path_changed "ui/src/automation/app.tsx" && ui_changed=1
+
+  if ((service_changed == 0 && route_changed == 0 && ui_changed == 0)); then
+    printf 'No workflow-builder connector source-of-truth files changed.\n'
+    return 0
+  fi
+
+  if ((service_changed == 1 || route_changed == 1)) && ((ui_changed == 0)); then
+    printf 'Workflow connector backend path changed without updating ui/src/automation/app.tsx consumer.\n'
+    return 1
+  fi
+
+  printf 'Workflow-builder connector source-of-truth path remains synchronized.\n'
+}
+
 check_test_precommit() {
   "$ROOT_DIR/scripts/test-precommit.sh"
 }
@@ -211,6 +233,7 @@ run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Tool manifest regeneration" check_tool_manifest_sync
+run_check "Workflow builder connector path sync" check_workflow_builder_connector_path_sync
 run_check "scripts/test-precommit.sh" check_test_precommit
 run_check "scripts/test-full.sh" check_test_full
 

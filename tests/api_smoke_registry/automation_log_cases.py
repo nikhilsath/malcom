@@ -20,6 +20,7 @@ def log_table_setup(context):
 
 AUTOMATION_LOG_CASES: tuple[RouteSmokeCase, ...] = (
     list_case("automations-list", "GET", "/api/v1/automations", response_assert=assert_json_response),
+    list_case("automations-workflow-connectors", "GET", "/api/v1/automations/workflow-connectors", response_assert=assert_json_response),
     create_case(
         "automations-create",
         "/api/v1/automations",

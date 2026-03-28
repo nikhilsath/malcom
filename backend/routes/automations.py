@@ -40,6 +40,12 @@ def list_automations(request: Request) -> list[AutomationSummaryResponse]:
     return [AutomationSummaryResponse(**row_to_automation_summary(row)) for row in rows]
 
 
+@router.get("/api/v1/automations/workflow-connectors", response_model=list[WorkflowBuilderConnectorOptionResponse])
+def list_workflow_builder_connectors_endpoint(request: Request) -> list[WorkflowBuilderConnectorOptionResponse]:
+    options = list_workflow_builder_connectors(get_connection(request))
+    return [WorkflowBuilderConnectorOptionResponse(**item) for item in options]
+
+
 @router.post("/api/v1/automations", response_model=AutomationDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_automation(payload: AutomationCreate, request: Request) -> AutomationDetailResponse:
     connection = get_connection(request)

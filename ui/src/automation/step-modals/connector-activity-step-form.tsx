@@ -181,7 +181,9 @@ export const ConnectorActivityStepForm = ({
         >
           <option value="">Choose a connector</option>
           {connectors.map((connector) => (
-            <option key={connector.id} value={connector.id}>{connector.name}</option>
+            <option key={connector.id} value={connector.id}>
+              {`${connector.name} (${connector.provider || "provider"})${connector.status ? ` [${connector.status}]` : ""}`}
+            </option>
           ))}
         </select>
       </label>

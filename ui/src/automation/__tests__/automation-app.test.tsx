@@ -147,20 +147,18 @@ const renderAutomationApp = (options?: {
     const body = requestOptions?.body ? JSON.parse(String(requestOptions.body)) : null;
     requestLog.push({ path, method, body });
 
-    if (path === "/api/v1/settings") {
-      return {
-        connectors: {
-          records: options?.connectors || [
-            {
-              id: "connector-main",
-              provider: "http",
-              name: "Main webhook",
-              auth_type: "none",
-              base_url: "https://example.com"
-            }
-          ]
+    if (path === "/api/v1/automations/workflow-connectors") {
+      return options?.connectors || [
+        {
+          id: "connector-main",
+          provider: "http",
+          provider_name: "HTTP",
+          name: "Main webhook",
+          auth_type: "none",
+          base_url: "https://example.com",
+          source_path: "settings.connectors.records"
         }
-      };
+      ];
     }
 
     if (path === "/api/v1/inbound") {
@@ -499,7 +497,7 @@ describe("AutomationApp", () => {
     expect(screen.getByLabelText("Values payload")).toBeInTheDocument();
   });
 
-  it("keeps saved connectors with blank statuses visible while hiding inactive records", async () => {
+  it("renders all stored connectors in the builder selector without hidden status filtering", async () => {
     renderAutomationApp({
       connectors: [
         {
@@ -556,10 +554,10 @@ describe("AutomationApp", () => {
     });
     const optionLabels = Array.from(connectorSelect.options).map((option) => option.textContent || "");
 
-    expect(optionLabels).toContain("Google Primary");
-    expect(optionLabels).not.toContain("Google Expired");
-    expect(optionLabels).not.toContain("Google Revoked");
-    expect(optionLabels).not.toContain("GitHub Draft");
+    expect(optionLabels.some((label) => label.includes("Google Primary"))).toBe(true);
+    expect(optionLabels.some((label) => label.includes("Google Expired"))).toBe(true);
+    expect(optionLabels.some((label) => label.includes("Google Revoked"))).toBe(true);
+    expect(optionLabels.some((label) => label.includes("GitHub Draft"))).toBe(true);
   });
 
   it("validates required connector action inputs before save", async () => {
