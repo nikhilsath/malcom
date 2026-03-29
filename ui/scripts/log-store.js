@@ -132,6 +132,8 @@ let cachedAppSettings = createDefaultAppSettings();
 let pendingSettingsRequest = null;
 let hasLoadedAppSettings = false;
 
+let pendingConnectorsRequest = null;
+
 const normalizeAppSettings = (settings = {}) => ({
   general: {
     ...malcomDefaultAppSettings.general,
@@ -201,7 +203,28 @@ const loadAppSettings = async ({ force = false } = {}) => {
   return pendingSettingsRequest;
 };
 
-const updateAppSettings = async (settings) => {
+const loadConnectors = async ({ force = false } = {}) => {
+  if (pendingConnectorsRequest && !force) {
+    return pendingConnectorsRequest;
+  }
+
+  pendingConnectorsRequest = window.Malcom?.requestJson?.("/api/v1/connectors")
+    .then((connectors) => {
+      cachedAppSettings = normalizeAppSettings({ ...cachedAppSettings, connectors });
+      emitSettingsUpdated();
+      return cloneJsonValue(cachedAppSettings);
+    })
+    .catch((error) => {
+      pendingConnectorsRequest = null;
+      throw error;
+    })
+    .finally(() => {
+      pendingConnectorsRequest = null;
+    });
+
+  return pendingConnectorsRequest;
+};
+const updateAppSettings = async (settings = {}) => {
   let baseSettings = getAppSettings();
 
   if (!hasLoadedAppSettings) {
@@ -325,6 +348,9 @@ window.MalcomLogStore = {
     maxFileSizeMb: malcomDefaultAppSettings.logging.max_file_size_mb
   },
   ready: () => loadAppSettings(),
+  loadConnectors({ force = false } = {}) {
+    return loadConnectors({ force });
+  },
   getAppSettings() {
     return getAppSettings();
   },
