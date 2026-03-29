@@ -310,81 +310,92 @@ export const defaultDashboardQueueResponse = {
   ]
 } satisfies RouteObject;
 
-export const defaultDashboardResourceProfileResponse = {
-  collected_at: fixedNowIso,
-  total_metrics: 3,
-  metrics: [
-    {
-      component: "automation_executor",
-      operation: "step_tool",
-      executions: 8,
-      avg_duration_ms: 120.15,
-      max_duration_ms: 420.5,
-      min_duration_ms: 30.1,
-      total_duration_ms: 961.2,
-      memory_peak_mb: 12.75,
-      error_count: 1,
-      error_rate_percent: 12.5,
-      last_executed_at: "2026-03-21T11:59:00.000Z"
-    },
-    {
-      component: "automation_executor",
-      operation: "step_connector_activity",
-      executions: 4,
-      avg_duration_ms: 90.2,
-      max_duration_ms: 105.0,
-      min_duration_ms: 70.1,
-      total_duration_ms: 360.8,
-      memory_peak_mb: 2.2,
-      error_count: 0,
-      error_rate_percent: 0,
-      last_executed_at: "2026-03-21T11:58:00.000Z"
-    },
-    {
-      component: "automation_executor",
-      operation: "step_script",
-      executions: 3,
-      avg_duration_ms: 50.5,
-      max_duration_ms: 89.3,
-      min_duration_ms: 21.0,
-      total_duration_ms: 151.5,
-      memory_peak_mb: 1.9,
-      error_count: 0,
-      error_rate_percent: 0,
-      last_executed_at: "2026-03-21T11:57:00.000Z"
-    }
-  ]
-} satisfies RouteObject;
-
-export const defaultDashboardResourceHistoryResponse = {
+export const defaultDashboardResourceDashboardResponse = {
   collected_at: fixedNowIso,
   total_snapshots: 3,
-  entries: [
+  last_captured_at: fixedNowIso,
+  latest_snapshot: {
+    captured_at: fixedNowIso,
+    process_memory_mb: 188.25,
+    process_cpu_percent: 17.4,
+    queue_pending_jobs: 1,
+    queue_claimed_jobs: 0,
+    tracked_operations: 3,
+    total_error_count: 1,
+    hottest_operation: "step_tool",
+    hottest_total_duration_ms: 1200,
+    max_memory_peak_mb: 12.75
+  },
+  storage: {
+    total_used_bytes: 640000000000,
+    total_capacity_bytes: 1000000000000,
+    total_usage_percent: 64,
+    local_used_bytes: 250000000000,
+    local_capacity_bytes: 1000000000000,
+    local_usage_percent: 25
+  },
+  highest_memory_processes: [
     {
-      snapshot_id: "resource-snapshot-1",
-      captured_at: fixedNowIso,
-      process_memory_mb: 180.25,
-      process_cpu_percent: 12.4,
-      queue_pending_jobs: 1,
-      queue_claimed_jobs: 1,
-      tracked_operations: 3,
-      total_error_count: 1,
-      hottest_operation: "step_tool",
-      hottest_total_duration_ms: 961.2,
-      max_memory_peak_mb: 12.75
+      pid: 331,
+      name: "python",
+      memory_mb: 512.4,
+      memory_percent: 6.8
     },
     {
-      snapshot_id: "resource-snapshot-2",
-      captured_at: "2026-03-21T11:58:00.000Z",
-      process_memory_mb: 178.9,
-      process_cpu_percent: 8.1,
-      queue_pending_jobs: 0,
-      queue_claimed_jobs: 1,
-      tracked_operations: 3,
-      total_error_count: 1,
-      hottest_operation: "step_tool",
-      hottest_total_duration_ms: 940.1,
-      max_memory_peak_mb: 12.75
+      pid: 998,
+      name: "Firefox",
+      memory_mb: 401.2,
+      memory_percent: 5.3
+    },
+    {
+      pid: 120,
+      name: "code helper",
+      memory_mb: 287.9,
+      memory_percent: 4.1
+    }
+  ],
+  widgets: [
+    {
+      id: "cpu",
+      label: "CPU",
+      primary_label: "Process CPU",
+      primary_unit: "percent",
+      primary_latest: 17.4,
+      points: [
+        { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 8.1 },
+        { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 12.3 },
+        { captured_at: fixedNowIso, primary_value: 17.4 }
+      ]
+    },
+    {
+      id: "disk-io",
+      label: "Disk I/O",
+      primary_label: "Read",
+      primary_unit: "bytes",
+      primary_latest: 1048576,
+      secondary_label: "Write",
+      secondary_unit: "bytes",
+      secondary_latest: 524288,
+      points: [
+        { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 131072, secondary_value: 65536 },
+        { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 524288, secondary_value: 262144 },
+        { captured_at: fixedNowIso, primary_value: 1048576, secondary_value: 524288 }
+      ]
+    },
+    {
+      id: "network-io",
+      label: "Network I/O",
+      primary_label: "Sent",
+      primary_unit: "bytes",
+      primary_latest: 2097152,
+      secondary_label: "Received",
+      secondary_unit: "bytes",
+      secondary_latest: 1048576,
+      points: [
+        { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 262144, secondary_value: 131072 },
+        { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 1048576, secondary_value: 524288 },
+        { captured_at: fixedNowIso, primary_value: 2097152, secondary_value: 1048576 }
+      ]
     }
   ]
 } satisfies RouteObject;
@@ -423,8 +434,7 @@ export type DashboardSettingsFixtureOptions = {
   summary?: RouteObject;
   devices?: RouteObject;
   queue?: RouteObject;
-  resourceProfile?: RouteObject;
-  resourceHistory?: RouteObject;
+  resourceDashboard?: RouteObject;
   logTables?: Array<RouteObject>;
   logs?: Array<RouteObject>;
   freezeTimeIso?: string;
@@ -439,8 +449,7 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     devices: clone(deepMerge(defaultDashboardDevicesResponse, options.devices || {})),
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
     logs: clone(options.logs || dashboardLogEntries),
-    resourceProfile: clone(deepMerge(defaultDashboardResourceProfileResponse, options.resourceProfile || {})),
-    resourceHistory: clone(deepMerge(defaultDashboardResourceHistoryResponse, options.resourceHistory || {})),
+    resourceDashboard: clone(deepMerge(defaultDashboardResourceDashboardResponse, options.resourceDashboard || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
     freezeTimeIso: options.freezeTimeIso || fixedNowIso,
     settingsGetDelayMs: options.settingsGetDelayMs || 0
@@ -557,7 +566,7 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     });
   });
 
-  await page.route("**/api/v1/debug/resource-profile", async (route) => {
+  await page.route("**/api/v1/dashboard/resource-dashboard", async (route) => {
     if (route.request().method() !== "GET") {
       await route.fallback();
       return;
@@ -566,35 +575,7 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(state.resourceProfile)
-    });
-  });
-
-  await page.route("**/api/v1/debug/resource-profile/reset", async (route) => {
-    if (route.request().method() !== "POST") {
-      await route.fallback();
-      return;
-    }
-
-    state.resourceProfile = {
-      collected_at: state.freezeTimeIso,
-      total_metrics: 0,
-      metrics: []
-    };
-
-    await route.fulfill({ status: 204, body: "" });
-  });
-
-  await page.route("**/api/v1/dashboard/resource-history", async (route) => {
-    if (route.request().method() !== "GET") {
-      await route.fallback();
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(state.resourceHistory)
+      body: JSON.stringify(state.resourceDashboard)
     });
   });
 

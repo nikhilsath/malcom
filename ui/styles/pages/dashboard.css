@@ -339,6 +339,91 @@
   font-size: 0.8125rem;
 }
 
+.dashboard-resource-card__detail,
+.dashboard-resource-process-card__detail {
+  margin: var(--space-2) 0 0;
+}
+
+.dashboard-resource-process-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.dashboard-resource-process-card,
+.dashboard-resource-widget-panel,
+.dashboard-resource-widget-trend-card {
+  padding: var(--space-4);
+}
+
+.dashboard-resource-process-card__title {
+  margin: var(--space-2) 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.dashboard-resource-widget-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.dashboard-resource-widget-toggle--active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--surface-accent);
+}
+
+.dashboard-resource-widget-panel {
+  margin-top: var(--space-4);
+}
+
+.dashboard-resource-widget-panel__header,
+.dashboard-resource-widget-panel__metrics {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.dashboard-resource-widget-trends {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.dashboard-resource-widget-sparkline {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+
+.dashboard-resource-widget-sparkline path {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dashboard-resource-widget-sparkline--primary path {
+  stroke: var(--accent-sky);
+}
+
+.dashboard-resource-widget-sparkline--secondary path {
+  stroke: var(--brand-main);
+}
+
+.dashboard-resource-widget-sparkline--empty {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
 @media (max-width: 900px) {
   .summary-grid,
   .dashboard-log-filters,
@@ -346,7 +431,9 @@
   .dashboard-log-details__grid,
   .dashboard-service-grid,
   .dashboard-host-card__metadata,
-  .dashboard-report-builder-card__metadata {
+  .dashboard-report-builder-card__metadata,
+  .dashboard-resource-process-grid,
+  .dashboard-resource-widget-trends {
     grid-template-columns: 1fr;
   }
 
@@ -360,7 +447,9 @@
   .dashboard-alert-card__header,
   .dashboard-log-preview-card__header,
   .dashboard-host-card__header,
-  .dashboard-toolbar {
+  .dashboard-toolbar,
+  .dashboard-resource-widget-panel__header,
+  .dashboard-resource-widget-panel__metrics {
     flex-direction: column;
   }
 

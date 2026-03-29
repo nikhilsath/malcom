@@ -207,6 +207,29 @@ class RuntimeApiTestCase(unittest.TestCase):
             self.assertIn("queue_pending_jobs", latest)
             self.assertIn("queue_claimed_jobs", latest)
 
+    def test_dashboard_resource_dashboard_endpoint_returns_persisted_summary(self) -> None:
+        self.assertEqual(self.client.get("/api/v1/runtime/status").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/debug/resource-profile").status_code, 200)
+
+        response = self.client.get("/api/v1/dashboard/resource-dashboard")
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertIn("collected_at", payload)
+        self.assertIn("total_snapshots", payload)
+        self.assertIn("last_captured_at", payload)
+        self.assertIn("storage", payload)
+        self.assertIn("highest_memory_processes", payload)
+        self.assertIn("widgets", payload)
+        self.assertIsInstance(payload["widgets"], list)
+
+        storage = payload["storage"]
+        self.assertIn("total_used_bytes", storage)
+        self.assertIn("local_used_bytes", storage)
+
+        widget_ids = {widget["id"] for widget in payload["widgets"]}
+        self.assertEqual(widget_ids, {"cpu", "disk-io", "network-io"})
+
 
 if __name__ == "__main__":
     unittest.main()

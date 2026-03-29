@@ -8,6 +8,12 @@ import type {
   DashboardLogsResponse,
   DashboardQueueJob,
   DashboardQueueResponse,
+  DashboardResourceDashboardLatestSnapshot,
+  DashboardResourceDashboardProcess,
+  DashboardResourceDashboardResponse,
+  DashboardResourceDashboardStorage,
+  DashboardResourceDashboardTrendPoint,
+  DashboardResourceDashboardWidget,
   DashboardResourceHistoryEntry,
   DashboardResourceHistoryResponse,
   DashboardResourceMetric,
@@ -173,6 +179,63 @@ type DashboardResourceHistoryApiResponse = {
   entries: DashboardResourceHistoryApiEntry[];
 };
 
+type DashboardResourceDashboardApiProcess = {
+  pid: number;
+  name: string;
+  memory_mb: number;
+  memory_percent: number;
+};
+
+type DashboardResourceDashboardApiLatestSnapshot = {
+  captured_at: string;
+  process_memory_mb: number;
+  process_cpu_percent: number;
+  queue_pending_jobs: number;
+  queue_claimed_jobs: number;
+  tracked_operations: number;
+  total_error_count: number;
+  hottest_operation: string | null;
+  hottest_total_duration_ms: number;
+  max_memory_peak_mb: number;
+};
+
+type DashboardResourceDashboardApiStorage = {
+  total_used_bytes: number;
+  total_capacity_bytes: number;
+  total_usage_percent: number;
+  local_used_bytes: number;
+  local_capacity_bytes: number;
+  local_usage_percent: number;
+};
+
+type DashboardResourceDashboardApiTrendPoint = {
+  captured_at: string;
+  primary_value: number;
+  secondary_value?: number | null;
+};
+
+type DashboardResourceDashboardApiWidget = {
+  id: DashboardResourceDashboardWidget["id"];
+  label: string;
+  primary_label: string;
+  primary_unit: DashboardResourceDashboardWidget["primaryUnit"];
+  primary_latest: number;
+  secondary_label?: string | null;
+  secondary_unit?: DashboardResourceDashboardWidget["secondaryUnit"];
+  secondary_latest?: number | null;
+  points: DashboardResourceDashboardApiTrendPoint[];
+};
+
+type DashboardResourceDashboardApiResponse = {
+  collected_at: string;
+  total_snapshots: number;
+  last_captured_at: string | null;
+  latest_snapshot: DashboardResourceDashboardApiLatestSnapshot | null;
+  storage: DashboardResourceDashboardApiStorage;
+  highest_memory_processes: DashboardResourceDashboardApiProcess[];
+  widgets: DashboardResourceDashboardApiWidget[];
+};
+
 type DashboardLogsApiSettings = {
   max_stored_entries: number;
   max_visible_entries: number;
@@ -306,6 +369,23 @@ const emptyResourceHistoryResponse: DashboardResourceHistoryResponse = {
   entries: []
 };
 
+const emptyResourceDashboardResponse: DashboardResourceDashboardResponse = {
+  collectedAt: new Date().toISOString(),
+  totalSnapshots: 0,
+  lastCapturedAt: null,
+  latestSnapshot: null,
+  storage: {
+    totalUsedBytes: 0,
+    totalCapacityBytes: 0,
+    totalUsagePercent: 0,
+    localUsedBytes: 0,
+    localCapacityBytes: 0,
+    localUsagePercent: 0
+  },
+  highestMemoryProcesses: [],
+  widgets: []
+};
+
 const mapApiHost = (host: DashboardDevicesApiHost): DashboardHost => ({
   id: host.id,
   name: host.name,
@@ -405,6 +485,77 @@ const mapApiResourceHistoryResponse = (
   collectedAt: payload.collected_at,
   totalSnapshots: payload.total_snapshots,
   entries: Array.isArray(payload.entries) ? payload.entries.map(mapApiResourceHistoryEntry) : []
+});
+
+const mapApiResourceDashboardProcess = (
+  process: DashboardResourceDashboardApiProcess
+): DashboardResourceDashboardProcess => ({
+  pid: process.pid,
+  name: process.name,
+  memoryMb: process.memory_mb,
+  memoryPercent: process.memory_percent
+});
+
+const mapApiResourceDashboardLatestSnapshot = (
+  snapshot: DashboardResourceDashboardApiLatestSnapshot
+): DashboardResourceDashboardLatestSnapshot => ({
+  capturedAt: snapshot.captured_at,
+  processMemoryMb: snapshot.process_memory_mb,
+  processCpuPercent: snapshot.process_cpu_percent,
+  queuePendingJobs: snapshot.queue_pending_jobs,
+  queueClaimedJobs: snapshot.queue_claimed_jobs,
+  trackedOperations: snapshot.tracked_operations,
+  totalErrorCount: snapshot.total_error_count,
+  hottestOperation: snapshot.hottest_operation,
+  hottestTotalDurationMs: snapshot.hottest_total_duration_ms,
+  maxMemoryPeakMb: snapshot.max_memory_peak_mb
+});
+
+const mapApiResourceDashboardStorage = (
+  storage: DashboardResourceDashboardApiStorage
+): DashboardResourceDashboardStorage => ({
+  totalUsedBytes: storage.total_used_bytes,
+  totalCapacityBytes: storage.total_capacity_bytes,
+  totalUsagePercent: storage.total_usage_percent,
+  localUsedBytes: storage.local_used_bytes,
+  localCapacityBytes: storage.local_capacity_bytes,
+  localUsagePercent: storage.local_usage_percent
+});
+
+const mapApiResourceDashboardTrendPoint = (
+  point: DashboardResourceDashboardApiTrendPoint
+): DashboardResourceDashboardTrendPoint => ({
+  capturedAt: point.captured_at,
+  primaryValue: point.primary_value,
+  secondaryValue: point.secondary_value ?? null
+});
+
+const mapApiResourceDashboardWidget = (
+  widget: DashboardResourceDashboardApiWidget
+): DashboardResourceDashboardWidget => ({
+  id: widget.id,
+  label: widget.label,
+  primaryLabel: widget.primary_label,
+  primaryUnit: widget.primary_unit,
+  primaryLatest: widget.primary_latest,
+  secondaryLabel: widget.secondary_label ?? null,
+  secondaryUnit: widget.secondary_unit ?? null,
+  secondaryLatest: widget.secondary_latest ?? null,
+  points: Array.isArray(widget.points) ? widget.points.map(mapApiResourceDashboardTrendPoint) : []
+});
+
+const mapApiResourceDashboardResponse = (
+  payload: DashboardResourceDashboardApiResponse
+): DashboardResourceDashboardResponse => ({
+  collectedAt: payload.collected_at,
+  totalSnapshots: payload.total_snapshots,
+  lastCapturedAt: payload.last_captured_at,
+  latestSnapshot: payload.latest_snapshot ? mapApiResourceDashboardLatestSnapshot(payload.latest_snapshot) : null,
+  storage: mapApiResourceDashboardStorage(payload.storage),
+  highestMemoryProcesses: Array.isArray(payload.highest_memory_processes)
+    ? payload.highest_memory_processes.map(mapApiResourceDashboardProcess)
+    : [],
+  widgets: Array.isArray(payload.widgets) ? payload.widgets.map(mapApiResourceDashboardWidget) : []
 });
 
 const mapApiLogsResponse = (payload: DashboardLogsApiResponse): DashboardLogsResponse => ({
@@ -669,6 +820,21 @@ export const dashboardApi = {
       await fetch("/api/v1/debug/resource-profile/reset", { method: "POST" });
     } catch {
       // best effort — do not block UI on reset failure
+    }
+  },
+
+  async getResourceDashboard(): Promise<DashboardResourceDashboardResponse> {
+    try {
+      const response = await fetch("/api/v1/dashboard/resource-dashboard");
+
+      if (!response.ok) {
+        return { ...emptyResourceDashboardResponse };
+      }
+
+      const payload = (await response.json()) as DashboardResourceDashboardApiResponse;
+      return mapApiResourceDashboardResponse(payload);
+    } catch {
+      return { ...emptyResourceDashboardResponse };
     }
   },
 

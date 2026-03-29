@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CollapsibleSection } from "../lib/collapsible-section";
 import type {
   AlertSeverity,
@@ -6,6 +6,8 @@ import type {
   DashboardDevice,
   DashboardHost,
   DashboardLogEntry,
+  DashboardResourceDashboardResponse,
+  DashboardResourceDashboardWidget,
   HealthStatus,
   QueueStatus,
   RuntimeServiceStatus,
@@ -79,6 +81,30 @@ export const SummaryCard = ({
   </article>
 );
 
+const SummaryDetailCard = ({
+  id,
+  label,
+  value,
+  detail
+}: {
+  id: string;
+  label: string;
+  value: string | number;
+  detail: string;
+}) => (
+  <article id={id} className="stat-card summary-card">
+    <p id={`${id}-label`} className="summary-card__label">
+      {label}
+    </p>
+    <p id={`${id}-value`} className="summary-card__value">
+      {value}
+    </p>
+    <p id={`${id}-detail`} className="api-directory-description dashboard-resource-card__detail">
+      {detail}
+    </p>
+  </article>
+);
+
 export const SectionToolbar = ({
   id,
   title,
@@ -105,6 +131,213 @@ export const SectionToolbar = ({
     {action}
   </div>
 );
+
+const buildSparklinePath = (values: number[], width = 180, height = 48) => {
+  if (values.length === 0) {
+    return "";
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  return values
+    .map((value, index) => {
+      const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / range) * height;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+};
+
+const Sparkline = ({
+  id,
+  values,
+  className
+}: {
+  id: string;
+  values: number[];
+  className: string;
+}) => {
+  if (values.length === 0) {
+    return (
+      <div id={id} className="dashboard-resource-widget-sparkline dashboard-resource-widget-sparkline--empty">
+        No trend yet
+      </div>
+    );
+  }
+
+  return (
+    <svg id={id} className={`dashboard-resource-widget-sparkline ${className}`} viewBox="0 0 180 48" preserveAspectRatio="none" aria-hidden="true">
+      <path d={buildSparklinePath(values)} />
+    </svg>
+  );
+};
+
+const formatWidgetMetric = (widget: DashboardResourceDashboardWidget, value: number | null) => {
+  if (value === null) {
+    return "0";
+  }
+
+  if (widget.primaryUnit === "percent") {
+    return `${value.toFixed(1)}%`;
+  }
+
+  return formatBytes(value);
+};
+
+export const ResourceDashboardPanel = ({ resourceDashboard }: { resourceDashboard: DashboardResourceDashboardResponse }) => {
+  const widgets = resourceDashboard.widgets;
+  const latestSnapshot = resourceDashboard.latestSnapshot;
+  const [activeWidgetId, setActiveWidgetId] = useState<DashboardResourceDashboardWidget["id"]>(widgets[0]?.id || "cpu");
+  const activeWidget = widgets.find((widget) => widget.id === activeWidgetId) || widgets[0] || null;
+  const queueDepth = latestSnapshot ? latestSnapshot.queuePendingJobs + latestSnapshot.queueClaimedJobs : 0;
+
+  return (
+    <CollapsibleSection id="dashboard-overview-resource-dashboard" label="Resource dashboard">
+      <SectionToolbar
+        id="dashboard-overview-resource-dashboard-toolbar"
+        title="Resource dashboard"
+        description="Persisted runtime snapshots showing host storage, top memory processes, and recent CPU, disk, and network activity."
+        action={
+          <p id="dashboard-overview-resource-dashboard-last-collected" className="dashboard-toolbar__description">
+            Last collected {formatDateTime(resourceDashboard.lastCapturedAt)}
+          </p>
+        }
+      />
+      <div id="dashboard-overview-resource-dashboard-summary-grid" className="summary-grid">
+        <SummaryDetailCard
+          id="dashboard-overview-resource-dashboard-total-storage"
+          label="Total storage used"
+          value={formatBytes(resourceDashboard.storage.totalUsedBytes)}
+          detail={`${resourceDashboard.storage.totalUsagePercent.toFixed(1)}% of ${formatBytes(resourceDashboard.storage.totalCapacityBytes)}`}
+        />
+        <SummaryDetailCard
+          id="dashboard-overview-resource-dashboard-local-storage"
+          label="Local storage used"
+          value={formatBytes(resourceDashboard.storage.localUsedBytes)}
+          detail={`${resourceDashboard.storage.localUsagePercent.toFixed(1)}% of ${formatBytes(resourceDashboard.storage.localCapacityBytes)}`}
+        />
+        <SummaryDetailCard
+          id="dashboard-overview-resource-dashboard-tracked-operations"
+          label="Tracked operations"
+          value={latestSnapshot ? latestSnapshot.trackedOperations : 0}
+          detail={latestSnapshot?.hottestOperation ? `Hottest: ${latestSnapshot.hottestOperation}` : "Waiting for runtime activity"}
+        />
+        <SummaryDetailCard
+          id="dashboard-overview-resource-dashboard-recent-errors"
+          label="Recent errors"
+          value={latestSnapshot ? latestSnapshot.totalErrorCount : 0}
+          detail={`Queue depth ${queueDepth}`}
+        />
+      </div>
+
+      {resourceDashboard.highestMemoryProcesses.length === 0 ? (
+        <EmptyState
+          id="dashboard-overview-resource-dashboard-processes-empty"
+          title="No persisted process telemetry yet"
+          description="Wait for the runtime snapshot collector to persist at least one resource sample."
+        />
+      ) : (
+        <div id="dashboard-overview-resource-dashboard-process-grid" className="dashboard-resource-process-grid">
+          {resourceDashboard.highestMemoryProcesses.map((process, index) => (
+            <article id={`dashboard-overview-resource-dashboard-process-${index}`} key={`${process.pid}-${process.name}`} className="dashboard-resource-process-card">
+              <p id={`dashboard-overview-resource-dashboard-process-rank-${index}`} className="summary-card__label">
+                Top memory {index + 1}
+              </p>
+              <h4 id={`dashboard-overview-resource-dashboard-process-name-${index}`} className="dashboard-resource-process-card__title">
+                {process.name}
+              </h4>
+              <p id={`dashboard-overview-resource-dashboard-process-memory-${index}`} className="summary-card__value">
+                {process.memoryMb.toFixed(2)} MB
+              </p>
+              <p id={`dashboard-overview-resource-dashboard-process-detail-${index}`} className="dashboard-resource-process-card__detail">
+                PID {process.pid} • {process.memoryPercent.toFixed(1)}% of system memory
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {activeWidget ? (
+        <>
+          <div id="dashboard-overview-resource-dashboard-widget-toggles" className="dashboard-resource-widget-toggle-group" role="tablist" aria-label="Resource widgets">
+            {widgets.map((widget) => (
+              <button
+                key={widget.id}
+                type="button"
+                id={`dashboard-overview-resource-dashboard-widget-toggle-${widget.id}`}
+                className={`button button--secondary dashboard-resource-widget-toggle${widget.id === activeWidget.id ? " dashboard-resource-widget-toggle--active" : ""}`}
+                aria-pressed={widget.id === activeWidget.id}
+                onClick={() => setActiveWidgetId(widget.id)}
+              >
+                {widget.label}
+              </button>
+            ))}
+          </div>
+          <article id={`dashboard-overview-resource-dashboard-widget-panel-${activeWidget.id}`} className="card dashboard-resource-widget-panel">
+            <div id="dashboard-overview-resource-dashboard-widget-header" className="dashboard-resource-widget-panel__header">
+              <div>
+                <p id="dashboard-overview-resource-dashboard-widget-label" className="summary-card__label">
+                  {activeWidget.label}
+                </p>
+                <h4 id="dashboard-overview-resource-dashboard-widget-title" className="dashboard-resource-process-card__title">
+                  {activeWidget.primaryLabel}
+                </h4>
+              </div>
+              <div id="dashboard-overview-resource-dashboard-widget-metrics" className="dashboard-resource-widget-panel__metrics">
+                <div>
+                  <p id="dashboard-overview-resource-dashboard-widget-primary-label" className="summary-card__label">
+                    {activeWidget.primaryLabel}
+                  </p>
+                  <p id="dashboard-overview-resource-dashboard-widget-primary-value" className="summary-card__value">
+                    {formatWidgetMetric(activeWidget, activeWidget.primaryLatest)}
+                  </p>
+                </div>
+                {activeWidget.secondaryLabel ? (
+                  <div>
+                    <p id="dashboard-overview-resource-dashboard-widget-secondary-label" className="summary-card__label">
+                      {activeWidget.secondaryLabel}
+                    </p>
+                    <p id="dashboard-overview-resource-dashboard-widget-secondary-value" className="summary-card__value">
+                      {formatBytes(activeWidget.secondaryLatest || 0)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div id="dashboard-overview-resource-dashboard-widget-trends" className="dashboard-resource-widget-trends">
+              <div id="dashboard-overview-resource-dashboard-widget-primary-trend" className="dashboard-resource-widget-trend-card">
+                <p className="summary-card__label">{activeWidget.primaryLabel} trend</p>
+                <Sparkline
+                  id={`dashboard-overview-resource-dashboard-widget-primary-sparkline-${activeWidget.id}`}
+                  className="dashboard-resource-widget-sparkline--primary"
+                  values={activeWidget.points.map((point) => point.primaryValue)}
+                />
+              </div>
+              {activeWidget.secondaryLabel ? (
+                <div id="dashboard-overview-resource-dashboard-widget-secondary-trend" className="dashboard-resource-widget-trend-card">
+                  <p className="summary-card__label">{activeWidget.secondaryLabel} trend</p>
+                  <Sparkline
+                    id={`dashboard-overview-resource-dashboard-widget-secondary-sparkline-${activeWidget.id}`}
+                    className="dashboard-resource-widget-sparkline--secondary"
+                    values={activeWidget.points.map((point) => point.secondaryValue || 0)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </article>
+        </>
+      ) : (
+        <EmptyState
+          id="dashboard-overview-resource-dashboard-widgets-empty"
+          title="No widget data loaded"
+          description="Persisted CPU, disk, and network snapshots will appear here once captured."
+        />
+      )}
+    </CollapsibleSection>
+  );
+};
 
 export const ServiceStatusStrip = ({ services }: { services: RuntimeServiceStatus[] }) => (
   <CollapsibleSection id="dashboard-overview-services" label="Runtime status" description="Current service health checks.">

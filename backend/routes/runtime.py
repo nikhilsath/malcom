@@ -52,6 +52,13 @@ def get_dashboard_resource_history(request: Request) -> DashboardResourceHistory
     return get_runtime_resource_history_response(connection)
 
 
+@router.get("/api/v1/dashboard/resource-dashboard", response_model=DashboardResourceDashboardApiResponse)
+def get_dashboard_resource_dashboard(request: Request) -> DashboardResourceDashboardApiResponse:
+    connection = get_connection(request)
+    persist_runtime_resource_history_snapshot(connection)
+    return get_runtime_resource_dashboard_response(connection)
+
+
 @router.post("/api/v1/dashboard/queue/pause", response_model=DashboardQueueApiResponse)
 def pause_dashboard_queue() -> DashboardQueueApiResponse:
     return set_runtime_queue_pause_state(True)

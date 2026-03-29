@@ -100,24 +100,24 @@ beforeEach(() => {
         };
       }
 
-      if (url.includes("/api/v1/debug/resource-profile")) {
-        return {
-          ok: true,
-          json: async () => ({
-            collected_at: "2026-03-20T09:00:00.000Z",
-            total_metrics: 0,
-            metrics: []
-          })
-        };
-      }
-
-      if (url.includes("/api/v1/dashboard/resource-history")) {
+      if (url.includes("/api/v1/dashboard/resource-dashboard")) {
         return {
           ok: true,
           json: async () => ({
             collected_at: "2026-03-20T09:00:00.000Z",
             total_snapshots: 0,
-            entries: []
+            last_captured_at: null,
+            latest_snapshot: null,
+            storage: {
+              total_used_bytes: 0,
+              total_capacity_bytes: 0,
+              total_usage_percent: 0,
+              local_used_bytes: 0,
+              local_capacity_bytes: 0,
+              local_usage_percent: 0
+            },
+            highest_memory_processes: [],
+            widgets: []
           })
         };
       }
@@ -160,7 +160,7 @@ describe("DashboardApp", () => {
     expect(document.querySelector("#dashboard-devices-summary-card")).not.toBeInTheDocument();
   });
 
-  it("surfaces runtime resource profile metrics on dashboard home", async () => {
+  it("surfaces persisted resource dashboard metrics on dashboard home", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
@@ -227,63 +227,89 @@ describe("DashboardApp", () => {
           };
         }
 
-        if (url.includes("/api/v1/debug/resource-profile")) {
-          return {
-            ok: true,
-            json: async () => ({
-              collected_at: "2026-03-21T12:00:00.000Z",
-              total_metrics: 2,
-              metrics: [
-                {
-                  component: "automation_executor",
-                  operation: "step_tool",
-                  executions: 8,
-                  avg_duration_ms: 120.15,
-                  max_duration_ms: 420.5,
-                  min_duration_ms: 30.1,
-                  total_duration_ms: 961.2,
-                  memory_peak_mb: 12.75,
-                  error_count: 1,
-                  error_rate_percent: 12.5,
-                  last_executed_at: "2026-03-21T11:59:00.000Z"
-                },
-                {
-                  component: "automation_executor",
-                  operation: "step_connector_activity",
-                  executions: 4,
-                  avg_duration_ms: 90.2,
-                  max_duration_ms: 105.0,
-                  min_duration_ms: 70.1,
-                  total_duration_ms: 360.8,
-                  memory_peak_mb: 2.2,
-                  error_count: 0,
-                  error_rate_percent: 0,
-                  last_executed_at: "2026-03-21T11:58:00.000Z"
-                }
-              ]
-            })
-          };
-        }
-
-        if (url.includes("/api/v1/dashboard/resource-history")) {
+        if (url.includes("/api/v1/dashboard/resource-dashboard")) {
           return {
             ok: true,
             json: async () => ({
               collected_at: "2026-03-21T12:00:00.000Z",
               total_snapshots: 2,
-              entries: [
+              last_captured_at: "2026-03-21T12:00:00.000Z",
+              latest_snapshot: {
+                captured_at: "2026-03-21T12:00:00.000Z",
+                process_memory_mb: 188.25,
+                process_cpu_percent: 17.4,
+                queue_pending_jobs: 2,
+                queue_claimed_jobs: 1,
+                tracked_operations: 3,
+                total_error_count: 1,
+                hottest_operation: "step_tool",
+                hottest_total_duration_ms: 961.2,
+                max_memory_peak_mb: 12.75
+              },
+              storage: {
+                total_used_bytes: 640000000000,
+                total_capacity_bytes: 1000000000000,
+                total_usage_percent: 64,
+                local_used_bytes: 240000000000,
+                local_capacity_bytes: 500000000000,
+                local_usage_percent: 48
+              },
+              highest_memory_processes: [
                 {
-                  snapshot_id: "resource-snapshot-1",
-                  captured_at: "2026-03-21T12:00:00.000Z",
-                  process_memory_mb: 188.25,
-                  process_cpu_percent: 17.4,
-                  queue_pending_jobs: 2,
-                  queue_claimed_jobs: 1,
-                  tracked_operations: 2,
-                  total_error_count: 1,
-                  hottest_operation: "step_tool",
-                  hottest_total_duration_ms: 961.2,
-                  max_memory_peak_mb: 12.75
+                  pid: 331,
+                  name: "python",
+                  memory_mb: 512.4,
+                  memory_percent: 6.8
+                },
+                {
+                  pid: 998,
+                  name: "Firefox",
+                  memory_mb: 401.2,
+                  memory_percent: 5.3
+                }
+              ],
+              widgets: [
+                {
+                  id: "cpu",
+                  label: "CPU",
+                  primary_label: "Process CPU",
+                  primary_unit: "percent",
+                  primary_latest: 17.4,
+                  points: [
+                    { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 9.1 },
+                    { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 12.3 },
+                    { captured_at: "2026-03-21T12:00:00.000Z", primary_value: 17.4 }
+                  ]
+                },
+                {
+                  id: "disk-io",
+                  label: "Disk I/O",
+                  primary_label: "Read",
+                  primary_unit: "bytes",
+                  primary_latest: 1048576,
+                  secondary_label: "Write",
+                  secondary_unit: "bytes",
+                  secondary_latest: 524288,
+                  points: [
+                    { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 131072, secondary_value: 65536 },
+                    { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 524288, secondary_value: 262144 },
+                    { captured_at: "2026-03-21T12:00:00.000Z", primary_value: 1048576, secondary_value: 524288 }
+                  ]
+                },
+                {
+                  id: "network-io",
+                  label: "Network I/O",
+                  primary_label: "Sent",
+                  primary_unit: "bytes",
+                  primary_latest: 2097152,
+                  secondary_label: "Received",
+                  secondary_unit: "bytes",
+                  secondary_latest: 1048576,
+                  points: [
+                    { captured_at: "2026-03-21T11:40:00.000Z", primary_value: 262144, secondary_value: 131072 },
+                    { captured_at: "2026-03-21T11:50:00.000Z", primary_value: 1048576, secondary_value: 524288 },
+                    { captured_at: "2026-03-21T12:00:00.000Z", primary_value: 2097152, secondary_value: 1048576 }
+                  ]
                 }
               ]
             })
@@ -300,24 +326,23 @@ describe("DashboardApp", () => {
     renderDashboardApp(["/home"]);
 
     await waitFor(() => {
-      expectTextById("dashboard-overview-resource-profile-toolbar-title", "Runtime resource profile");
+      expectTextById("dashboard-overview-resource-dashboard-toolbar-title", "Resource dashboard");
     });
 
-    expectTextById("dashboard-overview-resource-total-metrics-value", "2");
-    expectTextById("dashboard-overview-resource-visible-metrics-value", "2");
-    expectTextById("dashboard-overview-resource-operation-0", "step_tool");
-    expectTextById("dashboard-overview-resource-memory-0", "12.75 MB");
-    expectTextById("dashboard-overview-resource-errors-0", "12.5% (1)");
-    expectTextById("dashboard-overview-resource-history-total-value", "2");
-    expectTextById("dashboard-overview-resource-history-memory-value", "188.25 MB");
-    expectTextById("dashboard-overview-resource-history-cpu-value", "17.4%");
-    expectTextById("dashboard-overview-resource-history-queue-value", "3");
+    expectTextById("dashboard-overview-resource-dashboard-total-storage-value", "596 GB");
+    expectTextById("dashboard-overview-resource-dashboard-local-storage-value", "224 GB");
+    expectTextById("dashboard-overview-resource-dashboard-process-name-0", "python");
+    expectTextById("dashboard-overview-resource-dashboard-process-memory-0", "512.40 MB");
+    expectTextById("dashboard-overview-resource-dashboard-widget-primary-value", "17.4%");
     expect(document.querySelector("#dashboard-overview-summary-visible-logs")).not.toBeInTheDocument();
     expect(document.querySelector("#dashboard-overview-layout")?.firstElementChild).toHaveAttribute(
       "id",
-      "dashboard-overview-resource-profile"
+      "dashboard-overview-resource-dashboard"
     );
-    expect(screen.getByRole("button", { name: "Reset metrics" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Disk I/O" }));
+    expectTextById("dashboard-overview-resource-dashboard-widget-primary-value", "1.00 MB");
+    expectTextById("dashboard-overview-resource-dashboard-widget-secondary-value", "512 KB");
   });
 
   it("renders live backend devices when data is available", async () => {

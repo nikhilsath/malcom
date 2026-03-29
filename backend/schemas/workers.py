@@ -111,6 +111,63 @@ class DashboardResourceHistoryApiResponse(BaseModel):
     entries: list[DashboardResourceHistoryEntryResponse]
 
 
+class DashboardResourceDashboardTopProcessResponse(BaseModel):
+    pid: int
+    name: str
+    memory_mb: float
+    memory_percent: float
+
+
+class DashboardResourceDashboardStorageResponse(BaseModel):
+    total_used_bytes: int
+    total_capacity_bytes: int
+    total_usage_percent: float
+    local_used_bytes: int
+    local_capacity_bytes: int
+    local_usage_percent: float
+
+
+class DashboardResourceDashboardLatestSnapshotResponse(BaseModel):
+    captured_at: str
+    process_memory_mb: float
+    process_cpu_percent: float
+    queue_pending_jobs: int
+    queue_claimed_jobs: int
+    tracked_operations: int
+    total_error_count: int
+    hottest_operation: str | None
+    hottest_total_duration_ms: float
+    max_memory_peak_mb: float
+
+
+class DashboardResourceDashboardTrendPointResponse(BaseModel):
+    captured_at: str
+    primary_value: float
+    secondary_value: float | None = None
+
+
+class DashboardResourceDashboardWidgetResponse(BaseModel):
+    id: Literal["cpu", "disk-io", "network-io"]
+    label: str
+    primary_label: str
+    primary_unit: Literal["percent", "bytes"]
+    primary_latest: float
+    secondary_label: str | None = None
+    secondary_unit: Literal["bytes"] | None = None
+    secondary_latest: float | None = None
+    points: list[DashboardResourceDashboardTrendPointResponse]
+
+
+class DashboardResourceDashboardApiResponse(BaseModel):
+    collected_at: str
+    total_snapshots: int
+    last_captured_at: str | None
+    latest_snapshot: DashboardResourceDashboardLatestSnapshotResponse | None
+    storage: DashboardResourceDashboardStorageResponse
+    highest_memory_processes: list[DashboardResourceDashboardTopProcessResponse]
+    widgets: list[DashboardResourceDashboardWidgetResponse]
+
+
 class DashboardSummaryRunCountsResponse(BaseModel):
     success: int
     warning: int
@@ -288,6 +345,12 @@ __all__ = [
     "DashboardLogEntryResponse",
     "DashboardLogsApiResponse",
     "DashboardLogSettingsResponse",
+    "DashboardResourceDashboardApiResponse",
+    "DashboardResourceDashboardLatestSnapshotResponse",
+    "DashboardResourceDashboardStorageResponse",
+    "DashboardResourceDashboardTopProcessResponse",
+    "DashboardResourceDashboardTrendPointResponse",
+    "DashboardResourceDashboardWidgetResponse",
     "DashboardResourceHistoryApiResponse",
     "DashboardResourceHistoryEntryResponse",
     "DashboardQueueApiResponse",

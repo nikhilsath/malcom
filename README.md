@@ -51,9 +51,10 @@ The current product UI is organized into these areas:
 
 ## Dashboard Data Sources
 
-- Runtime telemetry: `runtime_resource_snapshots`
+- Runtime telemetry: `runtime_resource_snapshots` and `/api/v1/dashboard/resource-dashboard`
 - Dashboard logs (`/api/v1/dashboard/logs`) are backend-backed and sourced from application runtime log files.
-- Resource profile (`/api/v1/debug/resource-profile`) is backend-backed and remains in-memory for live metrics.
+- Resource dashboard cards and widgets are derived from persisted runtime snapshots rather than the in-memory debug resource profile.
+- Resource profile (`/api/v1/debug/resource-profile`) remains available as a debug-only live metrics surface.
 
 - FastAPI app serving feature routers under `/api/v1/**`, `/health`, and the built UI/static surface
 - Runtime scheduler, trigger queue, worker registration/claim flow, and automation execution services
@@ -138,7 +139,7 @@ Delivery attempt history for outbound API resources and outbound automation HTTP
 
 #### `runtime_resource_snapshots`
 
-Persisted runtime telemetry snapshots used by dashboard resource history.
+Persisted runtime telemetry snapshots used by dashboard resource history and the resource dashboard summary/widgets.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -153,6 +154,17 @@ Persisted runtime telemetry snapshots used by dashboard resource history.
 | `hottest_operation` | `text` | Operation name with the highest total latency when captured. |
 | `hottest_total_duration_ms` | `real` | Total latency for the hottest operation at capture time. |
 | `max_memory_peak_mb` | `real` | Highest operation-level memory peak observed in tracked metrics at capture time. |
+| `total_storage_used_bytes` | `integer` | Aggregate used bytes across detected storage devices at capture time. |
+| `total_storage_capacity_bytes` | `integer` | Aggregate storage capacity across detected storage devices at capture time. |
+| `total_storage_usage_percent` | `real` | Aggregate storage usage percentage across detected storage devices at capture time. |
+| `local_storage_used_bytes` | `integer` | Used bytes on the primary local runtime volume. |
+| `local_storage_capacity_bytes` | `integer` | Total bytes on the primary local runtime volume. |
+| `local_storage_usage_percent` | `real` | Usage percentage on the primary local runtime volume. |
+| `disk_read_bytes` | `integer` | Cumulative disk read bytes captured from the host at snapshot time. |
+| `disk_write_bytes` | `integer` | Cumulative disk write bytes captured from the host at snapshot time. |
+| `network_sent_bytes` | `integer` | Cumulative network bytes sent captured from the host at snapshot time. |
+| `network_received_bytes` | `integer` | Cumulative network bytes received captured from the host at snapshot time. |
+| `top_processes_json` | `text` | JSON text array of the top memory-consuming processes captured with pid, name, memory MB, and memory percent. |
 
 ### Workspace State
 
@@ -602,6 +614,8 @@ This flow is authoritative for builder connector availability. Do not add parall
 
 ## Data Lineage Reference
 
+Updated by TASK-003 based on verified implementation.
+
 Maps frontend components → API endpoints → backend services → database tables for all dynamic data flows.
 
 Use this reference to understand data dependencies and trace where UI data originates in the database. Each entry documents the complete lineage from frontend element through the backend to persistent storage.
@@ -611,6 +625,45 @@ Use this reference to understand data dependencies and trace where UI data origi
 The automation builder loads all dynamic data via `ui/src/automation/useAutomationBuilderController.ts:loadBuilderSupportData()` (lines 309+), which fetches in parallel:
 
 #### Saved Connectors
+
+Verified implementation notes (TASK-003):
+
+- Canvas mode and guided mode share the same saved-connector path through `ui/src/automation/useAutomationBuilderController.ts` and `ui/src/automation/step-modals/connector-activity-step-form.tsx`.
+- Frontend request path remains `GET /api/v1/automations/workflow-connectors`.
+- Backend normalization path remains `backend/routes/automations.py:list_workflow_builder_connectors_endpoint` -> `backend/services/workflow_builder.py:list_workflow_builder_connectors`.
+- Persistence source remains `connectors` (instance rows) with provider metadata enrichment from `integration_presets` where available.
+- UI states now include loading, empty, error-with-retry, and incompatible-disabled connector options with inline reason text/title tooltips.
+
+Expected saved-connector payload shape (normalized):
+
+| Field | Meaning |
+|---|---|
+| `id` | Saved connector id from `connectors.id` |
+| `name` | Display name from `connectors.name` |
+| `provider` | Canonical provider id |
+| `provider_name` | Human-readable provider label |
+| `status` | Connector status string |
+| `auth_type` | Connector auth type |
+| `scopes` | Granted/requested scope list |
+| `owner` | Optional owner label |
+| `base_url` | Optional provider base URL |
+| `docs_url` | Optional docs URL |
+| `created_at` | Creation timestamp |
+| `updated_at` | Last update timestamp |
+| `last_tested_at` | Optional health-check timestamp |
+| `source_path` | Normalized source marker (`connectors`) |
+
+Deprecated/inaccurate path note:
+
+- Do not source builder connector availability from cached frontend settings payloads or page-level globals; use only `GET /api/v1/automations/workflow-connectors`.
+- Do not add duplicate connector option lists in UI components when backend resolver output exists.
+
+Maintainer update points for this lineage:
+
+- Backend normalization logic: `backend/services/workflow_builder.py:list_workflow_builder_connectors`
+- API contract/model: `backend/schemas/automation.py:WorkflowBuilderConnectorOptionResponse`
+- API route wiring: `backend/routes/automations.py:list_workflow_builder_connectors_endpoint`
+- UI consumer wiring: `ui/src/automation/builder-api.ts:loadBuilderSupportData`
 
 | Component | Path |
 |---|---|

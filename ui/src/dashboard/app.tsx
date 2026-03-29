@@ -9,7 +9,6 @@ import {
 import {
   dashboardApi,
   formatDateTime,
-  formatDuration,
   getAlertSeveritySummary,
   getPreviewLogs,
   getRunStatusSummary,
@@ -26,6 +25,7 @@ import {
   LogEntryList,
   RecentLogsPreview,
   ReportBuilderPanel,
+  ResourceDashboardPanel,
   SectionToolbar,
   ServiceStatusStrip,
   StatusBadge,
@@ -35,8 +35,7 @@ import type {
   DashboardDevicesResponse,
   DashboardLogsResponse,
   DashboardQueueResponse,
-  DashboardResourceHistoryResponse,
-  DashboardResourceProfileResponse,
+  DashboardResourceDashboardResponse,
   DashboardSummaryResponse
 } from "./types";
 
@@ -164,55 +163,23 @@ const useQueueData = () => {
   return state;
 };
 
-const useResourceProfileData = () => {
-  const [state, setState] = useState<DashboardResourceProfileResponse | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+const useResourceDashboardData = () => {
+  const [state, setState] = useState<DashboardResourceDashboardResponse | null>(null);
 
   useEffect(() => {
     let isActive = true;
     let intervalId: number | null = null;
 
-    const loadResourceProfile = () => {
-      dashboardApi.getResourceProfile().then((response) => {
+    const loadResourceDashboard = () => {
+      dashboardApi.getResourceDashboard().then((response) => {
         if (isActive) {
           setState(response);
         }
       });
     };
 
-    loadResourceProfile();
-    intervalId = window.setInterval(loadResourceProfile, 10_000);
-
-    return () => {
-      isActive = false;
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, [refreshTick]);
-
-  const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
-
-  return [state, refresh] as const;
-};
-
-const useResourceHistoryData = () => {
-  const [state, setState] = useState<DashboardResourceHistoryResponse | null>(null);
-
-  useEffect(() => {
-    let isActive = true;
-    let intervalId: number | null = null;
-
-    const loadResourceHistory = () => {
-      dashboardApi.getResourceHistory().then((response) => {
-        if (isActive) {
-          setState(response);
-        }
-      });
-    };
-
-    loadResourceHistory();
-    intervalId = window.setInterval(loadResourceHistory, 10_000);
+    loadResourceDashboard();
+    intervalId = window.setInterval(loadResourceDashboard, 10_000);
 
     return () => {
       isActive = false;
@@ -288,163 +255,18 @@ const HomePage = () => {
   const summary = useSummaryData();
   const logs = useLogsData();
   const queue = useQueueData();
-  const [resourceProfile, refreshResourceProfile] = useResourceProfileData();
-  const resourceHistory = useResourceHistoryData();
+  const resourceDashboard = useResourceDashboardData();
 
-  if (!summary || !logs || !queue || !resourceProfile || !resourceHistory) {
+  if (!summary || !logs || !queue || !resourceDashboard) {
     return null;
   }
 
   const runSummary = getRunStatusSummary(summary.recentRuns);
   const alertSummary = getAlertSeveritySummary(summary.alerts);
-  const topResourceMetrics = resourceProfile.metrics.slice(0, 5);
-  const recentHistory = resourceHistory.entries.slice(0, 5);
-  const latestHistory = recentHistory[0] || null;
-  const latestQueueDepth = latestHistory ? latestHistory.queuePendingJobs + latestHistory.queueClaimedJobs : 0;
 
   return (
     <div id="dashboard-overview-layout" className="stacked-card-layout">
-      <CollapsibleSection id="dashboard-overview-resource-profile" label="Runtime resource profile">
-        <SectionToolbar
-          id="dashboard-overview-resource-profile-toolbar"
-          title="Runtime resource profile"
-          description="Live operation latency, memory, and error metrics from the runtime collector."
-          action={
-            <div id="dashboard-overview-resource-profile-actions" className="dashboard-queue-controls">
-              <p id="dashboard-overview-resource-profile-sampled-at" className="dashboard-toolbar__description">
-                Sampled {formatDateTime(resourceProfile.collectedAt)}
-              </p>
-              <button
-                type="button"
-                id="dashboard-overview-resource-profile-reset-button"
-                className="button button--secondary secondary-action-button"
-                onClick={async () => {
-                  await dashboardApi.resetResourceProfile();
-                  refreshResourceProfile();
-                }}
-              >
-                Reset metrics
-              </button>
-            </div>
-          }
-        />
-        <div id="dashboard-overview-resource-profile-summary-grid" className="summary-grid">
-          <SummaryCard
-            id="dashboard-overview-resource-total-metrics"
-            label="Tracked operations"
-            value={resourceProfile.totalMetrics}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-visible-metrics"
-            label="Top operations"
-            value={topResourceMetrics.length}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-hottest-duration"
-            label="Highest total latency"
-            value={topResourceMetrics[0] ? formatDuration(topResourceMetrics[0].totalDurationMs) : "0ms"}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-hottest-memory"
-            label="Highest memory delta"
-            value={topResourceMetrics[0] ? `${topResourceMetrics[0].memoryPeakMb.toFixed(2)} MB` : "0.00 MB"}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-history-total"
-            label="Persisted snapshots"
-            value={resourceHistory.totalSnapshots}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-history-memory"
-            label="Latest process memory"
-            value={latestHistory ? `${latestHistory.processMemoryMb.toFixed(2)} MB` : "0.00 MB"}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-history-cpu"
-            label="Latest process CPU"
-            value={latestHistory ? `${latestHistory.processCpuPercent.toFixed(1)}%` : "0.0%"}
-          />
-          <SummaryCard
-            id="dashboard-overview-resource-history-queue"
-            label="Latest queue depth"
-            value={latestQueueDepth}
-          />
-        </div>
-        {topResourceMetrics.length === 0 ? (
-          <EmptyState
-            id="dashboard-overview-resource-profile-empty"
-            title="No resource telemetry yet"
-            description="Run automations or API-triggered workflows to populate runtime profiling metrics."
-          />
-        ) : (
-          <div id="dashboard-overview-resource-profile-table-shell" className="api-table-shell">
-            <table id="dashboard-overview-resource-profile-table" className="api-directory-table dashboard-table">
-              <thead>
-                <tr>
-                  <th id="dashboard-overview-resource-header-operation">Operation</th>
-                  <th id="dashboard-overview-resource-header-latency">Avg / max latency</th>
-                  <th id="dashboard-overview-resource-header-memory">Peak memory delta</th>
-                  <th id="dashboard-overview-resource-header-executions">Executions</th>
-                  <th id="dashboard-overview-resource-header-errors">Error rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topResourceMetrics.map((metric, index) => (
-                  <tr id={`dashboard-overview-resource-row-${index}`} key={`${metric.component}-${metric.operation}-${index}`}>
-                    <td id={`dashboard-overview-resource-operation-${index}`}>
-                      <span className="api-directory-name">{metric.operation}</span>
-                      <span className="api-directory-description">{metric.component}</span>
-                    </td>
-                    <td id={`dashboard-overview-resource-latency-${index}`}>
-                      {metric.avgDurationMs.toFixed(2)}ms / {metric.maxDurationMs.toFixed(2)}ms
-                    </td>
-                    <td id={`dashboard-overview-resource-memory-${index}`}>{metric.memoryPeakMb.toFixed(2)} MB</td>
-                    <td id={`dashboard-overview-resource-executions-${index}`}>{metric.executions}</td>
-                    <td id={`dashboard-overview-resource-errors-${index}`}>
-                      {metric.errorRatePercent.toFixed(1)}% ({metric.errorCount})
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {recentHistory.length === 0 ? (
-          <EmptyState
-            id="dashboard-overview-resource-history-empty"
-            title="No persisted history yet"
-            description="Resource snapshots are captured periodically while the runtime is active."
-          />
-        ) : (
-          <div id="dashboard-overview-resource-history-table-shell" className="api-table-shell">
-            <table id="dashboard-overview-resource-history-table" className="api-directory-table dashboard-table">
-              <thead>
-                <tr>
-                  <th id="dashboard-overview-resource-history-header-captured">Captured</th>
-                  <th id="dashboard-overview-resource-history-header-memory">Process memory</th>
-                  <th id="dashboard-overview-resource-history-header-cpu">Process CPU</th>
-                  <th id="dashboard-overview-resource-history-header-queue">Queue depth</th>
-                  <th id="dashboard-overview-resource-history-header-errors">Errors</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentHistory.map((entry) => (
-                  <tr id={`dashboard-overview-resource-history-row-${entry.snapshotId}`} key={entry.snapshotId}>
-                    <td id={`dashboard-overview-resource-history-captured-${entry.snapshotId}`}>{formatDateTime(entry.capturedAt)}</td>
-                    <td id={`dashboard-overview-resource-history-memory-${entry.snapshotId}`}>{entry.processMemoryMb.toFixed(2)} MB</td>
-                    <td id={`dashboard-overview-resource-history-cpu-${entry.snapshotId}`}>{entry.processCpuPercent.toFixed(1)}%</td>
-                    <td id={`dashboard-overview-resource-history-queue-${entry.snapshotId}`}>
-                      {entry.queuePendingJobs + entry.queueClaimedJobs}
-                    </td>
-                    <td id={`dashboard-overview-resource-history-errors-${entry.snapshotId}`}>{entry.totalErrorCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CollapsibleSection>
+      <ResourceDashboardPanel resourceDashboard={resourceDashboard} />
 
       <CollapsibleSection id="dashboard-overview-health-card" label="Overall health">
         <div id="dashboard-overview-health-header" className="dashboard-health-strip">

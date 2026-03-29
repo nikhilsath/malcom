@@ -158,28 +158,23 @@ export interface DashboardQueueResponse {
   jobs: DashboardQueueJob[];
 }
 
-export interface DashboardResourceMetric {
-  component: string;
-  operation: string;
-  executions: number;
-  avgDurationMs: number;
-  maxDurationMs: number;
-  minDurationMs: number;
-  totalDurationMs: number;
-  memoryPeakMb: number;
-  errorCount: number;
-  errorRatePercent: number;
-  lastExecutedAt: string;
+export interface DashboardResourceDashboardProcess {
+  pid: number;
+  name: string;
+  memoryMb: number;
+  memoryPercent: number;
 }
 
-export interface DashboardResourceProfileResponse {
-  collectedAt: string;
-  totalMetrics: number;
-  metrics: DashboardResourceMetric[];
+export interface DashboardResourceDashboardStorage {
+  totalUsedBytes: number;
+  totalCapacityBytes: number;
+  totalUsagePercent: number;
+  localUsedBytes: number;
+  localCapacityBytes: number;
+  localUsagePercent: number;
 }
 
-export interface DashboardResourceHistoryEntry {
-  snapshotId: string;
+export interface DashboardResourceDashboardLatestSnapshot {
   capturedAt: string;
   processMemoryMb: number;
   processCpuPercent: number;
@@ -192,10 +187,32 @@ export interface DashboardResourceHistoryEntry {
   maxMemoryPeakMb: number;
 }
 
-export interface DashboardResourceHistoryResponse {
+export interface DashboardResourceDashboardTrendPoint {
+  capturedAt: string;
+  primaryValue: number;
+  secondaryValue: number | null;
+}
+
+export interface DashboardResourceDashboardWidget {
+  id: "cpu" | "disk-io" | "network-io";
+  label: string;
+  primaryLabel: string;
+  primaryUnit: "percent" | "bytes";
+  primaryLatest: number;
+  secondaryLabel: string | null;
+  secondaryUnit: "bytes" | null;
+  secondaryLatest: number | null;
+  points: DashboardResourceDashboardTrendPoint[];
+}
+
+export interface DashboardResourceDashboardResponse {
   collectedAt: string;
   totalSnapshots: number;
-  entries: DashboardResourceHistoryEntry[];
+  lastCapturedAt: string | null;
+  latestSnapshot: DashboardResourceDashboardLatestSnapshot | null;
+  storage: DashboardResourceDashboardStorage;
+  highestMemoryProcesses: DashboardResourceDashboardProcess[];
+  widgets: DashboardResourceDashboardWidget[];
 }
 
 export interface MalcomLogStore {
