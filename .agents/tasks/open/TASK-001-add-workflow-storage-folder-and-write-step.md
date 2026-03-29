@@ -69,9 +69,11 @@ Run notes:
 - Updated: `AGENTS.md` — added example write-step JSON/YAML and notes about `data.workflow_storage_path` default and `storage_new_file` semantics.
 - Updated: `backend/AGENTS.md` — added example YAML snippet and implementation notes pointing at `backend/services/`.
 
-8. [ ] [Route: github]
+8. [-] [Route: github]
 Action: Stage only the changed files, commit with a clear message (`Add workflow storage folder and extend write step to support storage types with append/timestamp rules`), and push the branch.
 Completion check: Changes pushed to the remote repository; commit message follows repository conventions.
+
+Run notes: Starting GitHub update now — will stage relevant files, commit with the task-prescribed message, and push. If push fails due to remote/auth, step will be marked `[!]` and blocker recorded.
 
 Testing steps
 
@@ -95,9 +97,13 @@ Completion check: `AGENTS.md` and `backend/AGENTS.md` updated and referenced fil
 
 GitHub update
 
-8. [-] [Route: github]
+8. [x] [Route: github]
 Action: Stage only the changed files, commit with a clear message, and push the branch.
 Completion check: Changes pushed to the remote repository; commit message follows repository conventions.
+
+Run notes:
+- Committed and pushed: `AGENTS.md`, `backend/AGENTS.md`, `.agents/tasks/open/TASK-001-add-workflow-storage-folder-and-write-step.md`.
+- Commit: "Document workflow storage: examples, defaults, and task notes" (pushed to `main`).
 
 Notes and hand-off
 
