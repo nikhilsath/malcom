@@ -1,0 +1,190 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e5]:
+    - link [ref=e6] [cursor=pointer]:
+      - /url: ../dashboard/home.html
+      - text: Dashboard
+    - link [ref=e7] [cursor=pointer]:
+      - /url: ../automations/overview.html
+      - text: Automations
+    - link [ref=e8] [cursor=pointer]:
+      - /url: ../apis/registry.html
+      - text: APIs
+    - link [ref=e9] [cursor=pointer]:
+      - /url: ../tools/catalog.html
+      - text: Tools
+    - link [ref=e10] [cursor=pointer]:
+      - /url: ../scripts.html
+      - text: Scripts
+    - link [ref=e11] [cursor=pointer]:
+      - /url: ../settings/workspace.html
+      - text: Settings
+  - complementary [ref=e12]:
+    - generic [ref=e13]:
+      - link [ref=e14] [cursor=pointer]:
+        - /url: ../dashboard/home.html
+        - img [ref=e15]
+        - generic [ref=e16]: Malcom
+      - button [expanded] [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]: <
+    - navigation [ref=e19]:
+      - list [ref=e20]:
+        - listitem [ref=e21]:
+          - link [ref=e22] [cursor=pointer]:
+            - /url: ../automations/overview.html
+            - text: Overview
+        - listitem [ref=e23]:
+          - link [ref=e24] [cursor=pointer]:
+            - /url: ../automations/library.html
+            - text: Library
+        - listitem [ref=e25]:
+          - link [ref=e26] [cursor=pointer]:
+            - /url: ../automations/builder.html
+            - text: Builder
+        - listitem [ref=e27]:
+          - link [ref=e28] [cursor=pointer]:
+            - /url: ../automations/data.html
+            - text: Log Data
+    - button [ref=e30] [cursor=pointer]: Create +
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e34]:
+        - heading [level=2] [ref=e35]: Automation Builder
+        - button [ref=e36] [cursor=pointer]: i
+      - generic [ref=e39]:
+        - region [ref=e40]:
+          - generic [ref=e41]:
+            - paragraph [ref=e42]: Build mode
+            - heading [level=3] [ref=e43]: Guided Mode
+            - paragraph [ref=e44]: Follow a focused sequence for trigger setup, first actions, and validation.
+          - group [ref=e45]:
+            - button [pressed] [ref=e46] [cursor=pointer]: Guided
+            - button [ref=e47] [cursor=pointer]: Canvas
+        - region [ref=e48]:
+          - generic [ref=e50]:
+            - paragraph [ref=e51]: Guided checklist
+            - heading [level=3] [ref=e52]: Build your first successful run
+            - paragraph [ref=e53]: Name your automation so it can be saved and found later.
+          - generic [ref=e54]:
+            - article [ref=e55]:
+              - generic [ref=e56]: Pending
+              - heading [level=4] [ref=e58]: Name and describe automation
+              - generic [ref=e59]:
+                - generic [ref=e60]:
+                  - generic [ref=e61]: Name
+                  - textbox [ref=e62]:
+                    - /placeholder: Name this automation
+                - generic [ref=e63]:
+                  - generic [ref=e64]: Description
+                  - textbox [ref=e65]:
+                    - /placeholder: Short purpose
+                - generic [ref=e66]:
+                  - generic [ref=e67]: Enabled
+                  - switch [checked] [ref=e68] [cursor=pointer]
+                  - checkbox [checked] [ref=e70]
+            - article [ref=e71]:
+              - generic [ref=e72]: Done
+              - generic [ref=e73]:
+                - heading [level=4] [ref=e74]: Configure trigger
+                - paragraph [ref=e75]: Open trigger settings and define when this automation starts.
+              - button [ref=e76] [cursor=pointer]: Edit trigger
+            - article [ref=e77]:
+              - generic [ref=e78]: Pending
+              - generic [ref=e79]:
+                - heading [level=4] [ref=e80]: Add workflow actions
+                - paragraph [ref=e81]: Start with one action, then expand and branch in Canvas Mode when needed.
+              - button [ref=e82] [cursor=pointer]: Add step
+            - article [ref=e83]:
+              - generic [ref=e84]: Pending
+              - generic [ref=e85]:
+                - heading [level=4] [ref=e86]: Save, validate, and test
+                - paragraph [ref=e87]: Persist your draft, check validation, then run a test execution.
+              - generic [ref=e88]:
+                - button [ref=e89] [cursor=pointer]: Save draft
+                - button [ref=e90] [cursor=pointer]: Validate
+                - button [disabled] [ref=e91] [cursor=pointer]: Test run
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - paragraph [ref=e95]: Builder
+              - generic [ref=e96]:
+                - heading [level=3] [ref=e97]: Automation canvas
+                - button [ref=e98] [cursor=pointer]: i
+            - generic [ref=e100]: "Selected: Trigger"
+            - generic [ref=e101]:
+              - button [ref=e102] [cursor=pointer]: Save
+              - button [ref=e103] [cursor=pointer]: Validate
+              - button [ref=e104] [cursor=pointer]: Run now
+              - button [ref=e105] [cursor=pointer]: New draft
+              - button [ref=e106] [cursor=pointer]: Delete
+          - application [ref=e108]:
+            - generic [ref=e110]:
+              - generic:
+                - img
+                - img:
+                  - img [ref=e111] [cursor=pointer]
+                - generic:
+                  - group [ref=e114] [cursor=pointer]:
+                    - generic [ref=e116]:
+                      - generic [ref=e118]: Trigger:manual
+                      - button [ref=e119]: ...
+                  - group [ref=e120]:
+                    - button [ref=e122] [cursor=pointer]: Add your first step
+            - img
+  - dialog "Configure step" [ref=e127]:
+    - button "Close add step modal" [ref=e129] [cursor=pointer]: ×
+    - heading "Configure step" [level=2] [ref=e130]
+    - paragraph [ref=e131]:
+      - text: Fill in the details for the new
+      - strong [ref=e132]: API
+      - text: step.
+    - generic [ref=e133]:
+      - generic [ref=e134]:
+        - generic [ref=e135]: Custom label (optional)
+        - textbox "Custom label (optional)" [ref=e136]:
+          - /placeholder: API step
+      - generic [ref=e137]:
+        - generic [ref=e138]: HTTP method
+        - combobox "HTTP method" [ref=e139]:
+          - option "GET"
+          - option "POST" [selected]
+          - option "PUT"
+          - option "PATCH"
+          - option "DELETE"
+      - generic [ref=e140]:
+        - generic [ref=e141]: Connectors
+        - combobox "Connectors" [ref=e142]:
+          - option "None" [selected]
+      - generic [ref=e143]:
+        - generic [ref=e144]: Destination URL
+        - textbox "Destination URL" [ref=e145]: https://example.com/hooks/run
+      - generic [ref=e146]:
+        - generic [ref=e147]: Payload template
+        - textbox "Payload template" [ref=e148]: "{\"automation_id\":\"{{automation.id}}\"}"
+      - generic [ref=e149]:
+        - generic [ref=e150]: Insert variable token
+        - generic [ref=e151]: Use workflow variables in JSON templates without manually typing token paths.
+        - generic [ref=e152]:
+          - combobox [ref=e153]:
+            - text: Workflow
+            - 'option "Automation ID ({{automation.id}})" [selected]'
+            - 'option "Automation name ({{automation.name}})"'
+            - 'option "Execution timestamp ({{timestamp}})"'
+            - text: Trigger
+            - 'option "Trigger payload ({{payload}})"'
+          - button "Insert token" [ref=e154] [cursor=pointer]
+      - generic [ref=e155]:
+        - generic [ref=e156]:
+          - generic [ref=e157]: Wait for response
+          - generic [ref=e158]: Blocking mode extracts fields before the next step. Background mode logs the response later.
+        - generic [ref=e159]:
+          - checkbox "Blocking" [checked] [ref=e160]
+          - generic [ref=e161]: Blocking
+      - group [ref=e162]:
+        - generic "Response mapping" [ref=e163] [cursor=pointer]
+    - generic [ref=e164]:
+      - button "← Back" [ref=e165] [cursor=pointer]
+      - button "Add step" [ref=e166] [cursor=pointer]
+```

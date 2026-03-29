@@ -18,11 +18,11 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await expect(page.locator("#automations-validation-summary")).toContainText("validation issue");
   await page.locator("#automations-test-results-close").click();
 
-  await page.locator("#automations-guided-item-name-action").click();
-  await expect(page.locator("#automations-guided-settings-modal")).toBeVisible();
+  await expect(page.locator("#automations-guided-item-name-action")).toHaveCount(0);
+  await expect(page.locator("#automations-guided-workflow-fields")).toBeVisible();
   await page.locator("#automations-workflow-name-input").fill("Customer notification");
   await page.locator("#automations-workflow-description-input").fill("Sends an email when a customer event occurs.");
-  await page.locator("#automations-guided-settings-modal-done").click();
+  await expect(page.locator("#automations-guided-item-name-state")).toHaveText("Done");
 
   await expect(page.locator("#automations-guided-item-step-action")).toBeVisible();
   await page.locator("#automations-guided-item-step-action").click();
@@ -157,16 +157,19 @@ test("defaults to guided mode for new drafts and allows switching to canvas mode
   await expect(page.locator("#automations-builder-mode-guided")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#automations-guided-panel")).toBeVisible();
   await expect(page).toHaveURL(/mode=guided/);
-
-  await page.locator("#automations-guided-item-name-action").click();
-  await expect(page.locator("#automations-guided-settings-modal")).toBeVisible();
-  await page.locator("#automations-guided-settings-modal-close").click();
+  await expect(page.locator("#automations-guided-workflow-fields")).toBeVisible();
+  await expect(page.locator("#automations-guided-item-name-action")).toHaveCount(0);
+  await page.locator("#automations-workflow-name-input").fill("Guided draft");
+  await page.locator("#automations-workflow-description-input").fill("Inline metadata");
+  await expect(page.locator("#automations-guided-item-name-state")).toHaveText("Done");
 
   await page.locator("#automations-builder-mode-canvas").click();
 
   await expect(page.locator("#automations-builder-mode-canvas")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#automations-guided-panel")).toHaveCount(0);
   await expect(page).toHaveURL(/mode=canvas/);
+  await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Guided draft");
+  await expect(page.locator("#automations-workflow-description-input")).toHaveValue("Inline metadata");
 });
 
 test.describe("Automation Builder - Connector Dropdown", () => {

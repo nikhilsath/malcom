@@ -439,7 +439,6 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     devices: clone(deepMerge(defaultDashboardDevicesResponse, options.devices || {})),
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
     logs: clone(options.logs || dashboardLogEntries),
-    publicProxy: clone(deepMerge(defaultPublicProxyResponse, options.publicProxy || {})),
     resourceProfile: clone(deepMerge(defaultDashboardResourceProfileResponse, options.resourceProfile || {})),
     resourceHistory: clone(deepMerge(defaultDashboardResourceHistoryResponse, options.resourceHistory || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
@@ -556,38 +555,6 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
         entries: state.logs
       })
     });
-  });
-
-  await page.route("**/api/v1/runtime/public-proxy", async (route) => {
-    const method = route.request().method();
-
-    if (method === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(state.publicProxy)
-      });
-      return;
-    }
-
-    if (method === "POST") {
-      const payload = route.request().postDataJSON() as { enabled?: boolean };
-      state.publicProxy = {
-        ...state.publicProxy,
-        enabled: Boolean(payload.enabled),
-        running: Boolean(payload.enabled),
-        last_error: null,
-        updated_at: state.freezeTimeIso
-      };
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(state.publicProxy)
-      });
-      return;
-    }
-
-    await route.fallback();
   });
 
   await page.route("**/api/v1/debug/resource-profile", async (route) => {
