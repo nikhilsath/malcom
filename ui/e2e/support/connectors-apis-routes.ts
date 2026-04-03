@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import { buildConnectorSettingsPayload } from "./api-response-builders.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -166,12 +167,8 @@ const toJson = (body: JsonRecord | JsonRecord[]) => ({
   body: JSON.stringify(body)
 });
 
-const createDefaultSettings = (connectors: ConnectorRecord[]) => mergeDeep(clone(defaultSettingsResponse), {
-  connectors: {
-    catalog: clone(defaultSettingsResponse.connectors.catalog),
-    records: connectors,
-    auth_policy: clone(defaultSettingsResponse.connectors.auth_policy)
-  }
+const createDefaultSettings = (connectors: ConnectorRecord[]) => ({
+  connectors: buildConnectorSettingsPayload({ records: connectors }),
 });
 
 const createConnectorRecord = (overrides: Partial<ConnectorRecord> & { id: string; provider: string; name: string }): ConnectorRecord => ({
@@ -788,6 +785,92 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
               ? clone(connectorSettings.auth_policy as Record<string, unknown>)
               : {}
           });
+        }
+
+        if (pathname === "/api/v1/connectors" && method === "POST") {
+          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
+          const connectorId = String(body.id || `${String(body.provider || "connector")}-${Date.now()}`);
+          const nextRecord = {
+            id: connectorId,
+            provider: String(body.provider || ""),
+            name: String(body.name || connectorId),
+            status: String(body.status || "draft"),
+            auth_type: String(body.auth_type || "oauth2"),
+            scopes: Array.isArray(body.scopes) ? body.scopes : [],
+            base_url: String(body.base_url || ""),
+            owner: String(body.owner || "Workspace"),
+            docs_url: body.docs_url ? String(body.docs_url) : undefined,
+            credential_ref: String(body.credential_ref || `connector/${connectorId}`),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_tested_at: null,
+            auth_config: (body.auth_config && typeof body.auth_config === "object") ? clone(body.auth_config as Record<string, unknown>) : {}
+          };
+          upsert(connectors, nextRecord);
+          connectorsRoot.records = connectors;
+          saveState(state);
+          return respond(stripConnectorSecrets(nextRecord), 201);
+        }
+
+        const connectorWriteMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)$/);
+        if (connectorWriteMatch && method === "PATCH") {
+          const connectorId = connectorWriteMatch[1];
+          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
+          const existing = connectors.find((record) => record.id === connectorId);
+          if (!existing) {
+            return respond({ detail: "Connector not found." }, 404);
+          }
+
+          const nextRecord = {
+            ...existing,
+            provider: String(body.provider || existing.provider || ""),
+            name: String(body.name || existing.name || connectorId),
+            status: String(body.status || existing.status || "draft"),
+            auth_type: String(body.auth_type || existing.auth_type || "oauth2"),
+            scopes: Array.isArray(body.scopes) ? body.scopes : (existing.scopes || []),
+            base_url: String(body.base_url || existing.base_url || ""),
+            owner: String(body.owner || existing.owner || "Workspace"),
+            docs_url: body.docs_url ? String(body.docs_url) : existing.docs_url,
+            credential_ref: String(body.credential_ref || existing.credential_ref || `connector/${connectorId}`),
+            updated_at: new Date().toISOString(),
+            auth_config: {
+              ...((existing.auth_config && typeof existing.auth_config === "object") ? existing.auth_config : {}),
+              ...((body.auth_config && typeof body.auth_config === "object") ? clone(body.auth_config as Record<string, unknown>) : {})
+            }
+          };
+          upsert(connectors, nextRecord);
+          connectorsRoot.records = connectors;
+          saveState(state);
+          return respond(stripConnectorSecrets(nextRecord));
+        }
+
+        if (connectorWriteMatch && method === "DELETE") {
+          const connectorId = connectorWriteMatch[1];
+          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
+          const before = connectors.length;
+          const nextRecords = connectors.filter((record) => record.id !== connectorId);
+          connectorsRoot.records = nextRecords;
+          saveState(state);
+          if (before === nextRecords.length) {
+            return respond({ detail: "Connector not found." }, 404);
+          }
+          return respond({ ok: true, removed: connectorId });
+        }
+
+        if (pathname === "/api/v1/connectors/auth-policy" && method === "PATCH") {
+          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const currentPolicy = (connectorsRoot.auth_policy && typeof connectorsRoot.auth_policy === "object")
+            ? connectorsRoot.auth_policy as Record<string, unknown>
+            : {};
+          connectorsRoot.auth_policy = {
+            ...currentPolicy,
+            ...body,
+          };
+          saveState(state);
+          return respond(clone(connectorsRoot.auth_policy as Record<string, unknown>));
         }
 
         const connectorStartMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)\/oauth\/start$/);

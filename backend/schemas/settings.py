@@ -127,8 +127,8 @@ class ConnectorAuthConfigUpdate(BaseModel):
     clear_credentials: bool = False
 
 
-class ConnectorRecordUpdate(BaseModel):
-    id: str = Field(min_length=1, max_length=120)
+class ConnectorCreateRequest(BaseModel):
+    id: str | None = Field(default=None, min_length=1, max_length=120)
     provider: str = Field(pattern=r"^[a-z0-9_]+$")
     name: str = Field(min_length=1, max_length=120)
     status: str = Field(default="draft", pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
@@ -138,15 +138,31 @@ class ConnectorRecordUpdate(BaseModel):
     owner: str | None = Field(default=None, max_length=120)
     docs_url: str | None = Field(default=None, max_length=2000)
     credential_ref: str | None = Field(default=None, max_length=255)
-    created_at: str | None = None
-    updated_at: str | None = None
-    last_tested_at: str | None = None
     auth_config: ConnectorAuthConfigUpdate = Field(default_factory=ConnectorAuthConfigUpdate)
 
 
-class ConnectorSettingsUpdate(BaseModel):
-    records: list[ConnectorRecordUpdate] | None = None
-    auth_policy: ConnectorAuthPolicy | None = None
+class ConnectorUpdateRequest(BaseModel):
+    provider: str | None = Field(default=None, pattern=r"^[a-z0-9_]+$")
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    status: str | None = Field(default=None, pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
+    auth_type: str | None = Field(default=None, pattern=r"^(oauth2|bearer|api_key|basic|header)$")
+    scopes: list[str] | None = None
+    base_url: str | None = Field(default=None, max_length=2000)
+    owner: str | None = Field(default=None, max_length=120)
+    docs_url: str | None = Field(default=None, max_length=2000)
+    credential_ref: str | None = Field(default=None, max_length=255)
+    last_tested_at: str | None = None
+    auth_config: ConnectorAuthConfigUpdate | None = None
+
+
+class ConnectorAuthPolicyUpdateRequest(BaseModel):
+    auth_policy: ConnectorAuthPolicy
+
+
+class ConnectorDeleteResponse(BaseModel):
+    ok: bool
+    message: str
+    connector_id: str
 
 
 class AppSettingsResponse(BaseModel):
@@ -155,7 +171,6 @@ class AppSettingsResponse(BaseModel):
     notifications: NotificationSettings
     data: DataSettings
     automation: AutomationSettings
-    connectors: ConnectorSettingsResponse
     options: "AppSettingsOptionsResponse"
 
 
@@ -171,7 +186,6 @@ class AppSettingsUpdate(BaseModel):
     notifications: NotificationSettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
-    connectors: ConnectorSettingsUpdate | None = None
 
 
 class ConnectorActionResponse(BaseModel):
@@ -242,6 +256,9 @@ __all__ = [
     "ConnectorAuthConfigResponse",
     "ConnectorAuthConfigUpdate",
     "ConnectorAuthPolicy",
+    "ConnectorAuthPolicyUpdateRequest",
+    "ConnectorCreateRequest",
+    "ConnectorDeleteResponse",
     "ConnectorOAuthCallbackResponse",
     # Settings backup/restore schemas
     "SettingsBackupMetadata",
@@ -255,9 +272,8 @@ __all__ = [
     "ConnectorAuthPolicyMetadataResponse",
     "ConnectorProviderPresetResponse",
     "ConnectorRecordResponse",
-    "ConnectorRecordUpdate",
     "ConnectorSettingsResponse",
-    "ConnectorSettingsUpdate",
+    "ConnectorUpdateRequest",
     "DataSettings",
     "GeneralSettings",
     "LoggingSettings",

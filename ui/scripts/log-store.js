@@ -5,33 +5,47 @@ const malcomLogStorageKeys = {
 const malcomDefaultAppSettings = {
   general: {
     environment: "live",
-    timezone: "local"
+    timezone: ""
   },
   logging: {
-    max_stored_entries: 250,
-    max_visible_entries: 50,
-    max_detail_characters: 4000,
-    max_file_size_mb: 5
+    max_stored_entries: 0,
+    max_visible_entries: 0,
+    max_detail_characters: 0,
+    max_file_size_mb: 0
   },
   notifications: {
-    channel: "email",
-    digest: "hourly"
+    channel: "",
+    digest: ""
   },
   data: {
-    payload_redaction: true,
-    export_window_utc: "02:00"
+    payload_redaction: false,
+    export_window_utc: ""
   },
   automation: {
-    default_tool_retries: 2
+    default_tool_retries: 0
   },
-  connectors: {
-    catalog: [],
-    records: [],
+  options: {
+    notification_channels: [],
+    notification_digests: [],
+    data_export_windows: []
+  }
+};
+
+const malcomDefaultConnectors = {
+  catalog: [],
+  records: [],
+  metadata: {
+    statuses: [],
+    active_storage_statuses: [],
     auth_policy: {
-      rotation_interval_days: 90,
-      reconnect_requires_approval: true,
-      credential_visibility: "masked"
+      rotation_intervals: [],
+      credential_visibility_options: []
     }
+  },
+  auth_policy: {
+    rotation_interval_days: 0,
+    reconnect_requires_approval: false,
+    credential_visibility: ""
   }
 };
 
@@ -132,6 +146,7 @@ let cachedAppSettings = createDefaultAppSettings();
 let pendingSettingsRequest = null;
 let hasLoadedAppSettings = false;
 
+let cachedConnectors = cloneJsonValue(malcomDefaultConnectors);
 let pendingConnectorsRequest = null;
 
 const normalizeAppSettings = (settings = {}) => ({
@@ -145,10 +160,6 @@ const normalizeAppSettings = (settings = {}) => ({
     ...malcomDefaultAppSettings.notifications,
     ...(settings.notifications || {})
   },
-  security: {
-    ...malcomDefaultAppSettings.security,
-    ...(settings.security || {})
-  },
   data: {
     ...malcomDefaultAppSettings.data,
     ...(settings.data || {})
@@ -157,15 +168,41 @@ const normalizeAppSettings = (settings = {}) => ({
     ...malcomDefaultAppSettings.automation,
     ...(settings.automation || {})
   },
-  connectors: {
-    ...cloneJsonValue(malcomDefaultAppSettings.connectors),
-    ...(settings.connectors || {}),
-    catalog: Array.isArray(settings.connectors?.catalog) ? settings.connectors.catalog : [],
-    records: Array.isArray(settings.connectors?.records) ? settings.connectors.records : [],
+  options: {
+    ...cloneJsonValue(malcomDefaultAppSettings.options),
+    ...(settings.options || {}),
+    notification_channels: Array.isArray(settings.options?.notification_channels) ? settings.options.notification_channels : [],
+    notification_digests: Array.isArray(settings.options?.notification_digests) ? settings.options.notification_digests : [],
+    data_export_windows: Array.isArray(settings.options?.data_export_windows) ? settings.options.data_export_windows : []
+  }
+});
+
+const normalizeConnectors = (connectors = {}) => ({
+  ...cloneJsonValue(malcomDefaultConnectors),
+  ...(connectors || {}),
+  catalog: Array.isArray(connectors?.catalog) ? connectors.catalog : [],
+  records: Array.isArray(connectors?.records) ? connectors.records : [],
+  metadata: {
+    ...cloneJsonValue(malcomDefaultConnectors.metadata),
+    ...(connectors?.metadata || {}),
+    statuses: Array.isArray(connectors?.metadata?.statuses) ? connectors.metadata.statuses : [],
+    active_storage_statuses: Array.isArray(connectors?.metadata?.active_storage_statuses)
+      ? connectors.metadata.active_storage_statuses
+      : [],
     auth_policy: {
-      ...malcomDefaultAppSettings.connectors.auth_policy,
-      ...(settings.connectors?.auth_policy || {})
+      ...malcomDefaultConnectors.metadata.auth_policy,
+      ...(connectors?.metadata?.auth_policy || {}),
+      rotation_intervals: Array.isArray(connectors?.metadata?.auth_policy?.rotation_intervals)
+        ? connectors.metadata.auth_policy.rotation_intervals
+        : [],
+      credential_visibility_options: Array.isArray(connectors?.metadata?.auth_policy?.credential_visibility_options)
+        ? connectors.metadata.auth_policy.credential_visibility_options
+        : []
     }
+  },
+  auth_policy: {
+    ...malcomDefaultConnectors.auth_policy,
+    ...(connectors?.auth_policy || {})
   }
 });
 
@@ -178,6 +215,10 @@ const emitSettingsUpdated = () => {
   dispatchLogEvent("malcom:log-settings-updated", {
     settings: getLogSettings()
   });
+};
+
+const emitConnectorsUpdated = () => {
+  dispatchLogEvent("malcom:connectors-updated", { connectors: cloneJsonValue(cachedConnectors) });
 };
 
 const loadAppSettings = async ({ force = false } = {}) => {
@@ -210,9 +251,9 @@ const loadConnectors = async ({ force = false } = {}) => {
 
   pendingConnectorsRequest = window.Malcom?.requestJson?.("/api/v1/connectors")
     .then((connectors) => {
-      cachedAppSettings = normalizeAppSettings({ ...cachedAppSettings, connectors });
-      emitSettingsUpdated();
-      return cloneJsonValue(cachedAppSettings);
+      cachedConnectors = normalizeConnectors(connectors);
+      emitConnectorsUpdated();
+      return getConnectors();
     })
     .catch((error) => {
       pendingConnectorsRequest = null;
@@ -223,6 +264,43 @@ const loadConnectors = async ({ force = false } = {}) => {
     });
 
   return pendingConnectorsRequest;
+};
+
+const getConnectors = () => cloneJsonValue(cachedConnectors);
+
+const createConnector = async (payload = {}) => {
+  await window.Malcom?.requestJson?.("/api/v1/connectors", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  await loadConnectors({ force: true });
+  return getConnectors();
+};
+
+const updateConnector = async (connectorId, payload = {}) => {
+  await window.Malcom?.requestJson?.(`/api/v1/connectors/${encodeURIComponent(connectorId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+  await loadConnectors({ force: true });
+  return getConnectors();
+};
+
+const deleteConnector = async (connectorId) => {
+  await window.Malcom?.requestJson?.(`/api/v1/connectors/${encodeURIComponent(connectorId)}`, {
+    method: "DELETE"
+  });
+  await loadConnectors({ force: true });
+  return getConnectors();
+};
+
+const updateConnectorAuthPolicy = async (payload = {}) => {
+  await window.Malcom?.requestJson?.("/api/v1/connectors/auth-policy", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+  await loadConnectors({ force: true });
+  return getConnectors();
 };
 const updateAppSettings = async (settings = {}) => {
   let baseSettings = getAppSettings();
@@ -350,6 +428,21 @@ window.MalcomLogStore = {
   ready: () => loadAppSettings(),
   loadConnectors({ force = false } = {}) {
     return loadConnectors({ force });
+  },
+  getConnectors() {
+    return getConnectors();
+  },
+  createConnector(payload) {
+    return createConnector(payload);
+  },
+  updateConnector(connectorId, payload) {
+    return updateConnector(connectorId, payload);
+  },
+  deleteConnector(connectorId) {
+    return deleteConnector(connectorId);
+  },
+  updateConnectorAuthPolicy(payload) {
+    return updateConnectorAuthPolicy(payload);
   },
   getAppSettings() {
     return getAppSettings();

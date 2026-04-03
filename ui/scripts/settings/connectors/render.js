@@ -1,7 +1,6 @@
 import { formatDateTime } from "../../format-utils.js";
 import { connectorElements } from "./dom.js";
 import {
-  canonicalizeProvider,
   connectorState,
   getDefaultScopesForProvider,
   getProviderPreset,
@@ -19,6 +18,19 @@ export const setFeedback = (message, tone = "") => {
   connectorElements.feedback.className = tone
     ? `api-form-feedback api-form-feedback--${tone}`
     : "api-form-feedback";
+};
+
+const renderSelectOptions = (element, options, { selectedValue = "" } = {}) => {
+  if (!element) {
+    return;
+  }
+
+  element.innerHTML = options
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join("");
+  if (selectedValue) {
+    element.value = selectedValue;
+  }
 };
 
 const setFieldVisibility = (fieldId, visible) => {
@@ -99,6 +111,11 @@ const renderAuthTypeOptions = (record) => {
   connectorElements.authTypeInput.value = record.auth_type;
 };
 
+const renderStatusOptions = (record) => {
+  const statusOptions = connectorState.connectors?.metadata?.statuses || [];
+  renderSelectOptions(connectorElements.statusInput, statusOptions, { selectedValue: record?.status || "" });
+};
+
 const renderCredentialSummary = (record) => {
   const authConfig = record.auth_config || {};
   const maskedValues = [
@@ -118,10 +135,10 @@ const renderCredentialSummary = (record) => {
 };
 
 export const renderSummary = () => {
-  const records = connectorState.settings?.connectors?.records || [];
+  const records = connectorState.connectors?.records || [];
   const connected = records.filter((item) => item.status === "connected").length;
   const oauth = records.filter((item) => item.auth_type === "oauth2").length;
-  const attention = records.filter((item) => ["needs_attention", "expired", "revoked"].includes(item.status)).length;
+  const attention = records.filter((item) => item.status !== "connected" && item.status !== "draft" && item.status !== "pending_oauth").length;
 
   if (connectorElements.summaryConnected) {
     connectorElements.summaryConnected.textContent = String(connected);
@@ -135,7 +152,7 @@ export const renderSummary = () => {
 };
 
 export const renderDirectory = (onSelectRecord) => {
-  const records = connectorState.settings?.connectors?.records || [];
+  const records = connectorState.connectors?.records || [];
   const hasRecords = records.length > 0;
 
   if (connectorElements.empty) {
@@ -223,15 +240,15 @@ export const renderDetail = () => {
       google ? "Google OAuth setup information" : "More information"
     );
   }
+  renderStatusOptions(record);
   renderAuthTypeOptions(record);
   connectorElements.nameInput.value = record.name || "";
-  connectorElements.providerInput.value = titleCase(record.provider);
-  connectorElements.statusInput.value = record.status;
+  connectorElements.providerInput.value = getProviderPreset(record.provider)?.name || titleCase(record.provider);
   connectorElements.ownerInput.value = record.owner || "";
   connectorElements.baseUrlInput.value = record.base_url || "";
   connectorElements.scopesInput.value = (
     google
-      ? getDefaultScopesForProvider(canonicalizeProvider(record.provider)).map((scope) => scope.trim()).filter(Boolean)
+      ? getDefaultScopesForProvider(record.provider, getProviderPreset(record.provider)).map((scope) => scope.trim()).filter(Boolean)
       : (record.scopes || [])
   ).join(", ");
   connectorElements.clientIdInput.value = record.auth_config?.client_id || "";
@@ -249,9 +266,11 @@ export const renderDetail = () => {
 };
 
 export const renderPolicy = () => {
-  const policy = connectorState.settings?.connectors?.auth_policy;
+  const policy = connectorState.connectors?.auth_policy;
+  const policyMetadata = connectorState.connectors?.metadata?.auth_policy;
   if (
     !policy
+    || !policyMetadata
     || !connectorElements.policyRotationInput
     || !connectorElements.policyApprovalInput
     || !connectorElements.policyVisibilityInput
@@ -259,6 +278,12 @@ export const renderPolicy = () => {
     return;
   }
 
+  renderSelectOptions(connectorElements.policyRotationInput, policyMetadata.rotation_intervals, {
+    selectedValue: String(policy.rotation_interval_days)
+  });
+  renderSelectOptions(connectorElements.policyVisibilityInput, policyMetadata.credential_visibility_options, {
+    selectedValue: policy.credential_visibility
+  });
   connectorElements.policyRotationInput.value = String(policy.rotation_interval_days);
   connectorElements.policyApprovalInput.checked = Boolean(policy.reconnect_requires_approval);
   connectorElements.policyApprovalInput.closest(".toggle")?.classList.toggle(
@@ -269,7 +294,6 @@ export const renderPolicy = () => {
   if (approvalLabel) {
     approvalLabel.textContent = connectorElements.policyApprovalInput.checked ? "Required" : "Optional";
   }
-  connectorElements.policyVisibilityInput.value = policy.credential_visibility;
 };
 
 export const renderModalProviders = (onSelectPreset) => {
@@ -277,7 +301,7 @@ export const renderModalProviders = (onSelectPreset) => {
     return;
   }
 
-  const catalog = connectorState.settings?.connectors?.catalog || [];
+  const catalog = connectorState.connectors?.catalog || [];
   connectorElements.modalProviderGrid.innerHTML = catalog.map((preset) => `
     <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-popup-option" data-provider-id="${preset.id}">
       <span id="settings-connectors-provider-option-title-${preset.id}" class="api-popup-option__title">${preset.name}</span>

@@ -49,6 +49,12 @@ vi.mock("@xyflow/react", async () => {
 });
 
 import { AutomationApp } from "../app";
+import {
+  buildAutomationBuilderMetadataFixture,
+  buildConnectorActivityCatalog,
+  buildHttpPresetCatalog,
+  buildWorkflowBuilderConnectorOptions,
+} from "./fixtures/builder-api-fixtures";
 
 type RequestLogEntry = {
   path: string;
@@ -149,17 +155,11 @@ const renderAutomationApp = (options?: {
     requestLog.push({ path, method, body });
 
     if (path === "/api/v1/automations/workflow-connectors") {
-      return options?.connectors || [
-        {
-          id: "connector-main",
-          provider: "http",
-          provider_name: "HTTP",
-          name: "Main webhook",
-          auth_type: "none",
-          base_url: "https://example.com",
-          source_path: "connectors"
-        }
-      ];
+      return buildWorkflowBuilderConnectorOptions(options?.connectors as any[] || []);
+    }
+
+    if (path === "/api/v1/automations/builder-metadata") {
+      return buildAutomationBuilderMetadataFixture();
     }
 
     if (path === "/api/v1/inbound") {
@@ -168,6 +168,15 @@ const renderAutomationApp = (options?: {
 
     if (path === "/api/v1/scripts") {
       return scriptLibraryItems;
+    }
+
+    if (path === "/api/v1/scripts/metadata") {
+      return {
+        languages: [
+          { value: "python", label: "Python" },
+          { value: "javascript", label: "JavaScript" }
+        ]
+      };
     }
 
     if (path === "/api/v1/tools") {
@@ -198,94 +207,11 @@ const renderAutomationApp = (options?: {
     }
 
     if (path === "/api/v1/connectors/activity-catalog") {
-      return [
-        {
-          provider_id: "http",
-          activity_id: "custom_http",
-          service: "http",
-          operation_type: "read",
-          label: "Custom HTTP",
-          description: "Not used in this test harness.",
-          required_scopes: [],
-          input_schema: [],
-          output_schema: [],
-          execution: {}
-        },
-        {
-          provider_id: "google",
-          activity_id: "gmail_list_messages",
-          service: "gmail",
-          operation_type: "read",
-          label: "List emails",
-          description: "List Gmail messages.",
-          required_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-          input_schema: [
-            { key: "max_results", label: "Max results", type: "integer", required: false, default: 25 }
-          ],
-          output_schema: [{ key: "messages", label: "Messages", type: "array" }],
-          execution: {}
-        },
-        {
-          provider_id: "google",
-          activity_id: "gmail_send_email",
-          service: "gmail",
-          operation_type: "write",
-          label: "Send email",
-          description: "Send Gmail message.",
-          required_scopes: ["https://www.googleapis.com/auth/gmail.send"],
-          input_schema: [
-            { key: "recipients", label: "Recipients", type: "string", required: true },
-            { key: "subject", label: "Subject", type: "string", required: true },
-            { key: "body", label: "Body", type: "textarea", required: true }
-          ],
-          output_schema: [{ key: "message_id", label: "Message ID", type: "string" }],
-          execution: {}
-        },
-        {
-          provider_id: "google",
-          activity_id: "drive_list_files",
-          service: "drive",
-          operation_type: "read",
-          label: "List files",
-          description: "List Drive files.",
-          required_scopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
-          input_schema: [],
-          output_schema: [{ key: "files", label: "Files", type: "array" }],
-          execution: {}
-        },
-        {
-          provider_id: "google",
-          activity_id: "calendar_list_events",
-          service: "calendar",
-          operation_type: "read",
-          label: "List events",
-          description: "List calendar events.",
-          required_scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
-          input_schema: [],
-          output_schema: [{ key: "events", label: "Events", type: "array" }],
-          execution: {}
-        },
-        {
-          provider_id: "google",
-          activity_id: "sheets_update_range",
-          service: "sheets",
-          operation_type: "write",
-          label: "Update range",
-          description: "Write values into a sheet.",
-          required_scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-          input_schema: [
-            { key: "spreadsheet_id", label: "Spreadsheet ID", type: "string", required: true },
-            { key: "range", label: "A1 range", type: "string", required: true },
-            { key: "values_payload", label: "Values payload", type: "json", required: true }
-          ],
-          output_schema: [{ key: "updated_cells", label: "Updated cells", type: "integer" }],
-          execution: {}
-        }
-      ];
+      return buildConnectorActivityCatalog();
     }
 
     if (path === "/api/v1/connectors/http-presets") {
-      return options?.httpPresets || [];
+      return buildHttpPresetCatalog(options?.httpPresets as any[] || []);
     }
 
     if (path === "/api/v1/automations") {
@@ -426,8 +352,7 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-api-mode-custom") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-outbound_request") as HTMLElement);
 
     await waitFor(() => {
       expect(document.querySelector("#add-step-http-connector-input")).toBeInTheDocument();
@@ -473,11 +398,7 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
-    await waitFor(() => {
-      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
-    });
-    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-connector_activity") as HTMLElement);
     const savedConnectorSelect = await waitFor(() => {
       const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
       expect(element).not.toBeNull();
@@ -491,8 +412,8 @@ describe("AutomationApp", () => {
       return element as HTMLSelectElement;
     });
     expect(within(serviceSelect).getByRole("option", { name: "Gmail" })).toBeInTheDocument();
-    expect(within(serviceSelect).getByRole("option", { name: "Drive" })).toBeInTheDocument();
-    expect(within(serviceSelect).getByRole("option", { name: "Calendar" })).toBeInTheDocument();
+    expect(within(serviceSelect).queryByRole("option", { name: "Drive" })).not.toBeInTheDocument();
+    expect(within(serviceSelect).queryByRole("option", { name: "Calendar" })).not.toBeInTheDocument();
     expect(within(serviceSelect).getByRole("option", { name: "Sheets" })).toBeInTheDocument();
     expect(screen.getByText("Choose a Google app to view its supported actions.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /send email/i })).not.toBeInTheDocument();
@@ -561,11 +482,7 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
-    await waitFor(() => {
-      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
-    });
-    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-connector_activity") as HTMLElement);
 
     const connectorSelect = await waitFor(() => {
       const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
@@ -600,11 +517,7 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
-    await waitFor(() => {
-      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
-    });
-    fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-connector_activity") as HTMLElement);
     const savedConnectorSelect = await waitFor(() => {
       const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
       expect(element).not.toBeNull();

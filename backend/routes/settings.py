@@ -12,10 +12,7 @@ router = APIRouter()
 
 @router.get("/api/v1/settings", response_model=AppSettingsResponse)
 def get_app_settings(request: Request) -> AppSettingsResponse:
-    payload = get_settings_payload(
-        get_connection(request),
-        protection_secret=get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path),
-    )
+    payload = get_settings_payload(get_connection(request))
     return AppSettingsResponse(**payload)
 
 
@@ -25,20 +22,9 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
     logger = get_application_logger(request)
     changes = payload.model_dump(exclude_unset=True)
     changed_section_keys = sorted(changes.keys())
-    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
 
     if not changes:
-        return AppSettingsResponse(**get_settings_payload(connection, protection_secret=protection_secret))
-
-    if "connectors" in changes:
-        changes["connectors"] = normalize_connector_settings_for_storage(
-            changes["connectors"],
-            existing_settings=get_stored_connector_settings(connection),
-            connection=connection,
-            protection_secret=protection_secret,
-        )
-        persist_connector_settings(connection, changes["connectors"])
-        changes.pop("connectors", None)
+        return AppSettingsResponse(**get_settings_payload(connection))
 
     now = utc_now_iso()
 
@@ -56,7 +42,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
         )
 
     connection.commit()
-    settings_payload = get_settings_payload(connection, protection_secret=protection_secret)
+    settings_payload = get_settings_payload(connection)
     if "logging" in changes:
         request.app.state.logger = configure_application_logger(
             request.app,

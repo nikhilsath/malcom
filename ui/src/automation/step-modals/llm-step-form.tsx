@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { DataFlowToken } from "../data-flow";
+import { AUTOMATION_PROMPT_TOKEN_TARGET_OPTIONS } from "../constants";
 import { TokenPicker } from "../token-picker";
 import type { AutomationStep } from "../types";
 
@@ -75,8 +76,9 @@ export const LlmStepForm = ({ draft, dataFlowTokens = [], onChange }: Props) => 
             value={tokenTarget}
             onChange={(event) => setTokenTarget(event.target.value as "system" | "user")}
           >
-            <option value="user">User prompt</option>
-            <option value="system">System prompt</option>
+            {AUTOMATION_PROMPT_TOKEN_TARGET_OPTIONS.map((targetOption) => (
+              <option key={targetOption.value} value={targetOption.value}>{targetOption.label}</option>
+            ))}
           </select>
         </label>
       ) : null}

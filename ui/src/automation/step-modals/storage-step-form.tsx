@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import type { AutomationStep, LogDbColumnDef, LogDbTableOption } from "../types";
+import type { AutomationBuilderOption, AutomationStep, LogDbColumnDef, LogDbTableOption } from "../types";
 
 type Props = {
   draft: AutomationStep;
+  storageTypeOptions: AutomationBuilderOption[];
+  logColumnTypeOptions: AutomationBuilderOption[];
   onChange: (step: AutomationStep) => void;
 };
-
-const COLUMN_DATA_TYPES = ["text", "integer", "real", "boolean", "timestamp"] as const;
 
 const emptyColumn = (): LogDbColumnDef => ({
   column_name: "",
@@ -20,7 +20,7 @@ const toIdToken = (value: string, fallback: string): string => {
   return token || fallback;
 };
 
-export const StorageStepForm = ({ draft, onChange }: Props) => {
+export const StorageStepForm = ({ draft, storageTypeOptions, logColumnTypeOptions, onChange }: Props) => {
   const [mode, setMode] = useState<"existing" | "new">(
     draft.config.log_table_id ? "existing" : "new"
   );
@@ -167,10 +167,9 @@ export const StorageStepForm = ({ draft, onChange }: Props) => {
           value={storageType}
           onChange={(e) => onChange({ ...draft, config: { ...draft.config, storage_type: e.target.value } })}
         >
-          <option value="table">Database table</option>
-          <option value="csv">CSV file</option>
-          <option value="json">JSON file</option>
-          <option value="other">Other</option>
+          {storageTypeOptions.map((storageTypeOption) => (
+            <option key={storageTypeOption.value} value={storageTypeOption.value}>{storageTypeOption.label}</option>
+          ))}
         </select>
       </label>
 
@@ -349,8 +348,8 @@ export const StorageStepForm = ({ draft, onChange }: Props) => {
                     value={col.data_type}
                     onChange={(e) => updateColumn(index, "data_type", e.target.value)}
                   >
-                    {COLUMN_DATA_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                    {logColumnTypeOptions.map((columnTypeOption) => (
+                      <option key={columnTypeOption.value} value={columnTypeOption.value}>{columnTypeOption.label}</option>
                     ))}
                   </select>
                   <label id={`log-step-column-${columnToken}-nullable-label`} className="log-step-column-row__nullable">

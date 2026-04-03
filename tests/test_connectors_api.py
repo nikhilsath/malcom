@@ -24,30 +24,71 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.client.__exit__(None, None, None)
         self.tempdir.cleanup()
 
-    def test_tests_connector_credentials_after_settings_patch(self) -> None:
-        patch_response = self.client.patch(
-            "/api/v1/settings",
+    def test_connector_crud_and_auth_policy_routes(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/connectors",
             json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "github-primary",
-                            "provider": "github",
-                            "name": "GitHub",
-                            "status": "draft",
-                            "auth_type": "bearer",
-                            "scopes": ["repo"],
-                            "base_url": "https://api.github.com",
-                            "owner": "Workspace",
-                            "auth_config": {
-                                "access_token_input": "ghp_secret_token",
-                            },
-                        }
-                    ]
-                }
+                "id": "github-primary",
+                "provider": "github",
+                "name": "GitHub",
+                "status": "draft",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {
+                    "access_token_input": "ghp_secret_token",
+                },
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        patch_response = self.client.patch(
+            "/api/v1/connectors/github-primary",
+            json={
+                "name": "GitHub Updated",
+                "status": "connected",
             },
         )
         self.assertEqual(patch_response.status_code, 200)
+        self.assertEqual(patch_response.json()["name"], "GitHub Updated")
+        self.assertEqual(patch_response.json()["status"], "connected")
+
+        policy_response = self.client.patch(
+            "/api/v1/connectors/auth-policy",
+            json={
+                "auth_policy": {
+                    "rotation_interval_days": 60,
+                    "reconnect_requires_approval": True,
+                    "credential_visibility": "admin_only",
+                }
+            },
+        )
+        self.assertEqual(policy_response.status_code, 200)
+        self.assertEqual(policy_response.json()["auth_policy"]["rotation_interval_days"], 60)
+
+        delete_response = self.client.delete("/api/v1/connectors/github-primary")
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertTrue(delete_response.json()["ok"])
+
+    def test_tests_connector_credentials_after_direct_create(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": "github-primary",
+                "provider": "github",
+                "name": "GitHub",
+                "status": "draft",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {
+                    "access_token_input": "ghp_secret_token",
+                },
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
 
         response = self.client.post("/api/v1/connectors/github-primary/test")
         self.assertEqual(response.status_code, 200)

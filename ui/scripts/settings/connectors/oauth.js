@@ -4,9 +4,9 @@ import { buildDefaultConnectorRecord } from "./form.js";
 import { closeDetailModal, openDetailModal } from "./modal.js";
 import {
   canonicalizeProvider,
-  cloneValue,
   connectorState,
   getDefaultScopesForProvider,
+  createEmptyConnectorPayload,
   getGoogleConnector,
   getProviderPreset,
   getStore
@@ -60,8 +60,7 @@ export const startConnectorOauth = async (
   });
 
   connectorState.pendingOauth[record.id] = response;
-  const nextSettings = await getStore().ready();
-  connectorState.settings = nextSettings;
+  connectorState.connectors = await getStore().loadConnectors({ force: true });
   connectorState.selectedConnectorId = record.id;
   renderAll();
   if (closeDetailOnRedirect) {
@@ -82,11 +81,9 @@ export const ensureGoogleConnectorRecord = async () => {
     return null;
   }
 
-  const nextSettings = cloneValue(connectorState.settings);
   const nextRecord = buildDefaultConnectorRecord(preset);
-  nextSettings.connectors.records = [nextRecord, ...nextSettings.connectors.records];
-  const response = await getStore().updateAppSettings(nextSettings);
-  connectorState.settings = response;
+  const response = await getStore().createConnector(nextRecord);
+  connectorState.connectors = response;
   return getGoogleConnector();
 };
 
@@ -103,12 +100,12 @@ export const handleOauthQueryState = async (renderAll) => {
 
   if (connectorId) {
     try {
-      connectorState.settings = await getStore().ready();
+      connectorState.connectors = await getStore().loadConnectors({ force: true });
     } catch {
-      connectorState.settings = getStore().getAppSettings();
+      connectorState.connectors = getStore().getConnectors?.() || createEmptyConnectorPayload();
     }
 
-    const selected = connectorState.settings?.connectors?.records?.find((record) => record.id === connectorId) || null;
+    const selected = connectorState.connectors?.records?.find((record) => record.id === connectorId) || null;
     if (selected) {
       connectorState.selectedConnectorId = selected.id;
       renderAll();

@@ -240,33 +240,27 @@ class ApiResourcesTestCase(unittest.TestCase):
         self.assertEqual(detail["auth_config"]["header_value"], "secret-value")
 
     def test_create_outgoing_api_from_gmail_connector_hydrates_auth(self) -> None:
-        patch_response = self.client.patch(
-            "/api/v1/settings",
+        create_connector_response = self.client.post(
+            "/api/v1/connectors",
             json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "gmail-primary",
-                            "provider": "google",
-                            "name": "Google",
-                            "status": "connected",
-                            "auth_type": "oauth2",
-                            "scopes": ["https://www.googleapis.com/auth/gmail.send"],
-                            "base_url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-                            "owner": "Workspace",
-                            "auth_config": {
-                                "client_id": "gmail-client-id",
-                                "access_token_input": "gmail-access-token",
-                                "refresh_token_input": "gmail-refresh-token",
-                                "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
-                                "has_refresh_token": True,
-                            },
-                        }
-                    ]
+                "id": "gmail-primary",
+                "provider": "google",
+                "name": "Google",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/gmail.send"],
+                "base_url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                "owner": "Workspace",
+                "auth_config": {
+                    "client_id": "gmail-client-id",
+                    "access_token_input": "gmail-access-token",
+                    "refresh_token_input": "gmail-refresh-token",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/google/oauth/callback",
+                    "has_refresh_token": True,
                 }
             },
         )
-        self.assertEqual(patch_response.status_code, 200)
+        self.assertEqual(create_connector_response.status_code, 201)
 
         create_response = self.client.post(
             "/api/v1/apis",

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ./.venv/bin/python scripts/require_test_database.py
+./.venv/bin/pytest -q tests/test_startup_lifecycle.py
 
 BACKEND_ARGS=(-m "not smoke")
 if ./.venv/bin/python -c "import pytest_cov" >/dev/null 2>&1; then

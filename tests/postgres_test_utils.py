@@ -4,7 +4,7 @@ import os
 import unittest
 from pathlib import Path
 
-from backend.database import connect, initialize
+from backend.database import connect, run_migrations
 from backend.runtime import runtime_event_bus
 
 
@@ -15,11 +15,16 @@ TABLES_TO_TRUNCATE = (
     "automations",
     "inbound_api_events",
     "inbound_apis",
+    "outgoing_delivery_history",
     "outgoing_scheduled_apis",
     "outgoing_continuous_apis",
+    "webhook_api_events",
     "webhook_apis",
+    "runtime_resource_snapshots",
     "scripts",
     "tools",
+    "connector_endpoint_definitions",
+    "connectors",
     "settings",
     "integration_presets",
     "log_db_columns",
@@ -36,6 +41,7 @@ def get_test_database_url() -> str:
 
 
 def reset_database(database_url: str) -> None:
+    run_migrations(database_url=database_url)
     connection = connect(database_url=database_url)
     try:
         # Playwright runs can collide with an already-running local app process.
@@ -50,7 +56,6 @@ def reset_database(database_url: str) -> None:
             # If privileges are restricted, continue with normal reset behavior.
             pass
 
-        initialize(connection)
         # Drop any dynamic log data tables (log_data_*) first so they don't block truncation
         rows = connection.execute(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'log_data_%%'"

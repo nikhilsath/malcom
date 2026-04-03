@@ -22,6 +22,7 @@ export const AutomationApp = () => {
   const {
     currentAutomation,
     builderMode,
+    builderMetadata,
     selectedNodeId,
     feedback,
     feedbackTone,
@@ -58,6 +59,7 @@ export const AutomationApp = () => {
     inboundApis,
     activityCatalog,
     scripts,
+    scriptLanguages,
     toolsManifest,
     setFeedback,
     setFeedbackTone,
@@ -96,6 +98,8 @@ export const AutomationApp = () => {
         {step.type === "log" ? (
           <StorageStepForm
             draft={step}
+            storageTypeOptions={builderMetadata.storage_types}
+            logColumnTypeOptions={builderMetadata.log_column_types}
             onChange={(updated) => updateDrawerStep(() => updated)}
           />
         ) : null}
@@ -105,6 +109,7 @@ export const AutomationApp = () => {
             draft={step}
             connectors={connectors}
             httpPresets={httpPresets}
+            httpMethodOptions={builderMetadata.http_methods}
             dataFlowTokens={drawerDataFlowTokens}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step-http"
@@ -128,6 +133,7 @@ export const AutomationApp = () => {
           <ScriptStepForm
             draft={step}
             scripts={scripts}
+            scriptLanguages={scriptLanguages}
             dataFlowTokens={drawerDataFlowTokens}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step"
@@ -692,6 +698,7 @@ export const AutomationApp = () => {
               {editorDrawer?.kind === "trigger" ? (
                 <TriggerSettingsForm
                   idPrefix="automations-trigger-modal"
+                  triggerTypeOptions={builderMetadata.trigger_types}
                   value={currentAutomation}
                   onPatch={patchAutomation}
                   showWorkflowFields={false}
@@ -825,6 +832,7 @@ export const AutomationApp = () => {
       <AddStepModal
         open={addStepModalOpen}
         onClose={() => setAddStepModalOpen(false)}
+        stepTypeOptions={builderMetadata.step_types}
         onAdd={(step) => {
           insertStep(step, pendingInsertIndex);
           setAddStepModalOpen(false);
@@ -837,6 +845,8 @@ export const AutomationApp = () => {
         activityCatalog={activityCatalog}
         toolsManifest={toolsManifest}
         scripts={scripts}
+        scriptLanguages={scriptLanguages}
+        builderMetadata={builderMetadata}
         dataFlowTokens={addStepDataFlowTokens}
       />
 

@@ -32,6 +32,11 @@ def list_scripts(request: Request) -> list[ScriptSummaryResponse]:
     return [row_to_script_summary(row) for row in rows]
 
 
+@router.get("/api/v1/scripts/metadata", response_model=ScriptsMetadataResponse)
+def get_scripts_metadata_endpoint() -> ScriptsMetadataResponse:
+    return ScriptsMetadataResponse(**get_scripts_metadata())
+
+
 @router.get("/api/v1/scripts/{script_id}", response_model=ScriptResponse)
 def get_script(script_id: str, request: Request) -> ScriptResponse:
     row = fetch_one(

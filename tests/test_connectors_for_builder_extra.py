@@ -32,27 +32,22 @@ class ConnectorsForBuilderExtraTestCase(unittest.TestCase):
         app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 
+    def _create_connector(self, payload: dict) -> None:
+        response = self.client.post("/api/v1/connectors", json=payload)
+        self.assertEqual(response.status_code, 201, response.text)
+
     def test_returns_connectors_with_owner_field(self) -> None:
-        # Add a connector with an owner and ensure it appears in the response
-        settings_resp = self.client.patch(
-            "/api/v1/settings",
-            json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "owned-1",
-                            "provider": "github",
-                            "name": "Repo Connector",
-                            "status": "connected",
-                            "auth_type": "oauth2",
-                            "scopes": ["repo"],
-                            "owner": "workspace_42",
-                        }
-                    ]
-                }
-            },
+        self._create_connector(
+            {
+                "id": "owned-1",
+                "provider": "github",
+                "name": "Repo Connector",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["repo"],
+                "owner": "workspace_42",
+            }
         )
-        self.assertEqual(settings_resp.status_code, 200)
 
         resp = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(resp.status_code, 200)

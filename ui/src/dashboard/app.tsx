@@ -15,6 +15,7 @@ import {
   isSidebarCollapsed,
   writeSidebarCollapsed
 } from "./data";
+import { DASHBOARD_LOG_TIME_WINDOW_OPTIONS } from "./constants";
 import { getSectionConfig } from "../../scripts/shell-config.js";
 import {
   AlertsPanel,
@@ -577,10 +578,9 @@ const LogsPage = () => {
             </span>
             <select id="dashboard-logs-level-select" className="api-form-input" value={level} onChange={(event) => setLevel(event.target.value)}>
               <option value="all">All</option>
-              <option value="debug">Debug</option>
-              <option value="info">Info</option>
-              <option value="warning">Warning</option>
-              <option value="error">Error</option>
+              {logsResponse.metadata.allowedLevels.map((levelOption) => (
+                <option key={levelOption.value} value={levelOption.value}>{levelOption.label}</option>
+              ))}
             </select>
           </label>
           <label id="dashboard-logs-source-field" className="api-form-field">
@@ -619,11 +619,9 @@ const LogsPage = () => {
               Time window
             </span>
             <select id="dashboard-logs-time-select" className="api-form-input" value={timeframe} onChange={(event) => setTimeframe(event.target.value)}>
-              <option value="all">All time</option>
-              <option value="1h">Last hour</option>
-              <option value="24h">Last 24 hours</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
+              {DASHBOARD_LOG_TIME_WINDOW_OPTIONS.map((timeWindowOption) => (
+                <option key={timeWindowOption.value} value={timeWindowOption.value}>{timeWindowOption.label}</option>
+              ))}
             </select>
           </label>
         </form>

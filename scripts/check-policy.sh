@@ -179,6 +179,42 @@ check_policy_family_review() {
   fi
 }
 
+check_repo_scan_index_shape() {
+  local tracker_file=".agents/repo-scan-index.md"
+  local missing_markers=()
+  local marker
+
+  if [[ ! -f "$tracker_file" ]]; then
+    printf 'Missing repo audit tracker: %s\n' "$tracker_file"
+    return 1
+  fi
+
+  for marker in \
+    "^# Repo Scan Index$" \
+    "^## Status Keys$" \
+    "^## Index$" \
+    "^\\| path \\| status \\| last_reviewed \\| scope \\| notes \\|$" \
+    '`pending`' \
+    '`in_progress`' \
+    '`reviewed`' \
+    '`needs_followup`' \
+    '`blocked`' \
+    '`skip_generated`'
+  do
+    if ! grep -q "$marker" "$tracker_file"; then
+      missing_markers+=("$marker")
+    fi
+  done
+
+  if ((${#missing_markers[@]} > 0)); then
+    printf 'Repo audit tracker is missing required markers:\n'
+    printf '  %s\n' "${missing_markers[@]}"
+    return 1
+  fi
+
+  printf 'Repo audit tracker exists and includes the required status/index shape.\n'
+}
+
 check_tool_manifest_sync() {
   if ! path_changed "backend/tool_registry.py"; then
     printf 'No tool catalog definition changes detected.\n'
@@ -235,6 +271,7 @@ run_check "Forbidden path modifications" check_forbidden_path_modifications
 run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
+run_check "Repo scan index shape" check_repo_scan_index_shape
 run_check "Tool manifest regeneration" check_tool_manifest_sync
 run_check "Workflow builder connector path sync" check_workflow_builder_connector_path_sync
 run_check "scripts/test-precommit.sh" check_test_precommit

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConnectorActivityStepForm } from "../step-modals/connector-activity-step-form";
 import type { AutomationStep } from "../types";
+import { buildWorkflowBuilderConnectorOptions } from "./fixtures/builder-api-fixtures";
 
 describe("ConnectorActivityStepForm - connector dropdown", () => {
   it("renders empty state when no connectors provided", () => {
@@ -41,7 +42,9 @@ describe("ConnectorActivityStepForm - connector dropdown", () => {
       <ConnectorActivityStepForm
         idPrefix="test-connector"
         draft={step}
-        connectors={[{ id: "conn-1", provider: "google", name: "Gmail Work", status: "connected", auth_type: "oauth2", scopes: [] }]}
+        connectors={buildWorkflowBuilderConnectorOptions([
+          { id: "conn-1", provider: "google", name: "Gmail Work", status: "connected", auth_type: "oauth2", scopes: [] },
+        ]) as any}
         activityCatalog={[]}
         onChange={vi.fn()}
       />

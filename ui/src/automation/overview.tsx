@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
-
-type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
+import { AUTOMATION_TRIGGER_LABELS } from "./constants";
+import type { TriggerType } from "./types";
 
 type Automation = {
   id: string;
@@ -31,13 +31,6 @@ type ToolEntry = {
   description: string;
   enabled: boolean;
   page_href: string;
-};
-
-const triggerLabels: Record<TriggerType, string> = {
-  manual: "Manual",
-  schedule: "Schedule",
-  inbound_api: "Inbound API",
-  smtp_email: "SMTP Email",
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -173,7 +166,7 @@ export const AutomationOverviewApp = () => {
                     {automation.description || "No description."}
                   </span>
                   <span id={`overview-automation-trigger-${automation.id}`} className="overview-automation-row__tag">
-                    {triggerLabels[automation.trigger_type] ?? "Unknown"}
+                    {AUTOMATION_TRIGGER_LABELS[automation.trigger_type] ?? "Unknown"}
                   </span>
                   <span id={`overview-automation-steps-${automation.id}`} className="overview-automation-row__tag">
                     {automation.step_count} {automation.step_count === 1 ? "step" : "steps"}
@@ -279,7 +272,7 @@ export const AutomationOverviewApp = () => {
                   <div id="automation-detail-stat-trigger" className="automation-detail-stat">
                     <span className="automation-detail-stat__label">Trigger</span>
                     <span className="automation-detail-stat__value">
-                      {triggerLabels[selectedAutomation.trigger_type] ?? "Unknown"}
+                      {AUTOMATION_TRIGGER_LABELS[selectedAutomation.trigger_type] ?? "Unknown"}
                     </span>
                   </div>
                   <div id="automation-detail-stat-steps" className="automation-detail-stat">

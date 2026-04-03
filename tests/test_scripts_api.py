@@ -72,6 +72,13 @@ class ScriptsApiTestCase(unittest.TestCase):
         self.assertEqual(updated_body["sample_input"], "{\"text\":\"alpha|beta\",\"from\":\"|\",\"to\":\",\"}")
         self.assertIn("normalized", updated_body["code"])
 
+    def test_scripts_metadata_returns_supported_languages(self) -> None:
+        response = self.client.get("/api/v1/scripts/metadata")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual([item["value"] for item in body["languages"]], ["python", "javascript"])
+
     def test_rejects_invalid_python_script_save(self) -> None:
         response = self.client.post(
             "/api/v1/scripts",

@@ -227,10 +227,10 @@ const normalizeProvider = (provider) => {
     return (provider || "").toString().trim().toLowerCase();
 };
 
-const getEnabledConnectorStorageOptions = (settings) => {
-    const records = settings?.connectors?.records || [];
-    const activeStatuses = new Set(settings?.connectors?.metadata?.active_storage_statuses || []);
-    const providerCatalog = new Map((settings?.connectors?.catalog || []).map((preset) => [preset.id, preset.name]));
+const getEnabledConnectorStorageOptions = (connectors) => {
+    const records = connectors?.records || [];
+    const activeStatuses = new Set(connectors?.metadata?.active_storage_statuses || []);
+    const providerCatalog = new Map((connectors?.catalog || []).map((preset) => [preset.id, preset.name]));
     const enabledRecords = records.filter((record) => activeStatuses.has((record.status || "").toLowerCase()));
     const seenProviders = new Set();
     const options = [];
@@ -298,6 +298,7 @@ const getMaxStorageMbValue = (settings) => {
 
 const renderStorageLocations = () => {
     const settings = window.MalcomLogStore?.getAppSettings?.() || null;
+    const connectors = window.MalcomLogStore?.getConnectors?.() || null;
     if (!settings) {
         return;
     }
@@ -319,7 +320,7 @@ const renderStorageLocations = () => {
         "No local storage spots configured."
     );
 
-    const connectorOptions = getEnabledConnectorStorageOptions(settings);
+    const connectorOptions = getEnabledConnectorStorageOptions(connectors);
     renderStorageLocationList(
         "settings-storage-connectors-list",
         connectorOptions,
@@ -340,7 +341,14 @@ const bindStorageLocations = () => {
         renderStorageLocations();
     });
 
-    window.MalcomLogStore?.ready?.().then(() => {
+    window.addEventListener("malcom:connectors-updated", () => {
+        renderStorageLocations();
+    });
+
+    Promise.allSettled([
+        window.MalcomLogStore?.ready?.(),
+        window.MalcomLogStore?.loadConnectors?.()
+    ]).then(() => {
         renderStorageLocations();
     }).catch(() => {
         renderStorageLocations();

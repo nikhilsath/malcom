@@ -1,9 +1,11 @@
 import type {
   AutomationStep,
+  AutomationBuilderMetadata,
   ConnectorActivityDefinition,
   ConnectorRecord,
   HttpPreset,
   InboundApiOption,
+  ScriptLanguageOption,
   ScriptLibraryItem,
   StepType,
   ToolManifestEntry,
@@ -11,7 +13,18 @@ import type {
   WorkflowBuilderConnectorOption
 } from "./types";
 
-export type { ConnectorActivityDefinition, ConnectorRecord, HttpPreset, InboundApiOption, ScriptLibraryItem, ToolManifestEntry, TriggerType, WorkflowBuilderConnectorOption };
+export type {
+  AutomationBuilderMetadata,
+  ConnectorActivityDefinition,
+  ConnectorRecord,
+  HttpPreset,
+  InboundApiOption,
+  ScriptLanguageOption,
+  ScriptLibraryItem,
+  ToolManifestEntry,
+  TriggerType,
+  WorkflowBuilderConnectorOption
+};
 
 export type Automation = {
   id: string;
@@ -123,11 +136,13 @@ export type ToolDirectoryEntryApi = {
 };
 
 export type BuilderSupportData = {
+  builderMetadata: AutomationBuilderMetadata;
   connectors: ConnectorRecord[];
   httpPresets: HttpPreset[];
   inboundApis: InboundApiOption[];
   activityCatalog: ConnectorActivityDefinition[];
   scripts: ScriptLibraryItem[];
+  scriptLanguages: ScriptLanguageOption[];
   toolsManifest: ToolManifestEntry[];
 };
 

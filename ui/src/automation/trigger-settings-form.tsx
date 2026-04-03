@@ -1,7 +1,6 @@
 import { Switch } from "@base-ui/react/switch";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { TriggerType } from "./types";
-import { triggerTypeOptions } from "./types";
+import type { AutomationBuilderOption, TriggerType } from "./types";
 
 type TriggerSettingsValue = {
   name: string;
@@ -18,6 +17,7 @@ type TriggerSettingsValue = {
 
 type Props = {
   idPrefix: string;
+  triggerTypeOptions: AutomationBuilderOption[];
   value: TriggerSettingsValue;
   onPatch: (patch: Partial<TriggerSettingsValue>) => void;
   showWorkflowFields?: boolean;
@@ -27,13 +27,6 @@ type Props = {
   modalFlow?: boolean;
   modalScreen?: "picker" | "detail";
   onModalScreenChange?: (screen: "picker" | "detail") => void;
-};
-
-const triggerDescriptions: Record<TriggerType, string> = {
-  manual: "Run the automation only when an operator starts it.",
-  schedule: "Start automatically at a set time each day.",
-  inbound_api: "Start when an inbound API endpoint receives an event.",
-  smtp_email: "Start when incoming email matches your filters."
 };
 
 const scheduleHourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
@@ -77,6 +70,7 @@ const to24HourScheduleTime = (hour: string, minute: string, period: "AM" | "PM")
 
 export const TriggerSettingsForm = ({
   idPrefix,
+  triggerTypeOptions,
   value,
   onPatch,
   showWorkflowFields = true,
@@ -171,7 +165,7 @@ export const TriggerSettingsForm = ({
                 {option.label}
               </span>
               <span id={id(`trigger-type-option-${option.value}-description`)} className="automation-trigger-option__description">
-                {triggerDescriptions[option.value]}
+                {option.description || ""}
               </span>
             </button>
           );

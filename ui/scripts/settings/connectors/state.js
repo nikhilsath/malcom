@@ -1,7 +1,23 @@
-import { GOOGLE_RECOMMENDED_SCOPES } from "./dom.js";
+const createEmptyConnectorPayload = () => ({
+  catalog: [],
+  records: [],
+  metadata: {
+    statuses: [],
+    active_storage_statuses: [],
+    auth_policy: {
+      rotation_intervals: [],
+      credential_visibility_options: []
+    }
+  },
+  auth_policy: {
+    rotation_interval_days: 0,
+    reconnect_requires_approval: false,
+    credential_visibility: ""
+  }
+});
 
 export const connectorState = {
-  settings: null,
+  connectors: createEmptyConnectorPayload(),
   selectedConnectorId: null,
   pendingOauth: {},
   detailReturnFocusElement: null
@@ -18,35 +34,41 @@ export const slugifyConnectorId = (value) => (
 
 export const titleCase = (value) => value.replaceAll("_", " ").replace(/\b\w/g, (match) => match.toUpperCase());
 
-export const getSelectedConnector = () => (
-  connectorState.settings?.connectors?.records?.find((record) => record.id === connectorState.selectedConnectorId) || null
-);
+const getConnectorPayload = () => {
+  const storeConnectors = getStore().getConnectors?.();
 
-export const isGoogleConnector = (record) => {
-  const provider = (record?.provider || "").toString().trim().toLowerCase();
-  return provider === "google" || provider.startsWith("google_");
+  if (storeConnectors) {
+    connectorState.connectors = storeConnectors;
+    return storeConnectors;
+  }
+
+  return connectorState.connectors || createEmptyConnectorPayload();
 };
 
+export const getSelectedConnector = () => (
+  getConnectorPayload()?.records?.find((record) => record.id === connectorState.selectedConnectorId) || null
+);
+
+export const isGoogleConnector = (record) => (record?.provider || "").toString().trim().toLowerCase() === "google";
+
 export const canonicalizeProvider = (provider) => {
-  const normalized = (provider || "").toString().trim().toLowerCase();
-  return normalized.startsWith("google_") ? "google" : normalized;
+  return (provider || "").toString().trim().toLowerCase();
 };
 
 export const getProviderPreset = (providerId) => (
-  connectorState.settings?.connectors?.catalog?.find((item) => item.id === providerId) || null
+  getConnectorPayload()?.catalog?.find((item) => item.id === providerId) || null
 );
 
 export const getDefaultScopesForProvider = (providerId, preset = null) => {
-  const presetScopes = preset?.default_scopes || [];
+  const presetScopes = preset?.recommended_scopes?.length ? preset.recommended_scopes : (preset?.default_scopes || []);
   if (presetScopes.length > 0) {
     return [...presetScopes];
-  }
-  if (providerId === "google") {
-    return [...GOOGLE_RECOMMENDED_SCOPES];
   }
   return [];
 };
 
 export const getGoogleConnector = () => (
-  connectorState.settings?.connectors?.records?.find((record) => isGoogleConnector(record)) || null
+  getConnectorPayload()?.records?.find((record) => isGoogleConnector(record)) || null
 );
+
+export { createEmptyConnectorPayload };

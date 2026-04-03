@@ -14,12 +14,19 @@ declare global {
   }
 }
 
-export const triggerTypeOptions: Array<{ value: TriggerType; label: string }> = [
-  { value: "manual", label: "Manual" },
-  { value: "schedule", label: "Schedule" },
-  { value: "inbound_api", label: "Inbound API" },
-  { value: "smtp_email", label: "SMTP email" }
-];
+export type AutomationBuilderOption = {
+  value: string;
+  label: string;
+  description?: string | null;
+};
+
+export type AutomationBuilderMetadata = {
+  trigger_types: AutomationBuilderOption[];
+  step_types: AutomationBuilderOption[];
+  http_methods: AutomationBuilderOption[];
+  storage_types: AutomationBuilderOption[];
+  log_column_types: AutomationBuilderOption[];
+};
 
 export type ToolInputField = {
   key: string;
@@ -131,6 +138,12 @@ export type ScriptLibraryItem = {
   sample_input: string;
 };
 
+export type ScriptLanguageOption = {
+  value: "python" | "javascript";
+  label: string;
+  description?: string | null;
+};
+
 export type AutomationStep = {
   id?: string;
   type: StepType;
@@ -167,17 +180,13 @@ export type AutomationStep = {
     // Log / Write-to-DB fields
     log_table_id?: string;
     log_column_mappings?: Record<string, string>;
+    storage_type?: string;
+    storage_target?: string;
+    storage_new_file?: boolean;
+    target?: string;
+    new_file?: boolean;
   };
 };
-
-export const stepTypeOptions: Array<{ value: StepType; label: string; description: string }> = [
-  { value: "log", label: "Write", description: "Write a row to a managed database table." },
-  { value: "api", label: "API", description: "Call a prebuilt connector action or send a custom HTTP request." },
-  { value: "script", label: "Script", description: "Run a stored script from the script library." },
-  { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
-  { value: "condition", label: "Condition", description: "Evaluate a guard expression and optionally halt the automation." },
-  { value: "llm_chat", label: "LLM chat", description: "Prompt a language model with middleware context." }
-];
 
 export const stepTemplates: Record<StepType, AutomationStep> = {
   log: { type: "log", name: "Write step", config: { log_table_id: "", log_column_mappings: {} } },

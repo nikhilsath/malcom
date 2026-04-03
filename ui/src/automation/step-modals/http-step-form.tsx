@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeRequestError, requestJson } from "../../lib/request";
 import type { DataFlowToken } from "../data-flow";
 import { TokenPicker } from "../token-picker";
-import type { AutomationStep, ConnectorRecord, HttpPreset } from "../types";
+import type { AutomationBuilderOption, AutomationStep, ConnectorRecord, HttpPreset } from "../types";
 
 type Props = {
   draft: AutomationStep;
   connectors: ConnectorRecord[];
   httpPresets: HttpPreset[];
+  httpMethodOptions: AutomationBuilderOption[];
   dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
@@ -17,8 +18,6 @@ type JsonMapping = {
   key: string;
   path: string;
 };
-
-const httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
 const normalizeFieldKey = (path: string) => {
   const normalized = path.replace(/[^a-zA-Z0-9_]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase();
@@ -110,6 +109,7 @@ export const HttpStepForm = ({
   draft,
   connectors,
   httpPresets,
+  httpMethodOptions,
   dataFlowTokens = [],
   onChange,
   idPrefix = "add-step-http"
@@ -208,8 +208,8 @@ export const HttpStepForm = ({
           value={draft.config.http_method || "POST"}
           onChange={(e) => updateConfig({ ...draft.config, http_method: e.target.value })}
         >
-          {httpMethods.map((m) => (
-            <option key={m} value={m}>{m}</option>
+          {httpMethodOptions.map((methodOption) => (
+            <option key={methodOption.value} value={methodOption.value}>{methodOption.label}</option>
           ))}
         </select>
       </label>

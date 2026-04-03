@@ -311,10 +311,24 @@ def row_to_script_response(row: dict[str, Any]) -> ScriptResponse:
     )
 
 
+def get_scripts_metadata() -> dict[str, Any]:
+    return {
+        "languages": [
+            {"value": "python", "label": "Python", "description": "Run with the Python script validator and runtime."},
+            {
+                "value": "javascript",
+                "label": "JavaScript",
+                "description": "Run with the JavaScript validator and runtime.",
+            },
+        ]
+    }
+
+
 __all__ = [
     "DEFAULT_SCRIPT_LIBRARY",
     "build_script_validation_fields",
     "build_script_validation_issue",
+    "get_scripts_metadata",
     "row_to_script_response",
     "row_to_script_summary",
     "seed_default_scripts",

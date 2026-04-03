@@ -1,6 +1,14 @@
 import { requestJson } from "../lib/request";
 import type { Automation, AutomationDetail, AutomationRunDetail, BuilderSupportData, ToolDirectoryEntryApi } from "./builder-types";
-import type { ConnectorActivityDefinition, HttpPreset, InboundApiOption, ScriptLibraryItem, WorkflowBuilderConnectorOption } from "./builder-types";
+import type {
+  AutomationBuilderMetadata,
+  ConnectorActivityDefinition,
+  HttpPreset,
+  InboundApiOption,
+  ScriptLanguageOption,
+  ScriptLibraryItem,
+  WorkflowBuilderConnectorOption
+} from "./builder-types";
 import { mapToolDirectoryEntry } from "./builder-utils";
 
 declare global {
@@ -27,13 +35,15 @@ export const loadBuilderSupportData = async (): Promise<BuilderSupportData> => {
   // Loads all dropdown data for the automation builder in parallel: connectors, scripts, 
   // connector activities, HTTP presets, and tools. Single API call per data type maintains
   // database as the source of truth.
-  const [connectorOptions, inbound, scriptItems, activityItems, presetItems, toolItems] = await Promise.all([
+  const [builderMetadata, connectorOptions, inbound, scriptItems, scriptMetadata, activityItems, presetItems, toolItems] = await Promise.all([
+    requestJsonCompat<AutomationBuilderMetadata>("/api/v1/automations/builder-metadata"),
     // Data lineage: Saved Connectors → GET /api/v1/automations/workflow-connectors
     requestJsonCompat<WorkflowBuilderConnectorOption[]>("/api/v1/automations/workflow-connectors"),
     // Data lineage: Inbound APIs → GET /api/v1/inbound
     requestJsonCompat<Array<{ id: string; name: string }>>("/api/v1/inbound"),
     // Data lineage: Scripts → GET /api/v1/scripts
     requestJsonCompat<ScriptLibraryItem[]>("/api/v1/scripts"),
+    requestJsonCompat<{ languages: ScriptLanguageOption[] }>("/api/v1/scripts/metadata"),
     // Data lineage: Connector Activities → GET /api/v1/connectors/activity-catalog
     requestJsonCompat<ConnectorActivityDefinition[]>("/api/v1/connectors/activity-catalog"),
     // Data lineage: HTTP Presets → GET /api/v1/connectors/http-presets
@@ -43,9 +53,11 @@ export const loadBuilderSupportData = async (): Promise<BuilderSupportData> => {
   ]);
 
   return {
+    builderMetadata,
     connectors: connectorOptions,
     inboundApis: inbound.map((api): InboundApiOption => ({ id: api.id, name: api.name })),
     scripts: scriptItems,
+    scriptLanguages: scriptMetadata.languages,
     activityCatalog: activityItems,
     httpPresets: presetItems,
     toolsManifest: toolItems.map(mapToolDirectoryEntry)

@@ -86,8 +86,18 @@ class DashboardLogEntryResponse(BaseModel):
     context: dict[str, Any]
 
 
+class DashboardLogLevelOptionResponse(BaseModel):
+    value: Literal["debug", "info", "warning", "error"]
+    label: str
+
+
+class DashboardLogsMetadataResponse(BaseModel):
+    allowed_levels: list[DashboardLogLevelOptionResponse]
+
+
 class DashboardLogsApiResponse(BaseModel):
     settings: DashboardLogSettingsResponse
+    metadata: DashboardLogsMetadataResponse
     entries: list[DashboardLogEntryResponse]
 
 
@@ -178,7 +188,7 @@ class DashboardSummaryRunCountsResponse(BaseModel):
 class DashboardSummaryRecentRunResponse(BaseModel):
     id: str
     automation_name: str
-    trigger_type: Literal["schedule", "manual", "api"]
+    trigger_type: Literal["schedule", "manual", "inbound_api", "smtp_email"]
     status: Literal["success", "warning", "error", "idle"]
     started_at: str
     finished_at: str | None
@@ -343,7 +353,9 @@ __all__ = [
     "DashboardSummaryServiceResponse",
     "DashboardSummaryWorkerHealthResponse",
     "DashboardLogEntryResponse",
+    "DashboardLogLevelOptionResponse",
     "DashboardLogsApiResponse",
+    "DashboardLogsMetadataResponse",
     "DashboardLogSettingsResponse",
     "DashboardResourceDashboardApiResponse",
     "DashboardResourceDashboardLatestSnapshotResponse",

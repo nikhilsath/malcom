@@ -6,6 +6,13 @@ import { ToolStepFields } from "../tool-step-fields";
 import { ConnectorActivityStepForm } from "../step-modals/connector-activity-step-form";
 import type { AutomationStep, ToolManifestEntry } from "../types";
 
+const triggerTypeOptions = [
+  { value: "manual", label: "Manual", description: "Run the automation only when an operator starts it." },
+  { value: "schedule", label: "Schedule", description: "Start automatically at a set time each day." },
+  { value: "inbound_api", label: "Inbound API", description: "Start when an inbound API endpoint receives an event." },
+  { value: "smtp_email", label: "SMTP email", description: "Start when incoming email matches your filters." }
+];
+
 const requestJsonMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../lib/request", () => ({
@@ -25,6 +32,7 @@ describe("automation UI ids", () => {
     const { rerender } = render(
       <TriggerSettingsForm
         idPrefix="automation-trigger"
+        triggerTypeOptions={triggerTypeOptions}
         value={{
           name: "Daily ingest",
           description: "Pull the current feed.",
@@ -50,6 +58,7 @@ describe("automation UI ids", () => {
     rerender(
       <TriggerSettingsForm
         idPrefix="automation-trigger"
+        triggerTypeOptions={triggerTypeOptions}
         value={{
           name: "Inbound orders",
           description: "",

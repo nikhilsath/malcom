@@ -56,6 +56,7 @@ test("creates a new script and switches the starter template language", async ({
   await page.goto("/scripts/library.html");
   await page.locator("#scripts-library-create-button").click();
   await expect(page.locator("#scripts-library-editor-modal")).toHaveClass(/modal--open/);
+  await expect(page.locator("#scripts-library-language-input option")).toHaveText(["Python", "JavaScript"]);
 
   await page.locator("#scripts-library-language-input").selectOption("javascript");
   await expect(page.locator("#scripts-library-editor .cm-content")).toContainText("function run(context, scriptInput)");

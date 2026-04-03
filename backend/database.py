@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 
@@ -382,6 +383,34 @@ def connect(*, database_url: str) -> Any:
 
 def get_database_url() -> str:
     return os.getenv("MALCOM_DATABASE_URL", DEFAULT_POSTGRES_URL).strip()
+
+
+def get_project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def get_alembic_config_path() -> Path:
+    return get_project_root() / "alembic.ini"
+
+
+def run_migrations(*, database_url: str | None = None) -> None:
+    resolved_url = (database_url or get_database_url()).strip()
+    if not _is_postgres_url(resolved_url):
+        raise RuntimeError("MALCOM_DATABASE_URL must be a valid PostgreSQL URL (postgresql://...)")
+
+    try:
+        from alembic import command
+        from alembic.config import Config
+    except ModuleNotFoundError as error:
+        raise RuntimeError(
+            "Alembic is not installed. Add 'alembic' to requirements before running database migrations."
+        ) from error
+
+    alembic_config_path = get_alembic_config_path()
+    alembic_config = Config(str(alembic_config_path))
+    alembic_config.set_main_option("script_location", str(get_project_root() / "backend" / "migrations"))
+    alembic_config.set_main_option("sqlalchemy.url", resolved_url)
+    command.upgrade(alembic_config, "head")
 
 
 def is_unique_violation(error: Exception) -> bool:

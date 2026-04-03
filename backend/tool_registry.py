@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize
+from backend.database import connect, fetch_all, fetch_one, get_database_url, run_migrations
 
 REQUIRED_FIELDS = ("id", "name", "description")
 DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
@@ -198,10 +198,11 @@ def sync_tools_to_database(root_dir: Path, connection: Any) -> list[dict[str, st
 
 def load_tools_manifest(root_dir: Path, connection: Any | None = None) -> list[dict[str, str]]:
     managed_connection = connection is None
+    if managed_connection:
+        run_migrations(database_url=get_database_url())
     db = connection or connect(database_url=get_database_url())
 
     try:
-        initialize(db)
         sync_tools_to_database(root_dir, db)
         rows = fetch_all(
             db,
@@ -341,10 +342,11 @@ def set_tool_enabled(
 
 def load_tool_directory(root_dir: Path, connection: Any | None = None) -> list[dict[str, object]]:
     managed_connection = connection is None
+    if managed_connection:
+        run_migrations(database_url=get_database_url())
     db = connection or connect(database_url=get_database_url())
 
     try:
-        initialize(db)
         sync_tools_to_database(root_dir, db)
         rows = fetch_all(
             db,

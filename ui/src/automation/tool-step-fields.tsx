@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { SMTP_TEMPLATE_HINTS } from "./constants";
 import type { DataFlowToken } from "./data-flow";
 import { TokenPicker } from "./token-picker";
 import type { AutomationStep, ToolManifestEntry } from "./types";
@@ -10,15 +11,6 @@ type Props = {
   dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
 };
-
-const smtpTemplateHints = [
-  "{{payload.mail_from}}",
-  "{{payload.subject}}",
-  "{{payload.body}}",
-  "{{payload.received_at}}",
-  "{{payload.recipients}}",
-  "{{payload.smtp.subject}}",
-];
 
 export const ToolStepFields = ({ idPrefix, step, toolsManifest, dataFlowTokens = [], onChange }: Props) => {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
@@ -83,7 +75,7 @@ export const ToolStepFields = ({ idPrefix, step, toolsManifest, dataFlowTokens =
 
       {selectedTool?.id === "smtp" ? (
         <div id={`${idPrefix}-smtp-hint`} className="automation-switch-field__description">
-          Supports template variables in From, To, Subject, and Body. Common inbound email fields: {smtpTemplateHints.join(" · ")}
+          Supports template variables in From, To, Subject, and Body. Common inbound email fields: {SMTP_TEMPLATE_HINTS.join(" · ")}
         </div>
       ) : null}
 

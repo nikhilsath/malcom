@@ -40,6 +40,8 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 
 When startup, test server launch, or Playwright execution fails, confirm what is already running before declaring a blocker unresolved.
 
+Startup lifecycle coverage must include an explicit automated contract test in `tests/test_startup_lifecycle.py` that exercises FastAPI lifespan boot/shutdown behavior.
+
 Required triage steps:
 
 1. check active listeners/processes on expected ports (for example app, Vite, or Playwright web server ports)

@@ -6,8 +6,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from backend.database import connect
 from backend.main import app
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import get_test_database_url, setup_postgres_test_app
 
 
 class HttpPresetAutomationTestCase(unittest.TestCase):
@@ -31,38 +32,32 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
         app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 
-    def create_test_connector_via_settings(
+    def create_test_connector(
         self,
         connector_id: str,
         provider: str = "google",
         scopes: list[str] | None = None,
     ) -> dict:
-        """Create a test connector via the settings API."""
-        response = self.client.patch(
-            "/api/v1/settings",
+        """Create a test connector via the connectors API."""
+        response = self.client.post(
+            "/api/v1/connectors",
             json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": connector_id,
-                            "provider": provider,
-                            "name": f"Test {provider.upper()} Connector",
-                            "auth_type": "oauth2",
-                            "status": "connected",
-                            "scopes": scopes if scopes is not None else ["https://www.googleapis.com/auth/gmail.readonly"],
-                        }
-                    ]
-                }
-            }
+                "id": connector_id,
+                "provider": provider,
+                "name": f"Test {provider.upper()} Connector",
+                "auth_type": "oauth2",
+                "status": "connected",
+                "scopes": scopes if scopes is not None else ["https://www.googleapis.com/auth/gmail.readonly"],
+            },
         )
-        if response.status_code != 200:
+        if response.status_code != 201:
             raise RuntimeError(f"Failed to create connector: {response.text}")
         return response.json()
 
     def test_http_preset_mode_creates_automation(self) -> None:
         """HTTP preset step should be accepted and stored in automation."""
         connector_id = "test-google-1"
-        self.create_test_connector_via_settings(connector_id)
+        self.create_test_connector(connector_id)
 
         response = self.client.post(
             "/api/v1/automations",
@@ -94,7 +89,7 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
     def test_http_preset_mode_rejects_unknown_preset_id(self) -> None:
         """HTTP preset step should reject unknown preset IDs."""
         connector_id = "test-google-2"
-        self.create_test_connector_via_settings(connector_id)
+        self.create_test_connector(connector_id)
 
         response = self.client.post(
             "/api/v1/automations",
@@ -152,7 +147,28 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
     def test_http_preset_mode_missing_scopes_validation(self) -> None:
         """HTTP preset step should validate required scopes."""
         connector_id = "google-no-scopes"
-        self.create_test_connector_via_settings(connector_id, scopes=[])
+        connection = connect(database_url=get_test_database_url())
+        try:
+            connection.execute(
+                """
+                INSERT INTO connectors (id, provider, name, status, auth_type, scopes_json, created_at, updated_at, auth_config_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    connector_id,
+                    "google",
+                    "Google Without Scopes",
+                    "connected",
+                    "oauth2",
+                    "[]",
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z",
+                    "{}",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
         response = self.client.post(
             "/api/v1/automations",

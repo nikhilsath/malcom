@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.database import fetch_all, fetch_one
+
 
 class HttpRequestPreset:
     """HTTP request preset definition with templated fields."""
@@ -317,13 +319,105 @@ GOOGLE_HTTP_PRESETS = (
 DEFAULT_HTTP_PRESET_CATALOG = GOOGLE_HTTP_PRESETS
 
 
-def get_http_presets_by_provider(provider_id: str) -> list[HttpRequestPreset]:
+def _default_http_preset_catalog() -> list[dict[str, Any]]:
+    return [preset.to_dict() for preset in DEFAULT_HTTP_PRESET_CATALOG]
+
+
+def _decode_json_field(value: Any, fallback: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            import json
+
+            return json.loads(value)
+        except Exception:
+            return fallback
+    return fallback
+
+
+def _serialize_http_preset_row(row: dict[str, Any]) -> dict[str, Any]:
+    metadata = _decode_json_field(row.get("metadata_json"), {})
+    return {
+        "preset_id": metadata.get("preset_id") or str(row.get("endpoint_id") or "").rsplit(":", 1)[-1],
+        "provider_id": row["provider_id"],
+        "service": row["service"],
+        "operation": row["operation_type"],
+        "label": row["label"],
+        "description": row.get("description") or "",
+        "http_method": row["http_method"],
+        "endpoint_path_template": row["endpoint_path_template"],
+        "payload_template": row.get("payload_template") or "",
+        "query_params": _decode_json_field(row.get("query_params_json"), {}),
+        "required_scopes": _decode_json_field(row.get("required_scopes_json"), []),
+        "input_schema": _decode_json_field(row.get("input_schema_json"), []),
+    }
+
+
+def _preset_from_payload(payload: dict[str, Any]) -> HttpRequestPreset:
+    return HttpRequestPreset(
+        preset_id=payload["preset_id"],
+        provider_id=payload["provider_id"],
+        service=payload["service"],
+        operation=payload["operation"],
+        label=payload["label"],
+        description=payload["description"],
+        http_method=payload["http_method"],
+        endpoint_path_template=payload["endpoint_path_template"],
+        payload_template=payload["payload_template"],
+        query_params=payload.get("query_params") or {},
+        required_scopes=payload.get("required_scopes") or [],
+        input_schema=payload.get("input_schema") or [],
+    )
+
+
+def list_http_preset_catalog(connection: Any | None = None) -> list[dict[str, Any]]:
+    if connection is None:
+        return _default_http_preset_catalog()
+
+    rows = fetch_all(
+        connection,
+        """
+        SELECT endpoint_id, provider_id, service, operation_type, label, description,
+               http_method, endpoint_path_template, payload_template, query_params_json,
+               required_scopes_json, input_schema_json, metadata_json
+        FROM connector_endpoint_definitions
+        WHERE endpoint_kind = 'http_preset'
+        ORDER BY provider_id ASC, service ASC, operation_type ASC, label ASC
+        """,
+    )
+    if not rows:
+        return _default_http_preset_catalog()
+    return [_serialize_http_preset_row(dict(row)) for row in rows]
+
+
+def get_http_presets_by_provider(provider_id: str, connection: Any | None = None) -> list[HttpRequestPreset]:
     """Get all HTTP presets available for a given provider."""
-    return [p for p in DEFAULT_HTTP_PRESET_CATALOG if p.provider_id == provider_id]
+    if connection is None:
+        return [p for p in DEFAULT_HTTP_PRESET_CATALOG if p.provider_id == provider_id]
+    return [
+        _preset_from_payload(payload)
+        for payload in list_http_preset_catalog(connection)
+        if payload["provider_id"] == provider_id
+    ]
 
 
-def get_http_preset(provider_id: str, preset_id: str) -> HttpRequestPreset | None:
+def get_http_preset(provider_id: str, preset_id: str, connection: Any | None = None) -> HttpRequestPreset | None:
     """Get a single HTTP preset by provider and preset ID."""
+    if connection is not None:
+        row = fetch_one(
+            connection,
+            """
+            SELECT endpoint_id, provider_id, service, operation_type, label, description,
+                   http_method, endpoint_path_template, payload_template, query_params_json,
+                   required_scopes_json, input_schema_json, metadata_json
+            FROM connector_endpoint_definitions
+            WHERE endpoint_kind = 'http_preset' AND provider_id = ? AND endpoint_id = ?
+            LIMIT 1
+            """,
+            (provider_id, f"http_preset:{provider_id}:{preset_id}"),
+        )
+        if row is not None:
+            return _preset_from_payload(_serialize_http_preset_row(dict(row)))
+
     for preset in DEFAULT_HTTP_PRESET_CATALOG:
         if preset.provider_id == provider_id and preset.preset_id == preset_id:
             return preset
@@ -333,6 +427,7 @@ def get_http_preset(provider_id: str, preset_id: str) -> HttpRequestPreset | Non
 __all__ = [
     "HttpRequestPreset",
     "DEFAULT_HTTP_PRESET_CATALOG",
+    "list_http_preset_catalog",
     "get_http_presets_by_provider",
     "get_http_preset",
 ]

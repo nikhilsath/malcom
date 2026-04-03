@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GOOGLE_SERVICE_LABELS, GOOGLE_SERVICE_ORDER } from "../constants";
 import { TokenPicker } from "../token-picker";
 import type { DataFlowToken } from "../data-flow";
 import type { AutomationStep, ConnectorActivityDefinition, ConnectorActivitySchemaField, ConnectorRecord } from "../types";
@@ -18,13 +19,6 @@ type Props = {
 const resolveInputValue = (value: unknown) => (value === null || value === undefined ? "" : String(value));
 
 const getFieldDescription = (field: ConnectorActivitySchemaField) => [field.help_text, field.value_hint].filter(Boolean).join(" ");
-const GOOGLE_SERVICE_ORDER = ["gmail", "drive", "calendar", "sheets"];
-const GOOGLE_SERVICE_LABELS: Record<string, string> = {
-  gmail: "Gmail",
-  drive: "Drive",
-  calendar: "Calendar",
-  sheets: "Sheets",
-};
 
 const normalizeService = (service: string) => service.trim().toLowerCase();
 const getServiceLabel = (service: string) => GOOGLE_SERVICE_LABELS[service] || service.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());

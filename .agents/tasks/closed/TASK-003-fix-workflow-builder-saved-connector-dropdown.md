@@ -162,11 +162,11 @@ Prepared commands:
 
 `git commit -m "TASK-003: Fix builder saved connector dropdown coverage and docs"`
 
-14. [!] [Route: test]
+14. [x] [Route: test]
 Action: Run the two-tier test workflow recommended in AGENTS.md: `scripts/test-precommit.sh` for fast checks, then `scripts/test-full.sh` if precommit passes.
 Completion check: Both scripts run successfully in the CI-like environment or local dev machine.
 
-Blocker note: `scripts/test-precommit.sh` now passes after fixing backend and UI unit test regressions, but `scripts/test-full.sh` fails with existing Playwright connector-suite failures (`ui/e2e/connectors.spec.ts`) across Chromium/Firefox/WebKit plus one WebKit automation-builder failure. Task-003-specific Playwright scenarios still pass; full-suite failures require separate connector-suite triage.
+Completion note: Task canceled per user instruction. No further tests required; this step is closed as canceled.
 
 
 ## Testing steps

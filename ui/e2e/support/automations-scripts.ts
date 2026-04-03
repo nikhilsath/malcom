@@ -1,5 +1,11 @@
 import { Page, Route } from "@playwright/test";
 import { buildSettingsResponse, defaultToolsDirectory, stubSettings } from "./core.ts";
+import {
+  buildAutomationBuilderMetadataResponse,
+  buildConnectorActivityCatalog,
+  buildHttpPresetCatalog,
+  buildWorkflowBuilderConnectorOptions,
+} from "./api-response-builders.ts";
 
 export type AutomationStepFixture = {
   id: string;
@@ -146,10 +152,18 @@ type AutomationBrowserState = {
   nextTableSequence: number;
 };
 
+const builderMetadataResponse = buildAutomationBuilderMetadataResponse();
+
+const scriptsMetadataResponse = {
+  languages: [
+    { value: "python", label: "Python", description: "Run with the Python script validator and runtime." },
+    { value: "javascript", label: "JavaScript", description: "Run with the JavaScript validator and runtime." }
+  ]
+};
+
 const iso = (value: string) => value;
 
 const deepClone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-const inactiveWorkflowConnectorStatuses = new Set(["draft", "expired", "revoked"]);
 
 const buildAutomationSummary = (automation: AutomationFixture) => ({
   id: automation.id,
@@ -422,63 +436,7 @@ const defaultTools = () => ([
 ]);
 
 const defaultActivityCatalog = () => ([
-  {
-    provider_id: "google",
-    activity_id: "gmail-send-email",
-    service: "gmail",
-    operation_type: "write",
-    label: "Send email",
-    description: "Send an email using a saved Google connector.",
-    required_scopes: ["https://www.googleapis.com/auth/gmail.send"],
-    input_schema: [
-      {
-        key: "to",
-        label: "To",
-        type: "string",
-        required: true,
-        placeholder: "someone@example.com",
-        help_text: "One recipient address.",
-        value_hint: "Recipient"
-      },
-      {
-        key: "subject",
-        label: "Subject",
-        type: "string",
-        required: true,
-        placeholder: "Shipping update"
-      },
-      {
-        key: "body",
-        label: "Body",
-        type: "textarea",
-        required: true,
-        placeholder: "Hello from Malcom"
-      }
-    ],
-    output_schema: [
-      { key: "message_id", label: "Message ID", type: "string" },
-      { key: "thread_id", label: "Thread ID", type: "string" }
-    ],
-    execution: { provider: "google", action: "send-email" }
-  },
-  {
-    provider_id: "github",
-    activity_id: "github-create-issue",
-    service: "github",
-    operation_type: "write",
-    label: "Create issue",
-    description: "Create an issue in a repository.",
-    required_scopes: ["repo"],
-    input_schema: [
-      { key: "repository", label: "Repository", type: "string", required: true, placeholder: "owner/repo" },
-      { key: "title", label: "Title", type: "string", required: true, placeholder: "Issue title" }
-    ],
-    output_schema: [
-      { key: "issue_number", label: "Issue number", type: "integer" },
-      { key: "issue_url", label: "Issue URL", type: "string" }
-    ],
-    execution: { provider: "github", action: "create-issue" }
-  }
+  ...buildConnectorActivityCatalog(),
 ]);
 
 export function createAutomationSuiteState(overrides: Partial<AutomationBrowserState> = {}): AutomationBrowserState {
@@ -804,28 +762,29 @@ const mapMetadataRoute = (state: AutomationBrowserState, requestUrl: string, met
   if (url.pathname === "/api/v1/inbound" && method === "GET") {
     return { status: 200, body: state.inboundApis };
   }
+  if (url.pathname === "/api/v1/automations/builder-metadata" && method === "GET") {
+    return { status: 200, body: builderMetadataResponse };
+  }
   if (url.pathname === "/api/v1/automations/workflow-connectors" && method === "GET") {
     // If an override is present, return that (used to simulate errors/empty/delayed responses)
     if (state.connectorsResponseOverride) {
       return { status: state.connectorsResponseOverride.status, body: state.connectorsResponseOverride.body };
     }
 
-    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || [])
-      .filter((record) => !inactiveWorkflowConnectorStatuses.has(String(record.status || "").toLowerCase()));
+    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || []);
     return {
       status: 200,
-      body: connectorRecords.map((record) => ({
-        ...record,
-        provider_name: record.provider === "google" ? "Google" : record.provider === "github" ? "GitHub" : String(record.provider || ""),
-        source_path: "connectors"
-      }))
+      body: buildWorkflowBuilderConnectorOptions(connectorRecords)
     };
   }
+  if (url.pathname === "/api/v1/scripts/metadata" && method === "GET") {
+    return { status: 200, body: scriptsMetadataResponse };
+  }
   if (url.pathname === "/api/v1/connectors/activity-catalog" && method === "GET") {
-    return { status: 200, body: state.activityCatalog };
+    return { status: 200, body: buildConnectorActivityCatalog(state.activityCatalog) };
   }
   if (url.pathname === "/api/v1/connectors/http-presets" && method === "GET") {
-    return { status: 200, body: state.httpPresets };
+    return { status: 200, body: buildHttpPresetCatalog(state.httpPresets) };
   }
   if (url.pathname === "/api/v1/apis/test-delivery" && method === "POST") {
     return {
@@ -902,6 +861,15 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
     await writeJsonResponse(route, response.status, response.body);
   });
 
+  await page.route("**/api/v1/automations/builder-metadata", async (route) => {
+    const response = mapMetadataRoute(state, route.request().url(), route.request().method());
+    if (!response) {
+      await route.fallback();
+      return;
+    }
+    await writeJsonResponse(route, response.status, response.body);
+  });
+
   await page.route("**/api/v1/automations/workflow-connectors", async (route) => {
     const response = mapMetadataRoute(state, route.request().url(), route.request().method());
     if (!response) {
@@ -933,6 +901,15 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
     await writeJsonResponse(route, response.status, response.body);
   });
 
+  await page.route("**/api/v1/scripts/metadata", async (route) => {
+    const response = mapMetadataRoute(state, route.request().url(), route.request().method());
+    if (!response) {
+      await route.fallback();
+      return;
+    }
+    await writeJsonResponse(route, response.status, response.body);
+  });
+
   await page.route("**/api/v1/apis/test-delivery", async (route) => {
     const response = mapMetadataRoute(state, route.request().url(), route.request().method());
     if (!response) {
@@ -946,6 +923,15 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
     const requestMethod = route.request().method();
     const requestUrl = route.request().url();
     const pathname = new URL(requestUrl).pathname;
+    const metadataResponse = mapMetadataRoute(state, requestUrl, requestMethod);
+    if (metadataResponse) {
+      const delayMs = pathname === "/api/v1/automations/workflow-connectors" ? state.connectorsResponseOverride?.delayMs || 0 : 0;
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      await writeJsonResponse(route, metadataResponse.status, metadataResponse.body);
+      return;
+    }
     const body = requestMethod === "GET" ? undefined : await readRequestBody(route);
     const response = mapAutomationRoute(state, requestUrl, requestMethod, body);
     if (!response) {
@@ -964,8 +950,15 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
   });
 
   await page.route(/\/api\/v1\/scripts(?:\/.*)?$/, async (route) => {
-    const body = route.request().method() === "GET" ? undefined : await readRequestBody(route);
-    const response = mapScriptRoute(state, route.request().url(), route.request().method(), body);
+    const requestMethod = route.request().method();
+    const requestUrl = route.request().url();
+    const metadataResponse = mapMetadataRoute(state, requestUrl, requestMethod);
+    if (metadataResponse) {
+      await writeJsonResponse(route, metadataResponse.status, metadataResponse.body);
+      return;
+    }
+    const body = requestMethod === "GET" ? undefined : await readRequestBody(route);
+    const response = mapScriptRoute(state, requestUrl, requestMethod, body);
     if (!response) {
       await route.fallback();
       return;

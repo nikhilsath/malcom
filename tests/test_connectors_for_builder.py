@@ -31,48 +31,38 @@ class ConnectorsForBuilderTestCase(unittest.TestCase):
         app.state.skip_ui_build_check = self.previous_skip_ui_build_check
         self.tempdir.cleanup()
 
-    def test_get_connectors_returns_empty_list_when_none(self) -> None:
-        # Ensure connector records are cleared because connectors persist outside settings reset.
-        settings_resp = self.client.patch(
-            "/api/v1/settings",
-            json={"connectors": {"records": []}},
-        )
-        self.assertEqual(settings_resp.status_code, 200)
+    def _create_connector(self, payload: dict) -> None:
+        response = self.client.post("/api/v1/connectors", json=payload)
+        self.assertEqual(response.status_code, 201, response.text)
 
+    def test_get_connectors_returns_empty_list_when_none(self) -> None:
         resp = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
 
     def test_filters_inactive_status_and_normalizes_fields(self) -> None:
-        # Add two connectors via settings: one active, one revoked
-        settings_resp = self.client.patch(
-            "/api/v1/settings",
-            json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "active-1",
-                            "provider": "google",
-                            "name": "Active One",
-                            "status": "connected",
-                            "auth_type": "oauth2",
-                            "scopes": ["gmail.send"],
-                            "owner": "workspace_1",
-                        },
-                        {
-                            "id": "revoked-1",
-                            "provider": "google",
-                            "name": "Revoked One",
-                            "status": "revoked",
-                            "auth_type": "oauth2",
-                            "scopes": ["gmail.read"],
-                            "owner": "workspace_1",
-                        },
-                    ]
-                }
-            },
+        self._create_connector(
+            {
+                "id": "active-1",
+                "provider": "google",
+                "name": "Active One",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["gmail.send"],
+                "owner": "workspace_1",
+            }
         )
-        self.assertEqual(settings_resp.status_code, 200)
+        self._create_connector(
+            {
+                "id": "revoked-1",
+                "provider": "google",
+                "name": "Revoked One",
+                "status": "revoked",
+                "auth_type": "oauth2",
+                "scopes": ["gmail.read"],
+                "owner": "workspace_1",
+            }
+        )
 
         resp = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(resp.status_code, 200)
@@ -86,24 +76,16 @@ class ConnectorsForBuilderTestCase(unittest.TestCase):
         self.assertIsInstance(active["scopes"], list)
 
     def test_returns_empty_list_when_all_inactive(self) -> None:
-        settings_resp = self.client.patch(
-            "/api/v1/settings",
-            json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "only-draft",
-                            "provider": "github",
-                            "status": "draft",
-                            "name": "Draft",
-                            "auth_type": "oauth2",
-                            "scopes": [],
-                        }
-                    ]
-                }
-            },
+        self._create_connector(
+            {
+                "id": "only-draft",
+                "provider": "github",
+                "status": "draft",
+                "name": "Draft",
+                "auth_type": "oauth2",
+                "scopes": [],
+            }
         )
-        self.assertEqual(settings_resp.status_code, 200)
 
         resp = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(resp.status_code, 200)

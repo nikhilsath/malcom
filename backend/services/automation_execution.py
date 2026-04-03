@@ -35,7 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from backend.schemas import *
-from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize
+from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize, run_migrations
 import httpx
 from pydantic import Field, ValidationError
 from backend.runtime import (
@@ -78,6 +78,8 @@ from backend.services.network import (
     execute_outgoing_test_delivery,
 )
 from backend.services.connector_activities import execute_connector_activity
+from backend.services.connector_activities_catalog import CONNECTOR_ACTIVITY_DEFINITIONS
+from backend.services.http_presets import DEFAULT_HTTP_PRESET_CATALOG
 from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
     get_log_file_path as get_log_file_path_core,
@@ -96,10 +98,8 @@ from backend.services.automation_runs import (
 from backend.services.connectors import (
     DEFAULT_CONNECTOR_CATALOG,
     get_connector_protection_secret,
-    get_default_connector_settings,
     get_stored_connector_settings,
     hydrate_outgoing_configuration_from_connector,
-    sanitize_connector_settings_for_response,
 )
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
@@ -151,6 +151,26 @@ DEFAULT_IMAGE_MAGIC_TOOL_CONFIG = {
 DEFAULT_TOOL_RETRY_SETTINGS = {
     "default_tool_retries": 2,
 }
+SETTINGS_NOTIFICATION_CHANNEL_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "email", "label": "Email digest", "description": "Send alerts through the default email digest route."},
+    {"value": "pager", "label": "Pager duty queue", "description": "Route incident alerts into the pager queue."},
+)
+SETTINGS_NOTIFICATION_DIGEST_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "realtime", "label": "Real time"},
+    {"value": "hourly", "label": "Hourly"},
+    {"value": "daily", "label": "Daily"},
+)
+SETTINGS_DATA_EXPORT_WINDOW_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "00:00", "label": "00:00 UTC"},
+    {"value": "02:00", "label": "02:00 UTC"},
+    {"value": "04:00", "label": "04:00 UTC"},
+)
+DEFAULT_DASHBOARD_LOG_LEVEL_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "debug", "label": "Debug"},
+    {"value": "info", "label": "Info"},
+    {"value": "warning", "label": "Warning"},
+    {"value": "error", "label": "Error"},
+)
 RESOURCE_SNAPSHOT_INTERVAL_SECONDS = 10.0
 RESOURCE_SNAPSHOT_DEFAULT_LIMIT = 30
 _RESOURCE_SNAPSHOT_LOCK = threading.Lock()
@@ -536,6 +556,7 @@ def seed_default_settings(connection: DatabaseConnection) -> None:
     now = utc_now_iso()
 
     seed_integration_presets(connection, timestamp=now)
+    seed_connector_endpoint_definitions(connection, timestamp=now)
     seed_default_scripts(connection, timestamp=now)
 
     for key, value in get_default_settings().items():
@@ -549,6 +570,147 @@ def seed_default_settings(connection: DatabaseConnection) -> None:
         )
 
     connection.commit()
+def seed_connector_endpoint_definitions(connection: DatabaseConnection, *, timestamp: str | None = None) -> None:
+    now = timestamp or utc_now_iso()
+    endpoint_ids: list[str] = []
+
+    for activity in CONNECTOR_ACTIVITY_DEFINITIONS:
+        endpoint_id = f"activity:{activity.provider_id}:{activity.activity_id}"
+        endpoint_ids.append(endpoint_id)
+        connection.execute(
+            """
+            INSERT INTO connector_endpoint_definitions (
+                endpoint_id,
+                provider_id,
+                endpoint_kind,
+                service,
+                operation_type,
+                label,
+                description,
+                http_method,
+                endpoint_path_template,
+                query_params_json,
+                required_scopes_json,
+                input_schema_json,
+                output_schema_json,
+                payload_template,
+                execution_json,
+                metadata_json,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, 'activity', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint_id) DO UPDATE SET
+                provider_id = excluded.provider_id,
+                endpoint_kind = excluded.endpoint_kind,
+                service = excluded.service,
+                operation_type = excluded.operation_type,
+                label = excluded.label,
+                description = excluded.description,
+                http_method = excluded.http_method,
+                endpoint_path_template = excluded.endpoint_path_template,
+                query_params_json = excluded.query_params_json,
+                required_scopes_json = excluded.required_scopes_json,
+                input_schema_json = excluded.input_schema_json,
+                output_schema_json = excluded.output_schema_json,
+                payload_template = excluded.payload_template,
+                execution_json = excluded.execution_json,
+                metadata_json = excluded.metadata_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                endpoint_id,
+                activity.provider_id,
+                activity.service,
+                activity.operation_type,
+                activity.label,
+                activity.description,
+                str(activity.execution.get("http_method") or "POST"),
+                str(activity.execution.get("endpoint_path_template") or ""),
+                json.dumps(activity.execution.get("query_params") or {}),
+                json.dumps(list(activity.required_scopes)),
+                json.dumps(list(activity.input_schema)),
+                json.dumps(list(activity.output_schema)),
+                str(activity.execution.get("payload_template") or ""),
+                json.dumps(dict(activity.execution)),
+                json.dumps({"activity_id": activity.activity_id}),
+                now,
+                now,
+            ),
+        )
+
+    for preset in DEFAULT_HTTP_PRESET_CATALOG:
+        endpoint_id = f"http_preset:{preset.provider_id}:{preset.preset_id}"
+        endpoint_ids.append(endpoint_id)
+        connection.execute(
+            """
+            INSERT INTO connector_endpoint_definitions (
+                endpoint_id,
+                provider_id,
+                endpoint_kind,
+                service,
+                operation_type,
+                label,
+                description,
+                http_method,
+                endpoint_path_template,
+                query_params_json,
+                required_scopes_json,
+                input_schema_json,
+                output_schema_json,
+                payload_template,
+                execution_json,
+                metadata_json,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, 'http_preset', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint_id) DO UPDATE SET
+                provider_id = excluded.provider_id,
+                endpoint_kind = excluded.endpoint_kind,
+                service = excluded.service,
+                operation_type = excluded.operation_type,
+                label = excluded.label,
+                description = excluded.description,
+                http_method = excluded.http_method,
+                endpoint_path_template = excluded.endpoint_path_template,
+                query_params_json = excluded.query_params_json,
+                required_scopes_json = excluded.required_scopes_json,
+                input_schema_json = excluded.input_schema_json,
+                output_schema_json = excluded.output_schema_json,
+                payload_template = excluded.payload_template,
+                execution_json = excluded.execution_json,
+                metadata_json = excluded.metadata_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                endpoint_id,
+                preset.provider_id,
+                preset.service,
+                preset.operation,
+                preset.label,
+                preset.description,
+                preset.http_method,
+                preset.endpoint_path_template,
+                json.dumps(preset.query_params),
+                json.dumps(list(preset.required_scopes)),
+                json.dumps(list(preset.input_schema)),
+                json.dumps([]),
+                preset.payload_template,
+                json.dumps({}),
+                json.dumps({"preset_id": preset.preset_id}),
+                now,
+                now,
+            ),
+        )
+
+    if endpoint_ids:
+        placeholders = ", ".join("?" for _ in endpoint_ids)
+        connection.execute(
+            f"DELETE FROM connector_endpoint_definitions WHERE endpoint_kind IN ('activity', 'http_preset') AND endpoint_id NOT IN ({placeholders})",
+            tuple(endpoint_ids),
+        )
+    else:
+        connection.execute("DELETE FROM connector_endpoint_definitions WHERE endpoint_kind IN ('activity', 'http_preset')")
+
 def seed_integration_presets(connection: DatabaseConnection, *, timestamp: str | None = None) -> None:
     now = timestamp or utc_now_iso()
 
@@ -593,28 +755,36 @@ def seed_integration_presets(connection: DatabaseConnection, *, timestamp: str |
                 now,
             ),
         )
-def normalize_settings_response_section(section_key: str, value: Any) -> Any:
+def normalize_settings_response_section(
+    section_key: str,
+    value: Any,
+    *,
+    connection: DatabaseConnection | None = None,
+) -> Any:
     schema_map = {
         "general": GeneralSettings,
         "logging": LoggingSettings,
         "notifications": NotificationSettings,
         "data": DataSettings,
         "automation": AutomationSettings,
-        "connectors": ConnectorSettingsResponse,
+        "options": AppSettingsOptionsResponse,
     }
     schema = schema_map[section_key]
     try:
         return schema.model_validate(value).model_dump()
     except ValidationError:
         fallback_value = (
-            get_default_connector_settings()
-            if section_key == "connectors"
+            {
+                "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
+                "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
+                "data_export_windows": [dict(item) for item in SETTINGS_DATA_EXPORT_WINDOW_OPTIONS],
+            }
+            if section_key == "options"
             else get_default_settings()[section_key]
         )
         return schema.model_validate(fallback_value).model_dump()
-def get_settings_payload(connection: DatabaseConnection, *, protection_secret: str | None = None) -> dict[str, Any]:
+def get_settings_payload(connection: DatabaseConnection) -> dict[str, Any]:
     settings = get_default_settings()
-    connector_secret = protection_secret or get_connector_protection_secret()
     rows = fetch_all(
         connection,
         """
@@ -635,14 +805,18 @@ def get_settings_payload(connection: DatabaseConnection, *, protection_secret: s
             stored_value,
         )
 
-    settings["connectors"] = sanitize_connector_settings_for_response(
-        get_stored_connector_settings(connection),
-        connector_secret,
-        connection=connection,
-    )
+    settings["options"] = {
+        "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
+        "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
+        "data_export_windows": [dict(item) for item in SETTINGS_DATA_EXPORT_WINDOW_OPTIONS],
+    }
 
     for section_key in tuple(settings.keys()):
-        settings[section_key] = normalize_settings_response_section(section_key, settings[section_key])
+        settings[section_key] = normalize_settings_response_section(
+            section_key,
+            settings[section_key],
+            connection=connection,
+        )
 
     return settings
 def get_default_smtp_tool_config() -> dict[str, Any]:
@@ -1653,8 +1827,8 @@ class AutomationDetailResponse(AutomationSummaryResponse):
 class ScriptResponse(ScriptSummaryResponse):
     code: str
 async def lifespan(app: FastAPI):
+    run_migrations(database_url=app.state.database_url)
     connection = connect(database_url=app.state.database_url)
-    initialize(connection)
     seed_default_settings(connection)
     write_tools_manifest(Path(app.state.root_dir), connection)
     if not getattr(app.state, "skip_ui_build_check", False):
@@ -2216,14 +2390,17 @@ def _normalize_dashboard_log_entry(
 def get_runtime_dashboard_logs_response(connection: DatabaseConnection, root_dir: Path) -> DashboardLogsApiResponse:
     settings = _get_dashboard_log_settings(connection)
     log_file_path = get_log_file_path_core(root_dir)
+    metadata = DashboardLogsMetadataResponse(
+        allowed_levels=[DashboardLogLevelOptionResponse(**item) for item in DEFAULT_DASHBOARD_LOG_LEVEL_OPTIONS]
+    )
 
     if not log_file_path.exists() or not log_file_path.is_file():
-        return DashboardLogsApiResponse(settings=settings, entries=[])
+        return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=[])
 
     try:
         raw_lines = log_file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
-        return DashboardLogsApiResponse(settings=settings, entries=[])
+        return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=[])
 
     pattern = re.compile(
         r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2},\d{3})\s+(?P<level>[A-Z]+)\s*(?P<message>.*)$"
@@ -2260,7 +2437,7 @@ def get_runtime_dashboard_logs_response(connection: DatabaseConnection, root_dir
         entries = entries[-settings.max_stored_entries:]
 
     entries.reverse()
-    return DashboardLogsApiResponse(settings=settings, entries=entries)
+    return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=entries)
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -2874,13 +3051,15 @@ def _normalize_dashboard_run_status(status_value: str, error_summary: str | None
     return "idle"
 
 
-def _normalize_dashboard_trigger_type(trigger_type: str) -> Literal["schedule", "manual", "api"]:
+def _normalize_dashboard_trigger_type(trigger_type: str) -> Literal["schedule", "manual", "inbound_api", "smtp_email"]:
     normalized_trigger = (trigger_type or "").strip().lower()
     if normalized_trigger == "schedule":
         return "schedule"
     if normalized_trigger == "manual":
         return "manual"
-    return "api"
+    if normalized_trigger == "smtp_email":
+        return "smtp_email"
+    return "inbound_api"
 
 
 def get_runtime_dashboard_summary_response(connection: DatabaseConnection) -> DashboardSummaryApiResponse:

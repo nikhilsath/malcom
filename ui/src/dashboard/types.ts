@@ -2,7 +2,7 @@ export type HealthStatus = "healthy" | "degraded" | "offline";
 export type RunStatus = "success" | "warning" | "error" | "idle";
 export type AlertSeverity = "info" | "warning" | "error";
 export type DeviceKind = "host" | "service" | "endpoint";
-export type TriggerType = "schedule" | "manual" | "api";
+export type TriggerType = "schedule" | "manual" | "inbound_api" | "smtp_email";
 export type LogLevel = "debug" | "info" | "warning" | "error";
 export type QueueStatus = "pending" | "claimed";
 export type QueueRuntimeStatus = "running" | "paused";
@@ -130,6 +130,9 @@ export interface DashboardDevicesResponse {
 
 export interface DashboardLogsResponse {
   settings: DashboardLogSettings;
+  metadata: {
+    allowedLevels: Array<{ value: LogLevel; label: string }>;
+  };
   entries: DashboardLogEntry[];
 }
 

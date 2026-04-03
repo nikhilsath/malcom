@@ -1,6 +1,7 @@
 import type { AutomationStep, ConnectorActivityDefinition, ConnectorRecord, InboundApiOption, ScriptLibraryItem, StepType, ToolManifestEntry, TriggerType } from "./types";
 import type { AutomationDetail, StepAccentMap, StepSummaryArgs } from "./builder-types";
-import { createDraftStepId, getDefaultStepName, stepTypeOptions, triggerTypeOptions } from "./types";
+import { AUTOMATION_TRIGGER_LABELS } from "./constants";
+import { createDraftStepId, getDefaultStepName } from "./types";
 
 export const stepAccentByType: StepAccentMap = {
   log: "log",
@@ -86,13 +87,20 @@ export const formatDuration = (value?: number | null) => {
   return `${value} ms`;
 };
 
-export const getTriggerTypeLabel = (value: TriggerType) => triggerTypeOptions.find((option) => option.value === value)?.label || value;
+export const getTriggerTypeLabel = (value: TriggerType) => AUTOMATION_TRIGGER_LABELS[value] || value;
 
 export const getStepTypeLabel = (value: StepType) => {
-  if (value === "outbound_request" || value === "connector_activity") {
-    return "API";
-  }
-  return stepTypeOptions.find((option) => option.value === value)?.label || value;
+  const labels: Record<StepType, string> = {
+    log: "Write",
+    api: "API",
+    script: "Script",
+    tool: "Tool",
+    condition: "Condition",
+    llm_chat: "LLM chat",
+    outbound_request: "HTTP request",
+    connector_activity: "Connector action"
+  };
+  return labels[value] || value;
 };
 
 export const getRunStatusTone = (value: string) => {

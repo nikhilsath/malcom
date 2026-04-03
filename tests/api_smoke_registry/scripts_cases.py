@@ -14,6 +14,7 @@ SCRIPTS_CASES: tuple[RouteSmokeCase, ...] = (
         expected_status=200,
         response_assert=assert_json_response,
     ),
+    list_case("scripts-metadata", "GET", "/api/v1/scripts/metadata", response_assert=assert_json_response),
     list_case("scripts-list", "GET", "/api/v1/scripts", response_assert=assert_json_response),
     detail_case(
         "scripts-detail",

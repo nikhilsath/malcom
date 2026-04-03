@@ -3,15 +3,18 @@ import { Dialog } from "@base-ui/react/dialog";
 import "./add-step-modal.css";
 import type { DataFlowToken } from "./data-flow";
 import type {
-  StepType,
+  AutomationBuilderMetadata,
+  AutomationBuilderOption,
   AutomationStep,
-  ConnectorRecord,
   ConnectorActivityDefinition,
+  ConnectorRecord,
   HttpPreset,
-  ToolManifestEntry,
-  ScriptLibraryItem
+  ScriptLanguageOption,
+  ScriptLibraryItem,
+  StepType,
+  ToolManifestEntry
 } from "./types";
-import { stepTypeOptions, cloneStepTemplate, getDefaultStepName } from "./types";
+import { cloneStepTemplate, getDefaultStepName } from "./types";
 import StorageStepForm from "./step-modals/storage-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
 import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step-form";
@@ -24,6 +27,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onAdd: (step: AutomationStep) => void;
+  stepTypeOptions: AutomationBuilderOption[];
   connectors: ConnectorRecord[];
   connectorsLoading?: boolean;
   connectorsError?: string | null;
@@ -32,6 +36,8 @@ type Props = {
   activityCatalog: ConnectorActivityDefinition[];
   toolsManifest: ToolManifestEntry[];
   scripts?: ScriptLibraryItem[];
+  scriptLanguages?: ScriptLanguageOption[];
+  builderMetadata: AutomationBuilderMetadata;
   dataFlowTokens?: DataFlowToken[];
 };
 
@@ -39,6 +45,7 @@ export const AddStepModal = ({
   open,
   onClose,
   onAdd,
+  stepTypeOptions,
   connectors,
   connectorsLoading = false,
   connectorsError = null,
@@ -47,65 +54,62 @@ export const AddStepModal = ({
   activityCatalog,
   toolsManifest,
   scripts,
+  scriptLanguages = [],
+  builderMetadata,
   dataFlowTokens = []
 }: Props) => {
   const [pickedType, setPickedType] = useState<StepType | null>(null);
-  const [apiMode, setApiMode] = useState<"prebuilt" | "custom" | null>(null);
   const [draft, setDraft] = useState<AutomationStep | null>(null);
 
   const handlePickType = (type: StepType) => {
     setPickedType(type);
-    if (type === "api") {
-      setApiMode(null);
-      setDraft({ ...cloneStepTemplate(type), name: "" });
-    } else {
-      setDraft({ ...cloneStepTemplate(type), name: "" });
-    }
+    setDraft({ ...cloneStepTemplate(type), name: "" });
   };
 
   const handleClose = () => {
     setPickedType(null);
-    setApiMode(null);
     setDraft(null);
     onClose();
   };
 
   const handleBack = () => {
-    if (pickedType === "api" && apiMode) {
-      setApiMode(null);
-      return;
-    }
     setPickedType(null);
-    setApiMode(null);
     setDraft(null);
   };
 
   const handleAdd = () => {
-    if (!draft || !pickedType) {
+    if (!draft) {
       return;
     }
-
-    if (pickedType === "api") {
-      if (apiMode === "prebuilt") {
-        onAdd({ ...draft, type: "connector_activity" as StepType });
-        handleClose();
-        return;
-      }
-      if (apiMode === "custom") {
-        onAdd({ ...draft, type: "outbound_request" as StepType });
-        handleClose();
-      }
-      return;
-    }
-
     onAdd(draft);
     handleClose();
   };
 
   const renderDetailForm = () => {
     if (!draft || !pickedType) return null;
-    if (pickedType === "api") {
-      if (apiMode === "prebuilt") {
+
+    switch (pickedType) {
+      case "log":
+        return (
+          <StorageStepForm
+            draft={draft}
+            storageTypeOptions={builderMetadata.storage_types}
+            logColumnTypeOptions={builderMetadata.log_column_types}
+            onChange={setDraft}
+          />
+        );
+      case "outbound_request":
+        return (
+          <HttpStepForm
+            draft={draft}
+            connectors={connectors}
+            httpPresets={httpPresets}
+            httpMethodOptions={builderMetadata.http_methods}
+            dataFlowTokens={dataFlowTokens}
+            onChange={setDraft}
+          />
+        );
+      case "connector_activity":
         return (
           <ConnectorActivityStepForm
             draft={draft}
@@ -115,25 +119,27 @@ export const AddStepModal = ({
             onRetryConnectors={onRetryConnectors}
             activityCatalog={activityCatalog}
             dataFlowTokens={dataFlowTokens}
-            onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "prebuilt" } })}
+            onChange={setDraft}
           />
         );
-      } else if (apiMode === "custom") {
-        return <HttpStepForm draft={draft} connectors={connectors} httpPresets={httpPresets} dataFlowTokens={dataFlowTokens} onChange={step => setDraft({ ...step, config: { ...step.config, api_mode: "custom" } })} />;
-      }
-      return null;
-    }
-    switch (pickedType) {
-      case "log":
-        return <StorageStepForm draft={draft} onChange={setDraft} />;
       case "script":
-        return <ScriptStepForm draft={draft} scripts={scripts} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
+        return (
+          <ScriptStepForm
+            draft={draft}
+            scripts={scripts}
+            scriptLanguages={scriptLanguages}
+            dataFlowTokens={dataFlowTokens}
+            onChange={setDraft}
+          />
+        );
       case "tool":
         return <ToolStepForm draft={draft} toolsManifest={toolsManifest} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
       case "condition":
         return <ConditionStepForm draft={draft} onChange={setDraft} />;
       case "llm_chat":
         return <LlmStepForm draft={draft} dataFlowTokens={dataFlowTokens} onChange={setDraft} />;
+      default:
+        return null;
     }
   };
 
@@ -162,7 +168,6 @@ export const AddStepModal = ({
             </Dialog.Close>
           </div>
 
-          {/* ── Page 1: type picker ── */}
           {!pickedType ? (
             <>
               <Dialog.Title id="add-step-modal-type-title" className="sr-only">
@@ -178,7 +183,7 @@ export const AddStepModal = ({
                     id={`add-step-type-${opt.value}`}
                     type="button"
                     className={`add-step-type-card add-step-type-card--${opt.value}`}
-                    onClick={() => handlePickType(opt.value)}
+                    onClick={() => handlePickType(opt.value as StepType)}
                   >
                     <span
                       id={`add-step-type-${opt.value}-icon-stack`}
@@ -190,15 +195,17 @@ export const AddStepModal = ({
                         <img id="add-step-type-llm_chat-icon" className="add-step-type-card__icon" src="/media/bot_icon" alt="" aria-hidden="true" />
                       ) : opt.value === "tool" ? (
                         <img id="add-step-type-tool-icon" className="add-step-type-card__icon" src="/media/tools_icon.png" alt="" aria-hidden="true" />
-                      ) : opt.value === "api" ? (
-                        <img id="add-step-type-api-icon" className="add-step-type-card__icon" src="/media/api_icon.png" alt="" aria-hidden="true" />
+                      ) : opt.value === "outbound_request" ? (
+                        <img id="add-step-type-outbound_request-icon" className="add-step-type-card__icon" src="/media/api_icon.png" alt="" aria-hidden="true" />
+                      ) : opt.value === "connector_activity" ? (
+                        <img id="add-step-type-connector_activity-icon" className="add-step-type-card__icon" src="/media/api_icon.png" alt="" aria-hidden="true" />
                       ) : opt.value === "condition" ? (
                         <img id="add-step-type-condition-icon" className="add-step-type-card__icon" src="/media/conditional_icon.png" alt="" aria-hidden="true" />
                       ) : (
                         <img id="add-step-type-script-icon" className="add-step-type-card__icon" src="/media/script_icon.png" alt="" aria-hidden="true" />
                       )}
                       <span id={`add-step-type-${opt.value}-label`} className="add-step-type-card__label add-step-type-card__label--below">
-                        {opt.value === "log" ? "Write" : opt.label}
+                        {opt.label}
                       </span>
                     </span>
                     <span id={`add-step-type-${opt.value}-description`} className="add-step-type-card__description">
@@ -209,18 +216,16 @@ export const AddStepModal = ({
               </div>
             </>
           ) : (
-            /* ── Page 2: step detail ── */
             <>
               <Dialog.Title id="add-step-modal-detail-title" className="automation-dialog__title">
                 Configure step
               </Dialog.Title>
               <Dialog.Description id="add-step-modal-detail-description" className="automation-dialog__description">
                 Fill in the details for the new{" "}
-                <strong>{stepTypeOptions.find((o) => o.value === pickedType)?.label}</strong> step.
+                <strong>{stepTypeOptions.find((option) => option.value === pickedType)?.label}</strong> step.
               </Dialog.Description>
 
               <div id="add-step-detail-form" className="automation-form automation-form--modal">
-                {/* shared name field */}
                 <label
                   id="add-step-name-field"
                   className={`automation-field automation-field--full${pickedType === "script" ? " automation-field--inline-label" : ""}`}
@@ -231,37 +236,12 @@ export const AddStepModal = ({
                     className="automation-input"
                     value={draft?.name || ""}
                     placeholder={draft ? getDefaultStepName(draft.type) : ""}
-                    onChange={(e) =>
-                      setDraft((prev) => prev ? { ...prev, name: e.target.value } : prev)
-                    }
+                    onChange={(event) => {
+                      setDraft((previous) => previous ? { ...previous, name: event.target.value } : previous);
+                    }}
                   />
                 </label>
 
-                {/* API step branching menu */}
-                {pickedType === "api" && !apiMode && (
-                  <div id="add-step-api-mode-picker" className="add-step-api-mode-picker">
-                    <button
-                      type="button"
-                      id="add-step-api-mode-prebuilt"
-                      className="add-step-api-mode-button"
-                      onClick={() => { setApiMode("prebuilt"); setDraft((prev) => prev ? { ...prev, config: { ...prev.config, api_mode: "prebuilt" } } : prev); }}
-                    >
-                      <span className="add-step-api-mode-button__title">Prebuilt connector</span>
-                      <span className="add-step-api-mode-button__description">Provider-aware action (recommended)</span>
-                    </button>
-                    <button
-                      type="button"
-                      id="add-step-api-mode-custom"
-                      className="add-step-api-mode-button"
-                      onClick={() => { setApiMode("custom"); setDraft((prev) => prev ? { ...prev, config: { ...prev.config, api_mode: "custom" } } : prev); }}
-                    >
-                      <span className="add-step-api-mode-button__title">Custom HTTP request</span>
-                      <span className="add-step-api-mode-button__description">Raw HTTP call (advanced)</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* per-type config fields */}
                 {renderDetailForm()}
               </div>
 
@@ -285,7 +265,6 @@ export const AddStepModal = ({
               </div>
             </>
           )}
-
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

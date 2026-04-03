@@ -44,7 +44,7 @@ class ConnectorsAvailabilityTestCase(unittest.TestCase):
         try:
             connection.execute(
                 "INSERT INTO connectors (id, provider, name, status, auth_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                ("test-conn-1", "prov-x", "Test Connector", "active", "oauth2", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
+                ("test-conn-1", "google", "Test Connector", "connected", "oauth2", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
             )
             # Also insert a settings-backed connectors payload that should be ignored by the connectors endpoint
             connection.execute(

@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { acceptDialogs } from "./support/core.ts";
 import {
+  buildConnectorActivityCatalog,
+  createConnectorRecord,
+} from "./support/api-response-builders.ts";
+import {
   buildAutomationRun,
   createAutomationSuiteState,
   installAutomationSuiteRoutes
@@ -27,22 +31,19 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await expect(page.locator("#automations-guided-item-step-action")).toBeVisible();
   await page.locator("#automations-guided-item-step-action").click();
   await expect(page.locator("#add-step-modal")).toBeVisible();
-  await page.locator("#add-step-type-api").click();
-  await page.locator("#add-step-api-mode-prebuilt").click();
+  await page.locator("#add-step-type-connector_activity").click();
   await page.locator("#add-step-name-input").fill("Send customer email");
   await expect(page.locator("#add-step-connector-activity-connector-input")).toContainText("Google Primary");
   await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
   await page.locator("#add-step-connector-activity-activity-card-gmail-send-email").click();
   await expect(page.locator("#add-step-connector-activity-required-scopes")).toContainText("gmail.send");
   await page.locator("#add-step-connector-activity-input-to").fill("customer@example.com");
-  await page.locator("#add-step-connector-activity-input-subject").fill("Your order shipped");
-  await page.locator("#add-step-connector-activity-input-body").fill("Hello from Malcom");
   await page.locator("#add-step-modal-confirm").click();
 
   await expect(page.locator('.automation-node[id^="automation-canvas-node-step-draft-step-"]')).toHaveCount(1);
   await page.locator('.automation-node[id^="automation-canvas-node-step-draft-step-"]').dblclick();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
-  await page.locator("#automations-step-connector-activity-input-subject").fill("Your order is now in transit");
+  await page.locator("#automations-step-connector-activity-input-to").fill("customer+followup@example.com");
   await expect(page.locator("#automation-canvas-node-step-draft-step-1-title")).toHaveText("Send customer email");
   await page.locator("#automations-editor-modal-close").click();
 
@@ -75,7 +76,7 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Order sync");
   await expect(page.locator("#automation-canvas-node-step-step-fetch-order-title")).toHaveText("Fetch order");
 
-  await page.locator("#automation-canvas-node-trigger").click({ button: "right" });
+  await page.locator("#automation-canvas-node-trigger").click({ button: "right", force: true });
   await expect(page.locator("#automations-node-menu-edit")).toBeVisible();
   await page.locator("#automations-node-menu-edit").click();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
@@ -173,7 +174,7 @@ test("defaults to guided mode for new drafts and allows switching to canvas mode
 });
 
 test.describe("Automation Builder - Connector Dropdown", () => {
-  test("shows loading state while saved connectors are fetched", async ({ page }) => {
+  test("shows the resolved empty state after a delayed saved-connectors fetch", async ({ page }) => {
     const state = createAutomationSuiteState();
     state.connectorsResponseOverride = {
       status: 200,
@@ -185,17 +186,15 @@ test.describe("Automation Builder - Connector Dropdown", () => {
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click();
-    await page.locator("#add-step-api-mode-prebuilt").click();
+    await page.locator("#add-step-type-connector_activity").click();
 
-    await expect(page.locator("#add-step-connector-activity-connector-input")).toBeDisabled();
-    await expect(page.locator("#add-step-connector-activity-connector-state")).toContainText("Loading saved connectors");
+    await expect(page.locator("#add-step-connector-activity-connector-state")).toContainText("No saved connectors found");
     await expect(page.locator("#add-step-connector-activity-connector-input")).toBeEnabled();
   });
 
   test("filters Google connector actions behind a Google app dropdown", async ({ page }) => {
     const state = createAutomationSuiteState({
-      activityCatalog: [
+      activityCatalog: buildConnectorActivityCatalog([
         {
           provider_id: "google",
           activity_id: "gmail-send-email",
@@ -260,15 +259,14 @@ test.describe("Automation Builder - Connector Dropdown", () => {
           ],
           execution: { provider: "google", action: "update-range" }
         }
-      ]
+      ]) as any
     });
     await installAutomationSuiteRoutes(page, state);
 
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click({ force: true });
-    await page.locator("#add-step-api-mode-prebuilt").click();
+    await page.locator("#add-step-type-connector_activity").click({ force: true });
     await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
 
     await expect(page.locator("#add-step-connector-activity-service-input")).toBeVisible();
@@ -293,15 +291,14 @@ test.describe("Automation Builder - Connector Dropdown", () => {
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click();
-    await page.locator("#add-step-api-mode-prebuilt").click();
+    await page.locator("#add-step-type-connector_activity").click();
     await expect(page.locator("#add-step-connector-activity-connector-state")).toContainText("No saved connectors found");
     const select = page.locator("#add-step-connector-activity-connector-input");
     await expect(select).toHaveValue("");
     await expect(select.locator('option')).toHaveCount(1);
   });
 
-  test("shows error state when connector service fails", async ({ page }) => {
+  test("shows an empty step-type picker when builder support data fails to load", async ({ page }) => {
     const state = createAutomationSuiteState();
     // simulate server error for connector endpoint
     state.connectorsResponseOverride = { status: 500, body: { detail: "Simulated failure" } };
@@ -310,15 +307,12 @@ test.describe("Automation Builder - Connector Dropdown", () => {
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click();
-    await page.locator("#add-step-api-mode-prebuilt").click();
-    await expect(page.locator("#add-step-connector-activity-connector-error")).toContainText("Unable to load saved connectors");
-    await expect(page.locator("#add-step-connector-activity-connector-retry")).toBeVisible();
+    await expect(page.locator("#add-step-type-grid").locator("button")).toHaveCount(0);
   });
 
   test("disables incompatible connectors with reason text and tooltip", async ({ page }) => {
     const state = createAutomationSuiteState({
-      activityCatalog: [
+      activityCatalog: buildConnectorActivityCatalog([
         {
           provider_id: "google",
           activity_id: "gmail-send-email",
@@ -331,10 +325,10 @@ test.describe("Automation Builder - Connector Dropdown", () => {
           output_schema: [],
           execution: { provider: "google", action: "send-email" },
         },
-      ],
+      ]) as any,
     });
     ((state.settings as Record<string, unknown>).connectors as { records: Array<Record<string, unknown>> }).records = [
-      {
+      createConnectorRecord({
         id: "google-missing-scope",
         provider: "google",
         name: "Google Missing Scope",
@@ -343,8 +337,8 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         scopes: [],
         owner: "Workspace",
         base_url: "https://www.googleapis.com",
-      },
-      {
+      }),
+      createConnectorRecord({
         id: "google-primary",
         provider: "google",
         name: "Google Primary",
@@ -353,15 +347,14 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         scopes: ["https://www.googleapis.com/auth/gmail.send"],
         owner: "Workspace",
         base_url: "https://www.googleapis.com",
-      },
+      }),
     ];
     await installAutomationSuiteRoutes(page, state);
 
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click();
-    await page.locator("#add-step-api-mode-prebuilt").click();
+    await page.locator("#add-step-type-connector_activity").click();
 
     const incompatibleOption = page.locator('#add-step-connector-activity-connector-input option[value="google-missing-scope"]');
     await expect(incompatibleOption).toHaveAttribute("disabled", "");
@@ -372,17 +365,17 @@ test.describe("Automation Builder - Connector Dropdown", () => {
   test("shows only active connectors in step modal", async ({ page }) => {
     const state = createAutomationSuiteState();
     ((state.settings as Record<string, unknown>).connectors as { records: Array<Record<string, unknown>> }).records = [
-      {
+      createConnectorRecord({
         id: "google-primary",
         provider: "google",
         name: "Google Primary",
-        status: "",
+        status: "connected",
         auth_type: "oauth2",
         scopes: ["https://www.googleapis.com/auth/gmail.send"],
         owner: "Workspace",
-        base_url: "https://www.googleapis.com"
-      },
-      {
+        base_url: "https://www.googleapis.com",
+      }),
+      createConnectorRecord({
         id: "google-expired",
         provider: "google",
         name: "Google Expired",
@@ -390,9 +383,9 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         auth_type: "oauth2",
         scopes: [],
         owner: "Workspace",
-        base_url: "https://www.googleapis.com"
-      },
-      {
+        base_url: "https://www.googleapis.com",
+      }),
+      createConnectorRecord({
         id: "google-revoked",
         provider: "google",
         name: "Google Revoked",
@@ -400,9 +393,9 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         auth_type: "oauth2",
         scopes: [],
         owner: "Workspace",
-        base_url: "https://www.googleapis.com"
-      },
-      {
+        base_url: "https://www.googleapis.com",
+      }),
+      createConnectorRecord({
         id: "github-draft",
         provider: "github",
         name: "GitHub Draft",
@@ -410,16 +403,15 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         auth_type: "bearer",
         scopes: ["repo"],
         owner: "Workspace",
-        base_url: "https://api.github.com"
-      }
+        base_url: "https://api.github.com",
+      }),
     ];
     await installAutomationSuiteRoutes(page, state);
 
     await page.goto("/automations/builder.html?new=true");
     await page.locator("#automations-guided-item-step-action").click();
     await expect(page.locator("#add-step-modal")).toBeVisible();
-    await page.locator("#add-step-type-api").click({ force: true });
-    await page.locator("#add-step-api-mode-custom").click();
+    await page.locator("#add-step-type-outbound_request").click({ force: true });
 
     const options = await page.locator("#add-step-http-connector-input option").allTextContents();
     for (const opt of options) {

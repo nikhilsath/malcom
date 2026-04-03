@@ -1,8 +1,8 @@
 import { useDeferredValue, useEffect, useState } from "react";
 import { normalizeRequestError, requestJson } from "../lib/request";
 import { Dialog } from "@base-ui/react/dialog";
-
-type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
+import { AUTOMATION_TRIGGER_LABELS } from "./constants";
+import type { TriggerType } from "./types";
 
 type Automation = {
   id: string;
@@ -23,13 +23,6 @@ type RuntimeStatus = {
   last_tick_finished_at: string | null;
   last_error: string | null;
   job_count: number;
-};
-
-const triggerLabels: Record<TriggerType, string> = {
-  manual: "Manual",
-  schedule: "Schedule",
-  inbound_api: "Inbound API",
-  smtp_email: "SMTP Email",
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -144,7 +137,7 @@ export const AutomationLibraryApp = () => {
                     {automation.description || "No description provided."}
                   </span>
                   <span id={`automations-library-item-meta-${automation.id}`} className="automation-library-card__meta">
-                    {triggerLabels[automation.trigger_type] ?? "Unknown"} · {automation.step_count} {automation.step_count === 1 ? "step" : "steps"}
+                    {AUTOMATION_TRIGGER_LABELS[automation.trigger_type] ?? "Unknown"} · {automation.step_count} {automation.step_count === 1 ? "step" : "steps"}
                   </span>
                 </button>
               ))}
@@ -222,7 +215,7 @@ export const AutomationLibraryApp = () => {
                 <div id="automations-library-detail-modal-stats" className="automation-detail-dialog__stats">
                   <div id="automations-library-detail-stat-trigger" className="automation-detail-stat">
                     <span id="automations-library-detail-stat-trigger-label" className="automation-detail-stat__label">Trigger</span>
-                    <span id="automations-library-detail-stat-trigger-value" className="automation-detail-stat__value">{triggerLabels[selectedAutomation.trigger_type] ?? "Unknown"}</span>
+                    <span id="automations-library-detail-stat-trigger-value" className="automation-detail-stat__value">{AUTOMATION_TRIGGER_LABELS[selectedAutomation.trigger_type] ?? "Unknown"}</span>
                   </div>
                   <div id="automations-library-detail-stat-steps" className="automation-detail-stat">
                     <span id="automations-library-detail-stat-steps-label" className="automation-detail-stat__label">Steps</span>

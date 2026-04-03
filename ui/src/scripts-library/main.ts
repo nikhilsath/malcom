@@ -6,6 +6,7 @@ import { bracketMatching, foldGutter, indentOnInput, syntaxHighlighting, default
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { normalizeRequestError, requestJson } from "../lib/request";
+import { SCRIPT_LANGUAGE_LABELS, SCRIPT_LANGUAGE_TEMPLATES } from "../automation/constants";
 
 type ScriptLanguage = "python" | "javascript";
 type ValidationStatus = "valid" | "invalid" | "unknown";
@@ -38,6 +39,12 @@ type ValidationResult = {
   issues: ValidationIssue[];
 };
 
+type ScriptLanguageOption = {
+  value: ScriptLanguage;
+  label: string;
+  description?: string | null;
+};
+
 const scriptElements = {
   alert: document.getElementById("script-library-alert"),
   createButton: document.getElementById("scripts-library-create-button") as HTMLButtonElement | null,
@@ -66,6 +73,7 @@ const scriptElements = {
 
 const scriptState = {
   scripts: [] as ScriptSummary[],
+  scriptLanguages: [] as ScriptLanguageOption[],
   selectedScriptId: null as string | null,
   query: "",
   lastValidation: {
@@ -92,32 +100,11 @@ const closeEditorModal = () => {
 
 const languageCompartment = new Compartment();
 
-const defaultTemplates: Record<ScriptLanguage, string> = {
-  python: [
-    "def run(context, script_input=None):",
-    "    payload = context.get('payload', {})",
-    "    return script_input or payload",
-    ""
-  ].join("\n"),
-  javascript: [
-    "function run(context, scriptInput) {",
-    "  const payload = context?.payload ?? {};",
-    "  return scriptInput || payload;",
-    "}",
-    ""
-  ].join("\n")
-};
-
-const languageLabels: Record<ScriptLanguage, string> = {
-  python: "Python",
-  javascript: "JavaScript"
-};
-
 const editorView = scriptElements.editorHost
   ? new EditorView({
       parent: scriptElements.editorHost,
       state: EditorState.create({
-        doc: defaultTemplates.python,
+        doc: SCRIPT_LANGUAGE_TEMPLATES.python,
         extensions: [
           history(),
           foldGutter(),
@@ -304,7 +291,7 @@ const renderScriptList = () => {
           </div>
         </div>
         <div id="scripts-library-item-badges-${script.id}" class="script-library-item__badge-row">
-          <span id="scripts-library-item-language-${script.id}" class="script-language-badge">${languageLabels[script.language]}</span>
+          <span id="scripts-library-item-language-${script.id}" class="script-language-badge">${SCRIPT_LANGUAGE_LABELS[script.language]}</span>
           <span id="scripts-library-item-status-${script.id}" class="script-status-badge script-status-badge--${script.validation_status}">${validationLabel}</span>
         </div>
         <p id="scripts-library-item-meta-${script.id}" class="script-library-item__meta">Updated ${escapeHtml(formatTimestamp(script.updated_at))}</p>
@@ -340,7 +327,7 @@ const resetForm = (language: ScriptLanguage = "python") => {
     scriptElements.sampleInputInput.value = "";
   }
   setEditorLanguage(language);
-  setEditorCode(defaultTemplates[language]);
+  setEditorCode(SCRIPT_LANGUAGE_TEMPLATES[language]);
   setValidationChip("unknown", "Not validated");
   setFeedback(scriptElements.validationFeedback, "");
   setFeedback(scriptElements.formFeedback, "");
@@ -394,6 +381,26 @@ const loadScripts = async () => {
   }
 };
 
+const renderLanguageOptions = () => {
+  if (!scriptElements.languageInput) {
+    return;
+  }
+
+  const languageOptions = scriptState.scriptLanguages.length > 0
+    ? scriptState.scriptLanguages
+    : Object.entries(SCRIPT_LANGUAGE_LABELS).map(([value, label]) => ({ value: value as ScriptLanguage, label }));
+
+  scriptElements.languageInput.innerHTML = languageOptions
+    .map((languageOption) => `<option value="${languageOption.value}">${languageOption.label}</option>`)
+    .join("");
+};
+
+const loadScriptMetadata = async () => {
+  const metadata = await requestJson<{ languages: ScriptLanguageOption[] }>("/api/v1/scripts/metadata");
+  scriptState.scriptLanguages = Array.isArray(metadata.languages) ? metadata.languages : [];
+  renderLanguageOptions();
+};
+
 const loadScript = async (scriptId: string) => {
   const script = await requestJson<ScriptRecord>(`/api/v1/scripts/${scriptId}`);
   applyScriptToForm(script);
@@ -424,7 +431,7 @@ const validateCurrentScript = async () => {
 
   if (result.valid) {
     setValidationChip("valid", "Validated");
-    setFeedback(scriptElements.validationFeedback, `${languageLabels[language]} syntax check passed.`, "success");
+    setFeedback(scriptElements.validationFeedback, `${SCRIPT_LANGUAGE_LABELS[language]} syntax check passed.`, "success");
   } else {
     const message = result.issues
       .map((issue) => {
@@ -479,7 +486,7 @@ const handleSave = async (event: SubmitEvent) => {
     await loadScripts();
     applyScriptToForm(savedScript);
     setFeedback(scriptElements.formFeedback, "Script saved to the library.", "success");
-    emitScriptLog(scriptId ? "script_updated" : "script_created", `Saved ${languageLabels[language]} script ${savedScript.name}.`);
+    emitScriptLog(scriptId ? "script_updated" : "script_created", `Saved ${SCRIPT_LANGUAGE_LABELS[language]} script ${savedScript.name}.`);
   } catch (error) {
     const message = normalizeRequestError(error, "Unable to save script.").message;
     setValidationChip("invalid", "Needs fixes");
@@ -503,7 +510,7 @@ scriptElements.languageInput?.addEventListener("change", () => {
   const language = (scriptElements.languageInput?.value || "python") as ScriptLanguage;
   setEditorLanguage(language);
   if (!scriptElements.scriptIdInput?.value) {
-    setEditorCode(defaultTemplates[language]);
+    setEditorCode(SCRIPT_LANGUAGE_TEMPLATES[language]);
   }
   setValidationChip("unknown", "Not validated");
   setFeedback(scriptElements.validationFeedback, "");
@@ -525,6 +532,12 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && scriptElements.editorModal?.classList.contains("modal--open")) {
     closeEditorModal();
   }
+});
+
+renderLanguageOptions();
+
+void loadScriptMetadata().catch(() => {
+  renderLanguageOptions();
 });
 
 void loadScripts().catch((error) => {

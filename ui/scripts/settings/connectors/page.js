@@ -4,7 +4,7 @@ import { bindFormEvents, buildDefaultConnectorRecord } from "./form.js";
 import { bindModalEvents, closeModal, openDetailModal } from "./modal.js";
 import { ensureGoogleConnectorRecord, handleOauthQueryState, startConnectorOauth } from "./oauth.js";
 import { renderDetail, renderDirectory, renderModalProviders, renderPolicy, renderSummary, setFeedback } from "./render.js";
-import { cloneValue, connectorState, getProviderPreset, getStore, slugifyConnectorId } from "./state.js";
+import { connectorState, createEmptyConnectorPayload, getProviderPreset, getStore, slugifyConnectorId } from "./state.js";
 
 const handleSelectRecord = (recordId, returnFocusElement) => {
   connectorState.selectedConnectorId = recordId;
@@ -45,17 +45,20 @@ const handleSelectPreset = async (providerId) => {
     return;
   }
 
-  const nextSettings = cloneValue(connectorState.settings);
   const nextRecord = buildDefaultConnectorRecord(preset);
   nextRecord.id = slugifyConnectorId(`${preset.id}-${Date.now()}`);
   nextRecord.credential_ref = `connector/${nextRecord.id}`;
-  nextSettings.connectors.records = [nextRecord, ...nextSettings.connectors.records];
-  connectorState.settings = nextSettings;
-  connectorState.selectedConnectorId = nextRecord.id;
-  closeModal();
-  renderAll();
-  openDetailModal();
-  setFeedback(`Prepared ${preset.name} connector draft. Add credentials and save to persist the record.`, "success");
+
+  try {
+    connectorState.connectors = await getStore().createConnector(nextRecord);
+    connectorState.selectedConnectorId = nextRecord.id;
+    closeModal();
+    renderAll();
+    openDetailModal();
+    setFeedback(`Prepared ${preset.name} connector draft. Add credentials and save to persist the record.`, "success");
+  } catch (error) {
+    setFeedback(normalizeRequestError(error).message, "error");
+  }
 };
 
 const renderAll = () => {
@@ -75,19 +78,9 @@ export const initConnectorsPage = async () => {
   bindFormEvents({ renderAll, startConnectorOauth });
 
   try {
-    connectorState.settings = await getStore().loadConnectors();
+    connectorState.connectors = await getStore().loadConnectors();
   } catch {
-    connectorState.settings = {
-      connectors: {
-        catalog: [],
-        records: [],
-        auth_policy: {
-          rotation_interval_days: 90,
-          reconnect_requires_approval: true,
-          credential_visibility: "masked"
-        }
-      }
-    };
+    connectorState.connectors = createEmptyConnectorPayload();
     setFeedback("Unable to load connectors from /api/v1/connectors.", "error");
   }
 

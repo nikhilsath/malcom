@@ -18,6 +18,14 @@ const defaultDashboardLogsPayload = {
     max_visible_entries: 50,
     max_detail_characters: 4000
   },
+  metadata: {
+    allowed_levels: [
+      { value: "debug", label: "Debug" },
+      { value: "info", label: "Info" },
+      { value: "warning", label: "Warning" },
+      { value: "error", label: "Error" }
+    ]
+  },
   entries: [
     {
       id: "log-runtime-bootstrap",

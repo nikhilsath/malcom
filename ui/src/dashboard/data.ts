@@ -256,6 +256,9 @@ type DashboardLogsApiEntry = {
 
 type DashboardLogsApiResponse = {
   settings: DashboardLogsApiSettings;
+  metadata: {
+    allowed_levels: Array<{ value: DashboardLogEntry["level"]; label: string }>;
+  };
   entries: DashboardLogsApiEntry[];
 };
 
@@ -564,6 +567,14 @@ const mapApiLogsResponse = (payload: DashboardLogsApiResponse): DashboardLogsRes
     maxVisibleEntries: payload.settings.max_visible_entries,
     maxDetailCharacters: payload.settings.max_detail_characters
   },
+  metadata: {
+    allowedLevels: Array.isArray(payload.metadata?.allowed_levels)
+      ? payload.metadata.allowed_levels.map((levelOption) => ({
+        value: levelOption.value,
+        label: levelOption.label
+      }))
+      : []
+  },
   entries: Array.isArray(payload.entries)
     ? payload.entries.map((entry) => ({
       id: entry.id,
@@ -745,14 +756,30 @@ export const dashboardApi = {
       if (!response.ok) {
         return {
           settings: { ...defaultLogSettings },
+          metadata: {
+            allowedLevels: [
+              { value: "debug", label: "Debug" },
+              { value: "info", label: "Info" },
+              { value: "warning", label: "Warning" },
+              { value: "error", label: "Error" }
+            ]
+          },
           entries: [...defaultLogEntries]
         };
       }
 
       const payload = (await response.json()) as Partial<DashboardLogsApiResponse>;
-      if (!payload.settings || !Array.isArray(payload.entries)) {
+      if (!payload.settings || !payload.metadata || !Array.isArray(payload.entries)) {
         return {
           settings: { ...defaultLogSettings },
+          metadata: {
+            allowedLevels: [
+              { value: "debug", label: "Debug" },
+              { value: "info", label: "Info" },
+              { value: "warning", label: "Warning" },
+              { value: "error", label: "Error" }
+            ]
+          },
           entries: [...defaultLogEntries]
         };
       }
@@ -761,6 +788,14 @@ export const dashboardApi = {
     } catch {
       return {
         settings: { ...defaultLogSettings },
+        metadata: {
+          allowedLevels: [
+            { value: "debug", label: "Debug" },
+            { value: "info", label: "Info" },
+            { value: "warning", label: "Warning" },
+            { value: "error", label: "Error" }
+          ]
+        },
         entries: [...defaultLogEntries]
       };
     }

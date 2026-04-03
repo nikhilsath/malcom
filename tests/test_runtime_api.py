@@ -131,8 +131,10 @@ class RuntimeApiTestCase(unittest.TestCase):
         payload = response.json()
 
         self.assertIn("settings", payload)
+        self.assertIn("metadata", payload)
         self.assertIn("entries", payload)
         self.assertGreaterEqual(len(payload["entries"]), 2)
+        self.assertEqual([item["value"] for item in payload["metadata"]["allowed_levels"]], ["debug", "info", "warning", "error"])
 
         first_entry = payload["entries"][0]
         self.assertEqual(first_entry["source"], "backend.runtime")
@@ -156,6 +158,7 @@ class RuntimeApiTestCase(unittest.TestCase):
         payload = response.json()
 
         self.assertIn("settings", payload)
+        self.assertIn("metadata", payload)
         self.assertIn("entries", payload)
         self.assertEqual(payload["entries"], [])
 

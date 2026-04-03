@@ -13,6 +13,7 @@ import {
 } from "./builder-api";
 import type {
   Automation,
+  AutomationBuilderMetadata,
   AutomationDetail,
   BuilderMode,
   ConnectorActivityDefinition,
@@ -21,6 +22,7 @@ import type {
   HttpPreset,
   InboundApiOption,
   NodeMenuState,
+  ScriptLanguageOption,
   ScriptLibraryItem,
   TestResultState,
   ToolManifestEntry,
@@ -35,6 +37,13 @@ export const useAutomationBuilderController = () => {
   const [currentAutomation, setCurrentAutomation] = useState<AutomationDetail>(emptyDetail);
   const [builderMode, setBuilderMode] = useState<BuilderMode>(getInitialBuilderMode);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("trigger-node");
+  const [builderMetadata, setBuilderMetadata] = useState<AutomationBuilderMetadata>({
+    trigger_types: [],
+    step_types: [],
+    http_methods: [],
+    storage_types: [],
+    log_column_types: []
+  });
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [supportDataLoading, setSupportDataLoading] = useState(false);
   const [supportDataError, setSupportDataError] = useState<string | null>(null);
@@ -42,6 +51,7 @@ export const useAutomationBuilderController = () => {
   const [inboundApis, setInboundApis] = useState<InboundApiOption[]>([]);
   const [activityCatalog, setActivityCatalog] = useState<ConnectorActivityDefinition[]>([]);
   const [scripts, setScripts] = useState<ScriptLibraryItem[]>([]);
+  const [scriptLanguages, setScriptLanguages] = useState<ScriptLanguageOption[]>([]);
   const [toolsManifest, setToolsManifest] = useState<ToolManifestEntry[]>([]);
   const [feedback, setFeedback] = useState("");
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error" | "">("");
@@ -294,9 +304,11 @@ export const useAutomationBuilderController = () => {
     setSupportDataError(null);
     try {
       const supportData = await loadBuilderSupportData();
+      setBuilderMetadata(supportData.builderMetadata);
       setConnectors(supportData.connectors);
       setInboundApis(supportData.inboundApis);
       setScripts(supportData.scripts);
+      setScriptLanguages(supportData.scriptLanguages);
       setActivityCatalog(supportData.activityCatalog);
       setHttpPresets(supportData.httpPresets);
       setToolsManifest(supportData.toolsManifest);
@@ -502,6 +514,7 @@ export const useAutomationBuilderController = () => {
     automations,
     currentAutomation,
     builderMode,
+    builderMetadata,
     selectedNodeId,
     connectors,
     supportDataLoading,
@@ -510,6 +523,7 @@ export const useAutomationBuilderController = () => {
     inboundApis,
     activityCatalog,
     scripts,
+    scriptLanguages,
     toolsManifest,
     feedback,
     feedbackTone,

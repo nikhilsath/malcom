@@ -26,8 +26,8 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.tempdir.cleanup()
 
     def save_connector(self, record: dict) -> None:
-        response = self.client.patch("/api/v1/settings", json={"connectors": {"records": [record]}})
-        self.assertEqual(response.status_code, 200, response.text)
+        response = self.client.post("/api/v1/connectors", json=record)
+        self.assertEqual(response.status_code, 201, response.text)
 
     def test_activity_catalog_exposes_google_and_github_provider_actions(self) -> None:
         response = self.client.get("/api/v1/connectors/activity-catalog")

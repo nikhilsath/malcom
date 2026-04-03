@@ -3,11 +3,13 @@ import { Dialog } from "@base-ui/react/dialog";
 import { requestJson } from "../../lib/request";
 import type { DataFlowToken } from "../data-flow";
 import { TokenPicker } from "../token-picker";
-import type { AutomationStep, ScriptLibraryItem } from "../types";
+import { SCRIPT_LANGUAGE_LABELS, SCRIPT_LANGUAGE_TEMPLATES } from "../constants";
+import type { AutomationStep, ScriptLanguageOption, ScriptLibraryItem } from "../types";
 
 type Props = {
   draft: AutomationStep;
   scripts?: ScriptLibraryItem[];
+  scriptLanguages?: ScriptLanguageOption[];
   dataFlowTokens?: DataFlowToken[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
@@ -15,22 +17,6 @@ type Props = {
 };
 
 type ScriptLanguage = "python" | "javascript";
-
-const defaultTemplates: Record<ScriptLanguage, string> = {
-  python: [
-    "def run(context, script_input=None):",
-    "    payload = context.get('payload', {})",
-    "    return script_input or payload",
-    ""
-  ].join("\n"),
-  javascript: [
-    "function run(context, scriptInput) {",
-    "  const payload = context?.payload ?? {};",
-    "  return scriptInput || payload;",
-    "}",
-    ""
-  ].join("\n")
-};
 
 const requestJsonCompat = async <T,>(path: string, options?: RequestInit): Promise<T> => {
   if (typeof window !== "undefined" && typeof window.Malcom?.requestJson === "function") {
@@ -45,11 +31,15 @@ const sortScripts = (items: ScriptLibraryItem[]) =>
 export const ScriptStepForm = ({
   draft,
   scripts,
+  scriptLanguages = [],
   dataFlowTokens = [],
   onChange,
   idPrefix = "add-step",
   allowCreate = true
 }: Props) => {
+  const availableScriptLanguages = scriptLanguages.length > 0
+    ? scriptLanguages
+    : Object.entries(SCRIPT_LANGUAGE_LABELS).map(([value, label]) => ({ value: value as ScriptLanguage, label }));
   const [availableScripts, setAvailableScripts] = useState<ScriptLibraryItem[]>(() => sortScripts(scripts || []));
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +48,7 @@ export const ScriptStepForm = ({
   const [newDescription, setNewDescription] = useState("");
   const [newLanguage, setNewLanguage] = useState<ScriptLanguage>("python");
   const [newSampleInput, setNewSampleInput] = useState("");
-  const [newCode, setNewCode] = useState(defaultTemplates.python);
+  const [newCode, setNewCode] = useState(SCRIPT_LANGUAGE_TEMPLATES.python);
   const scriptInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -81,7 +71,7 @@ export const ScriptStepForm = ({
     setNewDescription("");
     setNewLanguage("python");
     setNewSampleInput("");
-    setNewCode(defaultTemplates.python);
+    setNewCode(SCRIPT_LANGUAGE_TEMPLATES.python);
     setCreateError(null);
   };
 
@@ -99,8 +89,8 @@ export const ScriptStepForm = ({
 
   const handleLanguageChange = (value: ScriptLanguage) => {
     setNewLanguage(value);
-    if (!newCode.trim() || newCode === defaultTemplates.python || newCode === defaultTemplates.javascript) {
-      setNewCode(defaultTemplates[value]);
+    if (!newCode.trim() || newCode === SCRIPT_LANGUAGE_TEMPLATES.python || newCode === SCRIPT_LANGUAGE_TEMPLATES.javascript) {
+      setNewCode(SCRIPT_LANGUAGE_TEMPLATES[value]);
     }
   };
 
@@ -302,8 +292,9 @@ export const ScriptStepForm = ({
                   value={newLanguage}
                   onChange={(event) => handleLanguageChange(event.target.value as ScriptLanguage)}
                 >
-                  <option value="python">Python</option>
-                  <option value="javascript">JavaScript</option>
+                  {availableScriptLanguages.map((languageOption) => (
+                    <option key={languageOption.value} value={languageOption.value}>{languageOption.label}</option>
+                  ))}
                 </select>
               </label>
 

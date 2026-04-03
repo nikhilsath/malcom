@@ -61,6 +61,42 @@ CONNECTOR_SECRET_FIELD_INPUTS = {
     "password": "password_input",
     "header_value": "header_value_input",
 }
+GOOGLE_RECOMMENDED_SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.metadata.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive.file",
+]
+CONNECTOR_REQUEST_AUTH_TYPE_MAP = {
+    "oauth2": "bearer",
+    "bearer": "bearer",
+    "api_key": "header",
+    "basic": "basic",
+    "header": "header",
+}
+CONNECTOR_STATUS_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "draft", "label": "Draft", "description": "Saved locally but not ready for runtime use."},
+    {"value": "pending_oauth", "label": "Pending OAuth", "description": "Waiting for OAuth authorization to complete."},
+    {"value": "connected", "label": "Connected", "description": "Ready for runtime requests and workflow actions."},
+    {"value": "needs_attention", "label": "Needs attention", "description": "Saved, but missing or failing credential material."},
+    {"value": "expired", "label": "Expired", "description": "Stored credential material is no longer valid."},
+    {"value": "revoked", "label": "Revoked", "description": "Access has been explicitly revoked and must be reconnected."},
+)
+CONNECTOR_ROTATION_INTERVAL_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "30", "label": "30 days"},
+    {"value": "60", "label": "60 days"},
+    {"value": "90", "label": "90 days"},
+)
+CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "masked", "label": "Masked"},
+    {"value": "admin_only", "label": "Admin only"},
+)
+ACTIVE_STORAGE_CONNECTOR_STATUSES = {"connected", "pending_oauth", "needs_attention"}
 DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
     {
         "id": "google",
@@ -68,7 +104,8 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "description": "Use one Google connector and choose the exact OAuth scopes needed for this workflow.",
         "category": "suite",
         "auth_types": ["oauth2"],
-        "default_scopes": [],
+        "default_scopes": list(GOOGLE_RECOMMENDED_SCOPES),
+        "recommended_scopes": list(GOOGLE_RECOMMENDED_SCOPES),
         "docs_url": "https://developers.google.com/identity/protocols/oauth2/scopes",
         "base_url": "https://www.googleapis.com",
     },
@@ -79,6 +116,7 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "category": "developer",
         "auth_types": ["oauth2", "bearer"],
         "default_scopes": ["repo", "read:user"],
+        "recommended_scopes": ["repo", "read:user"],
         "docs_url": "https://docs.github.com/en/rest/about-the-rest-api/about-the-rest-api",
         "base_url": "https://api.github.com",
     },
@@ -89,6 +127,7 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "category": "documents",
         "auth_types": ["oauth2", "bearer"],
         "default_scopes": [],
+        "recommended_scopes": [],
         "docs_url": "https://developers.notion.com/guides/get-started/authorization",
         "base_url": "https://api.notion.com/v1",
     },
@@ -99,6 +138,7 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "category": "project_management",
         "auth_types": ["api_key", "header"],
         "default_scopes": [],
+        "recommended_scopes": [],
         "docs_url": "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
         "base_url": "https://api.trello.com/1",
     },
@@ -204,15 +244,16 @@ def mask_connector_secret(value: str | None) -> str | None:
     return f"{value[:4]}••••{value[-4:]}"
 
 
-def get_default_connector_settings() -> dict[str, Any]:
+def get_default_connector_settings(connection: DatabaseConnection | None = None) -> dict[str, Any]:
     return {
-        "catalog": json.loads(json.dumps(DEFAULT_CONNECTOR_CATALOG)),
+        "catalog": build_connector_catalog(connection),
         "records": [],
         "auth_policy": {
             "rotation_interval_days": 90,
             "reconnect_requires_approval": True,
             "credential_visibility": "masked",
         },
+        "metadata": build_connector_response_metadata(),
     }
 
 
@@ -266,6 +307,7 @@ def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
         "category": row["category"],
         "auth_types": [item for item in auth_types if isinstance(item, str)],
         "default_scopes": [item for item in default_scopes if isinstance(item, str)],
+        "recommended_scopes": [item for item in default_scopes if isinstance(item, str)],
         "docs_url": row.get("docs_url") or "",
         "base_url": row.get("base_url") or "",
     }
@@ -357,6 +399,7 @@ def normalize_connector_auth_config_for_storage(
     next_auth_config = dict(existing_auth_config or {})
     incoming_auth_config = auth_config or {}
     existing_secret_map = extract_connector_secret_map(existing_auth_config or {}, protection_secret)
+    incoming_protected_secrets = incoming_auth_config.get("protected_secrets") or {}
     protected_secrets: dict[str, str] = {}
 
     clear_credentials = bool(incoming_auth_config.get("clear_credentials"))
@@ -365,6 +408,8 @@ def normalize_connector_auth_config_for_storage(
         next_value = None if clear_credentials else incoming_auth_config.get(input_key)
         if next_value:
             protected_secrets[field_name] = protect_connector_secret_value(next_value, protection_secret)
+        elif not clear_credentials and isinstance(incoming_protected_secrets.get(field_name), str) and incoming_protected_secrets.get(field_name):
+            protected_secrets[field_name] = incoming_protected_secrets[field_name]
         elif not clear_credentials and field_name in existing_secret_map:
             protected_secrets[field_name] = protect_connector_secret_value(existing_secret_map[field_name], protection_secret)
 
@@ -439,8 +484,10 @@ def normalize_connector_record_for_storage(
 
 
 def sanitize_connector_record_for_response(record: dict[str, Any], protection_secret: str) -> dict[str, Any]:
+    request_auth_type = normalize_connector_request_auth_type(record.get("auth_type"))
     return {
         **record,
+        "request_auth_type": request_auth_type,
         "auth_config": sanitize_connector_auth_config_response(record.get("auth_config") or {}, protection_secret),
     }
 
@@ -496,6 +543,23 @@ def sanitize_connector_settings_for_response(
             if isinstance(item, dict)
         ],
         "auth_policy": normalize_connector_auth_policy(current.get("auth_policy")),
+        "metadata": build_connector_response_metadata(),
+    }
+
+
+def normalize_connector_request_auth_type(auth_type: str | None) -> str:
+    normalized_auth_type = str(auth_type or "none").strip().lower()
+    return CONNECTOR_REQUEST_AUTH_TYPE_MAP.get(normalized_auth_type, "none")
+
+
+def build_connector_response_metadata() -> dict[str, Any]:
+    return {
+        "statuses": [dict(item) for item in CONNECTOR_STATUS_OPTIONS],
+        "active_storage_statuses": sorted(ACTIVE_STORAGE_CONNECTOR_STATUSES),
+        "auth_policy": {
+            "rotation_intervals": [dict(item) for item in CONNECTOR_ROTATION_INTERVAL_OPTIONS],
+            "credential_visibility_options": [dict(item) for item in CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS],
+        },
     }
 
 
@@ -664,6 +728,123 @@ def replace_stored_connector_records(connection: DatabaseConnection, records: li
     connection.commit()
 
 
+def _sort_connector_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        [record for record in records if isinstance(record, dict)],
+        key=lambda record: (str(record.get("name") or "").lower(), str(record.get("id") or "")),
+    )
+
+
+def create_connector_record(
+    connection: DatabaseConnection,
+    record: dict[str, Any],
+    *,
+    protection_secret: str,
+) -> dict[str, Any]:
+    requested_id = str(record.get("id") or "").strip()
+    if requested_id and find_stored_connector_record(connection, requested_id) is not None:
+        raise ValueError("Connector already exists.")
+
+    timestamp = str(record.get("updated_at") or utc_now_iso())
+    next_record = normalize_connector_record_for_storage(
+        record,
+        existing_record=None,
+        connection=connection,
+        protection_secret=protection_secret,
+        timestamp=timestamp,
+    )
+    if find_stored_connector_record(connection, next_record["id"]) is not None:
+        raise ValueError("Connector already exists.")
+
+    current_records = list_stored_connector_records(connection)
+    replace_stored_connector_records(connection, _sort_connector_records([*current_records, next_record]))
+    return next_record
+
+
+def save_connector_record(
+    connection: DatabaseConnection,
+    record: dict[str, Any],
+    *,
+    protection_secret: str,
+) -> dict[str, Any]:
+    connector_id = str(record.get("id") or "").strip()
+    if not connector_id:
+        raise ValueError("Connector id is required.")
+
+    existing_record = find_stored_connector_record(connection, connector_id)
+    if existing_record is None:
+        raise FileNotFoundError(connector_id)
+
+    timestamp = str(record.get("updated_at") or utc_now_iso())
+    next_record = normalize_connector_record_for_storage(
+        record,
+        existing_record=existing_record,
+        connection=connection,
+        protection_secret=protection_secret,
+        timestamp=timestamp,
+    )
+    remaining_records = [item for item in list_stored_connector_records(connection) if item.get("id") != connector_id]
+    replace_stored_connector_records(connection, _sort_connector_records([*remaining_records, next_record]))
+    return next_record
+
+
+def update_connector_record(
+    connection: DatabaseConnection,
+    connector_id: str,
+    updates: dict[str, Any],
+    *,
+    protection_secret: str,
+) -> dict[str, Any]:
+    existing_record = find_stored_connector_record(connection, connector_id)
+    if existing_record is None:
+        raise FileNotFoundError(connector_id)
+
+    next_record = dict(existing_record)
+    for field_name in (
+        "provider",
+        "name",
+        "status",
+        "auth_type",
+        "scopes",
+        "base_url",
+        "owner",
+        "docs_url",
+        "credential_ref",
+        "last_tested_at",
+        "created_at",
+        "updated_at",
+    ):
+        if field_name in updates:
+            next_record[field_name] = updates.get(field_name)
+
+    if "auth_config" in updates:
+        next_record["auth_config"] = updates.get("auth_config") or {}
+
+    return save_connector_record(connection, next_record, protection_secret=protection_secret)
+
+
+def delete_connector_record(connection: DatabaseConnection, connector_id: str) -> dict[str, Any]:
+    existing_record = find_stored_connector_record(connection, connector_id)
+    if existing_record is None:
+        raise FileNotFoundError(connector_id)
+
+    remaining_records = [item for item in list_stored_connector_records(connection) if item.get("id") != connector_id]
+    replace_stored_connector_records(connection, _sort_connector_records(remaining_records))
+    return existing_record
+
+
+def write_connector_auth_policy(connection: DatabaseConnection, auth_policy: dict[str, Any]) -> dict[str, Any]:
+    normalized_policy = normalize_connector_auth_policy(auth_policy)
+    write_settings_section(
+        connection,
+        CONNECTOR_AUTH_POLICY_SETTINGS_KEY,
+        {"auth_policy": normalized_policy},
+    )
+    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
+    connection.commit()
+    return normalized_policy
+
+
 def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[str, Any] | None:
     row_value = read_stored_settings_section(connection, CONNECTOR_AUTH_POLICY_SETTINGS_KEY)
     if isinstance(row_value, dict):
@@ -701,14 +882,7 @@ def persist_connector_settings(connection: DatabaseConnection, settings_value: d
     replace_stored_connector_records(connection, records)
 
     auth_policy = normalize_connector_auth_policy(settings_value.get("auth_policy"))
-    write_settings_section(
-        connection,
-        CONNECTOR_AUTH_POLICY_SETTINGS_KEY,
-        {"auth_policy": auth_policy},
-    )
-
-    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
-    connection.commit()
+    write_connector_auth_policy(connection, auth_policy)
 
 
 def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
@@ -786,7 +960,7 @@ def hydrate_outgoing_configuration_from_connector(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Connector is revoked.")
 
     connector_auth_type = record.get("auth_type") or "none"
-    connector_request_auth_type = "bearer" if connector_auth_type == "oauth2" else ("header" if connector_auth_type == "api_key" else connector_auth_type)
+    connector_request_auth_type = normalize_connector_request_auth_type(connector_auth_type)
     base_config = build_outgoing_auth_config_from_connector(record, protection_secret)
     next_auth_type = auth_type if auth_type != "none" else connector_request_auth_type
     next_auth_config = merge_outgoing_auth_config(base_config, auth_config)
@@ -865,11 +1039,14 @@ __all__ = [
     "SUPPORTED_CONNECTOR_PROVIDERS",
     "SUPPORTED_CONNECTOR_STATUSES",
     "build_connector_catalog",
+    "build_connector_response_metadata",
     "build_connector_keystream",
     "build_connector_oauth_authorization_url",
     "build_outgoing_auth_config_from_connector",
     "build_pkce_code_challenge",
     "canonicalize_connector_provider",
+    "create_connector_record",
+    "delete_connector_record",
     "derive_connector_protection_key",
     "extract_connector_secret_map",
     "find_stored_connector_record",
@@ -883,13 +1060,17 @@ __all__ = [
     "normalize_connector_auth_config_for_storage",
     "normalize_connector_auth_policy",
     "normalize_connector_record_for_storage",
+    "normalize_connector_request_auth_type",
     "normalize_connector_settings_for_storage",
     "protect_connector_secret_value",
     "persist_connector_settings",
     "replace_stored_connector_records",
     "list_stored_connector_records",
+    "save_connector_record",
     "sanitize_connector_auth_config_response",
     "sanitize_connector_record_for_response",
     "sanitize_connector_settings_for_response",
     "unprotect_connector_secret_value",
+    "update_connector_record",
+    "write_connector_auth_policy",
 ]

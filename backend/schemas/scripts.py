@@ -56,9 +56,21 @@ class ScriptUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=1, max_length=200000)
 
 
+class ScriptLanguageOptionResponse(BaseModel):
+    value: Literal["python", "javascript"]
+    label: str
+    description: str | None = None
+
+
+class ScriptsMetadataResponse(BaseModel):
+    languages: list[ScriptLanguageOptionResponse]
+
+
 __all__ = [
     "ScriptCreate",
+    "ScriptLanguageOptionResponse",
     "ScriptResponse",
+    "ScriptsMetadataResponse",
     "ScriptSummaryResponse",
     "ScriptUpdate",
     "ScriptValidationIssue",

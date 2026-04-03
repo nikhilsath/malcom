@@ -195,11 +195,7 @@ export const createApiFormBindings = ({
       }
 
       if (outgoingAuthTypeInput) {
-        outgoingAuthTypeInput.value = selectedConnector.auth_type === "oauth2"
-          ? "bearer"
-          : selectedConnector.auth_type === "api_key"
-            ? "header"
-            : selectedConnector.auth_type || "none";
+        outgoingAuthTypeInput.value = selectedConnector.request_auth_type || selectedConnector.auth_type || "none";
       }
 
       if (authUsernameInput && !authUsernameInput.value.trim()) {

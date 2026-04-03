@@ -56,10 +56,10 @@ test("filters dashboard logs and opens the log detail modal", async ({ page }) =
   await expect(page.locator("#dashboard-logs-summary-body")).toBeVisible();
 
   await page.locator("#dashboard-logs-search-input").fill("verification");
+  await expect(page.locator("#dashboard-logs-level-select option")).toHaveText(["All", "Debug", "Info", "Warning", "Error"]);
   await page.locator("#dashboard-logs-level-select").selectOption("warning");
   await page.locator("#dashboard-logs-source-select").selectOption("api.webhooks");
   await page.locator("#dashboard-logs-category-select").selectOption("delivery");
-  await page.locator("#dashboard-logs-time-select").selectOption("24h");
 
   await expect(page.locator("#dashboard-logs-results-count")).toContainText("1 matching logs");
   await expect(page.locator("#dashboard-log-item-log-api-retry")).toBeVisible();

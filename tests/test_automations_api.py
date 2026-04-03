@@ -49,38 +49,37 @@ class AutomationsApiTestCase(unittest.TestCase):
         return response.json()
 
     def test_workflow_builder_connector_options_follow_stored_connectors(self) -> None:
-        settings_response = self.client.patch(
-            "/api/v1/settings",
+        create_legacy_google = self.client.post(
+            "/api/v1/connectors",
             json={
-                "connectors": {
-                    "records": [
-                        {
-                            "id": "legacy-google",
-                            "provider": "google_calendar",
-                            "name": "Legacy Google",
-                            "status": "connected",
-                            "auth_type": "oauth2",
-                            "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
-                            "base_url": "https://www.googleapis.com",
-                            "owner": "Workspace",
-                            "auth_config": {"access_token_input": "token-google"},
-                        },
-                        {
-                            "id": "github-primary",
-                            "provider": "github",
-                            "name": "GitHub Primary",
-                            "status": "draft",
-                            "auth_type": "bearer",
-                            "scopes": ["repo"],
-                            "base_url": "https://api.github.com",
-                            "owner": "Workspace",
-                            "auth_config": {"access_token_input": "token-gh"},
-                        },
-                    ]
-                }
+                "id": "legacy-google",
+                "provider": "google_calendar",
+                "name": "Legacy Google",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "token-google"},
             },
         )
-        self.assertEqual(settings_response.status_code, 200)
+        self.assertEqual(create_legacy_google.status_code, 201)
+
+        create_github_draft = self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": "github-primary",
+                "provider": "github",
+                "name": "GitHub Primary",
+                "status": "draft",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "token-gh"},
+            },
+        )
+        self.assertEqual(create_github_draft.status_code, 201)
 
         options_response = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(options_response.status_code, 200)
@@ -92,6 +91,20 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual(legacy_google["provider_name"], "Google")
         self.assertEqual(legacy_google["source_path"], "connectors")
         self.assertFalse(any(item["id"] == "github-primary" for item in options))
+
+    def test_builder_metadata_returns_backend_owned_option_sets(self) -> None:
+        response = self.client.get("/api/v1/automations/builder-metadata")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual([item["value"] for item in body["trigger_types"]], ["manual", "schedule", "inbound_api", "smtp_email"])
+        self.assertEqual(
+            [item["value"] for item in body["step_types"]],
+            ["log", "connector_activity", "outbound_request", "script", "tool", "condition", "llm_chat"],
+        )
+        self.assertEqual([item["value"] for item in body["http_methods"]], ["GET", "POST", "PUT", "PATCH", "DELETE"])
+        self.assertEqual([item["value"] for item in body["storage_types"]], ["table", "csv", "json", "other"])
+        self.assertEqual([item["value"] for item in body["log_column_types"]], ["text", "integer", "real", "boolean", "timestamp"])
 
     def test_create_validate_execute_and_delete_manual_automation(self) -> None:
         create_response = self.client.post(

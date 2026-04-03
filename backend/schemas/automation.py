@@ -190,6 +190,20 @@ class WorkflowBuilderConnectorOptionResponse(BaseModel):
     source_path: str
 
 
+class AutomationBuilderOptionResponse(BaseModel):
+    value: str
+    label: str
+    description: str | None = None
+
+
+class AutomationBuilderMetadataResponse(BaseModel):
+    trigger_types: list[AutomationBuilderOptionResponse]
+    step_types: list[AutomationBuilderOptionResponse]
+    http_methods: list[AutomationBuilderOptionResponse]
+    storage_types: list[AutomationBuilderOptionResponse]
+    log_column_types: list[AutomationBuilderOptionResponse]
+
+
 class RuntimeStatusResponse(BaseModel):
     active: bool
     last_tick_started_at: str | None = None
@@ -269,6 +283,8 @@ class LogDbRowsResponse(BaseModel):
 
 __all__ = [
     "AutomationCreate",
+    "AutomationBuilderMetadataResponse",
+    "AutomationBuilderOptionResponse",
     "AutomationDetailResponse",
     "AutomationRunDetailResponse",
     "AutomationRunResponse",

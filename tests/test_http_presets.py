@@ -1,12 +1,20 @@
 """Tests for HTTP request presets in workflow builder."""
 
 import json
+import tempfile
+from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
+
+from backend.main import app
 from backend.services.http_presets import (
     DEFAULT_HTTP_PRESET_CATALOG,
     get_http_preset,
     get_http_presets_by_provider,
+    list_http_preset_catalog,
 )
+from tests.postgres_test_utils import setup_postgres_test_app
 
 
 class TestHttpPresetCatalog:
@@ -139,3 +147,87 @@ class TestHttpPresetValidity:
         assert preset is not None
         assert "/upload/" in preset.endpoint_path_template
         assert "uploadType" in preset.query_params
+
+
+@pytest.fixture
+def client() -> TestClient:
+    tempdir = tempfile.TemporaryDirectory()
+    root_dir = Path(tempdir.name)
+    (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+    setup_postgres_test_app(app=app, root_dir=root_dir)
+    with TestClient(app) as test_client:
+        yield test_client
+    tempdir.cleanup()
+
+
+def _insert_http_preset_override() -> None:
+    now = "2026-04-03T00:00:00+00:00"
+    app.state.connection.execute(
+        """
+        INSERT INTO connector_endpoint_definitions (
+            endpoint_id,
+            provider_id,
+            endpoint_kind,
+            service,
+            operation_type,
+            label,
+            description,
+            http_method,
+            endpoint_path_template,
+            query_params_json,
+            required_scopes_json,
+            input_schema_json,
+            output_schema_json,
+            payload_template,
+            execution_json,
+            metadata_json,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint_id) DO UPDATE SET
+            label = excluded.label,
+            description = excluded.description,
+            updated_at = excluded.updated_at
+        """,
+        (
+            "http_preset:google:smoke_custom_preset",
+            "google",
+            "http_preset",
+            "gmail",
+            "read",
+            "Smoke custom preset",
+            "Persisted test preset",
+            "GET",
+            "/gmail/v1/users/me/messages",
+            json.dumps({"maxResults": "5"}),
+            json.dumps(["https://www.googleapis.com/auth/gmail.readonly"]),
+            json.dumps([]),
+            json.dumps([]),
+            "{}",
+            json.dumps({}),
+            json.dumps({"preset_id": "smoke_custom_preset"}),
+            now,
+            now,
+        ),
+    )
+    app.state.connection.commit()
+
+
+def test_list_http_preset_catalog_reads_persisted_definitions(client: TestClient):
+    _insert_http_preset_override()
+
+    catalog = list_http_preset_catalog(app.state.connection)
+    preset = next(item for item in catalog if item["preset_id"] == "smoke_custom_preset")
+    assert preset["provider_id"] == "google"
+    assert preset["label"] == "Smoke custom preset"
+
+
+def test_http_presets_route_reads_persisted_definitions(client: TestClient):
+    _insert_http_preset_override()
+
+    response = client.get("/api/v1/connectors/http-presets")
+    assert response.status_code == 200
+    payload = response.json()
+    preset = next(item for item in payload if item["preset_id"] == "smoke_custom_preset")
+    assert preset["provider_id"] == "google"
+    assert preset["label"] == "Smoke custom preset"

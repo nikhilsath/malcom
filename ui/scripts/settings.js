@@ -41,6 +41,16 @@ const formatSettingsDateTime = (value) => {
 
 const getSettingsStore = () => window.MalcomLogStore;
 
+const renderSelectOptions = (element, options = []) => {
+  if (!(element instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  element.innerHTML = options
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join("");
+};
+
 const setSettingsFeedback = (message, tone) => {
   if (!settingsElements.feedback) {
     return;
@@ -155,6 +165,10 @@ const buildSettingsPayload = () => {
 };
 
 const applySettingsToPage = (settings) => {
+  renderSelectOptions(settingsElements.notificationsChannelSelect, settings.options?.notification_channels || []);
+  renderSelectOptions(settingsElements.notificationsDigestSelect, settings.options?.notification_digests || []);
+  renderSelectOptions(settingsElements.dataExportSelect, settings.options?.data_export_windows || []);
+
   if (settingsElements.workspaceEnvironmentSelect) {
     settingsElements.workspaceEnvironmentSelect.value = "Live";
   }

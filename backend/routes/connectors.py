@@ -2,48 +2,115 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
 from backend.schemas import *
 from backend.services.support import *
+from backend.runtime import parse_iso_datetime
+from backend.services.http_presets import list_http_preset_catalog
 
 router = APIRouter()
 
 
 @router.get("/api/v1/connectors/activity-catalog", response_model=list[ConnectorActivityDefinitionResponse])
-def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionResponse]:
-    # Data lineage: See README.md > Data Lineage Reference > Connector Activities
-    # Generates activity definitions from code-based provider modules (google, github, etc).
-    # Not database-backed; computed at request time from CONNECTOR_ACTIVITY_DEFINITIONS.
-    return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog()]
+def list_connector_activity_catalog(request: Request) -> list[ConnectorActivityDefinitionResponse]:
+    connection = get_connection(request)
+    return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog(connection)]
 
 
 @router.get("/api/v1/connectors/http-presets")
-def list_http_presets() -> list[dict[str, Any]]:
+def list_http_presets(request: Request) -> list[dict[str, Any]]:
     """List all available HTTP request presets for workflow builder automation steps.
-    
-    Data lineage: See README.md > Data Lineage Reference > HTTP Presets
-    Returns presets grouped by provider and service, with templates and input schemas.
-    Note: Currently hardcoded in DEFAULT_HTTP_PRESET_CATALOG; not database-backed.
     """
-    from backend.services.http_presets import DEFAULT_HTTP_PRESET_CATALOG
+    connection = get_connection(request)
+    return list_http_preset_catalog(connection)
 
-    return [preset.to_dict() for preset in DEFAULT_HTTP_PRESET_CATALOG]
 
-
-@router.get("/api/v1/connectors")
-def list_connectors(request: Request) -> dict[str, Any]:
+@router.get("/api/v1/connectors", response_model=ConnectorSettingsResponse)
+def list_connectors(request: Request) -> ConnectorSettingsResponse:
     # Data lineage: connectors table is the authoritative source. Records are read via
     # get_stored_connector_settings() and sanitized (secrets masked) before response.
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
     raw_settings = get_stored_connector_settings(connection)
-    return sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
+    return ConnectorSettingsResponse(
+        **sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
+    )
+
+
+@router.post("/api/v1/connectors", response_model=ConnectorRecordResponse, status_code=status.HTTP_201_CREATED)
+def create_connector(payload: ConnectorCreateRequest, request: Request) -> ConnectorRecordResponse:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+
+    try:
+        record = create_connector_record(
+            connection,
+            payload.model_dump(exclude_unset=True),
+            protection_secret=protection_secret,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    sanitized = sanitize_connector_record_for_response(record, protection_secret)
+    return ConnectorRecordResponse(**sanitized)
+
+
+@router.patch("/api/v1/connectors/auth-policy", response_model=ConnectorSettingsResponse)
+def patch_connector_auth_policy(payload: ConnectorAuthPolicyUpdateRequest, request: Request) -> ConnectorSettingsResponse:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    write_connector_auth_policy(connection, payload.auth_policy.model_dump())
+    raw_settings = get_stored_connector_settings(connection)
+    return ConnectorSettingsResponse(
+        **sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
+    )
+
+
+@router.patch("/api/v1/connectors/{connector_id}", response_model=ConnectorRecordResponse)
+def patch_connector(connector_id: str, payload: ConnectorUpdateRequest, request: Request) -> ConnectorRecordResponse:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    changes = payload.model_dump(exclude_unset=True)
+
+    try:
+        if changes:
+            record = update_connector_record(
+                connection,
+                connector_id,
+                changes,
+                protection_secret=protection_secret,
+            )
+        else:
+            record = find_stored_connector_record(connection, connector_id)
+            if record is None:
+                raise FileNotFoundError(connector_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.") from exc
+
+    sanitized = sanitize_connector_record_for_response(record, protection_secret)
+    return ConnectorRecordResponse(**sanitized)
+
+
+@router.delete("/api/v1/connectors/{connector_id}", response_model=ConnectorDeleteResponse)
+def remove_connector(connector_id: str, request: Request) -> ConnectorDeleteResponse:
+    connection = get_connection(request)
+
+    try:
+        deleted_record = delete_connector_record(connection, connector_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.") from exc
+
+    return ConnectorDeleteResponse(ok=True, message="Connector deleted.", connector_id=deleted_record["id"])
 
 
 def _exchange_google_oauth_code_for_tokens(
@@ -187,8 +254,7 @@ def _revoke_google_token(*, token: str) -> None:
 def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -217,7 +283,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         record.get("auth_config") or {},
         protection_secret,
     )
-    persist_connector_settings(connection, settings)
+    record = save_connector_record(connection, record, protection_secret=protection_secret)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector revoked and credentials cleared.", connector=ConnectorRecordResponse(**sanitized))
 
@@ -226,8 +292,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
 def test_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -251,7 +316,7 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
 
     record["last_tested_at"] = utc_now_iso()
     record["updated_at"] = record["last_tested_at"]
-    persist_connector_settings(connection, settings)
+    record = save_connector_record(connection, record, protection_secret=protection_secret)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=ok, message=message, connector=ConnectorRecordResponse(**sanitized))
 
@@ -265,9 +330,7 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
     if preset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector provider not found.")
 
-    settings = get_stored_connector_settings(connection)
-    existing_records = {item["id"]: item for item in settings["records"]}
-    existing_record = existing_records.get(payload.connector_id) or {}
+    existing_record = find_stored_connector_record(connection, payload.connector_id) or {}
     existing_auth_config = existing_record.get("auth_config") if isinstance(existing_record.get("auth_config"), dict) else {}
 
     resolved_client_id = (payload.client_id or existing_auth_config.get("client_id") or "").strip()
@@ -322,15 +385,21 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
         protection_secret=protection_secret,
         timestamp=now,
     )
-    settings["records"] = [item for item in settings["records"] if item.get("id") != payload.connector_id] + [next_record]
-    persist_connector_settings(connection, settings)
+    try:
+        if existing_record:
+            stored_record = save_connector_record(connection, next_record, protection_secret=protection_secret)
+        else:
+            stored_record = create_connector_record(connection, next_record, protection_secret=protection_secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
     request.app.state.connector_oauth_states[state] = {
         "provider": provider,
         "connector_id": payload.connector_id,
         "code_verifier": verifier,
         "expires_at": (datetime.now(UTC) + timedelta(seconds=CONNECTOR_OAUTH_STATE_TTL_SECONDS)).isoformat(),
     }
-    sanitized = sanitize_connector_record_for_response(next_record, protection_secret)
+    sanitized = sanitize_connector_record_for_response(stored_record, protection_secret)
     return ConnectorOAuthStartResponse(
         connector=ConnectorRecordResponse(**sanitized),
         authorization_url=build_connector_oauth_authorization_url(
@@ -402,9 +471,8 @@ def _complete_connector_oauth_result(
 
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
     connector_id = state_payload["connector_id"]
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         oauth_states.pop(state, None)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
@@ -412,7 +480,7 @@ def _complete_connector_oauth_result(
     if error:
         record["status"] = "needs_attention"
         record["updated_at"] = utc_now_iso()
-        persist_connector_settings(connection, settings)
+        record = save_connector_record(connection, record, protection_secret=protection_secret)
         oauth_states.pop(state, None)
         sanitized_error = sanitize_connector_record_for_response(record, protection_secret)
         return ConnectorOAuthCallbackResponse(
@@ -478,7 +546,7 @@ def _complete_connector_oauth_result(
         auth_config,
         protection_secret,
     )
-    persist_connector_settings(connection, settings)
+    record = save_connector_record(connection, record, protection_secret=protection_secret)
     oauth_states.pop(state, None)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorOAuthCallbackResponse(
@@ -492,8 +560,7 @@ def _complete_connector_oauth_result(
 def refresh_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    settings = get_stored_connector_settings(connection)
-    record = next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
@@ -540,6 +607,6 @@ def refresh_connector(connector_id: str, request: Request) -> ConnectorActionRes
         auth_config,
         protection_secret,
     )
-    persist_connector_settings(connection, settings)
+    record = save_connector_record(connection, record, protection_secret=protection_secret)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector token refreshed.", connector=ConnectorRecordResponse(**sanitized))

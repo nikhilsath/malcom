@@ -14,6 +14,7 @@ Prefer starting prompts with `[AREA: <keyword>]` to scope which policy files app
 | `automation` | `AGENTS.md` + `backend/AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | none |
 | `nav` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except global rules in root |
 | `scripts` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
+| `audit` | `AGENTS.md`, then the closest domain AGENTS file for the current review batch | unrelated domain files until the batch reaches them |
 
 If no `[AREA:]` prefix is present, read Quick Task -> Where to Edit first.
 If the task clearly maps to one area, infer the closest matching area and load only the referenced domain files.
@@ -26,6 +27,23 @@ After reading root routing and machine index, load the closest domain AGENTS fil
 - `backend/AGENTS.md` for backend, schema, and tool/backend contract work
 - `ui/AGENTS.md` for frontend structure, shell, styles, and route wiring work
 - `tests/AGENTS.md` for verification workflow, smoke coverage, and startup/test triage
+
+### Repository Audit Area {#repository-audit-area}
+
+Use `[AREA: audit]` for repository-wide review tasks that cannot be completed in one pass, such as architecture audits, dead-code scans, policy conformance reviews, or broad fileset walkthroughs.
+
+Audit rules:
+
+1. Use `.agents/repo-scan-index.md` as the source of truth for repo-review progress.
+2. Review the repo in small batches by folder, subsystem, or another explicit scope; do not treat the whole repository as one undifferentiated pass.
+3. Load only the closest domain policy file for the current batch instead of loading every domain file up front.
+4. Update the tracker as work progresses using these statuses: `pending`, `in_progress`, `reviewed`, `needs_followup`, `blocked`, `skip_generated`.
+5. Mark a file as `reviewed` only after it has been opened and assessed for the stated audit scope.
+6. Use `needs_followup` for files that were inspected but need a second pass, and `skip_generated` for generated or forbidden paths that are intentionally excluded.
+7. Do not keep duplicate ad hoc progress trackers in task notes when `.agents/repo-scan-index.md` already covers the audit.
+8. Do not claim a repo-wide review is complete unless every in-scope non-skipped file for that audit has been accounted for in the tracker.
+
+For `[AREA: audit]` responses, include the current batch, what was completed, what still needs follow-up, and the next recommended batch.
 
 ---
 
@@ -177,6 +195,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
+| Audit repo-wide file coverage or architecture in batches | `.agents/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
 | Update agent response policy or instruction-following rules | `AGENTS.md`, `scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
@@ -184,6 +203,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
 | R-ROUTE-001 | If no `[AREA:]` prefix is provided, infer the area only when the task is clearly scoped; otherwise stop before domain-specific work and ask the user to choose from the supported area keywords | Prompt routing and policy loading |
+| R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.agents/repo-scan-index.md`, operate in explicit batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
@@ -215,11 +235,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 21,
+  "version": 22,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
-    "keywords": ["db", "ui", "tools", "api", "test", "automation", "nav", "scripts"],
+    "keywords": ["db", "ui", "tools", "api", "test", "automation", "nav", "scripts", "audit"],
     "fallback": "Read Quick Task -> Where to Edit table in #machine-reference-index first",
     "missing_prefix_behavior": {
       "if_clearly_scoped": "Infer the closest matching area and continue with only the referenced domain files.",
@@ -239,6 +259,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
     "database_docs": ["AGENTS.md", "README.md"],
+    "repo_scan_tracker": [".agents/repo-scan-index.md"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
@@ -271,6 +292,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "read": ["AGENTS.md", "tests/AGENTS.md"],
       "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "scripts/check-policy.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
+    },
+    "repo_audit": {
+      "read": ["AGENTS.md"],
+      "edit": [".agents/repo-scan-index.md"],
+      "verify": ["current batch files are accounted for with audit statuses and notes"]
     },
     "response_policy_update": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
