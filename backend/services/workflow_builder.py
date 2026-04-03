@@ -1,7 +1,7 @@
 """Automation workflow builder support resolvers.
 
 Source of truth for workflow-builder connector options:
-1) persisted connector records in settings.connectors.records
+1) persisted connector rows in connectors table
 2) provider metadata from integration_presets via build_connector_catalog()
 3) canonical provider mapping via canonicalize_connector_provider()
 """
@@ -11,16 +11,21 @@ from __future__ import annotations
 from typing import Any
 
 from backend.database import DatabaseConnection
-from backend.services.helpers import (
+from backend.services.connectors import (
     build_connector_catalog,
     canonicalize_connector_provider,
     get_stored_connector_settings,
 )
 
+INACTIVE_WORKFLOW_CONNECTOR_STATUSES = {"draft", "expired", "revoked"}
+
 
 def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dict[str, Any]]:
     """Return deterministic connector options for automation step pickers.
 
+    Data lineage: See README.md > Data Lineage Reference > Saved Connectors
+    Source: connectors table rows in database.
+    
     This resolver intentionally does not keep an independent allowlist or
     status-based override in UI code. The workflow builder consumes these
     normalized records directly.
@@ -36,6 +41,10 @@ def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dic
             continue
         connector_id = str(record.get("id") or "").strip()
         if not connector_id:
+            continue
+
+        status_value = str(record.get("status") or "").strip().lower()
+        if status_value in INACTIVE_WORKFLOW_CONNECTOR_STATUSES:
             continue
 
         canonical_provider = canonicalize_connector_provider(record.get("provider")) or ""
@@ -54,7 +63,7 @@ def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dic
             "created_at": record.get("created_at"),
             "updated_at": record.get("updated_at"),
             "last_tested_at": record.get("last_tested_at"),
-            "source_path": "settings.connectors.records",
+            "source_path": "connectors",
         }
         options.append(option)
 

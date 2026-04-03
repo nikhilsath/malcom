@@ -17,6 +17,9 @@ router = APIRouter()
 
 @router.get("/api/v1/connectors/activity-catalog", response_model=list[ConnectorActivityDefinitionResponse])
 def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionResponse]:
+    # Data lineage: See README.md > Data Lineage Reference > Connector Activities
+    # Generates activity definitions from code-based provider modules (google, github, etc).
+    # Not database-backed; computed at request time from CONNECTOR_ACTIVITY_DEFINITIONS.
     return [ConnectorActivityDefinitionResponse(**item) for item in build_connector_activity_catalog()]
 
 
@@ -24,11 +27,23 @@ def list_connector_activity_catalog() -> list[ConnectorActivityDefinitionRespons
 def list_http_presets() -> list[dict[str, Any]]:
     """List all available HTTP request presets for workflow builder automation steps.
     
+    Data lineage: See README.md > Data Lineage Reference > HTTP Presets
     Returns presets grouped by provider and service, with templates and input schemas.
+    Note: Currently hardcoded in DEFAULT_HTTP_PRESET_CATALOG; not database-backed.
     """
     from backend.services.http_presets import DEFAULT_HTTP_PRESET_CATALOG
 
     return [preset.to_dict() for preset in DEFAULT_HTTP_PRESET_CATALOG]
+
+
+@router.get("/api/v1/connectors")
+def list_connectors(request: Request) -> dict[str, Any]:
+    # Data lineage: connectors table is the authoritative source. Records are read via
+    # get_stored_connector_settings() and sanitized (secrets masked) before response.
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    raw_settings = get_stored_connector_settings(connection)
+    return sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
 
 
 def _exchange_google_oauth_code_for_tokens(
@@ -202,7 +217,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         record.get("auth_config") or {},
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    persist_connector_settings(connection, settings)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector revoked and credentials cleared.", connector=ConnectorRecordResponse(**sanitized))
 
@@ -236,7 +251,7 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
 
     record["last_tested_at"] = utc_now_iso()
     record["updated_at"] = record["last_tested_at"]
-    write_settings_section(connection, "connectors", settings)
+    persist_connector_settings(connection, settings)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=ok, message=message, connector=ConnectorRecordResponse(**sanitized))
 
@@ -308,7 +323,7 @@ def start_connector_oauth(provider: str, payload: ConnectorOAuthStartRequest, re
         timestamp=now,
     )
     settings["records"] = [item for item in settings["records"] if item.get("id") != payload.connector_id] + [next_record]
-    write_settings_section(connection, "connectors", settings)
+    persist_connector_settings(connection, settings)
     request.app.state.connector_oauth_states[state] = {
         "provider": provider,
         "connector_id": payload.connector_id,
@@ -397,7 +412,7 @@ def _complete_connector_oauth_result(
     if error:
         record["status"] = "needs_attention"
         record["updated_at"] = utc_now_iso()
-        write_settings_section(connection, "connectors", settings)
+        persist_connector_settings(connection, settings)
         oauth_states.pop(state, None)
         sanitized_error = sanitize_connector_record_for_response(record, protection_secret)
         return ConnectorOAuthCallbackResponse(
@@ -463,7 +478,7 @@ def _complete_connector_oauth_result(
         auth_config,
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    persist_connector_settings(connection, settings)
     oauth_states.pop(state, None)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorOAuthCallbackResponse(
@@ -525,6 +540,6 @@ def refresh_connector(connector_id: str, request: Request) -> ConnectorActionRes
         auth_config,
         protection_secret,
     )
-    write_settings_section(connection, "connectors", settings)
+    persist_connector_settings(connection, settings)
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message="Connector token refreshed.", connector=ConnectorRecordResponse(**sanitized))

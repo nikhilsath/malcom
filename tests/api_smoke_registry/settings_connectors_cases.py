@@ -27,6 +27,12 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         {"general": {"environment": "live", "timezone": "utc"}},
         response_assert=assert_json_response,
     ),
+    list_case(
+        "connectors-list",
+        "GET",
+        "/api/v1/connectors",
+        response_assert=assert_json_response,
+    ),
     action_case(
         "connectors-test",
         "POST",

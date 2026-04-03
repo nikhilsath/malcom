@@ -121,7 +121,7 @@ When deciding where a new integration belongs, agents must:
 
 Workflow-builder connector dropdown/options must follow one explicit resolver path:
 
-1. persistence source: `connectors` table rows
+1. persistence source: `settings.connectors.records`
 2. backend resolver: `backend/services/workflow_builder.py:list_workflow_builder_connectors`
 3. API surface: `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py`
 4. UI consumer: automation builder support loading in `ui/src/automation/app.tsx`
@@ -144,52 +144,12 @@ When schema tables or table groups change, update `AGENTS.md` and `README.md` in
 Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `connector_endpoint_definitions`
-- Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`
+- Workspace state: `tools`, `settings`, `integration_presets`
+- Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
 - Log schema: `log_db_tables`, `log_db_columns`
 
 ---
-
-## Workflow Storage
-
-The backend provides an optional disk-backed workflow storage mechanism for automation run payloads and exported step outputs. Configuration and behavior:
-
-- **Settings key:** `data.workflow_storage_path` — path (relative to repo root at runtime) where workflow files are written. Default: `backend/data/workflows`.
-- **Step-level fields:** steps may include `storage_type` (one of `csv`, `table`, `json`, `other`), `storage_target` (string target name), and `storage_new_file` (boolean). These fields are interpreted by the execution engine when present on `log`/write steps.
-- **Semantics:** `csv`/`table` map to appendable CSV files (single canonical file per `storage_target`); `json` defaults to creating a timestamped new file per run unless `storage_new_file=false` (in which case newline-delimited JSON is appended to a single file). Unknown `storage_type` falls back to timestamped file writes.
-- **Safety:** Writes are performed atomically (write to a temp file then rename) for single-file writes when possible; CSV append uses append mode for subsequent writes. Implementations must avoid importing high-level runtime modules in helper libraries to prevent circular imports.
-
-### Example write-step configuration
-
-JSON example (append to a canonical CSV file for target `events`):
-
-```json
-{
-  "type": "log",
-  "storage_type": "csv",
-  "storage_target": "events",
-  "storage_new_file": false,
-  "payload": { "row": ["ts", "evt", "value"] }
-}
-```
-
-JSON example (create timestamped JSON file per run):
-
-```json
-{
-  "type": "log",
-  "storage_type": "json",
-  "storage_target": "exports",
-  "payload": { "data": { "foo": "bar" } }
-}
-```
-
-Notes:
-- The canonical settings key is `data.workflow_storage_path` (default: `backend/data/workflows`).
-- For `csv`/`table`, the execution engine appends to a single file derived from `storage_target`.
-- For `json`, a new file is created per run using the pattern `<target>-YYYYMMDDTHHMMSS.json` unless `storage_new_file=false` is provided.
-
 
 ## Machine Reference Index {#machine-reference-index}
 
@@ -228,7 +188,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
-| R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from `connectors` table rows; do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
+| R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from `settings.connectors.records`; do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |

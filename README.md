@@ -47,7 +47,7 @@ The current product UI is organized into these areas:
 - APIs: registry, incoming, outgoing, webhooks, and connector setup
 - Tools: catalog plus configuration pages for the current runtime-managed tools
 - Scripts: reusable script library
-- Settings: workspace, logging, notifications, access, and data
+- Settings: workspace, logging, notifications, access, connectors, and data
 
 ## Dashboard Data Sources
 
@@ -56,27 +56,113 @@ The current product UI is organized into these areas:
 - Resource dashboard cards and widgets are derived from persisted runtime snapshots rather than the in-memory debug resource profile.
 - Resource profile (`/api/v1/debug/resource-profile`) remains available as a debug-only live metrics surface.
 
+## Current Architecture
+
+### Backend
+
 - FastAPI app serving feature routers under `/api/v1/**`, `/health`, and the built UI/static surface
 - Runtime scheduler, trigger queue, worker registration/claim flow, and automation execution services
 - Feature APIs for automations, runs, inbound and outgoing APIs, webhooks, connectors, tools, scripts, log tables, settings, workers, dashboard status, runtime status, scheduler jobs, and trigger history
 - Registry-driven served and redirect UI route registration via `backend/page_registry.py` and `ui/page-registry.json`
 
 ### Frontend
+
 - Vite-built HTML entry pages and route metadata driven by `ui/page-registry.json`
-- Mixed stack: React/TypeScript pages for dashboard and automations
+- Mixed stack: React/TypeScript pages for dashboard and automations, plus vanilla JavaScript pages for APIs, settings, tools, and shell wiring
+
+## Database Schema
+
+Schema source of truth: `backend/database.py`
+
+### API Registry
+
+#### `inbound_apis`
+
+Inbound API endpoint definitions for request-triggered automation entry points.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the inbound API definition. |
+| `name` | `text` | Human-readable inbound API name. |
+| `description` | `text` | Optional description shown in the UI. |
+| `path_slug` | `text` | Unique slug used in the inbound API route. |
+| `auth_type` | `text` | Authentication mode required for requests. |
+| `secret_hash` | `text` | Stored hash for the inbound API secret. |
+| `is_mock` | `integer` | `0`/`1` flag indicating mock/test mode. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the inbound API is active. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `inbound_api_events`
+
+Inbound API request history tied to `inbound_apis`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `event_id` | `text` | Primary key for the received inbound API event. |
+| `api_id` | `text` | Foreign key to [`inbound_apis`](#inbound_apis)`.`id`. |
+| `received_at` | `text` | Timestamp when the request arrived. |
+| `status` | `text` | Result of inbound request processing. |
+| `request_headers_subset` | `text` | JSON text containing the stored subset of request headers. |
+| `payload_json` | `text` | Optional JSON text payload body. |
+| `source_ip` | `text` | Optional client IP captured for the request. |
+| `error_message` | `text` | Optional processing error detail. |
+| `is_mock` | `integer` | `0`/`1` flag indicating a mock/test event. |
+
+#### `outgoing_scheduled_apis`
+
+Scheduled outbound API definitions for cron-like or time-based deliveries.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the outbound scheduled API definition. |
+| `name` | `text` | Human-readable outbound API name. |
+| `description` | `text` | Optional description shown in the UI. |
+| `path_slug` | `text` | Unique slug for the saved outbound API resource. |
+| `is_mock` | `integer` | `0`/`1` flag indicating mock/test mode. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the resource is active. |
+| `status` | `text` | Current schedule status such as `active` or `paused`. |
+| `repeat_enabled` | `integer` | `0`/`1` flag controlling repeat scheduling. |
+| `destination_url` | `text` | Fully resolved outbound destination URL. |
+| `http_method` | `text` | HTTP method used for delivery. |
+| `auth_type` | `text` | Auth mode used when sending the request. |
+| `auth_config_json` | `text` | JSON text for inline outbound auth settings. |
+| `webhook_signing_json` | `text` | JSON text for optional outbound signing headers/verification config. |
+| `payload_template` | `text` | Request payload template stored as text. |
+| `scheduled_time` | `text` | Default clock time used for daily schedule execution. |
+| `schedule_expression` | `text` | Stored schedule expression for runtime scheduling. |
+| `last_run_at` | `text` | Optional timestamp for the most recent delivery attempt. |
+| `next_run_at` | `text` | Optional timestamp for the next queued delivery. |
+| `last_error` | `text` | Optional last delivery failure summary. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `outgoing_continuous_apis`
+
+Continuously repeating outbound API definitions with interval-based delivery.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the continuous outbound API definition. |
+| `name` | `text` | Human-readable outbound API name. |
+| `description` | `text` | Optional description shown in the UI. |
+| `path_slug` | `text` | Unique slug for the saved outbound API resource. |
+| `is_mock` | `integer` | `0`/`1` flag indicating mock/test mode. |
+| `enabled` | `integer` | `0`/`1` flag controlling whether the resource is active. |
+| `repeat_enabled` | `integer` | `0`/`1` flag controlling repeat delivery. |
 | `repeat_interval_minutes` | `integer` | Optional repeat interval in minutes. |
 | `destination_url` | `text` | Fully resolved outbound destination URL. |
 | `http_method` | `text` | HTTP method used for delivery. |
 | `auth_type` | `text` | Auth mode used when sending the request. |
 | `auth_config_json` | `text` | JSON text for inline outbound auth settings. |
+| `webhook_signing_json` | `text` | JSON text for optional outbound signing headers/verification config. |
 | `payload_template` | `text` | Request payload template stored as text. |
 | `stream_mode` | `text` | Stored mode label for the continuous resource. |
-| `created_at` | `text` | Creation timestamp stored as ISO text. |
-| `updated_at` | `text` | Last update timestamp stored as ISO text. |
-| `webhook_signing_json` | `text` | JSON text for optional outbound signing headers/verification config. |
 | `last_run_at` | `text` | Optional timestamp for the most recent delivery attempt. |
 | `next_run_at` | `text` | Optional timestamp for the next queued delivery. |
 | `last_error` | `text` | Optional last delivery failure summary. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
 
 #### `webhook_apis`
 
@@ -527,7 +613,7 @@ Runs:
 ### Full completion gate
 
 ```bash
-./scripts/test-full.sh
+bash ./scripts/test-full.sh
 ```
 
 Runs:
@@ -608,7 +694,7 @@ Connector options shown in the automation builder are resolved through one backe
 1. Persisted connector records are stored in the `connectors` table.
 2. `backend/services/workflow_builder.py:list_workflow_builder_connectors` normalizes provider IDs and enriches provider display metadata.
 3. `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py` returns the normalized option list.
-4. `ui/src/automation/app.tsx` loads that endpoint directly and passes those options to HTTP and connector-activity step forms.
+4. `ui/src/automation/builder-api.ts:loadBuilderSupportData` loads that endpoint, and `ui/src/automation/useAutomationBuilderController.ts` passes the normalized options to HTTP and connector-activity step forms.
 
 This flow is authoritative for builder connector availability. Do not add parallel hardcoded connector option lists in UI components.
 
@@ -622,7 +708,7 @@ Use this reference to understand data dependencies and trace where UI data origi
 
 ### Automation Builder Data Sources
 
-The automation builder loads all dynamic data via `ui/src/automation/useAutomationBuilderController.ts:loadBuilderSupportData()` (lines 309+), which fetches in parallel:
+The automation builder loads all dynamic data via `ui/src/automation/builder-api.ts:loadBuilderSupportData()`, which is consumed by `ui/src/automation/useAutomationBuilderController.ts` and fetches its support data in parallel:
 
 #### Saved Connectors
 
@@ -670,7 +756,7 @@ Maintainer update points for this lineage:
 | **Frontend component** | `ui/src/automation/step-modals/connector-activity-step-form.tsx` |
 | **HTML element** | `#add-step-connector-activity-connector-input` (`<select>`)  |
 | **API endpoint** | `GET /api/v1/automations/workflow-connectors` |
-| **Backend route handler** | `backend/routes/automations.py:list_workflow_builder_connectors()` (line 43) |
+| **Backend route handler** | `backend/routes/automations.py:list_workflow_builder_connectors_endpoint()` (line 44) |
 | **Backend service** | `backend/services/workflow_builder.py:list_workflow_builder_connectors()` (line 23) |
 | **Database tables** | `connectors` |
 | **Related metadata** | `integration_presets` (provider catalog defaults) |
@@ -688,7 +774,7 @@ Note: The Settings -> Connectors UI must fetch live connector availability from 
 | **Frontend component** | `ui/src/automation/step-modals/connector-activity-step-form.tsx` |
 | **HTML element** | `#add-step-connector-activity-activity-input` (`<select>`) |
 | **API endpoint** | `GET /api/v1/connectors/activity-catalog` |
-| **Backend route handler** | `backend/routes/connectors.py:connector_activity_catalog()` (line 18) |
+| **Backend route handler** | `backend/routes/connectors.py:list_connector_activity_catalog()` (line 19) |
 | **Backend service** | `backend/services/connector_activities_catalog.py:build_connector_activity_catalog()` (line 19) |
 | **Database tables** | **None** (generated from code) |
 | **Code-based definitions** | `backend/services/connector_activities_google.py`, `backend/services/connector_activities_github.py` |
@@ -704,7 +790,7 @@ Note: The Settings -> Connectors UI must fetch live connector availability from 
 | **Frontend component** | `ui/src/automation/step-modals/http-step-form.tsx` |
 | **HTML element** | `#add-step-http-preset-input` (`<select>`) |
 | **API endpoint** | `GET /api/v1/connectors/http-presets` |
-| **Backend route handler** | `backend/routes/connectors.py:http_presets()` (line 23) |
+| **Backend route handler** | `backend/routes/connectors.py:list_http_presets()` (line 27) |
 | **Backend service** | `backend/services/http_presets.py:DEFAULT_HTTP_PRESET_CATALOG` (line 317) |
 | **Database tables** | **None** (hardcoded) |
 
@@ -824,7 +910,7 @@ cd ui && PLAYWRIGHT_PORT=4190 npx playwright test <spec>
 2. Keep changes small and aligned with existing source-of-truth files.
 3. Add or update relevant tests in the same change when behavior changes.
 4. Use `./scripts/test-precommit.sh` for normal iteration.
-5. Use `./scripts/test-full.sh` for user-visible workflow changes, shared frontend or test-infra changes, and browser workflow validation.
+5. Use `bash ./scripts/test-full.sh` for user-visible workflow changes, shared frontend or test-infra changes, and browser workflow validation.
 6. Update `ui/e2e/` when user-visible workflows change.
 7. Keep `/health` and `/api/v1/**` smoke coverage aligned with `tests/test_api_smoke_matrix.py` and `tests/api_smoke_registry/`.
 8. Manually verify the served route when HTML/script wiring changes, in addition to build and test coverage.

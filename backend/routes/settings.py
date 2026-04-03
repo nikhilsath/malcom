@@ -22,6 +22,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
     connection = get_connection(request)
     logger = get_application_logger(request)
     changes = payload.model_dump(exclude_unset=True)
+    changed_section_keys = sorted(changes.keys())
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
 
     if not changes:
@@ -34,6 +35,8 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
             connection=connection,
             protection_secret=protection_secret,
         )
+        persist_connector_settings(connection, changes["connectors"])
+        changes.pop("connectors", None)
 
     now = utc_now_iso()
 
@@ -63,7 +66,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
         logger,
         logging.INFO,
         "settings_updated",
-        changed_sections=sorted(changes.keys()),
+        changed_sections=changed_section_keys,
         logging=settings_payload.get("logging"),
     )
     return AppSettingsResponse(**settings_payload)

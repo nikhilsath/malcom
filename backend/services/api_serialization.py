@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .helpers import (
+from .api_resources import (
     fetch_run_detail,
     get_api_or_404,
     get_automation_or_404,

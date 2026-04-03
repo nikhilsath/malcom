@@ -6,7 +6,7 @@ functions for SMTP, local LLM, Coqui TTS, Image Magic, and retry settings.
 
 from __future__ import annotations
 
-from backend.services.helpers import (
+from backend.services.tool_runtime import (
     COQUI_TTS_TOOL_SETTINGS_KEY,
     DEFAULT_COQUI_TTS_TOOL_CONFIG,
     DEFAULT_IMAGE_MAGIC_TOOL_CONFIG,

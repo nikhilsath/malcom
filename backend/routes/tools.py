@@ -57,6 +57,8 @@ def stream_local_llm_chat(payload: LocalLlmChatRequest, request: Request) -> Str
 
 @router.get("/api/v1/tools", response_model=list[ToolDirectoryEntryResponse])
 def list_tools(request: Request) -> list[ToolDirectoryEntryResponse]:
+    # Data lineage: See README.md > Data Lineage Reference > Tools Manifest
+    # Queries tools table. Default tools synced from code at startup; user tools persisted in database.
     return build_tool_directory_response(request)
 
 

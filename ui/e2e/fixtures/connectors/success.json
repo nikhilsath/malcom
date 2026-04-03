@@ -1,0 +1,26 @@
+[
+  {
+    "id": "google-primary",
+    "provider": "google",
+    "name": "Google Primary",
+    "status": "connected",
+    "auth_type": "oauth2",
+    "scopes": ["https://www.googleapis.com/auth/gmail.send"],
+    "owner": "Workspace",
+    "base_url": "https://www.googleapis.com",
+    "provider_name": "Google",
+    "source_path": "connectors"
+  },
+  {
+    "id": "github-primary",
+    "provider": "github",
+    "name": "GitHub Primary",
+    "status": "connected",
+    "auth_type": "bearer",
+    "scopes": ["repo"],
+    "owner": "Workspace",
+    "base_url": "https://api.github.com",
+    "provider_name": "GitHub",
+    "source_path": "connectors"
+  }
+]

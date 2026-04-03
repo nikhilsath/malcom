@@ -85,16 +85,13 @@ class AutomationsApiTestCase(unittest.TestCase):
         options_response = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(options_response.status_code, 200)
         options = options_response.json()
-        self.assertEqual(len(options), 2)
+        self.assertEqual(len(options), 1)
 
         legacy_google = next(item for item in options if item["id"] == "legacy-google")
         self.assertEqual(legacy_google["provider"], "google")
         self.assertEqual(legacy_google["provider_name"], "Google")
-        self.assertEqual(legacy_google["source_path"], "settings.connectors.records")
-
-        github_primary = next(item for item in options if item["id"] == "github-primary")
-        self.assertEqual(github_primary["provider"], "github")
-        self.assertEqual(github_primary["provider_name"], "GitHub")
+        self.assertEqual(legacy_google["source_path"], "connectors")
+        self.assertFalse(any(item["id"] == "github-primary" for item in options))
 
     def test_create_validate_execute_and_delete_manual_automation(self) -> None:
         create_response = self.client.post(

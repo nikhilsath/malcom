@@ -63,7 +63,9 @@ export const defaultToolsDirectory = [
     description: "Send email through the local SMTP relay.",
     enabled: true,
     category: "messaging",
-    route_path: "/tools/smtp.html"
+    page_href: "/tools/smtp.html",
+    inputs: [],
+    outputs: []
   },
   {
     id: "llm-deepl",
@@ -71,7 +73,9 @@ export const defaultToolsDirectory = [
     description: "Chat against a local LLM endpoint.",
     enabled: true,
     category: "ai",
-    route_path: "/tools/llm-deepl.html"
+    page_href: "/tools/llm-deepl.html",
+    inputs: [],
+    outputs: []
   },
   {
     id: "image-magic",
@@ -79,7 +83,9 @@ export const defaultToolsDirectory = [
     description: "Local image conversion runtime.",
     enabled: true,
     category: "media",
-    route_path: "/tools/image-magic.html"
+    page_href: "/tools/image-magic.html",
+    inputs: [],
+    outputs: []
   },
   {
     id: "coqui-tts",
@@ -87,7 +93,9 @@ export const defaultToolsDirectory = [
     description: "Text-to-speech runtime.",
     enabled: true,
     category: "audio",
-    route_path: "/tools/coqui-tts.html"
+    page_href: "/tools/coqui-tts.html",
+    inputs: [],
+    outputs: []
   }
 ];
 

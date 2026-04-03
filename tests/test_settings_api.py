@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_all
 from backend.main import app
+from backend.services.automation_execution import get_settings_payload
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -37,11 +38,22 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["logging"]["max_file_size_mb"], 5)
         self.assertEqual(body["notifications"]["channel"], "email")
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
-        self.assertEqual(body["connectors"]["records"], [])
+        self.assertIsInstance(body["connectors"]["records"], list)
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
         self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
+
+    def test_get_settings_payload_supports_connectors_section_for_startup(self) -> None:
+        connection = connect(database_url=self.database_url)
+        try:
+            payload = get_settings_payload(connection)
+        finally:
+            connection.close()
+
+        self.assertEqual(payload["general"]["environment"], "live")
+        self.assertIsInstance(payload["connectors"]["records"], list)
+        self.assertEqual(payload["connectors"]["auth_policy"]["rotation_interval_days"], 90)
 
     def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -183,15 +195,16 @@ class SettingsApiTestCase(unittest.TestCase):
             row = fetch_all(
                 connection,
                 """
-                SELECT value_json
-                FROM settings
-                WHERE key = 'connectors'
+                SELECT auth_config_json
+                FROM connectors
+                WHERE id = ?
                 """,
+                ("google-calendar-primary",),
             )[0]
         finally:
             connection.close()
 
-        stored_value = row["value_json"]
+        stored_value = row["auth_config_json"]
         self.assertNotIn("calendar-client-secret", stored_value)
         self.assertNotIn("calendar-access-token", stored_value)
 
@@ -227,23 +240,23 @@ class SettingsApiTestCase(unittest.TestCase):
             row = fetch_all(
                 connection,
                 """
-                SELECT value_json
-                FROM settings
-                WHERE key = 'connectors'
+                SELECT auth_config_json
+                FROM connectors
+                WHERE id = ?
                 """,
+                ("google-calendar-primary",),
             )[0]
-            settings_payload = json.loads(row["value_json"])
-            auth_config = settings_payload["records"][0].setdefault("auth_config", {})
+            auth_config = json.loads(row["auth_config_json"])
             protected_secrets = auth_config.setdefault("protected_secrets", {})
             protected_secrets["client_secret"] = "enc_v1:not-base64"
             now_value = "2026-03-20T00:00:00+00:00"
             connection.execute(
                 """
-                UPDATE settings
-                SET value_json = ?, updated_at = ?
-                WHERE key = 'connectors'
+                UPDATE connectors
+                SET auth_config_json = ?, updated_at = ?
+                WHERE id = ?
                 """,
-                (json.dumps(settings_payload), now_value),
+                (json.dumps(auth_config), now_value, "google-calendar-primary"),
             )
             connection.commit()
         finally:

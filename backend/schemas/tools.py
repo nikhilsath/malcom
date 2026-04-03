@@ -245,12 +245,22 @@ class ToolMetadataUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
 
 
+class ToolSchemaFieldResponse(BaseModel):
+    key: str
+    label: str
+    type: str
+    required: bool | None = None
+    options: list[str] | None = None
+
+
 class ToolDirectoryEntryResponse(BaseModel):
     id: str
     name: str
     description: str
     enabled: bool
     page_href: str
+    inputs: list[ToolSchemaFieldResponse] = Field(default_factory=list)
+    outputs: list[ToolSchemaFieldResponse] = Field(default_factory=list)
 
 
 class ToolDirectoryUpdate(BaseModel):
@@ -289,6 +299,7 @@ __all__ = [
     "SmtpToolUpdate",
     "ToolDirectoryEntryResponse",
     "ToolDirectoryUpdate",
+    "ToolSchemaFieldResponse",
     "ToolMetadataResponse",
     "ToolMetadataUpdate",
     "WorkerRpcSmtpSyncRequest",

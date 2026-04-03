@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .connector_activities_catalog import ConnectorActivityDefinition, _field, _output
+from .connector_activities_defs import ConnectorActivityDefinition, _field, _output
 from .connector_activities_runtime import RequestExecutor, _coerce_int, _execute_request
 
 

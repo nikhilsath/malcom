@@ -6,7 +6,7 @@ SMTP relay helpers, and generated file sanitization utilities.
 
 from __future__ import annotations
 
-from backend.services.helpers import (
+from backend.services.tool_runtime import (
     build_local_llm_endpoint_url,
     build_local_llm_fallback_chat_request,
     build_local_llm_native_chat_body,

@@ -241,17 +241,22 @@ const getToolItemsWithEnabledState = async () => {
     return [];
   }
 
-  const [catalogItem, ...manifestToolItems] = sectionConfig.items;
+  const [catalogItem] = sectionConfig.items;
   const toolsDirectory = await requestJson("/api/v1/tools");
-  const enabledToolIds = new Set(
-    toolsDirectory
-      .filter((tool) => tool.enabled)
-      .map((tool) => tool.id)
-  );
+  const toolItems = toolsDirectory
+    .filter((tool) => tool.enabled)
+    .map((tool) => ({
+      id: `sidenav-tools-${tool.id}`,
+      label: tool.name,
+      href: String(tool.page_href || "").replace(/^\/+/, ""),
+      pageTitle: `${tool.name} Configuration`,
+      description: tool.description
+    }))
+    .filter((item) => item.href);
 
   return [
     catalogItem,
-    ...manifestToolItems.filter((item) => enabledToolIds.has(item.id.replace("sidenav-tools-", "")))
+    ...toolItems
   ];
 };
 

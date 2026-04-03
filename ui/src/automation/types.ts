@@ -6,7 +6,6 @@ export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_ch
 
 declare global {
   interface Window {
-    TOOLS_MANIFEST?: ToolManifestEntry[];
     INBOUND_APIS?: { id: string; name: string }[];
     CONNECTORS?: { id: string; name: string }[];
     Malcom?: {
@@ -172,7 +171,7 @@ export type AutomationStep = {
 };
 
 export const stepTypeOptions: Array<{ value: StepType; label: string; description: string }> = [
-  { value: "log", label: "Log", description: "Write a row to a managed database table." },
+  { value: "log", label: "Write", description: "Write a row to a managed database table." },
   { value: "api", label: "API", description: "Call a prebuilt connector action or send a custom HTTP request." },
   { value: "script", label: "Script", description: "Run a stored script from the script library." },
   { value: "tool", label: "Tool", description: "Dispatch a configured tool from the tool catalog." },
@@ -181,7 +180,7 @@ export const stepTypeOptions: Array<{ value: StepType; label: string; descriptio
 ];
 
 export const stepTemplates: Record<StepType, AutomationStep> = {
-  log: { type: "log", name: "Log step", config: { log_table_id: "", log_column_mappings: {} } },
+  log: { type: "log", name: "Write step", config: { log_table_id: "", log_column_mappings: {} } },
   api: {
     type: "api",
     name: "API step",

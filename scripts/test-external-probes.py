@@ -9,7 +9,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.database import connect, get_database_url, initialize
-from backend.services.connectors import DEFAULT_CONNECTOR_CATALOG
+from backend.services.connectors import build_connector_catalog
 from backend.tool_registry import DEFAULT_TOOL_CATALOG
 
 
@@ -122,7 +122,7 @@ def build_report() -> dict[str, Any]:
     connector_records, tool_records = load_runtime_state()
 
     connectors = []
-    for preset in DEFAULT_CONNECTOR_CATALOG:
+    for preset in build_connector_catalog():
         probe = CONNECTOR_PROBES.get(preset["id"], {})
         configured_records = [
             {

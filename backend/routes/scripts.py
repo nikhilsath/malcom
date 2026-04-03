@@ -19,6 +19,8 @@ def validate_script(request_payload: ScriptValidationRequest, request: Request) 
 
 @router.get("/api/v1/scripts", response_model=list[ScriptSummaryResponse])
 def list_scripts(request: Request) -> list[ScriptSummaryResponse]:
+    # Data lineage: See README.md > Data Lineage Reference > Scripts (Reusable Script Library)
+    # Queries the scripts table directly. Database is source of truth for available reusable scripts.
     rows = fetch_all(
         get_connection(request),
         """

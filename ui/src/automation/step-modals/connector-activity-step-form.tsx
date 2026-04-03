@@ -10,6 +10,9 @@ type Props = {
   onChange: (step: AutomationStep) => void;
   dataFlowTokens?: DataFlowToken[];
   idPrefix?: string;
+  connectorsLoading?: boolean;
+  connectorsError?: string | null;
+  onRetryConnectors?: () => void;
 };
 
 const resolveInputValue = (value: unknown) => (value === null || value === undefined ? "" : String(value));
@@ -110,6 +113,9 @@ export const ConnectorActivityStepForm = ({
   onChange,
   dataFlowTokens = [],
   idPrefix = "add-step-connector-activity",
+  connectorsLoading = false,
+  connectorsError = null,
+  onRetryConnectors,
 }: Props) => {
   const [showTokenPicker, setShowTokenPicker] = useState(false);
   const [selectedService, setSelectedService] = useState("");
@@ -133,6 +139,34 @@ export const ConnectorActivityStepForm = ({
   }, {});
 
   const updateConfig = (nextConfig: AutomationStep["config"]) => onChange({ ...draft, config: nextConfig });
+  const connectorActivitiesByProvider = activityCatalog.reduce<Record<string, ConnectorActivityDefinition[]>>((groups, activity) => {
+    groups[activity.provider_id] = groups[activity.provider_id] || [];
+    groups[activity.provider_id].push(activity);
+    return groups;
+  }, {});
+  const getConnectorCompatibility = (connector: ConnectorRecord) => {
+    const providerId = String(connector.provider || "");
+    const providerActivities = connectorActivitiesByProvider[providerId] || [];
+    if (providerActivities.length === 0) {
+      return {
+        compatible: false,
+        reason: "No connector actions available for this provider yet.",
+      };
+    }
+
+    const connectorScopes = new Set((connector.scopes || []).map((scope) => String(scope).trim()));
+    const hasCompatibleActivity = providerActivities.some((activity) =>
+      activity.required_scopes.every((scope) => connectorScopes.has(scope)),
+    );
+    if (!hasCompatibleActivity) {
+      return {
+        compatible: false,
+        reason: "Missing required scopes for available connector actions.",
+      };
+    }
+
+    return { compatible: true, reason: "" };
+  };
 
   useEffect(() => {
     if (selectedConnectorProvider !== "google") {
@@ -177,15 +211,55 @@ export const ConnectorActivityStepForm = ({
           id={`${idPrefix}-connector-input`}
           className="automation-native-select"
           value={draft.config.connector_id || ""}
+          disabled={connectorsLoading}
+          aria-busy={connectorsLoading}
+          aria-invalid={Boolean(connectorsError)}
+          aria-describedby={`${idPrefix}-connector-help ${idPrefix}-connector-state`}
           onChange={(event) => updateConfig({ ...draft.config, connector_id: event.target.value, activity_id: "", activity_inputs: {} })}
         >
-          <option value="">Choose a connector</option>
-          {connectors.map((connector) => (
-            <option key={connector.id} value={connector.id}>
-              {`${connector.name} (${connector.provider || "provider"})${connector.status ? ` [${connector.status}]` : ""}`}
-            </option>
-          ))}
+          <option value="">
+            {connectorsLoading
+              ? "Loading connectors..."
+              : connectorsError
+                ? "Unable to load connectors"
+                : "Choose a connector"}
+          </option>
+          {connectors.map((connector) => {
+            const compatibility = getConnectorCompatibility(connector);
+            return (
+              <option
+                key={connector.id}
+                value={connector.id}
+                disabled={!compatibility.compatible}
+                title={compatibility.compatible ? "" : compatibility.reason}
+              >
+                {`${connector.name} (${connector.provider || "provider"})${connector.status ? ` [${connector.status}]` : ""}${compatibility.compatible ? "" : ` - Unavailable: ${compatibility.reason}`}`}
+              </option>
+            );
+          })}
         </select>
+        <span id={`${idPrefix}-connector-help`} className="automation-field__help-text">
+          Disabled connectors are unavailable for this step because scopes or provider activities do not match.
+        </span>
+        <div id={`${idPrefix}-connector-state`} className="automation-switch-field__description" aria-live="polite">
+          {connectorsLoading ? "Loading saved connectors..." : null}
+          {!connectorsLoading && !connectorsError && connectors.length === 0 ? "No saved connectors found. Create a connector in Settings to continue." : null}
+        </div>
+        {connectorsError ? (
+          <div id={`${idPrefix}-connector-error`} className="automation-field__help-text" role="alert">
+            {`Unable to load saved connectors: ${connectorsError}`}
+            {onRetryConnectors ? (
+              <button
+                id={`${idPrefix}-connector-retry`}
+                type="button"
+                className="button button--outline button--small"
+                onClick={() => onRetryConnectors()}
+              >
+                Retry
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </label>
 
       {selectedConnectorProvider === "google" && googleServiceOptions.length > 0 ? (

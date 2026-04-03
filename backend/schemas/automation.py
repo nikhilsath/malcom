@@ -91,6 +91,10 @@ class AutomationStepConfig(BaseModel):
     # Log / Write-to-DB fields (mutually exclusive with message for new steps)
     log_table_id: str | None = Field(default=None, max_length=120)
     log_column_mappings: dict[str, str] | None = None
+    # File-backed write fields
+    storage_type: Literal["csv", "table", "json", "other"] | None = None
+    storage_target: str | None = Field(default=None, max_length=255)
+    storage_new_file: bool | None = None
 
 
 class AutomationStepDefinition(BaseModel):

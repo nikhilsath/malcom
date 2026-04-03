@@ -67,7 +67,7 @@ const normalizeTokenSource = (stepType: StepType) => {
   if (stepType === "script") return "Script step";
   if (stepType === "condition") return "Condition step";
   if (stepType === "tool") return "Tool step";
-  return "Log step";
+  return "Write step";
 };
 
 export const buildDataFlowTokens = (

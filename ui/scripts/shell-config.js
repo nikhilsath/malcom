@@ -1,5 +1,3 @@
-import { toolsManifest } from "./tools-manifest.js";
-
 export const shellBrand = {
   homeHref: "dashboard/home.html",
   iconHref: new URL("../assets/malcom-icon.svg", import.meta.url).href,
@@ -179,14 +177,7 @@ export const shellSections = {
         aliases: ["tools/overview.html"],
         pageTitle: "Tools Catalog",
         description: "Manage tool metadata and availability."
-      },
-      ...toolsManifest.map((tool) => ({
-        id: `sidenav-tools-${tool.id}`,
-        label: tool.name,
-        href: tool.pageHref,
-        pageTitle: `${tool.name} Configuration`,
-        description: `Configure ${tool.name}.`
-      }))
+      }
     ]
   },
   scripts: {

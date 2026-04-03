@@ -21,6 +21,8 @@ router = APIRouter()
 
 @router.get("/api/v1/inbound", response_model=list[InboundApiResponse])
 def list_inbound_apis(request: Request) -> list[InboundApiResponse]:
+    # Data lineage: See README.md > Data Lineage Reference > Inbound APIs (Dashboard context)
+    # Queries inbound_apis table joined with inbound_api_events for aggregated event counts.
     connection = get_connection(request)
     rows = fetch_all(
         connection,

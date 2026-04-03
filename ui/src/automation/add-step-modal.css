@@ -1,0 +1,103 @@
+/* Add step modal styles */
+
+.add-step-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-6);
+}
+
+.add-step-type-card {
+  min-height: 200px;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--neutral-surface);
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.add-step-type-card:hover {
+  border-color: var(--primary-hover);
+  color: var(--primary-hover);
+}
+
+.add-step-type-card:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.add-step-type-card__icon-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.add-step-type-card__icon {
+  width: 128px;
+  height: 128px;
+  flex: 0 0 128px;
+}
+
+.add-step-type-card__label {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.add-step-type-card__label--below {
+  margin-top: var(--space-2);
+}
+
+.add-step-type-card__description {
+  display: block;
+  font-size: 0.875rem;
+  margin-top: var(--space-3);
+  color: var(--primary);
+}
+
+.add-step-api-mode-picker {
+  display: flex;
+  gap: 24px;
+  margin: var(--space-8) 0;
+}
+
+.add-step-api-mode-button {
+  flex: 1;
+  background: var(--neutral-surface);
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 32px 0;
+  font-weight: 600;
+  font-size: 18px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.add-step-api-mode-button:hover {
+  border-color: var(--primary-hover);
+  color: var(--primary-hover);
+}
+
+.add-step-api-mode-button:focus-visible {
+  outline: 3px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.add-step-api-mode-button__title {
+  display: block;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.add-step-api-mode-button__description {
+  display: block;
+  font-weight: 400;
+  color: var(--neutral-secondary-text);
+}

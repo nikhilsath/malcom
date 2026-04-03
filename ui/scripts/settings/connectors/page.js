@@ -75,10 +75,20 @@ export const initConnectorsPage = async () => {
   bindFormEvents({ renderAll, startConnectorOauth });
 
   try {
-    connectorState.settings = await getStore().ready();
+    connectorState.settings = await getStore().loadConnectors();
   } catch {
-    connectorState.settings = getStore().getAppSettings();
-    setFeedback("Using fallback settings because the database is unavailable.", "warning");
+    connectorState.settings = {
+      connectors: {
+        catalog: [],
+        records: [],
+        auth_policy: {
+          rotation_interval_days: 90,
+          reconnect_requires_approval: true,
+          credential_visibility: "masked"
+        }
+      }
+    };
+    setFeedback("Unable to load connectors from /api/v1/connectors.", "error");
   }
 
   connectorState.selectedConnectorId = null;

@@ -99,6 +99,8 @@ type AutomationBrowserState = {
     description: string;
     enabled: boolean;
     page_href: string;
+    inputs: Array<Record<string, unknown>>;
+    outputs: Array<Record<string, unknown>>;
   }>;
   inboundApis: Array<{ id: string; name: string }>;
   httpPresets: Array<Record<string, unknown>>;
@@ -136,6 +138,8 @@ type AutomationBrowserState = {
   runResponses: Record<string, AutomationRunFixture>;
   executeResponseDelayMs: number;
   executeRefreshResponseDelayMs: number;
+  // optional override for connector responses used by e2e tests
+  connectorsResponseOverride?: { status: number; body: unknown; delayMs?: number } | null;
   pendingExecuteRefreshResponseDelayMs: number;
   nextAutomationSequence: number;
   nextScriptSequence: number;
@@ -145,6 +149,7 @@ type AutomationBrowserState = {
 const iso = (value: string) => value;
 
 const deepClone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+const inactiveWorkflowConnectorStatuses = new Set(["draft", "expired", "revoked"]);
 
 const buildAutomationSummary = (automation: AutomationFixture) => ({
   id: automation.id,
@@ -410,7 +415,9 @@ const defaultTools = () => ([
     name: "Slack",
     description: "Send Slack notifications from automation steps.",
     enabled: false,
-    page_href: "/tools/catalog.html"
+    page_href: "/tools/catalog.html",
+    inputs: [],
+    outputs: []
   }
 ]);
 
@@ -541,6 +548,10 @@ const ensureAutomationDetail = (state: AutomationBrowserState, automationId: str
 const mapAutomationRoute = (state: AutomationBrowserState, requestUrl: string, method: string, body?: unknown) => {
   const url = new URL(requestUrl);
   const path = url.pathname;
+
+  if (path === "/api/v1/automations/workflow-connectors") {
+    return null;
+  }
 
   if (path === "/api/v1/automations" && method === "GET") {
     return { status: 200, body: state.automations.map(buildAutomationSummary) };
@@ -794,13 +805,19 @@ const mapMetadataRoute = (state: AutomationBrowserState, requestUrl: string, met
     return { status: 200, body: state.inboundApis };
   }
   if (url.pathname === "/api/v1/automations/workflow-connectors" && method === "GET") {
-    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || []);
+    // If an override is present, return that (used to simulate errors/empty/delayed responses)
+    if (state.connectorsResponseOverride) {
+      return { status: state.connectorsResponseOverride.status, body: state.connectorsResponseOverride.body };
+    }
+
+    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || [])
+      .filter((record) => !inactiveWorkflowConnectorStatuses.has(String(record.status || "").toLowerCase()));
     return {
       status: 200,
       body: connectorRecords.map((record) => ({
         ...record,
         provider_name: record.provider === "google" ? "Google" : record.provider === "github" ? "GitHub" : String(record.provider || ""),
-        source_path: "settings.connectors.records"
+        source_path: "connectors"
       }))
     };
   }
@@ -890,6 +907,10 @@ export async function installAutomationSuiteRoutes(page: Page, state: Automation
     if (!response) {
       await route.fallback();
       return;
+    }
+    const delayMs = state.connectorsResponseOverride?.delayMs || 0;
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     await writeJsonResponse(route, response.status, response.body);
   });

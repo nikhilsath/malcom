@@ -137,29 +137,6 @@ Backend rules:
 - do not put SQL in frontend files
 - do not add served HTML routes in `backend/main.py`; add them in `backend/routes/ui.py`
 
-### Workflow storage files
-
-- Workflow storage files are stored under the configured `data.workflow_storage_path` (default: `backend/data/workflows`).
-- Service code that implements file-backed storage should live in `backend/services/` and avoid importing higher-level runtime modules to prevent circular import issues.
-- Any change to storage behavior that affects runtime contracts must include unit tests and be documented in `AGENTS.md`.
-
-Example write-step (YAML):
-
-```yaml
-- type: log
-  storage_type: csv
-  storage_target: events
-  storage_new_file: false
-  payload:
-    - ts
-    - event
-    - value
-```
-
-Implementation notes:
-- Keep storage helper functions under `backend/services/workflow_storage.py` or similar and ensure they use atomic temp-file+rename semantics.
-- Default storage path is `data.workflow_storage_path` (configured in app settings); do not hardcode absolute paths.
-
 ---
 
 ## Tool Input/Output Contract

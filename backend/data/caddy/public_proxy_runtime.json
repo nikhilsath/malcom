@@ -1,0 +1,12 @@
+{
+  "caddy_command": "caddy",
+  "desired_enabled": false,
+  "domain": "",
+  "domain_configured": false,
+  "http_port": 80,
+  "https_port": 443,
+  "last_error": null,
+  "managed_by_launcher": true,
+  "running": false,
+  "updated_at": "2026-03-29T08:32:07.588007Z"
+}

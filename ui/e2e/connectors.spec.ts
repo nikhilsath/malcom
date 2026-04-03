@@ -3,13 +3,14 @@ import { expect, test } from "@playwright/test";
 import { createConnectorsApisHarness, installClipboardTracker } from "./support/connectors-apis";
 
 test("google OAuth draft can be created and returned through the callback UX", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
+  // Start with no stored connectors so creating a Google OAuth draft yields a single connected entry
+  const harness = createConnectorsApisHarness({ connectors: [] });
   await harness.install(page);
   await installClipboardTracker(page);
 
   await page.goto("/settings/connectors.html");
-  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("1");
-  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
+  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("0");
+  await expect(page.locator("#settings-connectors-row-github-oauth")).toHaveCount(0);
 
   await page.locator("#settings-connectors-create-button").click();
   await page.locator("#settings-connectors-provider-option-google").click();
@@ -32,6 +33,7 @@ test("google OAuth draft can be created and returned through the callback UX", a
 });
 
 test("non-Google connector lifecycle actions update the registry", async ({ page }) => {
+  // Default harness includes a GitHub connector fixture
   const harness = createConnectorsApisHarness();
   await harness.install(page);
 
@@ -71,6 +73,7 @@ test("non-Google connector lifecycle actions update the registry", async ({ page
 });
 
 test("invalid OAuth return surfaces an error without mutating the registry", async ({ page }) => {
+  // Keep default fixtures so GitHub is present while invalid Google OAuth attempts do not add Google
   const harness = createConnectorsApisHarness();
   await harness.install(page);
 
@@ -80,4 +83,41 @@ test("invalid OAuth return surfaces an error without mutating the registry", asy
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Invalid OAuth state.");
   await expect(page.locator("#settings-connectors-row-google")).toHaveCount(0);
   await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
+});
+
+test("populates connectors from GET /api/v1/connectors and ignores cached settings", async ({ page }) => {
+  // Provide a harness seeded with the API-backed connector so the connectors route returns it
+  const apiConnector = {
+    id: "api-connector",
+    provider: "github",
+    name: "API Connector",
+    status: "connected",
+    auth_type: "oauth2",
+    scopes: ["repo"],
+    base_url: "https://api.github.com",
+    owner: "Workspace",
+    docs_url: "https://docs.github.com",
+    credential_ref: "connector/api-connector",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_tested_at: new Date().toISOString(),
+    auth_config: {}
+  };
+  const harness = createConnectorsApisHarness({ connectors: [apiConnector] });
+  await harness.install(page);
+
+  // After harness.install, seed a cached app-settings payload in localStorage (should NOT be used)
+  await page.addInitScript(() => {
+    try {
+      const stateKey = "malcom.playwright.connectors-apis";
+      const seed = { settings: { connectors: { catalog: [], records: [ { id: "cached-connector", provider: "cached", name: "Cached Connector", status: "connected", auth_type: "oauth2", scopes: [], base_url: "", owner: "Workspace", auth_config: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_tested_at: null } ], auth_policy: {} } } };
+      window.localStorage.setItem(stateKey, JSON.stringify(seed));
+    } catch {}
+  });
+  await page.goto("/settings/connectors.html");
+
+  // The page should render the API-provided connector and not the cached one.
+  await expect(page.locator("#settings-connectors-row-api-connector")).toBeVisible();
+  await expect(page.locator("#settings-connectors-row-cached-connector")).toHaveCount(0);
+  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("1");
 });

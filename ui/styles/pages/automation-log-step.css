@@ -1,0 +1,223 @@
+/* ── Log / Write-to-DB step form ─────────────────────────────────────────── */
+
+.log-step-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-step-mode-options {
+  display: flex;
+  gap: 20px;
+  padding-top: 4px;
+}
+
+.log-step-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.log-step-mode-option--disabled {
+  color: var(--color-text-muted, #888);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.log-step-mappings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 4px;
+  padding: 12px;
+  background: var(--color-bg-subtle, #fafafa);
+}
+
+.log-step-mapping-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.log-step-mapping-col-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #555);
+}
+
+.log-step-mapping-col-type {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--color-text-muted, #888);
+}
+
+.log-step-create-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-step-columns-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-step-column-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.log-step-column-row__name,
+.log-step-column-row__default {
+  min-width: 0;
+}
+
+.log-step-column-row__type {
+  min-width: 0;
+}
+
+.log-step-column-row__nullable {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.log-step-column-row__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--danger, #dc2626);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.log-step-add-column {
+  align-self: flex-start;
+  font-size: 0.85rem;
+}
+
+.log-step-create-submit {
+  align-self: flex-start;
+}
+
+.log-step-create-error {
+  color: var(--danger, #dc2626);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.log-step-create-success {
+  color: var(--color-success, #27ae60);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.automation-field__info {
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border-left: 3px solid #4a90e2;
+}
+
+.automation-scopes-list {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automation-scopes-list__item {
+  display: inline-block;
+  background-color: #e8f0fe;
+  color: #1f2937;
+  padding: 6px 10px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.automation-field__help-text {
+  margin: 8px 0 0 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.automation-connector-activity-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.automation-connector-activity-group {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-connector-activity-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.automation-connector-activity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.automation-connector-activity-card {
+  min-height: 96px;
+  text-align: left;
+  align-items: flex-start;
+}
+
+.automation-connector-activity-card--selected {
+  border-color: var(--automation-accent, #4a90e2);
+  box-shadow: 0 0 0 1px rgba(74, 144, 226, 0.35);
+}
+
+/* ─── Button variants ─── */
+
+.button--outline {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.button--outline:hover {
+  background: var(--surface);
+}
+
+.button--small {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: 0.875rem;
+}
+
+/* ─── Available data panel ─── */
+
+.automation-available-data-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(86, 49, 186, 0.03);
+  padding: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.automation-available-data-panel .automation-field__label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+  display: block;
+  color: var(--text);
+}

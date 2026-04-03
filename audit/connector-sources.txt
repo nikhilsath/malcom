@@ -1,0 +1,57 @@
+# Connector Catalog and Settings Audit - TASK-005
+
+## Files that define or seed connector/provider defaults
+
+backend/services/connectors.py
+backend/services/automation_execution.py
+backend/services/settings.py
+
+## Files that read or construct connector catalog at runtime
+
+backend/services/connectors.py
+backend/services/workflow_builder.py
+backend/services/automation_execution.py
+
+## Files that access stored connector settings
+
+backend/services/connectors.py
+backend/routes/connectors.py
+backend/routes/settings.py
+backend/services/workflow_builder.py
+backend/services/automation_execution.py
+
+## Files that directly reference DEFAULT_CONNECTOR_CATALOG
+
+backend/services/connectors.py
+backend/services/automation_execution.py
+scripts/test-external-probes.py
+
+## Files that use build_connector_catalog()
+
+backend/services/connectors.py
+backend/services/workflow_builder.py
+backend/services/automation_execution.py
+
+## Files that use get_stored_connector_settings()
+
+backend/services/connectors.py
+backend/services/workflow_builder.py
+backend/routes/connectors.py
+backend/routes/settings.py
+backend/services/automation_execution.py
+
+## Files that use get_default_connector_settings()
+
+backend/services/connectors.py
+backend/services/automation_execution.py
+
+## Files that directly access settings["connectors"] or related structures
+
+backend/services/automation_execution.py
+backend/services/connectors.py
+tests/test_settings_api.py
+
+## Additional files using DEFAULT_APP_SETTINGS
+
+backend/services/automation_execution.py
+backend/services/helpers.py

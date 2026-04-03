@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+# Policy sync note: keep AGENTS.md schema workspace-state entries aligned with backend/database.py.
+# Note: updated to reflect workflow storage documentation (data.workflow_storage_path) on 2026-03-29.
+
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 

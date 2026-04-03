@@ -118,6 +118,7 @@ const renderAutomationApp = (options?: {
   inboundApis?: Array<{ id: string; name: string }>;
   connectors?: Array<Record<string, unknown>>;
   httpPresets?: Array<Record<string, unknown>>;
+  tools?: Array<Record<string, unknown>>;
 }) => {
   document.body.innerHTML = '<button id="automations-create-button" type="button">Create</button>';
   window.history.replaceState({}, "", "/automations/builder.html?id=automation-daily-ingest");
@@ -156,7 +157,7 @@ const renderAutomationApp = (options?: {
           name: "Main webhook",
           auth_type: "none",
           base_url: "https://example.com",
-          source_path: "settings.connectors.records"
+          source_path: "connectors"
         }
       ];
     }
@@ -167,6 +168,33 @@ const renderAutomationApp = (options?: {
 
     if (path === "/api/v1/scripts") {
       return scriptLibraryItems;
+    }
+
+    if (path === "/api/v1/tools") {
+      return options?.tools || [
+        {
+          id: "smtp",
+          name: "SMTP",
+          description: "Send email",
+          enabled: true,
+          page_href: "/tools/smtp.html",
+          inputs: [
+            { key: "relay_host", label: "Relay Host", type: "string", required: true },
+            { key: "relay_port", label: "Relay Port", type: "number", required: true },
+            { key: "relay_security", label: "Security", type: "select", required: false, options: ["none", "starttls", "tls"] },
+            { key: "relay_username", label: "Username", type: "string", required: false },
+            { key: "relay_password", label: "Password", type: "string", required: false },
+            { key: "from_address", label: "From Address", type: "string", required: true },
+            { key: "to", label: "To", type: "string", required: true },
+            { key: "subject", label: "Subject", type: "string", required: true },
+            { key: "body", label: "Body", type: "text", required: true }
+          ],
+          outputs: [
+            { key: "status", label: "Status", type: "string" },
+            { key: "message", label: "Message", type: "string" }
+          ]
+        }
+      ];
     }
 
     if (path === "/api/v1/connectors/activity-catalog") {
@@ -350,29 +378,6 @@ const renderAutomationApp = (options?: {
     throw new Error(`Unhandled request ${method} ${path}`);
   });
 
-  window.TOOLS_MANIFEST = [
-    {
-      id: "smtp",
-      name: "SMTP",
-      description: "Send email",
-      pageHref: "tools/smtp.html",
-      inputs: [
-        { key: "relay_host", label: "Relay Host", type: "string", required: true },
-        { key: "relay_port", label: "Relay Port", type: "number", required: true },
-        { key: "relay_security", label: "Security", type: "select", required: false, options: ["none", "starttls", "tls"] },
-        { key: "relay_username", label: "Username", type: "string", required: false },
-        { key: "relay_password", label: "Password", type: "string", required: false },
-        { key: "from_address", label: "From Address", type: "string", required: true },
-        { key: "to", label: "To", type: "string", required: true },
-        { key: "subject", label: "Subject", type: "string", required: true },
-        { key: "body", label: "Body", type: "text", required: true }
-      ],
-      outputs: [
-        { key: "status", label: "Status", type: "string" },
-        { key: "message", label: "Message", type: "string" }
-      ]
-    }
-  ];
   window.Malcom = { requestJson };
   const renderResult = render(<AutomationApp />);
 
@@ -469,10 +474,22 @@ describe("AutomationApp", () => {
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
     fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    await waitFor(() => {
+      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
+    });
     fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
-    fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
+    const savedConnectorSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    fireEvent.change(savedConnectorSelect, { target: { value: "google-primary" } });
 
-    const serviceSelect = screen.getByLabelText("Google app");
+    const serviceSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-service-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
     expect(within(serviceSelect).getByRole("option", { name: "Gmail" })).toBeInTheDocument();
     expect(within(serviceSelect).getByRole("option", { name: "Drive" })).toBeInTheDocument();
     expect(within(serviceSelect).getByRole("option", { name: "Calendar" })).toBeInTheDocument();
@@ -545,12 +562,15 @@ describe("AutomationApp", () => {
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
     fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    await waitFor(() => {
+      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
+    });
     fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
 
     const connectorSelect = await waitFor(() => {
-      const element = screen.getByLabelText("Saved connector") as HTMLSelectElement;
-      expect(element).toBeInTheDocument();
-      return element;
+      const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
     });
     const optionLabels = Array.from(connectorSelect.options).map((option) => option.textContent || "");
 
@@ -581,9 +601,22 @@ describe("AutomationApp", () => {
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
     fireEvent.click(document.querySelector("#add-step-type-api") as HTMLElement);
+    await waitFor(() => {
+      expect(document.querySelector("#add-step-api-mode-prebuilt")).toBeInTheDocument();
+    });
     fireEvent.click(document.querySelector("#add-step-api-mode-prebuilt") as HTMLElement);
-    fireEvent.change(screen.getByLabelText("Saved connector"), { target: { value: "google-primary" } });
-    fireEvent.change(screen.getByLabelText("Google app"), { target: { value: "gmail" } });
+    const savedConnectorSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    fireEvent.change(savedConnectorSelect, { target: { value: "google-primary" } });
+    const serviceSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-service-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    fireEvent.change(serviceSelect, { target: { value: "gmail" } });
     fireEvent.click(screen.getByRole("button", { name: /send email/i }));
     fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
@@ -942,6 +975,9 @@ describe("AutomationApp", () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(requestLog.some((entry) => entry.path === "/api/v1/tools" && entry.method === "GET")).toBe(true);
+    });
 
     fireEvent.click(document.querySelector("#mock-select-step-node-step-smtp") as HTMLElement);
     fireEvent.click(document.querySelector("#automation-canvas-node-step-step-smtp-actions-button") as HTMLElement);
@@ -951,7 +987,9 @@ describe("AutomationApp", () => {
       expect(document.querySelector("#automations-editor-modal")).toBeInTheDocument();
     });
 
-    expect(document.querySelector("#automations-step-tool-input-relay_host-input")).toHaveValue("smtp.example.com");
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("smtp.example.com")).toBeInTheDocument();
+    });
     expect(document.querySelector("#automations-step-tool-input-relay_password-input")).toHaveAttribute("type", "password");
     expect(screen.getByText(/Supports template variables in From, To, Subject, and Body/)).toBeInTheDocument();
 

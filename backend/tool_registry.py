@@ -145,6 +145,8 @@ def row_to_tool_directory_entry(row: dict[str, Any], *, enabled: bool | None = N
         "description": row["description_override"] or row["source_description"],
         "enabled": resolved_enabled,
         "page_href": f"/tools/{row['id']}.html",
+        "inputs": json.loads(row["inputs_schema_json"] or "[]"),
+        "outputs": json.loads(row["outputs_schema_json"] or "[]"),
     }
 
 
@@ -324,7 +326,8 @@ def set_tool_enabled(
     updated_row = fetch_one(
         connection,
         """
-        SELECT id, source_name, source_description, name_override, description_override, enabled
+        SELECT id, source_name, source_description, name_override, description_override,
+               enabled, inputs_schema_json, outputs_schema_json
         FROM tools
         WHERE id = ?
         """,
@@ -346,7 +349,8 @@ def load_tool_directory(root_dir: Path, connection: Any | None = None) -> list[d
         rows = fetch_all(
             db,
             """
-            SELECT id, source_name, source_description, name_override, description_override, enabled
+            SELECT id, source_name, source_description, name_override, description_override,
+                   enabled, inputs_schema_json, outputs_schema_json
             FROM tools
             ORDER BY id
             """,

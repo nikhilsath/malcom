@@ -42,6 +42,8 @@ def list_automations(request: Request) -> list[AutomationSummaryResponse]:
 
 @router.get("/api/v1/automations/workflow-connectors", response_model=list[WorkflowBuilderConnectorOptionResponse])
 def list_workflow_builder_connectors_endpoint(request: Request) -> list[WorkflowBuilderConnectorOptionResponse]:
+    # Data lineage: See README.md > Data Lineage Reference > Saved Connectors
+    # Queries connectors table via workflow_builder service and normalizes provider metadata
     options = list_workflow_builder_connectors(get_connection(request))
     return [WorkflowBuilderConnectorOptionResponse(**item) for item in options]
 

@@ -1,0 +1,334 @@
+.automation-page-shell {
+  padding: var(--space-6);
+  overflow: hidden;
+}
+
+.automation-overview-shell {
+  padding: 0;
+}
+
+/* ─── Overview page layout ─── */
+
+.automations-overview {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+/* Stats row */
+
+.automations-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.overview-stat {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s ease;
+}
+
+.overview-stat:hover {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+}
+
+.overview-stat--success {
+  border-color: rgba(22, 163, 74, 0.22);
+  background: rgba(22, 163, 74, 0.04);
+}
+
+.overview-stat--warning {
+  border-color: rgba(202, 138, 4, 0.22);
+  background: rgba(202, 138, 4, 0.04);
+}
+
+.overview-stat--muted {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.overview-stat__value {
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.overview-stat--success .overview-stat__value {
+  color: var(--success-dark);
+}
+
+.overview-stat--warning .overview-stat__value {
+  color: #92400e;
+}
+
+.overview-stat--muted .overview-stat__value {
+  color: var(--muted);
+}
+
+.overview-stat__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Main two-column layout */
+
+.automations-overview-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.automations-library-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* Automation list panel */
+
+.automations-overview-list-panel {
+  min-width: 0;
+}
+
+.automations-overview-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.overview-automation-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto minmax(160px, auto) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.overview-automation-row__name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.overview-automation-row__description {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.overview-automation-row__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.overview-automation-row__lastrun {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.overview-automation-row__chevron {
+  font-size: 1rem;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Badges */
+
+.overview-automation-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.overview-automation-badge--enabled {
+  color: var(--success-dark);
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.overview-automation-badge--disabled {
+  color: #475569;
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* Tool availability panel */
+
+.automations-overview-tools-panel {
+  position: sticky;
+  top: calc(var(--topnav-height) + 24px);
+}
+
+.automations-overview-tools-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.overview-tool-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.overview-tool-card__info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.overview-tool-card__name {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.overview-tool-card__description {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.overview-inline-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.overview-runtime-error {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.06);
+  margin-top: 4px;
+}
+
+.overview-runtime-error__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #b91c1c;
+}
+
+.overview-runtime-error__value {
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
+/* Detail dialog */
+
+.automation-detail-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 51;
+  inline-size: fit-content;
+  max-inline-size: min(92vw, 35rem);
+  max-block-size: calc(100dvh - (var(--space-8) * 2));
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.24);
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: var(--space-5);
+  overflow: auto;
+}
+
+.automation-detail-dialog__header {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-detail-dialog__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.automation-detail-dialog__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.automation-detail-dialog__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.automation-detail-stat {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.automation-detail-stat__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.automation-detail-stat__value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+
+

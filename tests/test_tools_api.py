@@ -81,6 +81,8 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertIsNotNone(image_magic)
         self.assertEqual(image_magic["page_href"], "/tools/image-magic.html")
         self.assertFalse(image_magic["enabled"])
+        self.assertEqual(image_magic["inputs"][0]["key"], "input_file")
+        self.assertEqual(image_magic["outputs"][0]["key"], "output_file_path")
 
     def test_updates_enabled_state_in_directory_endpoint(self) -> None:
         response = self.client.patch(
