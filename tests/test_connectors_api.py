@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from backend.database import connect, fetch_one
 from backend.main import app
 from backend.routes.connectors import _probe_google_access_token
 from tests.postgres_test_utils import setup_postgres_test_app
@@ -19,7 +20,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         root_dir = Path(self.tempdir.name)
         (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
-        setup_postgres_test_app(app=app, root_dir=root_dir)
+        self.database_url = setup_postgres_test_app(app=app, root_dir=root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
 
@@ -70,9 +71,88 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(policy_response.status_code, 200)
         self.assertEqual(policy_response.json()["auth_policy"]["rotation_interval_days"], 60)
 
+        connection = connect(database_url=self.database_url)
+        try:
+            policy_row = fetch_one(
+                connection,
+                """
+                SELECT auth_policy_json
+                FROM connector_auth_policies
+                WHERE policy_id = ?
+                """,
+                ("workspace",),
+            )
+            legacy_row = fetch_one(
+                connection,
+                """
+                SELECT key
+                FROM settings
+                WHERE key = ?
+                """,
+                ("connector_auth_policy",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(policy_row)
+        self.assertIn('"rotation_interval_days": 60', policy_row["auth_policy_json"])
+        self.assertIsNone(legacy_row)
+
         delete_response = self.client.delete("/api/v1/connectors/github-primary")
         self.assertEqual(delete_response.status_code, 200)
         self.assertTrue(delete_response.json()["ok"])
+
+    def test_connectors_endpoint_migrates_legacy_connector_auth_policy_row(self) -> None:
+        now_value = "2026-04-03T00:00:00+00:00"
+        app.state.connection.execute(
+            """
+            INSERT INTO settings (key, value_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value_json = excluded.value_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                "connector_auth_policy",
+                '{"auth_policy":{"rotation_interval_days":60,"reconnect_requires_approval":true,"credential_visibility":"admin_only"}}',
+                now_value,
+                now_value,
+            ),
+        )
+        app.state.connection.commit()
+
+        response = self.client.get("/api/v1/connectors")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["auth_policy"]["rotation_interval_days"], 60)
+        self.assertTrue(response.json()["auth_policy"]["reconnect_requires_approval"])
+
+        connection = connect(database_url=self.database_url)
+        try:
+            policy_row = fetch_one(
+                connection,
+                """
+                SELECT auth_policy_json
+                FROM connector_auth_policies
+                WHERE policy_id = ?
+                """,
+                ("workspace",),
+            )
+            legacy_row = fetch_one(
+                connection,
+                """
+                SELECT key
+                FROM settings
+                WHERE key = ?
+                """,
+                ("connector_auth_policy",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(policy_row)
+        self.assertIn('"rotation_interval_days": 60', policy_row["auth_policy_json"])
+        self.assertIsNone(legacy_row)
 
     def test_tests_connector_credentials_after_direct_create(self) -> None:
         create_response = self.client.post(

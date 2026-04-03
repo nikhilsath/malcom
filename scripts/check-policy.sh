@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-# Policy sync note: keep AGENTS.md schema workspace-state entries aligned with backend/database.py.
-# Note: updated to reflect connector DB boundary docs and migration ownership wording on 2026-04-03.
+# Policy sync note: keep AGENTS.md schema workspace-state entries aligned with backend/database.py,
+# including dedicated tool_configs and connector_auth_policies ownership when present.
+# Note: updated to reflect factoring/fix-first/source-of-truth policy wording on 2026-04-03.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -251,6 +252,42 @@ check_workflow_builder_connector_path_sync() {
   printf 'Workflow-builder connector source-of-truth path remains synchronized (persisted connectors via backend resolver).\n'
 }
 
+check_large_changed_source_files() {
+  local threshold=600
+  local file
+  local line_count
+  local flagged=()
+
+  for file in "${CHANGED_FILES[@]:-}"; do
+    [[ -f "$file" ]] || continue
+
+    case "$file" in
+      AGENTS.md|backend/AGENTS.md|ui/AGENTS.md|tests/AGENTS.md|scripts/check-policy.sh)
+        continue
+        ;;
+      backend/*.py|backend/**/*.py|ui/src/*.ts|ui/src/*.tsx|ui/src/**/*.ts|ui/src/**/*.tsx|ui/scripts/*.js|ui/scripts/**/*.js|tests/*.py|tests/**/*.py)
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    line_count="$(wc -l < "$file" | tr -d ' ')"
+    if [[ "$line_count" -gt "$threshold" ]]; then
+      flagged+=("$file ($line_count lines)")
+    fi
+  done
+
+  if ((${#flagged[@]} == 0)); then
+    printf 'No changed source files exceed %d lines.\n' "$threshold"
+    return 0
+  fi
+
+  printf 'Changed source files exceeding %d lines were detected and should be reviewed for factoring:\n' "$threshold"
+  printf '  %s\n' "${flagged[@]}"
+  print_warn "Oversized changed source files require a factoring sanity check."
+}
+
 check_test_precommit() {
   "$ROOT_DIR/scripts/test-precommit.sh"
 }
@@ -274,6 +311,7 @@ run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape
 run_check "Tool manifest regeneration" check_tool_manifest_sync
 run_check "Workflow builder connector path sync" check_workflow_builder_connector_path_sync
+run_warning_check "Large changed source files" check_large_changed_source_files
 run_check "scripts/test-precommit.sh" check_test_precommit
 run_check "scripts/test-full.sh" check_test_full
 

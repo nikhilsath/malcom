@@ -66,6 +66,17 @@ Primary objective: deterministic routing, file targeting, and enforcement rules 
 5. Include expected behavior whenever code or behavior changes.
 6. Match existing repo structure before introducing a new pattern.
 7. Prefer extending the current source of truth over creating a second one.
+8. Keep files narrowly responsible; factor new concerns into adjacent modules or helpers instead of growing catch-all files.
+9. Fix the canonical path instead of layering fallbacks, duplicate reads, or shadow writes when the root cause can be corrected directly.
+10. When runtime-managed entities already live in the database, persisted rows plus their canonical resolvers are the runtime source of truth.
+
+### Implementation Quality And Source Of Truth {#implementation-quality-and-source-of-truth}
+
+1. Keep files narrowly responsible; when a task adds a new concern to an already-large file, extract or extend a neighboring module or service instead of appending another responsibility to the largest file in the area.
+2. Do not resolve architectural drift by adding fallback branches, shadow settings, compatibility reads, or duplicate write paths when the canonical path can be fixed directly.
+3. Temporary fallbacks are allowed only when a staged migration or external compatibility contract requires them, and the same change must document the canonical owner plus an explicit removal follow-up.
+4. When entities, catalogs, presets, enablement, or provider state already live in the database, DB-backed resolvers and persisted rows are the runtime source of truth.
+5. Seed constants may bootstrap DB state, but they must not become a parallel runtime registry once persisted data and resolvers exist.
 
 ### GitHub Update Workflow {#github-update-workflow}
 
@@ -162,7 +173,7 @@ When schema tables or table groups change, update `AGENTS.md` and `README.md` in
 Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `connector_endpoint_definitions`
+- Workspace state: `tools`, `tool_configs`, `settings`, `integration_presets`, `connectors`, `connector_auth_policies`, `connector_endpoint_definitions`
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
 - Log schema: `log_db_tables`, `log_db_columns`
@@ -185,6 +196,8 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Refactor workflow-builder connector option flow | `backend/services/workflow_builder.py`, `backend/routes/automations.py`, `ui/src/automation/app.tsx` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md`, `README.md` | duplicate connector option lists in UI components |
 | Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
+| Refactor oversized or mixed-responsibility implementation | closest feature module + adjacent service/helper files | matching domain `AGENTS.md`, matching tests | dumping new responsibilities into the largest existing file without need |
+| Fix DB-backed source-of-truth drift | canonical DB-backed resolver/service + matching tests | `backend/AGENTS.md`, `README.md` if schema/docs are affected | fallback reads/writes, hardcoded mirrors, duplicate availability lists |
 | Add vanilla page logic | `ui/scripts/<section>/<page>.js` | `ui/AGENTS.md`, matching HTML + styles, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
 | Add React page logic | `ui/src/<feature>/` | `ui/AGENTS.md`, matching HTML entry + tests, `ui/e2e/` | unrelated section folders |
 | Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, style files | visible explanatory paragraphs in default page state |
@@ -205,12 +218,15 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-ROUTE-001 | If no `[AREA:]` prefix is provided, infer the area only when the task is clearly scoped; otherwise stop before domain-specific work and ask the user to choose from the supported area keywords | Prompt routing and policy loading |
 | R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.agents/repo-scan-index.md`, operate in explicit batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
+| R-CODE-001 | Keep files narrowly responsible; factor new concerns into adjacent modules/services instead of growing catch-all files | Implementation structure and refactors |
+| R-FIX-001 | Fix the canonical path instead of layering fallback branches, shadow state, or duplicate reads/writes, except for explicit staged migrations with documented removal | Behavior fixes and architecture corrections |
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from persisted connector rows (`connectors` table); do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
+| R-SOT-001 | For DB-backed entities, catalogs, presets, enablement, or provider state, persisted rows plus canonical resolvers are the runtime source of truth; seed constants must not become parallel runtime registries | Backend/services, connector catalogs, and runtime configuration flows |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
 | R-UI-003 | Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges | UI copy and page layout changes |
@@ -235,7 +251,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 23,
+  "version": 24,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -276,6 +292,16 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh"],
       "verify": ["policy text and README stay aligned with backend/database.py"]
+    },
+    "factoring_refactor": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["closest feature module", "adjacent services/helpers"],
+      "verify": ["matching automated tests", "oversized changed files were reviewed for factoring"]
+    },
+    "db_backed_source_of_truth_fix": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["canonical DB-backed resolver/service", "matching consumers"],
+      "verify": ["persisted rows remain canonical", "duplicate code-side registries are removed or avoided", "matching automated tests"]
     },
     "ui_change": {
       "read": ["AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
@@ -321,6 +347,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     ],
     "test_creation_policy": "For behavior-changing implementation tasks, add or update relevant automated tests in the same change unless strictly non-behavioral.",
     "general_rule": "For non-implementation requests, respond with only the directly requested content unless the user asks for more detail."
+  },
+  "implementation_standards": {
+    "factoring": "Keep files narrowly responsible; factor new concerns into adjacent modules/services instead of growing catch-all files.",
+    "fix_over_fallback": "Fix the canonical path instead of layering fallbacks, duplicate reads, or shadow writes unless a staged migration explicitly requires temporary compatibility logic.",
+    "db_backed_source_of_truth": "For DB-backed entities, catalogs, presets, enablement, or provider state, persisted rows plus canonical resolvers are the runtime source of truth; seed constants may bootstrap but must not become a second runtime registry."
   }
 }
 MACHINE_INDEX_END -->
@@ -328,6 +359,36 @@ MACHINE_INDEX_END -->
 ---
 
 ## Practical Do And Do Not Rules {#practical-do-and-do-not-rules}
+
+## Repository Indexing {#repository-indexing}
+
+Purpose: make the repo easier for automated agents and humans to navigate by providing reproducible, machine-readable indexes and small generator scripts.
+
+Recommended indexes (pick the subset that fits your operations):
+
+- **File manifest:** a JSON list of workspace files with path, size, language, and basic tags. Rebuildable via `scripts/update_indices.sh` and stored under `.indices/repo_index.json`.
+- **Symbol/tags index:** generated `ctags` file (`.indices/repo.tags`) for fast symbol-to-file lookups by editors and agents.
+- **API route map:** JSON mapping of HTTP endpoints → handler files (use simple greps/parsers for `backend/routes/` and framework decorators). Store as `.indices/api_routes.json`.
+- **Tests → code map:** mapping of tests to the modules they exercise (use `pytest --collect-only` and small post-processing), stored as `.indices/tests_index.json`.
+- **Data-model registry:** short manifest linking DB tables to the services that read/write them (hand-maintained `data-models.json`), useful for data-flow questions.
+- **Semantic vector index (optional):** vector embeddings of file chunks for natural-language search (store vectors metadata in `.indices/semantic/` and keep vector store off-repo if large).
+
+Best practices:
+
+- Keep index generators in `scripts/` (e.g., `scripts/update_indices.sh`) so they are reproducible and runnable in CI or locally.
+- Store only small, derived index files in the repo under `.indices/` and ignore large vector stores; regenerate or publish artifacts in CI if needed.
+- Update indices as part of changelists that modify large areas (routes, DB schema, or major refactors) and add index regeneration to relevant precommit or CI jobs where appropriate.
+- Document the regeneration steps in `README.md` and reference `.indices/` in `AGENTS.md` so automated agents know where to look.
+
+Minimal scripts to include (examples):
+
+- `scripts/generate_repo_index.py` — produce `.indices/repo_index.json`.
+- `scripts/update_indices.sh` — wrapper that runs ctags, the repo manifest generator, and API/test mappers.
+
+Location: keep indexes under `.indices/` at the repo root and reference them from `AGENTS.md` and `.agents/repo-scan-index.md` when relevant.
+
+When to update: regenerate indexes after structural changes (routes, schema, major refactors) and during periodic CI runs to keep them fresh.
+
 
 Do:
 
@@ -339,10 +400,16 @@ Do:
 - place tests beside the backend feature area they cover or under the React feature they cover
 - add or update relevant automated tests in the same change when behavior changes
 - prefer additive schema evolution over one-off DB edits
+- factor new responsibilities into adjacent modules/services before extending already-large files
+- fix canonical data flow directly when possible
+- keep DB-backed entities, catalogs, and availability lists resolved from persisted rows
 
 Do not:
 
 - create a second source of truth for tools, routes, or settings
+- grow large files with unrelated new responsibilities when a scoped module fits better
+- solve bugs by adding shadow fallback paths when the canonical path can be repaired
+- keep runtime availability or configuration duplicated in code after it exists in the database
 - put new page-entry logic into random root-level script files
 - hardcode navigation that belongs to the shell
 - edit `ui/dist/` directly
