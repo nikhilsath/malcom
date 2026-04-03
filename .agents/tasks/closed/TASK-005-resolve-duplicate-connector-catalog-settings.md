@@ -27,15 +27,21 @@ Completion note: Reviewed test suite found no direct DEFAULT_CONNECTOR_CATALOG i
 - tests/test_connectors_for_builder_extra.py: 2 passed  
 - tests/test_settings_api.py: 10 passed
 
-5. [-] [test]
+5. [x] [test]
 Action: Run targeted tests and the precommit test set.
 Completion check: `pytest -q tests/test_settings_api.py tests/test_connectors_for_builder.py tests/test_connectors_for_builder_extra.py -q` exits 0 and `scripts/test-precommit.sh` completes successfully.
 
-6. [ ] [docs]
+Completion note: All tests passed:
+- Targeted tests: 15 passed (test_settings_api.py (10) + test_connectors_for_builder.py (3) + test_connectors_for_builder_extra.py (2))
+- Precommit suite: 173 backend tests + 45 UI tests + build successful
+
+6. [x] [docs]
 Action: Update documentation where the source-of-truth was described (README.md and AGENTS.md) to state: "Provider catalog: `integration_presets` (seeded from `DEFAULT_CONNECTOR_CATALOG` on init). Runtime catalog is built from `integration_presets` via `build_connector_catalog()`; saved connector instances are in `connectors`/`settings.connectors.records`."
 Completion check: README.md or AGENTS.md contains the revised single-sentence statement and a link to `backend/services/connectors.py`.
 
-7. [ ] [github]
+Completion note: Updated README.md "Schema Health Notes" section with TASK-005 note documenting the consolidated connector source-of-truth. The note states: "Runtime catalog is built from integration_presets via build_connector_catalog(); saved connector instances are read via get_stored_connector_settings()." Links to backend/services/connectors.py are included.
+
+7. [-] [github]
 Action: Commit the implementation and test changes with a focused message, then move this task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit.
 Completion check: The commit contains only the relevant modified source/test/doc files and the task file move; push is successful.
 
