@@ -86,6 +86,52 @@ class StartupLifecycleTestCase(unittest.TestCase):
         self.assertGreater(int(presets_count["total"]), 0)
         self.assertGreater(int(endpoint_defs_count["total"]), 0)
 
+    def test_lifespan_migrates_legacy_connectors_settings_row_once(self) -> None:
+        connection = connect(database_url=self.database_url)
+        try:
+            connection.execute(
+                """
+                INSERT INTO settings (key, value_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value_json = excluded.value_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    "connectors",
+                    '{"records":[{"id":"legacy-github","provider":"github","name":"Legacy GitHub","status":"connected","auth_type":"oauth2","scopes":["repo"],"owner":"Workspace"}]}',
+                    "2026-04-03T00:00:00+00:00",
+                    "2026-04-03T00:00:00+00:00",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        with TestClient(app) as client:
+            response = client.get("/api/v1/connectors")
+            self.assertEqual(response.status_code, 200)
+            ids = [item["id"] for item in response.json()["records"]]
+            self.assertIn("legacy-github", ids)
+
+        connection = connect(database_url=self.database_url)
+        try:
+            migrated_row = fetch_one(
+                connection,
+                "SELECT id FROM connectors WHERE id = ?",
+                ("legacy-github",),
+            )
+            legacy_settings_row = fetch_one(
+                connection,
+                "SELECT key FROM settings WHERE key = ?",
+                ("connectors",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(migrated_row)
+        self.assertIsNone(legacy_settings_row)
+
     def test_lifespan_fails_fast_when_migrations_fail(self) -> None:
         with mock.patch(
             "backend.services.automation_execution.run_migrations",

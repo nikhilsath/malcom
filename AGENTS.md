@@ -155,6 +155,7 @@ Rules:
 1. Keep provider-specific connector business logic, including OAuth token exchange, refresh, and revoke handlers, in dedicated `backend/services/connector_<provider>*.py` or adjacent connector service modules.
 2. Keep `backend/routes/connectors.py` focused on HTTP parameter extraction, response shaping, redirects, and dependency wiring rather than provider-specific OAuth token lifecycle implementations.
 3. Do not make backend services import connector route helpers as the source of truth for provider-specific connector business logic.
+4. GitHub OAuth setup may resolve omitted client credentials from `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET`; the OAuth app redirect URI remains `/api/v1/connectors/github/oauth/callback`.
 
 ### Workflow Builder Connector Source Of Truth {#workflow-builder-connector-source-of-truth}
 
@@ -184,6 +185,7 @@ Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
 - Workspace state: `tools`, `tool_configs`, `settings`, `integration_presets`, `connectors`, `connector_auth_policies`, `connector_endpoint_definitions`
+  Saved connector instances are canonical in `connectors`, workspace credential policy is canonical in `connector_auth_policies`, and legacy `settings.connectors` rows are migration-only input.
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
 - Log schema: `log_db_tables`, `log_db_columns`

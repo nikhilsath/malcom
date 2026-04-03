@@ -260,6 +260,8 @@ export const bindFormEvents = ({ renderAll, startConnectorOauth }) => {
     const inputSet = getProviderInputSet(selected);
     const clientSecretInput = inputSet.clientSecretInput?.value || "";
     const clientId = inputSet.clientIdInput?.value.trim() || "";
+    const providerMetadata = getProviderMetadata(selected.provider);
+    const requiresClientSecret = Boolean(providerMetadata?.required_fields?.includes("client_secret"));
 
     if (providerSupportsOauth(selected.provider)) {
       if (!clientId) {
@@ -267,7 +269,7 @@ export const bindFormEvents = ({ renderAll, startConnectorOauth }) => {
         inputSet.clientIdInput?.focus();
         return;
       }
-      if ((selected.provider === "github" || selected.provider === "notion") && !clientSecretInput.trim()) {
+      if (requiresClientSecret && !clientSecretInput.trim()) {
         setFeedback(`${titleCase(selected.provider)} OAuth requires a Client secret. Enter it before continuing.`, "error");
         inputSet.clientSecretInput?.focus();
         return;

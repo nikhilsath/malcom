@@ -85,7 +85,10 @@ Do not treat the live database as an editable source of truth.
 - `integration_presets`
   - provider catalog defaults and metadata
 - `connectors`
-  - saved connector entities and auth state
+  - saved connector instance rows and protected auth state
+  - canonical runtime source of truth for saved connector instances; legacy `settings.connectors` rows are startup-migration input only
+- `connector_auth_policies`
+  - workspace-level connector credential policy row
 - `connector_endpoint_definitions`
   - persisted connector activity and HTTP preset catalog rows
 

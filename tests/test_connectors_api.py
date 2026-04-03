@@ -440,7 +440,37 @@ class ConnectorsApiTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["detail"], "GitHub OAuth client_secret is required.")
+        self.assertEqual(
+            response.json()["detail"],
+            "GitHub OAuth client_secret is required. Configure connector client_secret, or set MALCOM_GITHUB_OAUTH_CLIENT_SECRET.",
+        )
+
+    def test_github_oauth_start_uses_environment_client_id_and_secret(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "MALCOM_GITHUB_OAUTH_CLIENT_ID": "github-env-client-id",
+                "MALCOM_GITHUB_OAUTH_CLIENT_SECRET": "github-env-client-secret",
+            },
+            clear=False,
+        ):
+            response = self.client.post(
+                "/api/v1/connectors/github/oauth/start",
+                json={
+                    "connector_id": "github-env-client",
+                    "name": "GitHub Env Client",
+                    "redirect_uri": "http://localhost:8000/api/v1/connectors/github/oauth/callback",
+                    "owner": "Workspace",
+                    "client_id": "",
+                    "client_secret_input": "",
+                    "scopes": ["repo", "read:user"],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["connector"]["auth_config"]["client_id"], "github-env-client-id")
+        self.assertIn("client_id=github-env-client-id", body["authorization_url"])
 
     def test_notion_oauth_start_callback_and_refresh_flow(self) -> None:
         start_response = self.client.post(

@@ -97,6 +97,7 @@ from backend.services.automation_runs import (
 )
 from backend.services.connectors import (
     DEFAULT_CONNECTOR_CATALOG,
+    ensure_legacy_connector_storage_migrated,
     get_connector_protection_secret,
     get_stored_connector_settings,
     hydrate_outgoing_configuration_from_connector,
@@ -160,11 +161,7 @@ SETTINGS_NOTIFICATION_DIGEST_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "hourly", "label": "Hourly"},
     {"value": "daily", "label": "Daily"},
 )
-SETTINGS_DATA_EXPORT_WINDOW_OPTIONS: tuple[dict[str, str], ...] = (
-    {"value": "00:00", "label": "00:00 UTC"},
-    {"value": "02:00", "label": "02:00 UTC"},
-    {"value": "04:00", "label": "04:00 UTC"},
-)
+# Scheduled export window options removed — export scheduling not supported
 DEFAULT_DASHBOARD_LOG_LEVEL_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "debug", "label": "Debug"},
     {"value": "info", "label": "Info"},
@@ -550,7 +547,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     },
     "data": {
         "payload_redaction": True,
-        "export_window_utc": "02:00",
         "workflow_storage_path": "backend/data/workflows",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
@@ -783,7 +779,6 @@ def normalize_settings_response_section(
             {
                 "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
                 "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
-                "data_export_windows": [dict(item) for item in SETTINGS_DATA_EXPORT_WINDOW_OPTIONS],
             }
             if section_key == "options"
             else get_default_settings()[section_key]
@@ -814,7 +809,6 @@ def get_settings_payload(connection: DatabaseConnection) -> dict[str, Any]:
     settings["options"] = {
         "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
         "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
-        "data_export_windows": [dict(item) for item in SETTINGS_DATA_EXPORT_WINDOW_OPTIONS],
     }
 
     for section_key in tuple(settings.keys()):
@@ -1938,6 +1932,7 @@ async def lifespan(app: FastAPI):
     run_migrations(database_url=app.state.database_url)
     connection = connect(database_url=app.state.database_url)
     seed_default_settings(connection)
+    ensure_legacy_connector_storage_migrated(connection)
     write_tools_manifest(Path(app.state.root_dir), connection)
     if not getattr(app.state, "skip_ui_build_check", False):
         ensure_built_ui(Path(app.state.root_dir))

@@ -471,10 +471,43 @@ const createConnectorAuthorizationUrl = (provider: string, stateToken: string, r
   return url.toString();
 };
 
-const buildCallbackRedirect = (connectorId: string, status: "success" | "warning" | "error", message: string) => {
-  const url = new URL("http://127.0.0.1:4173/settings/connectors.html");
+const buildCallbackRedirect = (
+  appOrigin: string,
+  connectorId: string,
+  status: "success" | "warning" | "error",
+  message: string
+) => {
+  const url = new URL("/settings/connectors.html", appOrigin);
   url.searchParams.set("oauth_status", status);
   url.searchParams.set("oauth_message", message);
+  url.searchParams.set("connector_id", connectorId);
+  return url.toString();
+};
+
+const resolveAppOrigin = (redirectUri: string | null | undefined, fallbackOrigin: string) => {
+  if (redirectUri) {
+    try {
+      return new URL(redirectUri).origin;
+    } catch {
+      // Fall back to the current request origin if the stored redirect URI is malformed.
+    }
+  }
+  return fallbackOrigin;
+};
+
+const buildProviderCallbackUrl = (
+  provider: string,
+  *,
+  stateToken: string,
+  code: string,
+  connectorId: string,
+  redirectUri: string | null | undefined,
+  fallbackOrigin: string
+) => {
+  const origin = resolveAppOrigin(redirectUri, fallbackOrigin);
+  const url = new URL(`/api/v1/connectors/${provider}/oauth/callback`, origin);
+  url.searchParams.set("state", stateToken);
+  url.searchParams.set("code", code);
   url.searchParams.set("connector_id", connectorId);
   return url.toString();
 };
@@ -619,6 +652,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
   const createOAuthStartResponse = (body: JsonRecord, provider: string) => {
     const connectors = state.connectors.records as ConnectorRecord[];
     const existing = findConnector(connectors, String(body.connector_id || ""));
+    const clientSecretInput = String(body.client_secret_input || existing?.auth_config?.client_secret_input || (provider === "github" ? "github-client-secret" : ""));
     const nextRecord = createConnectorRecord({
       id: String(body.connector_id || provider),
       provider,
@@ -632,7 +666,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       credential_ref: `connector/${String(body.connector_id || provider)}`,
       auth_config: {
         client_id: String(body.client_id || existing?.auth_config?.client_id || `${provider}-client-id`),
-        client_secret_input: String(body.client_secret_input || ""),
+        client_secret_input: clientSecretInput,
         redirect_uri: String(body.redirect_uri || ""),
         scope_preset: provider,
         expires_at: null,
@@ -661,7 +695,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     };
   };
 
-  const createOAuthCallbackResponse = (provider: string, query: URLSearchParams) => {
+  const createOAuthCallbackResponse = (provider: string, query: URLSearchParams, appOrigin: string) => {
     const stateToken = String(query.get("state") || "");
     const code = String(query.get("code") || "demo");
     const connectorId = String(query.get("connector_id") || "google");
@@ -674,7 +708,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     const hasValidTokenShape = stateToken === `oauth-state-${connectorId}`;
 
     if (!hasValidHarnessState && !hasValidTokenShape) {
-      return buildCallbackRedirect(connectorId, "error", "Invalid OAuth state.");
+      return buildCallbackRedirect(appOrigin, connectorId, "error", "Invalid OAuth state.");
     }
 
     const nextRecord: ConnectorRecord = {
@@ -690,7 +724,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         docs_url: getProviderDocsUrl(provider),
         auth_config: {
           client_id: `${provider}-client-id`,
-          redirect_uri: `http://127.0.0.1:4173/api/v1/connectors/${provider}/oauth/callback`,
+          redirect_uri: `${appOrigin}/api/v1/connectors/${provider}/oauth/callback`,
           scope_preset: provider,
           expires_at: null,
           has_refresh_token: false
@@ -719,7 +753,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     };
 
     replaceConnector(nextRecord);
-    return buildCallbackRedirect(connectorId, "success", getProviderSuccessMessage(provider, "authorize"));
+    return buildCallbackRedirect(appOrigin, connectorId, "success", getProviderSuccessMessage(provider, "authorize"));
   };
 
   const install = async (page: Page) => {
@@ -953,6 +987,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           const connectorId = String(body.connector_id || provider);
           const connectors = (state.connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
           const existing = connectors.find((record) => record.id === connectorId);
+          const clientSecretInput = String(body.client_secret_input || existing?.auth_config?.client_secret_input || (provider === "github" ? "github-client-secret" : ""));
           const nextRecord = {
             id: connectorId,
             provider,
@@ -969,7 +1004,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
             last_tested_at: null,
             auth_config: {
               client_id: String(body.client_id || existing?.auth_config?.client_id || `${provider}-client-id`),
-              client_secret_input: String(body.client_secret_input || ""),
+              client_secret_input: clientSecretInput,
               redirect_uri: String(body.redirect_uri || ""),
               scope_preset: provider,
               expires_at: null,
@@ -1361,8 +1396,18 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     await page.route("**accounts.google.com/**", async (route) => {
       const url = new URL(route.request().url());
       const stateToken = url.searchParams.get("state") || "oauth-state-google";
-      const connectorId = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "google")?.[0] || "google";
-      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-google&connector_id=${encodeURIComponent(connectorId)}`);
+      const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "google");
+      const connectorId = session?.[0] || "google";
+      await writeRedirectHtml(
+        route,
+        buildProviderCallbackUrl("google", {
+          stateToken,
+          code: "demo-google",
+          connectorId,
+          redirectUri: url.searchParams.get("redirect_uri") || session?.[1]?.redirectUri,
+          fallbackOrigin: new URL(page.url()).origin,
+        })
+      );
     });
 
     await page.route("**github.com/login/oauth/authorize**", async (route) => {
@@ -1370,7 +1415,16 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       const stateToken = url.searchParams.get("state") || "oauth-state-github";
       const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "github");
       const connectorId = session?.[0] || "github-oauth";
-      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/github/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-github&connector_id=${encodeURIComponent(connectorId)}`);
+      await writeRedirectHtml(
+        route,
+        buildProviderCallbackUrl("github", {
+          stateToken,
+          code: "demo-github",
+          connectorId,
+          redirectUri: url.searchParams.get("redirect_uri") || session?.[1]?.redirectUri,
+          fallbackOrigin: new URL(page.url()).origin,
+        })
+      );
     });
 
     await page.route("**api.notion.com/v1/oauth/authorize**", async (route) => {
@@ -1378,24 +1432,33 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       const stateToken = url.searchParams.get("state") || "oauth-state-notion";
       const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "notion");
       const connectorId = session?.[0] || "notion-oauth";
-      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/notion/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-notion&connector_id=${encodeURIComponent(connectorId)}`);
+      await writeRedirectHtml(
+        route,
+        buildProviderCallbackUrl("notion", {
+          stateToken,
+          code: "demo-notion",
+          connectorId,
+          redirectUri: url.searchParams.get("redirect_uri") || session?.[1]?.redirectUri,
+          fallbackOrigin: new URL(page.url()).origin,
+        })
+      );
     });
 
     await page.route("**/api/v1/connectors/google/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = createOAuthCallbackResponse("google", url.searchParams);
+      const redirectUrl = createOAuthCallbackResponse("google", url.searchParams, url.origin);
       await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 
     await page.route("**/api/v1/connectors/github/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = createOAuthCallbackResponse("github", url.searchParams);
+      const redirectUrl = createOAuthCallbackResponse("github", url.searchParams, url.origin);
       await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 
     await page.route("**/api/v1/connectors/notion/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
-      const redirectUrl = createOAuthCallbackResponse("notion", url.searchParams);
+      const redirectUrl = createOAuthCallbackResponse("notion", url.searchParams, url.origin);
       await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 

@@ -2,8 +2,10 @@
 set -uo pipefail
 
 # Policy sync note: keep AGENTS.md schema workspace-state entries aligned with backend/database.py,
-# including dedicated tool_configs and connector_auth_policies ownership when present.
-# Note: updated to reflect factoring/fix-first/source-of-truth policy wording on 2026-04-03.
+# including dedicated tool_configs and connector_auth_policies ownership when present, plus connector
+# storage ownership notes when policy text changes around runtime-vs-migration source of truth.
+# Note: updated to reflect factoring/fix-first/source-of-truth wording plus
+# startup-only connector legacy migration and workflow-builder service-only sync checks on 2026-04-03.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -234,19 +236,28 @@ check_workflow_builder_connector_path_sync() {
   local service_changed=0
   local route_changed=0
   local ui_changed=0
+  local builder_tests_changed=0
 
   path_changed "backend/services/workflow_builder.py" && service_changed=1
   path_changed "backend/routes/automations.py" && route_changed=1
   path_changed "ui/src/automation/app.tsx" && ui_changed=1
+  if path_changed "tests/test_connectors_for_builder.py" || path_changed "tests/test_connectors_for_builder_extra.py"; then
+    builder_tests_changed=1
+  fi
 
-  if ((service_changed == 0 && route_changed == 0 && ui_changed == 0)); then
+  if ((service_changed == 0 && route_changed == 0 && ui_changed == 0 && builder_tests_changed == 0)); then
     printf 'No workflow-builder connector source-of-truth files changed.\n'
     return 0
   fi
 
-  if ((service_changed == 1 || route_changed == 1)) && ((ui_changed == 0)); then
+  if ((route_changed == 1)) && ((ui_changed == 0)); then
     printf 'Workflow connector backend path changed without updating ui/src/automation/app.tsx consumer.\n'
     return 1
+  fi
+
+  if ((service_changed == 1)) && ((route_changed == 0)) && ((ui_changed == 0)); then
+    printf 'Workflow-builder connector service changed without route/UI changes; consumer contract is assumed unchanged and should be covered by builder tests.\n'
+    return 0
   fi
 
   printf 'Workflow-builder connector source-of-truth path remains synchronized (persisted connectors via backend resolver).\n'

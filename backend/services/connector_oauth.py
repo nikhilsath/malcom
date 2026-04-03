@@ -133,6 +133,23 @@ def start_connector_oauth(
                 env_secret = (os.getenv("MALCOM_GOOGLE_OAUTH_CLIENT_SECRET") or "").strip()
                 if env_secret:
                     resolved_client_secret_input = env_secret
+    elif canonical_provider == "github":
+        if not resolved_client_id:
+            resolved_client_id = (os.getenv("MALCOM_GITHUB_OAUTH_CLIENT_ID") or "").strip()
+        if not resolved_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "GitHub OAuth client_id is required. Configure connector client_id, "
+                    "or set MALCOM_GITHUB_OAUTH_CLIENT_ID."
+                ),
+            )
+        if not (resolved_client_secret_input or "").strip():
+            has_stored_secret = bool((existing_secret_map.get("client_secret") or "").strip())
+            if not has_stored_secret:
+                env_secret = (os.getenv("MALCOM_GITHUB_OAUTH_CLIENT_SECRET") or "").strip()
+                if env_secret:
+                    resolved_client_secret_input = env_secret
     elif not resolved_client_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -142,9 +159,15 @@ def start_connector_oauth(
     if canonical_provider in {"github", "notion"}:
         has_client_secret = bool((resolved_client_secret_input or "").strip()) or bool((existing_secret_map.get("client_secret") or "").strip())
         if not has_client_secret:
+            detail = f"{provider_name} OAuth client_secret is required."
+            if canonical_provider == "github":
+                detail = (
+                    "GitHub OAuth client_secret is required. Configure connector client_secret, "
+                    "or set MALCOM_GITHUB_OAUTH_CLIENT_SECRET."
+                )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"{provider_name} OAuth client_secret is required.",
+                detail=detail,
             )
 
     now = utc_now_iso()

@@ -14,7 +14,6 @@ from backend.database import DatabaseConnection
 from backend.services.connectors import (
     build_connector_catalog,
     canonicalize_connector_provider,
-    ensure_legacy_connector_storage_migrated,
     list_stored_connector_records,
 )
 
@@ -84,7 +83,6 @@ def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dic
     normalized records directly.
     """
 
-    ensure_legacy_connector_storage_migrated(connection)
     provider_catalog = {item.get("id"): item for item in build_connector_catalog(connection)}
     records = list_stored_connector_records(connection)
 

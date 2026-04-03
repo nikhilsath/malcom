@@ -32,6 +32,11 @@ test("google OAuth draft can be created and returned through the callback UX", a
 test("github OAuth setup supports guided authorization and lifecycle actions", async ({ page }) => {
   const harness = createConnectorsApisHarness({ connectors: [] });
   await harness.install(page);
+  let dialogSeen = false;
+  page.on("dialog", async (dialog) => {
+    dialogSeen = true;
+    await dialog.dismiss();
+  });
 
   await page.goto("/settings/connectors.html");
   await page.locator("#settings-connectors-create-button").click();
@@ -40,6 +45,7 @@ test("github OAuth setup supports guided authorization and lifecycle actions", a
   await expect(page.locator("#settings-connectors-detail-title")).toHaveText("GitHub OAuth setup");
   await expect(page.locator("#settings-connectors-github-setup-panel")).toBeVisible();
   await expect(page.locator("#settings-connectors-github-form-grid")).toBeVisible();
+  await expect(page.locator("#settings-connectors-github-client-secret-input")).toBeVisible();
   await expect(page.locator("#settings-connectors-save-button")).toBeHidden();
   await expect(page.locator("#settings-connectors-oauth-start-button")).toHaveText("Continue with GitHub");
 
@@ -51,6 +57,7 @@ test("github OAuth setup supports guided authorization and lifecycle actions", a
   await expect(page).toHaveURL(/\/settings\/connectors\.html$/);
   await expect(page.locator("#settings-connectors-feedback")).toContainText("GitHub connector authorized successfully.");
   await expect(page.locator("[id^='settings-connectors-row-github_']")).toHaveCount(1);
+  expect(dialogSeen).toBe(false);
 
   const githubRow = page.locator("[id^='settings-connectors-row-github_']").first();
   await githubRow.click();

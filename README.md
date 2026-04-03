@@ -518,7 +518,7 @@ Managed metadata for columns belonging to a `log_db_tables` definition.
 The current schema is serviceable for a single-environment local-first app, but it is not fully aligned with stricter relational database best practices yet.
 
 - Good: primary keys exist for every documented table, unique constraints exist where identity matters (`path_slug`, tool ids, managed log names), and key child tables such as `automation_steps`, `automation_run_steps`, `inbound_api_events`, `webhook_api_events`, and `log_db_columns` already use foreign keys.
-- Good: connector source-of-truth is split cleanly by responsibility: `integration_presets` for provider catalog rows (seeded from [`DEFAULT_CONNECTOR_CATALOG`](backend/services/connectors.py) on init), `connectors` for saved connector instances, and `connector_endpoint_definitions` for provider action/endpoint metadata. **Updated by TASK-005**: Runtime catalog is built from `integration_presets` via [`build_connector_catalog()`](backend/services/connectors.py); saved connector instances are read via `get_stored_connector_settings()`.
+- Good: connector source-of-truth is split cleanly by responsibility: `integration_presets` for provider catalog rows (seeded from [`DEFAULT_CONNECTOR_CATALOG`](backend/services/connectors.py) on init), `connectors` for saved connector instance rows, `connector_auth_policies` for workspace credential policy, and `connector_endpoint_definitions` for provider action/endpoint metadata. `get_stored_connector_settings()` assembles the response from those DB-backed sources, and legacy `settings.connectors` rows are only a startup migration input.
 - Good: scheduler-heavy query paths now have dedicated composite indexes for the runtime lookups used by automations, outbound APIs, runs, and connectors.
 - Needs improvement: most timestamps are stored as `text` instead of `timestamptz`, most booleans are stored as `integer` instead of `boolean`, and most structured payloads are stored as `text` instead of `jsonb`.
 - Needs improvement: several important reference columns intentionally remain soft references today, including `automation_runs.automation_id`, `storage_artifacts.automation_id`, `storage_artifacts.run_id`, and `storage_artifacts.step_id`, because current deletion/retention behavior preserves historical records.
@@ -724,6 +724,7 @@ Connector onboarding behavior:
 
 - Start first-party connector setup from the provider's `Connect` control on the Connectors page.
 - Google, GitHub, and Notion use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
+- GitHub OAuth can read `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET` when the setup form omits them; the GitHub OAuth app redirect URI should point to `/api/v1/connectors/github/oauth/callback`.
 - Google and GitHub both expose deeper workflow-builder catalogs with provider-aware connector actions and reusable HTTP presets across their major service areas.
 - Trello uses a guided non-OAuth credential flow with provider-specific API key and token fields plus connector lifecycle actions for test and revoke.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.

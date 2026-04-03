@@ -97,6 +97,85 @@ class ConnectorOAuthServiceTestCase(unittest.TestCase):
             self.assertEqual(ctx.exception.status_code, 422)
             self.assertIn("client_id is required", ctx.exception.detail)
 
+    def test_start_connector_oauth_uses_github_environment_client_credentials(self) -> None:
+        oauth_states_dict = {}
+        from backend.services.support import get_connector_protection_secret
+        protection_secret = get_connector_protection_secret(root_dir=self.root_dir, db_path=":memory:")
+
+        with patch.dict(
+            "os.environ",
+            {
+                "MALCOM_GITHUB_OAUTH_CLIENT_ID": "github-env-client-id",
+                "MALCOM_GITHUB_OAUTH_CLIENT_SECRET": "github-env-client-secret",
+            },
+            clear=False,
+        ):
+            response = start_connector_oauth(
+                provider="github",
+                connector_id="github-env-test",
+                name="Test GitHub",
+                owner="TestUser",
+                client_id=None,
+                client_secret_input="",
+                redirect_uri="http://localhost/callback",
+                scopes=["repo", "read:user"],
+                connection=self.connection,
+                root_dir=self.root_dir,
+                protection_secret=protection_secret,
+                oauth_states_dict=oauth_states_dict,
+            )
+
+        self.assertEqual(response.connector.status, "pending_oauth")
+        self.assertIn("client_id=github-env-client-id", response.authorization_url)
+
+    def test_complete_and_refresh_github_oauth_with_demo_code(self) -> None:
+        oauth_states_dict = {}
+        from backend.services.support import get_connector_protection_secret
+        protection_secret = get_connector_protection_secret(root_dir=self.root_dir, db_path=":memory:")
+
+        start_response = start_connector_oauth(
+            provider="github",
+            connector_id="github-test",
+            name="Test GitHub",
+            owner="TestUser",
+            client_id="github-client-id",
+            client_secret_input="github-client-secret",
+            redirect_uri="http://localhost/callback",
+            scopes=["repo", "read:user"],
+            connection=self.connection,
+            root_dir=self.root_dir,
+            protection_secret=protection_secret,
+            oauth_states_dict=oauth_states_dict,
+        )
+
+        callback_response = complete_connector_oauth(
+            provider="github",
+            state=start_response.state,
+            code="demo-github",
+            error=None,
+            scope=None,
+            connection=self.connection,
+            root_dir=self.root_dir,
+            protection_secret=protection_secret,
+            oauth_states_dict=oauth_states_dict,
+        )
+
+        self.assertTrue(callback_response.ok)
+        self.assertEqual(callback_response.connector.status, "connected")
+        self.assertTrue(callback_response.connector.auth_config.has_refresh_token)
+
+        success, message, sanitized = refresh_oauth_token(
+            connector_id="github-test",
+            connection=self.connection,
+            root_dir=self.root_dir,
+            protection_secret=protection_secret,
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(message, "GitHub token refreshed.")
+        self.assertEqual(sanitized["status"], "connected")
+        self.assertTrue(sanitized["auth_config"]["has_refresh_token"])
+
     def test_complete_connector_oauth_with_code_exchange(self) -> None:
         """Test completing OAuth flow with demo code exchange."""
         oauth_states_dict = {}

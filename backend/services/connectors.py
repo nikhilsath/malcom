@@ -845,6 +845,7 @@ def _build_connector_record_for_upsert(record: dict[str, Any]) -> dict[str, Any]
     if auth_type not in SUPPORTED_CONNECTOR_AUTH_TYPES:
         auth_type = "bearer"
 
+    preset = get_connector_preset(provider)
     scopes = [item for item in (record.get("scopes") or []) if isinstance(item, str)]
     auth_config = record.get("auth_config") if isinstance(record.get("auth_config"), dict) else {}
 
@@ -855,9 +856,9 @@ def _build_connector_record_for_upsert(record: dict[str, Any]) -> dict[str, Any]
         "status": status_value,
         "auth_type": auth_type,
         "scopes_json": json.dumps(scopes),
-        "base_url": record.get("base_url"),
-        "owner": record.get("owner"),
-        "docs_url": record.get("docs_url"),
+        "base_url": record.get("base_url") or (preset or {}).get("base_url") or "",
+        "owner": record.get("owner") or "Workspace",
+        "docs_url": record.get("docs_url") or (preset or {}).get("docs_url") or "",
         "credential_ref": record.get("credential_ref"),
         "created_at": record.get("created_at") or utc_now_iso(),
         "updated_at": record.get("updated_at") or utc_now_iso(),
@@ -890,6 +891,35 @@ def list_stored_connector_records(connection: DatabaseConnection) -> list[dict[s
         """,
     )
     return [item for item in (_serialize_connector_row(row) for row in rows) if item.get("id")]
+
+
+def _fetch_stored_connector_record_row(connection: DatabaseConnection, connector_id: str) -> dict[str, Any] | None:
+    row = fetch_one(
+        connection,
+        """
+        SELECT
+            id,
+            provider,
+            name,
+            status,
+            auth_type,
+            scopes_json,
+            base_url,
+            owner,
+            docs_url,
+            credential_ref,
+            created_at,
+            updated_at,
+            auth_config_json,
+            last_tested_at
+        FROM connectors
+        WHERE id = ?
+        """,
+        (connector_id,),
+    )
+    if row is None:
+        return None
+    return _serialize_connector_row(row)
 
 
 def replace_stored_connector_records(connection: DatabaseConnection, records: list[dict[str, Any]]) -> None:
@@ -1075,7 +1105,6 @@ def write_connector_auth_policy(connection: DatabaseConnection, auth_policy: dic
         (CONNECTOR_AUTH_POLICY_ROW_ID, json.dumps(normalized_policy), now, now),
     )
     connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
-    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
     connection.commit()
     return normalized_policy
 
@@ -1102,7 +1131,12 @@ def _read_connector_auth_policy_row(connection: DatabaseConnection) -> dict[str,
     return {"auth_policy": normalize_connector_auth_policy(parsed_value)}
 
 
-def _migrate_legacy_connector_auth_policy_setting(connection: DatabaseConnection, settings_value: dict[str, Any]) -> dict[str, Any]:
+def _migrate_legacy_connector_auth_policy_setting(
+    connection: DatabaseConnection,
+    settings_value: dict[str, Any],
+    *,
+    delete_connectors_row: bool = False,
+) -> dict[str, Any]:
     auth_policy = normalize_connector_auth_policy(settings_value.get("auth_policy"))
     now = utc_now_iso()
     connection.execute(
@@ -1116,7 +1150,8 @@ def _migrate_legacy_connector_auth_policy_setting(connection: DatabaseConnection
         (CONNECTOR_AUTH_POLICY_ROW_ID, json.dumps(auth_policy), now, now),
     )
     connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
-    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
+    if delete_connectors_row:
+        connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
     connection.commit()
     return {"auth_policy": auth_policy}
 
@@ -1132,23 +1167,25 @@ def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[
 
     legacy_value = read_stored_settings_section(connection, "connectors")
     if isinstance(legacy_value, dict) and isinstance(legacy_value.get("auth_policy"), dict):
-        return _migrate_legacy_connector_auth_policy_setting(connection, legacy_value)
+        return _migrate_legacy_connector_auth_policy_setting(connection, legacy_value, delete_connectors_row=False)
     return None
 
 
 def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> None:
+    if list_stored_connector_records(connection):
+        return
+
     legacy_value = read_stored_settings_section(connection, "connectors")
     if not isinstance(legacy_value, dict):
         return
 
     legacy_records = [item for item in legacy_value.get("records", []) if isinstance(item, dict)]
-    if legacy_records and not list_stored_connector_records(connection):
+    if legacy_records:
         replace_stored_connector_records(connection, legacy_records)
 
     auth_policy_value = legacy_value.get("auth_policy")
     if isinstance(auth_policy_value, dict):
         write_connector_auth_policy(connection, auth_policy_value)
-        return
 
     delete_stored_settings_section(connection, "connectors")
 
@@ -1166,7 +1203,6 @@ def persist_connector_settings(connection: DatabaseConnection, settings_value: d
 
 
 def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
-    _migrate_legacy_connectors_from_settings(connection)
     policy_payload = _read_connector_auth_policy_setting(connection)
     records = list_stored_connector_records(connection)
 
@@ -1178,8 +1214,7 @@ def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, A
 
 
 def find_stored_connector_record(connection: DatabaseConnection, connector_id: str) -> dict[str, Any] | None:
-    settings = get_stored_connector_settings(connection)
-    return next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    return _fetch_stored_connector_record_row(connection, connector_id)
 
 
 def build_outgoing_auth_config_from_connector(record: dict[str, Any], protection_secret: str) -> OutgoingAuthConfig:

@@ -41,6 +41,20 @@ def build_basic_authorization_header(client_id: str, client_secret: str) -> str:
     return f"Basic {encoded}"
 
 
+def _normalize_oauth_token_payload(
+    token_payload: dict[str, Any],
+    *,
+    fallback_scope: str = "",
+) -> dict[str, Any]:
+    return {
+        **token_payload,
+        "access_token": token_payload.get("access_token"),
+        "refresh_token": token_payload.get("refresh_token"),
+        "expires_in": token_payload.get("expires_in"),
+        "scope": token_payload.get("scope") if isinstance(token_payload.get("scope"), str) else fallback_scope,
+    }
+
+
 def exchange_github_oauth_code_for_tokens(
     *,
     code: str,
@@ -49,13 +63,21 @@ def exchange_github_oauth_code_for_tokens(
     client_id: str,
     client_secret: str,
 ) -> dict[str, Any]:
+    """Exchange a GitHub OAuth authorization code for tokens.
+
+    Accepts PKCE `code_verifier` and posts a form-encoded request to GitHub's
+    token endpoint. Returns the parsed token payload (as a dict) on success.
+    Raises HTTPException with informative messages on failure.
+    """
     if code.startswith("demo"):
-        return {
+        return _normalize_oauth_token_payload(
+            {
             "access_token": f"gho_{uuid4().hex[:24]}",
             "refresh_token": f"ghr_{uuid4().hex[:24]}",
             "expires_in": 3600,
             "scope": "repo read:user",
-        }
+            }
+        )
 
     payload = {
         "client_id": client_id,
@@ -93,11 +115,14 @@ def exchange_github_oauth_code_for_tokens(
             detail="GitHub token endpoint returned malformed JSON.",
         ) from error
 
+    if not isinstance(token_payload, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="GitHub token endpoint returned malformed JSON.")
+
     access_token = token_payload.get("access_token")
     if not isinstance(access_token, str) or not access_token.strip():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub token exchange did not return an access token.")
 
-    return token_payload
+    return _normalize_oauth_token_payload(token_payload)
 
 
 def exchange_notion_oauth_code_for_tokens(
@@ -165,12 +190,20 @@ def refresh_github_access_token(
     client_id: str,
     client_secret: str,
 ) -> dict[str, Any]:
+    """Refresh a GitHub access token using a refresh token.
+
+    Posts a form-encoded request to GitHub's token endpoint and returns the
+    parsed token payload. Raises HTTPException on failures.
+    """
     if refresh_token.startswith("ghr_"):
-        return {
+        return _normalize_oauth_token_payload(
+            {
             "access_token": f"gho_{uuid4().hex[:24]}",
             "refresh_token": f"ghr_{uuid4().hex[:24]}",
             "expires_in": 3600,
-        }
+            "scope": "repo read:user",
+            }
+        )
 
     payload = {
         "client_id": client_id,
@@ -207,11 +240,15 @@ def refresh_github_access_token(
             detail="GitHub token endpoint returned malformed JSON.",
         ) from error
 
+    if not isinstance(token_payload, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="GitHub token endpoint returned malformed JSON.")
+
     access_token = token_payload.get("access_token")
     if not isinstance(access_token, str) or not access_token.strip():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub token refresh did not return an access token.")
 
-    return token_payload
+    existing_scope = token_payload.get("scope") if isinstance(token_payload.get("scope"), str) else ""
+    return _normalize_oauth_token_payload(token_payload, fallback_scope=existing_scope)
 
 
 def refresh_notion_access_token(

@@ -53,7 +53,6 @@ export function buildAppSettingsResponse(overrides: JsonRecord = {}): JsonRecord
     },
     data: {
       payload_redaction: true,
-      export_window_utc: "02:00",
     },
     automation: {
       default_tool_retries: 2,
@@ -68,11 +67,7 @@ export function buildAppSettingsResponse(overrides: JsonRecord = {}): JsonRecord
         { value: "hourly", label: "Hourly" },
         { value: "daily", label: "Daily" },
       ],
-      data_export_windows: [
-        { value: "00:00", label: "00:00" },
-        { value: "02:00", label: "02:00" },
-        { value: "04:00", label: "04:00" },
-      ],
+      // data_export_windows removed
     },
   };
   return mergeDeep(base, overrides);
@@ -144,7 +139,12 @@ export function buildConnectorProviderMetadata(): JsonRecord[] {
       scopes_locked: true,
       default_redirect_path: "/api/v1/connectors/google/oauth/callback",
       required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
-      setup_fields: [],
+      setup_fields: [
+        { key: "name", label: "Integration name", input_type: "text", required: true },
+        { key: "client_id", label: "Client ID", input_type: "text", required: true },
+        { key: "client_secret", label: "Client secret", input_type: "password", required: true, secret: true },
+        { key: "redirect_uri", label: "Redirect URI", input_type: "url", required: true, readonly: true },
+      ],
       ui_copy: {
         eyebrow: "Google",
         title: "Google OAuth setup",
@@ -181,7 +181,13 @@ export function buildConnectorProviderMetadata(): JsonRecord[] {
       scopes_locked: false,
       default_redirect_path: "/api/v1/connectors/github/oauth/callback",
       required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
-      setup_fields: [],
+      setup_fields: [
+        { key: "name", label: "Integration name", input_type: "text", required: true },
+        { key: "client_id", label: "Client ID", input_type: "text", required: true },
+        { key: "client_secret", label: "Client secret", input_type: "password", required: true, secret: true },
+        { key: "scopes", label: "Scopes", input_type: "text" },
+        { key: "redirect_uri", label: "Redirect URI", input_type: "url", required: true, readonly: true },
+      ],
       ui_copy: {
         eyebrow: "GitHub",
         title: "GitHub OAuth setup",
@@ -218,7 +224,12 @@ export function buildConnectorProviderMetadata(): JsonRecord[] {
       scopes_locked: false,
       default_redirect_path: "/api/v1/connectors/notion/oauth/callback",
       required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
-      setup_fields: [],
+      setup_fields: [
+        { key: "name", label: "Integration name", input_type: "text", required: true },
+        { key: "client_id", label: "Client ID", input_type: "text", required: true },
+        { key: "client_secret", label: "Client secret", input_type: "password", required: true, secret: true },
+        { key: "redirect_uri", label: "Redirect URI", input_type: "url", required: true, readonly: true },
+      ],
       ui_copy: {
         eyebrow: "Notion",
         title: "Notion OAuth setup",
