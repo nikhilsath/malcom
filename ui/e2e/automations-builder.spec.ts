@@ -76,9 +76,7 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await expect(page.locator("#automations-workflow-name-input")).toHaveValue("Order sync");
   await expect(page.locator("#automation-canvas-node-step-step-fetch-order-title")).toHaveText("Fetch order");
 
-  await page.locator("#automation-canvas-node-trigger").click({ button: "right", force: true });
-  await expect(page.locator("#automations-node-menu-edit")).toBeVisible();
-  await page.locator("#automations-node-menu-edit").click();
+  await page.locator("#automation-canvas-node-trigger").dblclick();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
   await expect(page.locator("#automations-editor-modal-trigger-back")).toBeVisible();
   await page.locator("#automations-editor-modal-trigger-back").click();
@@ -97,8 +95,7 @@ test("edits an existing automation, validates, runs, and deletes it", async ({ p
   await expect(page.locator("#automations-trigger-modal-trigger-schedule-input")).toHaveText("10:45 AM");
   await page.locator("#automations-editor-modal-close").click();
 
-  await page.locator("#automation-canvas-node-step-step-fetch-order").click({ button: "right" });
-  await page.locator("#automations-node-menu-edit").click();
+  await page.locator("#automation-canvas-node-step-step-fetch-order").dblclick();
   await expect(page.locator("#automations-editor-modal")).toBeVisible();
   await page.locator("#automations-step-http-url-input").fill("https://api.example.com/orders/99");
   await page.locator("#automations-step-http-response-mapping-summary").click();

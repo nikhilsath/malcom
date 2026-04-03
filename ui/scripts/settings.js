@@ -14,6 +14,9 @@ const settingsElements = {
   fileSizeInput: document.getElementById("settings-log-file-size-input"),
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
+  accessSessionSelect: document.getElementById("settings-access-session-select"),
+  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
+  accessTokenSelect: document.getElementById("settings-access-token-select"),
 
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
@@ -138,6 +141,22 @@ const buildSectionPatch = (section, fallbackSettings) => {
     };
   }
 
+  if (section === "access") {
+    return {
+      security: {
+        session_timeout_minutes: Number.parseInt(
+          settingsElements.accessSessionSelect?.value || "",
+          10
+        ) || fallbackSettings.security.session_timeout_minutes,
+        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
+        token_rotation_days: Number.parseInt(
+          settingsElements.accessTokenSelect?.value || "",
+          10
+        ) || fallbackSettings.security.token_rotation_days
+      }
+    };
+  }
+
   if (section === "data") {
     const maxStorageMb = Number.parseInt(settingsElements.storageMaxMbInput?.value || "", 10);
 
@@ -203,10 +222,6 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.notificationsDigestSelect) {
     settingsElements.notificationsDigestSelect.value = settings.notifications.digest;
-  }
-
-  if (settingsElements.notificationsOncallCheckbox) {
-    settingsElements.notificationsOncallCheckbox.checked = settings.notifications.escalate_oncall;
   }
 
   if (settingsElements.accessSessionSelect) {

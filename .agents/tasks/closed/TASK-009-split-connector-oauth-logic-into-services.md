@@ -64,14 +64,16 @@ Files: scripts/check-policy.sh
 Action: Run policy enforcement checks after AGENTS updates. Command: `./scripts/check-policy.sh`
 Completion check: The command exits 0.
 
-4. [ ] [test]
+4. [x] [test]
 Files: scripts/test-precommit.sh
 Action: Run the precommit gate after targeted suites pass. Command: `./scripts/test-precommit.sh`
 Completion check: The command exits 0.
 
+Current verification note: targeted connector pytest suites passed, connector smoke coverage passed, and `scripts/test-precommit.sh` passed via `scripts/check-policy.sh`. `scripts/test-full.sh` is currently failing on the existing browser case `ui/e2e/automations-builder.spec.ts:68` in Chromium, Firefox, and WebKit, where the automation editor modal is not visible after double-clicking the canvas node.
+
 ## Documentation review
 
-1. [ ] [docs]
+1. [x] [docs]
 Files: AGENTS.md, scripts/check-policy.sh
 Action: Add and enforce a connector architecture rule that future connector implementations keep provider-specific business logic in dedicated `backend/services/` modules (including OAuth token lifecycle handlers) while `backend/routes/connectors.py` remains thin route glue.
 Completion check: `AGENTS.md` documents the service-module connector logic boundary for future connectors, and `scripts/check-policy.sh` is updated in the same change to enforce the new/updated rule text.

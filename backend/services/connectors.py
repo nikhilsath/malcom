@@ -14,6 +14,7 @@ import json
 import os
 import secrets
 import urllib.parse
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -22,7 +23,10 @@ from fastapi import HTTPException, status
 
 from backend.database import fetch_all, fetch_one
 from backend.schemas import OutgoingAuthConfig
-from backend.services.settings import read_stored_settings_section, write_settings_section
+from backend.services.settings import (
+    delete_stored_settings_section,
+    read_stored_settings_section,
+)
 from backend.services.utils import utc_now_iso
 
 DatabaseConnection = Any
@@ -79,6 +83,7 @@ CONNECTOR_REQUEST_AUTH_TYPE_MAP = {
     "basic": "basic",
     "header": "header",
 }
+CONNECTOR_AUTH_POLICY_ROW_ID = "workspace"
 CONNECTOR_STATUS_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "draft", "label": "Draft", "description": "Saved locally but not ready for runtime use."},
     {"value": "pending_oauth", "label": "Pending OAuth", "description": "Waiting for OAuth authorization to complete."},
@@ -536,6 +541,50 @@ def get_connector_provider_metadata(provider: str | None) -> dict[str, Any] | No
     if not canonical_provider:
         return None
     return next((json.loads(json.dumps(item)) for item in DEFAULT_CONNECTOR_PROVIDER_METADATA if item["id"] == canonical_provider), None)
+
+
+def _provider_display_name(provider: str | None) -> str:
+    metadata = get_connector_provider_metadata(provider)
+    if metadata:
+        return str(metadata.get("name") or provider or "Connector")
+    return str(provider or "Connector").replace("_", " ").title()
+
+
+def _provider_metadata(provider: str | None) -> dict[str, Any]:
+    metadata = get_connector_provider_metadata(provider)
+    if metadata is not None:
+        return metadata
+    display_name = _provider_display_name(provider)
+    return {
+        "id": canonicalize_connector_provider(provider) or "generic_http",
+        "name": display_name,
+        "onboarding_mode": "credentials",
+        "oauth_supported": False,
+        "callback_supported": False,
+        "refresh_supported": False,
+        "revoke_supported": True,
+        "redirect_uri_required": False,
+        "redirect_uri_readonly": False,
+        "scopes_locked": False,
+        "default_redirect_path": None,
+        "required_fields": [],
+        "setup_fields": [],
+        "ui_copy": {
+            "eyebrow": display_name,
+            "title": f"{display_name} setup",
+            "description": f"Enter the saved credentials needed for {display_name}.",
+            "last_checked_empty": f"{display_name} connection has not been checked yet.",
+        },
+        "action_labels": {
+            "save": "Save connector",
+            "test": "Test connector",
+            "connect": f"Save {display_name} credentials",
+            "reconnect": f"Reconnect {display_name}",
+            "refresh": "Refresh token",
+            "revoke": "Revoke connector",
+        },
+        "status_messages": {},
+    }
 
 
 def extract_connector_secret_map(auth_config: dict[str, Any], protection_secret: str) -> dict[str, str]:
@@ -1014,24 +1063,76 @@ def delete_connector_record(connection: DatabaseConnection, connector_id: str) -
 
 def write_connector_auth_policy(connection: DatabaseConnection, auth_policy: dict[str, Any]) -> dict[str, Any]:
     normalized_policy = normalize_connector_auth_policy(auth_policy)
-    write_settings_section(
-        connection,
-        CONNECTOR_AUTH_POLICY_SETTINGS_KEY,
-        {"auth_policy": normalized_policy},
+    now = utc_now_iso()
+    connection.execute(
+        """
+        INSERT INTO connector_auth_policies (policy_id, auth_policy_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(policy_id) DO UPDATE SET
+            auth_policy_json = excluded.auth_policy_json,
+            updated_at = excluded.updated_at
+        """,
+        (CONNECTOR_AUTH_POLICY_ROW_ID, json.dumps(normalized_policy), now, now),
     )
+    connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
     connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
     connection.commit()
     return normalized_policy
 
 
+def _read_connector_auth_policy_row(connection: DatabaseConnection) -> dict[str, Any] | None:
+    row = fetch_one(
+        connection,
+        """
+        SELECT auth_policy_json
+        FROM connector_auth_policies
+        WHERE policy_id = ?
+        """,
+        (CONNECTOR_AUTH_POLICY_ROW_ID,),
+    )
+    if row is None:
+        return None
+
+    try:
+        parsed_value = json.loads(row["auth_policy_json"])
+    except json.JSONDecodeError:
+        return {"auth_policy": normalize_connector_auth_policy(None)}
+    if not isinstance(parsed_value, dict):
+        return {"auth_policy": normalize_connector_auth_policy(None)}
+    return {"auth_policy": normalize_connector_auth_policy(parsed_value)}
+
+
+def _migrate_legacy_connector_auth_policy_setting(connection: DatabaseConnection, settings_value: dict[str, Any]) -> dict[str, Any]:
+    auth_policy = normalize_connector_auth_policy(settings_value.get("auth_policy"))
+    now = utc_now_iso()
+    connection.execute(
+        """
+        INSERT INTO connector_auth_policies (policy_id, auth_policy_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(policy_id) DO UPDATE SET
+            auth_policy_json = excluded.auth_policy_json,
+            updated_at = excluded.updated_at
+        """,
+        (CONNECTOR_AUTH_POLICY_ROW_ID, json.dumps(auth_policy), now, now),
+    )
+    connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
+    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
+    connection.commit()
+    return {"auth_policy": auth_policy}
+
+
 def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[str, Any] | None:
-    row_value = read_stored_settings_section(connection, CONNECTOR_AUTH_POLICY_SETTINGS_KEY)
+    row_value = _read_connector_auth_policy_row(connection)
     if isinstance(row_value, dict):
         return row_value
 
+    row_value = read_stored_settings_section(connection, CONNECTOR_AUTH_POLICY_SETTINGS_KEY)
+    if isinstance(row_value, dict):
+        return _migrate_legacy_connector_auth_policy_setting(connection, row_value)
+
     legacy_value = read_stored_settings_section(connection, "connectors")
     if isinstance(legacy_value, dict) and isinstance(legacy_value.get("auth_policy"), dict):
-        return {"auth_policy": legacy_value.get("auth_policy")}
+        return _migrate_legacy_connector_auth_policy_setting(connection, legacy_value)
     return None
 
 
@@ -1046,14 +1147,10 @@ def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> 
 
     auth_policy_value = legacy_value.get("auth_policy")
     if isinstance(auth_policy_value, dict):
-        write_settings_section(
-            connection,
-            CONNECTOR_AUTH_POLICY_SETTINGS_KEY,
-            {"auth_policy": normalize_connector_auth_policy(auth_policy_value)},
-        )
+        write_connector_auth_policy(connection, auth_policy_value)
+        return
 
-    connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
-    connection.commit()
+    delete_stored_settings_section(connection, "connectors")
 
 
 def ensure_legacy_connector_storage_migrated(connection: DatabaseConnection) -> None:
@@ -1213,6 +1310,15 @@ def build_connector_oauth_authorization_url(
     return f"{base_url}?{urllib.parse.urlencode(query)}"
 
 
+def _resolve_token_expiry(token_payload: dict[str, Any], *, default_seconds: int | None = None) -> str | None:
+    expires_in = token_payload.get("expires_in")
+    if isinstance(expires_in, int):
+        return (datetime.now(UTC) + timedelta(seconds=int(expires_in))).isoformat()
+    if default_seconds is not None:
+        return (datetime.now(UTC) + timedelta(seconds=default_seconds)).isoformat()
+    return None
+
+
 __all__ = [
     "CONNECTOR_OAUTH_STATE_TTL_SECONDS",
     "CONNECTOR_PROTECTION_VERSION",
@@ -1256,6 +1362,9 @@ __all__ = [
     "sanitize_connector_auth_config_response",
     "sanitize_connector_record_for_response",
     "sanitize_connector_settings_for_response",
+    "_provider_display_name",
+    "_provider_metadata",
+    "_resolve_token_expiry",
     "unprotect_connector_secret_value",
     "update_connector_record",
     "write_connector_auth_policy",

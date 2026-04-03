@@ -17,6 +17,11 @@ const malcomDefaultAppSettings = {
     channel: "email",
     digest: "hourly"
   },
+  security: {
+    session_timeout_minutes: 60,
+    dual_approval_required: false,
+    token_rotation_days: 30
+  },
   data: {
     payload_redaction: true,
     export_window_utc: "02:00"
@@ -170,6 +175,10 @@ const normalizeAppSettings = (settings = {}) => ({
   notifications: {
     ...malcomDefaultAppSettings.notifications,
     ...(settings.notifications || {})
+  },
+  security: {
+    ...malcomDefaultAppSettings.security,
+    ...(settings.security || {})
   },
   data: {
     ...malcomDefaultAppSettings.data,

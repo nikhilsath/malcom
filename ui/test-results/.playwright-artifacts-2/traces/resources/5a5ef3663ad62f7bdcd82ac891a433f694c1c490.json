@@ -1,1 +1,0 @@
-{"connector_id":"notion_1775237579143","name":"Notion","redirect_uri":"http://127.0.0.1:4173/api/v1/connectors/notion/oauth/callback","owner":"Workspace","scopes":[],"client_id":"notion-client-id","client_secret_input":"notion-client-secret"}

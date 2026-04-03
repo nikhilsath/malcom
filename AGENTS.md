@@ -146,6 +146,16 @@ When deciding where a new integration belongs, agents must:
 4. keep generic HTTP steps available for raw/custom API usage instead of overfitting every remote action into the activity catalog
 5. avoid creating a second source of truth when an integration is already representable as a connector-backed HTTP request or connector activity
 
+### Connector Route/Service Boundary {#connector-route-service-boundary}
+
+Connector HTTP routes must stay thin when provider-specific credential lifecycle logic exists.
+
+Rules:
+
+1. Keep provider-specific connector business logic, including OAuth token exchange, refresh, and revoke handlers, in dedicated `backend/services/connector_<provider>*.py` or adjacent connector service modules.
+2. Keep `backend/routes/connectors.py` focused on HTTP parameter extraction, response shaping, redirects, and dependency wiring rather than provider-specific OAuth token lifecycle implementations.
+3. Do not make backend services import connector route helpers as the source of truth for provider-specific connector business logic.
+
 ### Workflow Builder Connector Source Of Truth {#workflow-builder-connector-source-of-truth}
 
 Workflow-builder connector dropdown/options must follow one explicit resolver path:
@@ -193,6 +203,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Change DB schema | `backend/database.py` | `backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
 | Document database schema | `AGENTS.md`, `README.md` | `backend/database.py`, `backend/AGENTS.md`, `scripts/check-policy.sh` | runtime database objects directly |
 | Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | `backend/tool_registry.py` unless local runtime/executable is required |
+| Refactor connector OAuth/service boundary | `backend/services/connector_oauth.py`, `backend/services/connector_*oauth*.py`, `backend/routes/connectors.py` | `backend/AGENTS.md`, `tests/AGENTS.md`, `tests/test_connectors_api.py`, `tests/test_connector_oauth_service.py`, `scripts/check-policy.sh` | provider-specific OAuth token lifecycle helpers in `backend/routes/connectors.py` |
 | Refactor workflow-builder connector option flow | `backend/services/workflow_builder.py`, `backend/routes/automations.py`, `ui/src/automation/app.tsx` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md`, `README.md` | duplicate connector option lists in UI components |
 | Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
 | Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
@@ -224,6 +235,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from persisted connector rows (`connectors` table); do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
+| R-CONN-005 | Provider-specific connector OAuth token lifecycle handlers belong in backend service modules, and `backend/routes/connectors.py` must not be the source of truth for those handlers or route-imported service logic | Connector route/service architecture |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
 | R-SOT-001 | For DB-backed entities, catalogs, presets, enablement, or provider state, persisted rows plus canonical resolvers are the runtime source of truth; seed constants must not become parallel runtime registries | Backend/services, connector catalogs, and runtime configuration flows |
@@ -251,7 +263,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 24,
+  "version": 25,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -334,6 +346,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx", "README.md"],
       "verify": ["tests/test_automations_api.py", "ui/src/automation/__tests__/", "ui/e2e/"]
+    },
+    "connector_oauth_service_boundary": {
+      "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
+      "edit": ["backend/services/connector_oauth.py", "backend/services/connector_*oauth*.py", "backend/routes/connectors.py", "scripts/check-policy.sh"],
+      "verify": ["tests/test_connector_oauth_service.py", "tests/test_connectors_api.py", "backend/routes/connectors.py contains no provider-specific OAuth token lifecycle helpers"]
     }
   },
   "forbidden_paths": [

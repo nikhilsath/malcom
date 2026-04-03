@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import base64
 import json
-import os
-import re
-import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
@@ -17,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from backend.schemas import *
 from backend.services.support import *
 from backend.runtime import parse_iso_datetime
+from backend.services.connectors import _provider_display_name
 from backend.services.http_presets import list_http_preset_catalog
 from backend.services.connector_google_oauth_client import (
     revoke_google_token,
@@ -25,6 +21,11 @@ from backend.services.connector_oauth import (
     start_connector_oauth as service_start_connector_oauth,
     complete_connector_oauth as service_complete_connector_oauth,
     refresh_oauth_token as service_refresh_oauth_token,
+)
+from backend.services.connector_oauth_provider_clients import (
+    extract_provider_error_detail,
+    revoke_github_token,
+    revoke_notion_token,
 )
 
 router = APIRouter()
@@ -121,339 +122,6 @@ def remove_connector(connector_id: str, request: Request) -> ConnectorDeleteResp
 
     return ConnectorDeleteResponse(ok=True, message="Connector deleted.", connector_id=deleted_record["id"])
 
-
-def _provider_display_name(provider: str | None) -> str:
-    metadata = get_connector_provider_metadata(provider)
-    if metadata:
-        return str(metadata.get("name") or provider or "Connector")
-    return str(provider or "Connector").replace("_", " ").title()
-
-
-def _provider_metadata(provider: str | None) -> dict[str, Any]:
-    metadata = get_connector_provider_metadata(provider)
-    if metadata is not None:
-        return metadata
-    display_name = _provider_display_name(provider)
-    return {
-        "id": canonicalize_connector_provider(provider) or "generic_http",
-        "name": display_name,
-        "onboarding_mode": "credentials",
-        "oauth_supported": False,
-        "callback_supported": False,
-        "refresh_supported": False,
-        "revoke_supported": True,
-        "redirect_uri_required": False,
-        "redirect_uri_readonly": False,
-        "scopes_locked": False,
-        "default_redirect_path": None,
-        "required_fields": [],
-        "setup_fields": [],
-        "ui_copy": {
-            "eyebrow": display_name,
-            "title": f"{display_name} setup",
-            "description": f"Enter the saved credentials needed for {display_name}.",
-            "last_checked_empty": f"{display_name} connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Test connector",
-            "connect": f"Save {display_name} credentials",
-            "reconnect": f"Reconnect {display_name}",
-            "refresh": "Refresh token",
-            "revoke": "Revoke connector",
-        },
-        "status_messages": {},
-    }
-
-
-def _extract_provider_error_detail(body: str, *, fallback: str) -> str:
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError:
-        return fallback
-
-    if isinstance(payload, dict):
-        error_description = payload.get("error_description")
-        if isinstance(error_description, str) and error_description.strip():
-            return error_description.strip()
-        message_value = payload.get("message")
-        if isinstance(message_value, str) and message_value.strip():
-            return message_value.strip()
-        error_value = payload.get("error")
-        if isinstance(error_value, str) and error_value.strip():
-            return error_value.strip()
-        if isinstance(error_value, dict):
-            message_value = error_value.get("message")
-            if isinstance(message_value, str) and message_value.strip():
-                return message_value.strip()
-    return fallback
-
-
-def _build_basic_authorization_header(client_id: str, client_secret: str) -> str:
-    encoded = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
-    return f"Basic {encoded}"
-
-
-def _require_valid_redirect_uri(redirect_uri: str, *, provider_name: str) -> str:
-    resolved_redirect_uri = redirect_uri.strip()
-    if not resolved_redirect_uri:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{provider_name} OAuth redirect_uri is required.",
-        )
-    try:
-        parsed = urllib.parse.urlparse(resolved_redirect_uri)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{provider_name} OAuth redirect_uri must be a valid http or https URL.",
-        ) from error
-
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{provider_name} OAuth redirect_uri must be a valid http or https URL.",
-        )
-    return resolved_redirect_uri
-
-
-def _resolve_token_expiry(token_payload: dict[str, Any], *, default_seconds: int | None = None) -> str | None:
-    expires_in = token_payload.get("expires_in")
-    if isinstance(expires_in, int):
-        return (datetime.now(UTC) + timedelta(seconds=int(expires_in))).isoformat()
-    if default_seconds is not None:
-        return (datetime.now(UTC) + timedelta(seconds=default_seconds)).isoformat()
-    return None
-
-
-def _exchange_github_oauth_code_for_tokens(
-    *,
-    code: str,
-    code_verifier: str,
-    redirect_uri: str,
-    client_id: str,
-    client_secret: str,
-) -> dict[str, Any]:
-    if code.startswith("demo"):
-        return {
-            "access_token": f"gho_{uuid4().hex[:24]}",
-            "refresh_token": f"ghr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-            "scope": "repo read:user",
-        }
-
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "code_verifier": code_verifier,
-    }
-    request_data = urllib.parse.urlencode(payload).encode("utf-8")
-    request = urllib.request.Request(
-        "https://github.com/login/oauth/access_token",
-        data=request_data,
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            body = response.read().decode("utf-8", errors="replace")
-            token_payload = json.loads(body)
-    except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="GitHub rejected the authorization code.")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"GitHub token exchange failed ({error.code}): {detail}") from error
-    except urllib.error.URLError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unable to reach GitHub token endpoint: {error.reason}.",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="GitHub token endpoint returned malformed JSON.",
-        ) from error
-
-    access_token = token_payload.get("access_token")
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub token exchange did not return an access token.")
-
-    return token_payload
-
-
-def _exchange_notion_oauth_code_for_tokens(
-    *,
-    code: str,
-    code_verifier: str,
-    redirect_uri: str,
-    client_id: str,
-    client_secret: str,
-) -> dict[str, Any]:
-    if code.startswith("demo"):
-        return {
-            "access_token": f"ntn_{uuid4().hex[:24]}",
-            "refresh_token": f"ntr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-        }
-
-    payload = json.dumps(
-        {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "code_verifier": code_verifier,
-        }
-    ).encode("utf-8")
-    request = urllib.request.Request(
-        "https://api.notion.com/v1/oauth/token",
-        data=payload,
-        headers={
-            "Accept": "application/json",
-            "Authorization": _build_basic_authorization_header(client_id, client_secret),
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            body = response.read().decode("utf-8", errors="replace")
-            token_payload = json.loads(body)
-    except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="Notion rejected the authorization code.")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Notion token exchange failed ({error.code}): {detail}") from error
-    except urllib.error.URLError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unable to reach Notion token endpoint: {error.reason}.",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Notion token endpoint returned malformed JSON.",
-        ) from error
-
-    access_token = token_payload.get("access_token")
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion token exchange did not return an access token.")
-
-    return token_payload
-
-
-def _refresh_github_access_token(
-    *,
-    refresh_token: str,
-    client_id: str,
-    client_secret: str,
-) -> dict[str, Any]:
-    if refresh_token.startswith("ghr_"):
-        return {
-            "access_token": f"gho_{uuid4().hex[:24]}",
-            "refresh_token": f"ghr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-        }
-
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
-    request_data = urllib.parse.urlencode(payload).encode("utf-8")
-    request = urllib.request.Request(
-        "https://github.com/login/oauth/access_token",
-        data=request_data,
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            body = response.read().decode("utf-8", errors="replace")
-            token_payload = json.loads(body)
-    except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="GitHub rejected the refresh token.")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"GitHub token refresh failed ({error.code}): {detail}") from error
-    except urllib.error.URLError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unable to reach GitHub token endpoint: {error.reason}.",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="GitHub token endpoint returned malformed JSON.",
-        ) from error
-
-    access_token = token_payload.get("access_token")
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub token refresh did not return an access token.")
-
-    return token_payload
-
-
-def _refresh_notion_access_token(
-    *,
-    refresh_token: str,
-    client_id: str,
-    client_secret: str,
-) -> dict[str, Any]:
-    if refresh_token.startswith("ntr_"):
-        return {
-            "access_token": f"ntn_{uuid4().hex[:24]}",
-            "refresh_token": f"ntr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-        }
-
-    payload = json.dumps(
-        {
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }
-    ).encode("utf-8")
-    request = urllib.request.Request(
-        "https://api.notion.com/v1/oauth/token",
-        data=payload,
-        headers={
-            "Accept": "application/json",
-            "Authorization": _build_basic_authorization_header(client_id, client_secret),
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            body = response.read().decode("utf-8", errors="replace")
-            token_payload = json.loads(body)
-    except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="Notion rejected the refresh token.")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Notion token refresh failed ({error.code}): {detail}") from error
-    except urllib.error.URLError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unable to reach Notion token endpoint: {error.reason}.",
-        ) from error
-    except json.JSONDecodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Notion token endpoint returned malformed JSON.",
-        ) from error
-
-    access_token = token_payload.get("access_token")
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion token refresh did not return an access token.")
-
-    return token_payload
-
-
 def _google_probe_failure_message(detail: str) -> str:
     lowered = detail.lower()
     if "invalid_token" in lowered or "invalid token" in lowered:
@@ -480,7 +148,7 @@ def _probe_google_access_token(*, access_token: str) -> tuple[bool, str]:
             payload = json.loads(body)
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="Google rejected the saved access token.")
+        detail = extract_provider_error_detail(body, fallback="Google rejected the saved access token.")
         return False, _google_probe_failure_message(detail)
     except urllib.error.URLError as error:
         raise HTTPException(
@@ -518,7 +186,7 @@ def _probe_github_access_token(*, access_token: str) -> tuple[bool, str]:
             payload = json.loads(body)
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="GitHub rejected the saved access token.")
+        detail = extract_provider_error_detail(body, fallback="GitHub rejected the saved access token.")
         lowered = detail.lower()
         if "bad credentials" in lowered or "expired" in lowered or "revoked" in lowered:
             return False, "GitHub rejected the saved access token as invalid or revoked. Reconnect GitHub and try again."
@@ -559,7 +227,7 @@ def _probe_notion_access_token(*, access_token: str) -> tuple[bool, str]:
             payload = json.loads(body)
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="Notion rejected the saved access token.")
+        detail = extract_provider_error_detail(body, fallback="Notion rejected the saved access token.")
         lowered = detail.lower()
         if "unauthorized" in lowered or "invalid" in lowered or "expired" in lowered:
             return False, "Notion rejected the saved access token as invalid or revoked. Reconnect Notion and try again."
@@ -597,7 +265,7 @@ def _probe_trello_credentials(*, api_key: str, token: str) -> tuple[bool, str]:
             payload = json.loads(body)
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
-        detail = _extract_provider_error_detail(body, fallback="Trello rejected the saved API key or token.")
+        detail = extract_provider_error_detail(body, fallback="Trello rejected the saved API key or token.")
         lowered = detail.lower()
         if "invalid" in lowered or "unauthorized" in lowered or "expired" in lowered:
             return False, "Trello rejected the saved API key or token. Save new credentials and try again."
@@ -617,50 +285,6 @@ def _probe_trello_credentials(*, api_key: str, token: str) -> tuple[bool, str]:
         return False, "Trello validation did not return the expected member details. Save new credentials and try again."
 
     return True, "Trello connection verified."
-
-
-def _revoke_github_token(*, token: str, client_id: str, client_secret: str) -> None:
-    if token.startswith("gho_") or token.startswith("token_"):
-        return
-
-    request = urllib.request.Request(
-        f"https://api.github.com/applications/{urllib.parse.quote(client_id, safe='')}/token",
-        data=json.dumps({"access_token": token}).encode("utf-8"),
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": _build_basic_authorization_header(client_id, client_secret),
-            "Content-Type": "application/json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-        method="DELETE",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=10):
-            pass
-    except (urllib.error.HTTPError, urllib.error.URLError):
-        pass
-
-
-def _revoke_notion_token(*, token: str, client_id: str, client_secret: str) -> None:
-    if token.startswith("ntn_") or token.startswith("secret_"):
-        return
-
-    request = urllib.request.Request(
-        "https://api.notion.com/v1/oauth/revoke",
-        data=json.dumps({"token": token}).encode("utf-8"),
-        headers={
-            "Accept": "application/json",
-            "Authorization": _build_basic_authorization_header(client_id, client_secret),
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=10):
-            pass
-    except (urllib.error.HTTPError, urllib.error.URLError):
-        pass
-
 
 @router.post("/api/v1/connectors/{connector_id}/revoke", response_model=ConnectorActionResponse)
 def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
@@ -684,7 +308,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         client_id = auth_config.get("client_id")
         client_secret = secret_map.get("client_secret")
         if token and client_id and client_secret:
-            _revoke_github_token(token=token, client_id=client_id, client_secret=client_secret)
+            revoke_github_token(token=token, client_id=client_id, client_secret=client_secret)
         else:
             message = "GitHub credentials cleared locally. Configure a client secret to revoke the upstream token as well."
     elif provider == "notion":
@@ -692,7 +316,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         client_id = auth_config.get("client_id")
         client_secret = secret_map.get("client_secret")
         if token and client_id and client_secret:
-            _revoke_notion_token(token=token, client_id=client_id, client_secret=client_secret)
+            revoke_notion_token(token=token, client_id=client_id, client_secret=client_secret)
         else:
             message = "Notion credentials cleared locally. Configure a client secret to revoke the upstream token as well."
     elif provider == "trello":

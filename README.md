@@ -256,7 +256,7 @@ Persisted runtime telemetry snapshots used by dashboard resource history and the
 
 #### `tools`
 
-Persisted tool catalog metadata. This stores seeded tool definitions plus user overrides and enablement state.
+Persisted tool catalog metadata. This stores seeded tool definitions plus user overrides and authoritative enablement state.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -271,9 +271,20 @@ Persisted tool catalog metadata. This stores seeded tool definitions plus user o
 | `inputs_schema_json` | `text` | JSON text describing workflow-step input fields for the tool. |
 | `outputs_schema_json` | `text` | JSON text describing workflow-step output fields for the tool. |
 
+#### `tool_configs`
+
+Managed tool runtime configuration blobs keyed by `tool_id`. This stores per-tool runtime settings such as SMTP listener details or local LLM endpoint configuration, without duplicating enabled state.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `tool_id` | `text` | Primary key referencing [`tools`](#tools)`.`id`. |
+| `config_json` | `text` | JSON text payload for the tool's runtime configuration. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
 #### `settings`
 
-Named JSON settings sections for workspace configuration.
+Named JSON settings sections for workspace-level app configuration.
 
 | Column | Type | Meaning |
 |---|---|---|
@@ -320,6 +331,17 @@ Saved connector instance records. The active connector read/write path uses inst
 | `updated_at` | `text` | Last update timestamp stored as ISO text. |
 | `auth_config_json` | `text` | JSON text for protected auth configuration and stored credential metadata. |
 | `last_tested_at` | `text` | Optional timestamp of the last credential test/check. |
+
+#### `connector_auth_policies`
+
+Workspace-level connector credential policy storage. This keeps auth-policy settings in a dedicated table rather than mixing them into app settings sections.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `policy_id` | `text` | Primary key for the singleton workspace policy row. |
+| `auth_policy_json` | `text` | JSON text payload for connector auth policy settings. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
 
 #### `connector_endpoint_definitions`
 
@@ -614,6 +636,7 @@ Runs:
 - PostgreSQL test DB preflight and schema initialization
 - backend pytest suite excluding smoke marker (`-m "not smoke"`)
 - UI entry wiring check (`node scripts/check-ui-page-entry-modules.mjs`)
+- Playwright served-route coverage map validation (`npm --prefix ui run test:e2e:coverage`)
 - frontend unit tests (`npm test` in `ui/`)
 - frontend build (`npm run build` in `ui/`)
 
@@ -635,11 +658,18 @@ Playwright details:
 - Launches its own app server through `scripts/run_playwright_server.sh`
 - Resets the test database before startup
 - Uses `MALCOM_TEST_DATABASE_URL` when set, otherwise falls back to `MALCOM_DATABASE_URL`, then `malcom_test`
+- Validates `ui/e2e/coverage-route-map.json` against `ui/page-registry.json` before broad browser execution
 
 Targeted browser iteration:
 
 ```bash
 cd ui && npx playwright test <spec>
+```
+
+Route ownership validation:
+
+```bash
+cd ui && npm run test:e2e:coverage
 ```
 
 Before using the targeted Playwright command:
@@ -651,6 +681,7 @@ Before using the targeted Playwright command:
 
 - Behavior-changing implementation work must add or update relevant automated tests in the same change.
 - User-visible workflow changes require Playwright coverage updates unless strictly non-behavioral.
+- Playwright test retirement is replacement-first: update `ui/e2e/coverage-route-map.json` with replacement spec ownership before deleting older route coverage.
 - API route additions/removals must stay aligned with `tests/test_api_smoke_matrix.py` and `tests/api_smoke_registry/`.
 
 ## UI and Route Wiring
@@ -876,7 +907,7 @@ Frontend fallback state should keep only shape-safe empty values and must not be
 | **API endpoint** | `GET /api/v1/connectors` |
 | **Backend route handler** | `backend/routes/connectors.py:list_connectors()` |
 | **Backend service** | `backend/services/connectors.py:sanitize_connector_settings_for_response()` |
-| **Database tables** | `connectors`, `settings`, `integration_presets` |
+| **Database tables** | `connectors`, `connector_auth_policies`, `integration_presets` |
 
 **Source of truth**: connector-domain metadata in the connectors response, including normalized provider IDs, `request_auth_type`, connector statuses, auth-policy option lists, and provider preset scope recommendations.
 

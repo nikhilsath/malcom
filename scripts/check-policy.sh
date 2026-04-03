@@ -252,6 +252,32 @@ check_workflow_builder_connector_path_sync() {
   printf 'Workflow-builder connector source-of-truth path remains synchronized (persisted connectors via backend resolver).\n'
 }
 
+check_connector_route_service_boundary() {
+  local route_file="backend/routes/connectors.py"
+  local boundary_violations=()
+
+  if [[ ! -f "$route_file" ]]; then
+    printf 'Missing route file: %s\n' "$route_file"
+    return 1
+  fi
+
+  if rg -n '^def (_exchange_[a-z0-9_]+_oauth_code_for_tokens|_refresh_[a-z0-9_]+_access_token|_revoke_[a-z0-9_]+_token)\(' "$route_file" >/dev/null; then
+    boundary_violations+=("$route_file defines provider-specific OAuth token lifecycle helpers")
+  fi
+
+  if rg -n '^from backend\.routes\.connectors import ' backend/services/support.py backend/services/connector_oauth.py >/dev/null; then
+    boundary_violations+=("backend services import connector route helpers as business-logic dependencies")
+  fi
+
+  if ((${#boundary_violations[@]} > 0)); then
+    printf 'Connector route/service boundary violations detected:\n'
+    printf '  %s\n' "${boundary_violations[@]}"
+    return 1
+  fi
+
+  printf 'Connector OAuth lifecycle handlers stay in backend services and route glue remains thin.\n'
+}
+
 check_large_changed_source_files() {
   local threshold=600
   local file
@@ -311,6 +337,7 @@ run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape
 run_check "Tool manifest regeneration" check_tool_manifest_sync
 run_check "Workflow builder connector path sync" check_workflow_builder_connector_path_sync
+run_check "Connector route/service boundary" check_connector_route_service_boundary
 run_warning_check "Large changed source files" check_large_changed_source_files
 run_check "scripts/test-precommit.sh" check_test_precommit
 run_check "scripts/test-full.sh" check_test_full

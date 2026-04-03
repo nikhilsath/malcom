@@ -193,6 +193,14 @@ UPGRADE_STATEMENTS = (
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS tool_configs (
+        tool_id TEXT PRIMARY KEY REFERENCES tools(id) ON DELETE CASCADE,
+        config_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS integration_presets (
         id TEXT PRIMARY KEY,
         integration_type TEXT NOT NULL DEFAULT 'connector_provider',
@@ -223,6 +231,14 @@ UPGRADE_STATEMENTS = (
         updated_at TEXT NOT NULL,
         auth_config_json TEXT NOT NULL DEFAULT '{}',
         last_tested_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS connector_auth_policies (
+        policy_id TEXT PRIMARY KEY,
+        auth_policy_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
     )
     """,
     """

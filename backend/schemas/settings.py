@@ -24,6 +24,12 @@ class NotificationSettings(BaseModel):
     digest: str = Field(pattern=r"^(realtime|hourly|daily)$")
 
 
+class SecuritySettings(BaseModel):
+    session_timeout_minutes: Literal[15, 30, 60, 120]
+    dual_approval_required: bool
+    token_rotation_days: Literal[30, 60, 90]
+
+
 class DataSettings(BaseModel):
     payload_redaction: bool
     export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
@@ -214,6 +220,7 @@ class AppSettingsResponse(BaseModel):
     general: GeneralSettings
     logging: LoggingSettings
     notifications: NotificationSettings
+    security: SecuritySettings
     data: DataSettings
     automation: AutomationSettings
     options: "AppSettingsOptionsResponse"
@@ -229,6 +236,7 @@ class AppSettingsUpdate(BaseModel):
     general: GeneralSettings | None = None
     logging: LoggingSettings | None = None
     notifications: NotificationSettings | None = None
+    security: SecuritySettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
 
@@ -327,5 +335,6 @@ __all__ = [
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
+    "SecuritySettings",
     "SettingsOptionValueResponse",
 ]

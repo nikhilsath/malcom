@@ -543,6 +543,11 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "channel": "email",
         "digest": "hourly",
     },
+    "security": {
+        "session_timeout_minutes": 60,
+        "dual_approval_required": False,
+        "token_rotation_days": 30,
+    },
     "data": {
         "payload_redaction": True,
         "export_window_utc": "02:00",
@@ -765,6 +770,7 @@ def normalize_settings_response_section(
         "general": GeneralSettings,
         "logging": LoggingSettings,
         "notifications": NotificationSettings,
+        "security": SecuritySettings,
         "data": DataSettings,
         "automation": AutomationSettings,
         "options": AppSettingsOptionsResponse,
@@ -821,38 +827,147 @@ def get_settings_payload(connection: DatabaseConnection) -> dict[str, Any]:
     return settings
 def get_default_smtp_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_SMTP_TOOL_CONFIG))
-def get_smtp_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
-    config = get_default_smtp_tool_config()
+
+
+def _get_managed_tool_enabled_state(
+    connection: DatabaseConnection,
+    tool_id: str,
+    *,
+    default: bool = False,
+) -> bool:
     row = fetch_one(
         connection,
         """
-        SELECT value_json
-        FROM settings
-        WHERE key = ?
+        SELECT enabled
+        FROM tools
+        WHERE id = ?
         """,
-        (SMTP_TOOL_SETTINGS_KEY,),
+        (tool_id,),
     )
     if row is None:
-        return config
+        return default
+    return bool(row["enabled"])
 
-    stored_value = json.loads(row["value_json"])
-    if isinstance(stored_value, dict):
-        config.update(stored_value)
-    return config
-def save_smtp_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
+
+def _save_managed_tool_enabled_state(
+    connection: DatabaseConnection,
+    tool_id: str,
+    enabled: bool,
+    *,
+    commit: bool = True,
+) -> None:
+    connection.execute(
+        """
+        UPDATE tools
+        SET enabled = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (int(enabled), utc_now_iso(), tool_id),
+    )
+    if commit:
+        connection.commit()
+
+
+def _read_managed_tool_config_row(connection: DatabaseConnection, tool_id: str) -> dict[str, Any] | None:
+    row = fetch_one(
+        connection,
+        """
+        SELECT config_json
+        FROM tool_configs
+        WHERE tool_id = ?
+        """,
+        (tool_id,),
+    )
+    if row is None:
+        return None
+
+    try:
+        parsed = json.loads(row["config_json"])
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _save_managed_tool_config_row(
+    connection: DatabaseConnection,
+    tool_id: str,
+    config: dict[str, Any],
+    *,
+    legacy_settings_key: str | None = None,
+) -> dict[str, Any]:
     now = utc_now_iso()
     connection.execute(
         """
-        INSERT INTO settings (key, value_json, created_at, updated_at)
+        INSERT INTO tool_configs (tool_id, config_json, created_at, updated_at)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-            value_json = excluded.value_json,
+        ON CONFLICT(tool_id) DO UPDATE SET
+            config_json = excluded.config_json,
             updated_at = excluded.updated_at
         """,
-        (SMTP_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+        (tool_id, json.dumps(config), now, now),
     )
+    if legacy_settings_key:
+        connection.execute("DELETE FROM settings WHERE key = ?", (legacy_settings_key,))
     connection.commit()
     return config
+
+
+def _load_managed_tool_config_payload(
+    connection: DatabaseConnection,
+    *,
+    tool_id: str,
+    legacy_settings_key: str,
+) -> dict[str, Any]:
+    stored_config = _read_managed_tool_config_row(connection, tool_id)
+    if stored_config is not None:
+        return stored_config
+
+    legacy_value = read_stored_settings_section(connection, legacy_settings_key)
+    if not isinstance(legacy_value, dict):
+        return {}
+
+    migrated_config = dict(legacy_value)
+    legacy_enabled = migrated_config.pop("enabled", None)
+    _save_managed_tool_config_row(
+        connection,
+        tool_id,
+        migrated_config,
+        legacy_settings_key=legacy_settings_key,
+    )
+    if legacy_enabled is not None:
+        _save_managed_tool_enabled_state(connection, tool_id, bool(legacy_enabled))
+    return migrated_config
+
+
+def get_smtp_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
+    config = get_default_smtp_tool_config()
+    config.update(
+        _load_managed_tool_config_payload(
+            connection,
+            tool_id="smtp",
+            legacy_settings_key=SMTP_TOOL_SETTINGS_KEY,
+        )
+    )
+    config["enabled"] = _get_managed_tool_enabled_state(
+        connection,
+        "smtp",
+        default=bool(config.get("enabled")),
+    )
+    return config
+
+
+def save_smtp_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
+    next_config = dict(config)
+    next_config.pop("enabled", None)
+    _save_managed_tool_config_row(
+        connection,
+        "smtp",
+        next_config,
+        legacy_settings_key=SMTP_TOOL_SETTINGS_KEY,
+    )
+    return get_smtp_tool_config(connection)
+
+
 def normalize_smtp_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     normalized = get_default_smtp_tool_config()
     normalized.update(config)
@@ -866,42 +981,43 @@ def normalize_smtp_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     return normalized
 def get_default_local_llm_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_LOCAL_LLM_TOOL_CONFIG))
+
+
 def get_local_llm_endpoint_presets() -> dict[str, dict[str, Any]]:
     return json.loads(json.dumps(LOCAL_LLM_ENDPOINT_PRESETS))
+
+
 def get_local_llm_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_local_llm_tool_config()
-    row = fetch_one(
+    stored_value = _load_managed_tool_config_payload(
         connection,
-        """
-        SELECT value_json
-        FROM settings
-        WHERE key = ?
-        """,
-        (LOCAL_LLM_TOOL_SETTINGS_KEY,),
+        tool_id="llm-deepl",
+        legacy_settings_key=LOCAL_LLM_TOOL_SETTINGS_KEY,
     )
-    if row is None:
-        return config
-
-    stored_value = json.loads(row["value_json"])
     if isinstance(stored_value, dict):
         config.update(stored_value)
         if isinstance(stored_value.get("endpoints"), dict):
             config["endpoints"].update(stored_value["endpoints"])
-    return config
-def save_local_llm_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
-    now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO settings (key, value_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-            value_json = excluded.value_json,
-            updated_at = excluded.updated_at
-        """,
-        (LOCAL_LLM_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+    config["enabled"] = _get_managed_tool_enabled_state(
+        connection,
+        "llm-deepl",
+        default=bool(config.get("enabled")),
     )
-    connection.commit()
     return config
+
+
+def save_local_llm_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
+    next_config = dict(config)
+    next_config.pop("enabled", None)
+    _save_managed_tool_config_row(
+        connection,
+        "llm-deepl",
+        next_config,
+        legacy_settings_key=LOCAL_LLM_TOOL_SETTINGS_KEY,
+    )
+    return get_local_llm_tool_config(connection)
+
+
 def normalize_local_llm_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     normalized = get_default_local_llm_tool_config()
     normalized.update(config or {})
@@ -926,38 +1042,37 @@ def normalize_local_llm_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     return normalized
 def get_default_coqui_tts_tool_config() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_COQUI_TTS_TOOL_CONFIG))
+
+
 def get_coqui_tts_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_coqui_tts_tool_config()
-    row = fetch_one(
+    config.update(
+        _load_managed_tool_config_payload(
+            connection,
+            tool_id="coqui-tts",
+            legacy_settings_key=COQUI_TTS_TOOL_SETTINGS_KEY,
+        )
+    )
+    config["enabled"] = _get_managed_tool_enabled_state(
         connection,
-        """
-        SELECT value_json
-        FROM settings
-        WHERE key = ?
-        """,
-        (COQUI_TTS_TOOL_SETTINGS_KEY,),
+        "coqui-tts",
+        default=bool(config.get("enabled")),
     )
-    if row is None:
-        return config
+    return config
 
-    stored_value = json.loads(row["value_json"])
-    if isinstance(stored_value, dict):
-        config.update(stored_value)
-    return config
+
 def save_coqui_tts_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
-    now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO settings (key, value_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-            value_json = excluded.value_json,
-            updated_at = excluded.updated_at
-        """,
-        (COQUI_TTS_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+    next_config = dict(config)
+    next_config.pop("enabled", None)
+    _save_managed_tool_config_row(
+        connection,
+        "coqui-tts",
+        next_config,
+        legacy_settings_key=COQUI_TTS_TOOL_SETTINGS_KEY,
     )
-    connection.commit()
-    return config
+    return get_coqui_tts_tool_config(connection)
+
+
 def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | None = None) -> dict[str, Any]:
     normalized = get_default_coqui_tts_tool_config()
     normalized.update(config or {})
@@ -979,38 +1094,31 @@ def get_default_image_magic_tool_config() -> dict[str, Any]:
 
 def get_image_magic_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
     config = get_default_image_magic_tool_config()
-    row = fetch_one(
-        connection,
-        """
-        SELECT value_json
-        FROM settings
-        WHERE key = ?
-        """,
-        (IMAGE_MAGIC_TOOL_SETTINGS_KEY,),
+    config.update(
+        _load_managed_tool_config_payload(
+            connection,
+            tool_id="image-magic",
+            legacy_settings_key=IMAGE_MAGIC_TOOL_SETTINGS_KEY,
+        )
     )
-    if row is None:
-        return config
-
-    stored_value = json.loads(row["value_json"])
-    if isinstance(stored_value, dict):
-        config.update(stored_value)
+    config["enabled"] = _get_managed_tool_enabled_state(
+        connection,
+        "image-magic",
+        default=bool(config.get("enabled")),
+    )
     return config
 
 
 def save_image_magic_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
-    now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO settings (key, value_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-            value_json = excluded.value_json,
-            updated_at = excluded.updated_at
-        """,
-        (IMAGE_MAGIC_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
+    next_config = dict(config)
+    next_config.pop("enabled", None)
+    _save_managed_tool_config_row(
+        connection,
+        "image-magic",
+        next_config,
+        legacy_settings_key=IMAGE_MAGIC_TOOL_SETTINGS_KEY,
     )
-    connection.commit()
-    return config
+    return get_image_magic_tool_config(connection)
 
 
 def normalize_image_magic_tool_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -2239,28 +2347,13 @@ def sync_managed_tool_enabled_state(request: Request, tool_id: str, enabled: boo
     )
     return ToolDirectoryEntryResponse(**entry)
 def build_tool_directory_response(request: Request) -> list[ToolDirectoryEntryResponse]:
-    """Build tool manifest for automation builder, applying runtime enabled state.
-    
+    """Build tool manifest for automation builder from the tools table.
+
     Data lineage: See README.md > Data Lineage Reference > Tools Manifest
     Source: tools table in database. Default tools synced at startup via sync_tools_to_database().
     """
     connection = get_connection(request)
     entries = load_tool_directory(get_root_dir(request), connection)
-    smtp_enabled = normalize_smtp_tool_config(get_smtp_tool_config(connection))["enabled"]
-    local_llm_enabled = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))["enabled"]
-    coqui_tts_enabled = normalize_coqui_tts_tool_config(
-        get_coqui_tts_tool_config(connection),
-        root_dir=get_root_dir(request),
-    )["enabled"]
-
-    for entry in entries:
-        if entry["id"] == "smtp":
-            entry["enabled"] = smtp_enabled
-        if entry["id"] == "llm-deepl":
-            entry["enabled"] = local_llm_enabled
-        if entry["id"] == "coqui-tts":
-            entry["enabled"] = coqui_tts_enabled
-
     return [ToolDirectoryEntryResponse(**entry) for entry in entries]
 
 

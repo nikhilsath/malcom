@@ -1,18 +1,13 @@
-"""Tool configuration defaults, normalization, and persistence helpers.
-
-Primary identifiers: default config constants, get/load/save helpers, and normalization
-functions for SMTP, local LLM, Coqui TTS, Image Magic, and retry settings.
-"""
+"""Managed tool configuration compatibility surface."""
 
 from __future__ import annotations
 
-from backend.services.tool_runtime import (
+from backend.services.automation_execution import (
     COQUI_TTS_TOOL_SETTINGS_KEY,
     DEFAULT_COQUI_TTS_TOOL_CONFIG,
     DEFAULT_IMAGE_MAGIC_TOOL_CONFIG,
     DEFAULT_LOCAL_LLM_TOOL_CONFIG,
     DEFAULT_SMTP_TOOL_CONFIG,
-    DEFAULT_TOOL_RETRY_SETTINGS,
     IMAGE_MAGIC_TOOL_SETTINGS_KEY,
     LOCAL_LLM_ENDPOINT_PRESETS,
     LOCAL_LLM_TOOL_SETTINGS_KEY,
@@ -22,7 +17,6 @@ from backend.services.tool_runtime import (
     get_default_image_magic_tool_config,
     get_default_local_llm_tool_config,
     get_default_smtp_tool_config,
-    get_default_tool_retries,
     get_image_magic_tool_config,
     get_local_llm_endpoint_presets,
     get_local_llm_tool_config,

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import urllib.parse
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -14,83 +15,66 @@ from backend.schemas import ConnectorOAuthCallbackResponse, ConnectorOAuthStartR
 from backend.services.connector_google_oauth_client import (
     exchange_google_oauth_code_for_tokens,
     refresh_google_access_token,
-    revoke_google_token,
+)
+from backend.services.connector_oauth_provider_clients import (
+    exchange_github_oauth_code_for_tokens,
+    exchange_notion_oauth_code_for_tokens,
+    refresh_github_access_token,
+    refresh_notion_access_token,
 )
 from backend.runtime import parse_iso_datetime
+from backend.services.support import (
+    _provider_display_name,
+    _provider_metadata,
+    _resolve_token_expiry,
+    build_connector_oauth_authorization_url,
+    build_pkce_code_challenge,
+    canonicalize_connector_provider,
+    create_connector_record,
+    extract_connector_secret_map,
+    find_stored_connector_record,
+    get_connector_preset,
+    normalize_connector_auth_config_for_storage,
+    normalize_connector_record_for_storage,
+    sanitize_connector_record_for_response,
+    save_connector_record,
+    utc_now_iso,
+)
 
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
 
 
-def _get_connector_helpers():
-    """Get Connector helper functions using deferred imports to avoid circular dependencies."""
-    from backend.routes.connectors import (
-        _require_valid_redirect_uri,
-        build_connector_oauth_authorization_url,
-        build_pkce_code_challenge,
-        _extract_provider_error_detail,
-        _build_basic_authorization_header,
-    )
-    from backend.services.support import (
-        canonicalize_connector_provider,
-        create_connector_record,
-        extract_connector_secret_map,
-        find_stored_connector_record,
-        get_connector_preset,
-        normalize_connector_auth_config_for_storage,
-        normalize_connector_record_for_storage,
-        sanitize_connector_record_for_response,
-        save_connector_record,
-        utc_now_iso,
-        _provider_display_name,
-        _provider_metadata,
-        _resolve_token_expiry,
-    )
-    
-    return {
-        "_require_valid_redirect_uri": _require_valid_redirect_uri,
-        "build_connector_oauth_authorization_url": build_connector_oauth_authorization_url,
-        "build_pkce_code_challenge": build_pkce_code_challenge,
-        "_extract_provider_error_detail": _extract_provider_error_detail,
-        "_build_basic_authorization_header": _build_basic_authorization_header,
-        "canonicalize_connector_provider": canonicalize_connector_provider,
-        "create_connector_record": create_connector_record,
-        "extract_connector_secret_map": extract_connector_secret_map,
-        "find_stored_connector_record": find_stored_connector_record,
-        "get_connector_preset": get_connector_preset,
-        "normalize_connector_auth_config_for_storage": normalize_connector_auth_config_for_storage,
-        "normalize_connector_record_for_storage": normalize_connector_record_for_storage,
-        "sanitize_connector_record_for_response": sanitize_connector_record_for_response,
-        "save_connector_record": save_connector_record,
-        "utc_now_iso": utc_now_iso,
-        "_provider_display_name": _provider_display_name,
-        "_provider_metadata": _provider_metadata,
-        "_resolve_token_expiry": _resolve_token_expiry,
-    }
+def _require_valid_redirect_uri(redirect_uri: str, *, provider_name: str) -> str:
+    resolved_redirect_uri = redirect_uri.strip()
+    if not resolved_redirect_uri:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{provider_name} OAuth redirect_uri is required.",
+        )
+    try:
+        parsed = urllib.parse.urlparse(resolved_redirect_uri)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{provider_name} OAuth redirect_uri must be a valid http or https URL.",
+        ) from error
+
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{provider_name} OAuth redirect_uri must be a valid http or https URL.",
+        )
+    return resolved_redirect_uri
 
 
 def _get_provider_oauth_handlers(provider: str) -> tuple[Any, Any]:
-    """Get the OAuth code exchange and refresh functions for a provider.
-    
-    This defers imports to avoid circular dependencies. Provider implementations
-    may be defined in routes, services, or other modules.
-    """
-    from backend.routes.connectors import (
-        _exchange_github_oauth_code_for_tokens,
-        _exchange_notion_oauth_code_for_tokens,
-        _refresh_github_access_token,
-        _refresh_notion_access_token,
-    )
-    
-    helpers = _get_connector_helpers()
-    canonicalize_connector_provider = helpers["canonicalize_connector_provider"]
-    
+    """Get provider-specific OAuth code exchange and refresh handlers."""
     canonical = canonicalize_connector_provider(provider)
     if canonical == "github":
-        return _exchange_github_oauth_code_for_tokens, _refresh_github_access_token
-    elif canonical == "notion":
-        return _exchange_notion_oauth_code_for_tokens, _refresh_notion_access_token
-    else:
-        return None, None
+        return exchange_github_oauth_code_for_tokens, refresh_github_access_token
+    if canonical == "notion":
+        return exchange_notion_oauth_code_for_tokens, refresh_notion_access_token
+    return None, None
 
 
 def start_connector_oauth(
@@ -109,26 +93,6 @@ def start_connector_oauth(
     oauth_states_dict: dict[str, Any],
 ) -> ConnectorOAuthStartResponse:
     """Start OAuth authorization flow for a connector."""
-    # Defer imports to avoid circular dependencies
-    from backend.routes.connectors import (
-        _require_valid_redirect_uri,
-        build_connector_oauth_authorization_url,
-        build_pkce_code_challenge,
-    )
-    from backend.services.support import (
-        canonicalize_connector_provider,
-        create_connector_record,
-        extract_connector_secret_map,
-        find_stored_connector_record,
-        get_connector_preset,
-        normalize_connector_record_for_storage,
-        sanitize_connector_record_for_response,
-        save_connector_record,
-        utc_now_iso,
-        _provider_display_name,
-        _provider_metadata,
-    )
-    
     canonical_provider = canonicalize_connector_provider(provider)
     preset = get_connector_preset(canonical_provider or provider, connection=connection)
     if preset is None:
@@ -274,18 +238,6 @@ def complete_connector_oauth(
     Raises:
         HTTPException: On state validation, code exchange, or database errors.
     """
-    from backend.services.support import (
-        canonicalize_connector_provider,
-        extract_connector_secret_map,
-        find_stored_connector_record,
-        normalize_connector_auth_config_for_storage,
-        sanitize_connector_record_for_response,
-        save_connector_record,
-        utc_now_iso,
-        _provider_display_name,
-        _resolve_token_expiry,
-    )
-    
     state_payload = oauth_states_dict.get(state)
     canonical_provider = canonicalize_connector_provider(provider)
     provider_name = _provider_display_name(canonical_provider or provider)
@@ -426,19 +378,6 @@ def refresh_oauth_token(
     Raises:
         HTTPException: On validation failures or token refresh errors.
     """
-    from backend.services.support import (
-        canonicalize_connector_provider,
-        extract_connector_secret_map,
-        find_stored_connector_record,
-        normalize_connector_auth_config_for_storage,
-        sanitize_connector_record_for_response,
-        save_connector_record,
-        utc_now_iso,
-        _provider_display_name,
-        _provider_metadata,
-        _resolve_token_expiry,
-    )
-    
     record = find_stored_connector_record(connection, connector_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")

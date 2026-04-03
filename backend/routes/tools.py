@@ -364,44 +364,49 @@ def patch_tool_directory(tool_id: str, payload: ToolDirectoryUpdate, request: Re
             )
 
         if "enabled" in changes:
+            desired_enabled = bool(changes["enabled"])
             if tool_id == "smtp":
                 config = get_smtp_tool_config(connection)
-                config["enabled"] = bool(changes["enabled"])
                 save_smtp_tool_config(connection, config)
-                sync_smtp_tool_runtime(request.app, connection)
-            if tool_id == "llm-deepl":
-                config = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))
-                config["enabled"] = bool(changes["enabled"])
-                save_local_llm_tool_config(connection, config)
-            if tool_id == "coqui-tts":
-                config = normalize_coqui_tts_tool_config(
-                    get_coqui_tts_tool_config(connection),
-                    root_dir=get_root_dir(request),
+                set_tool_enabled(
+                    get_root_dir(request),
+                    connection,
+                    tool_id,
+                    enabled=desired_enabled,
                 )
-                config["enabled"] = bool(changes["enabled"])
-                save_coqui_tts_tool_config(connection, config)
-            if tool_id == "image-magic":
-                config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
-                config["enabled"] = bool(changes["enabled"])
-                if config["enabled"] and (
-                    not config.get("target_worker_id")
-                    or config.get("target_worker_id") == get_local_worker_id()
-                ):
-                    try:
-                        verify_local_command_ready(
-                            config["command"],
-                            working_dir=get_root_dir(request),
-                            tool_name="Image Magic",
-                        )
-                    except RuntimeError as error:
-                        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-                save_image_magic_tool_config(connection, config)
-            set_tool_enabled(
-                get_root_dir(request),
-                connection,
-                tool_id,
-                enabled=bool(changes["enabled"]),
-            )
+                sync_smtp_tool_runtime(request.app, connection)
+            else:
+                if tool_id == "llm-deepl":
+                    config = normalize_local_llm_tool_config(get_local_llm_tool_config(connection))
+                    save_local_llm_tool_config(connection, config)
+                if tool_id == "coqui-tts":
+                    config = normalize_coqui_tts_tool_config(
+                        get_coqui_tts_tool_config(connection),
+                        root_dir=get_root_dir(request),
+                    )
+                    save_coqui_tts_tool_config(connection, config)
+                if tool_id == "image-magic":
+                    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+                    if desired_enabled and (
+                        not config.get("target_worker_id")
+                        or config.get("target_worker_id") == get_local_worker_id()
+                    ):
+                        try:
+                            verify_local_command_ready(
+                                config["command"],
+                                working_dir=get_root_dir(request),
+                                tool_name="Image Magic",
+                            )
+                        except RuntimeError as error:
+                            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+                    save_image_magic_tool_config(connection, config)
+
+                set_tool_enabled(
+                    get_root_dir(request),
+                    connection,
+                    tool_id,
+                    enabled=desired_enabled,
+                )
     except FileNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tool not found.") from error
     except ValueError as error:

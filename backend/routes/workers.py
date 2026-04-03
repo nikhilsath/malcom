@@ -33,12 +33,12 @@ def sync_worker_smtp_tool(payload: WorkerRpcSmtpSyncRequest, request: Request) -
     assert_worker_rpc_authorized(request)
     connection = get_connection(request)
     next_config = normalize_smtp_tool_config(get_smtp_tool_config(connection))
-    next_config["enabled"] = payload.enabled
     next_config["bind_host"] = payload.bind_host
     next_config["port"] = payload.port
     next_config["recipient_email"] = payload.recipient_email
     next_config["target_worker_id"] = get_local_worker_id()
     save_smtp_tool_config(connection, next_config)
+    sync_managed_tool_enabled_state(request, "smtp", payload.enabled)
     sync_smtp_tool_runtime(request.app, connection)
     return build_smtp_tool_response(request.app, connection)
 

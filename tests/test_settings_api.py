@@ -38,6 +38,9 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["logging"]["max_stored_entries"], 250)
         self.assertEqual(body["logging"]["max_file_size_mb"], 5)
         self.assertEqual(body["notifications"]["channel"], "email")
+        self.assertEqual(body["security"]["session_timeout_minutes"], 60)
+        self.assertFalse(body["security"]["dual_approval_required"])
+        self.assertEqual(body["security"]["token_rotation_days"], 30)
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
         self.assertNotIn("connectors", body)
         self.assertEqual([item["value"] for item in body["options"]["notification_channels"]], ["email", "pager"])
@@ -97,6 +100,11 @@ class SettingsApiTestCase(unittest.TestCase):
                     "max_detail_characters": 6000,
                     "max_file_size_mb": 8,
                 },
+                "security": {
+                    "session_timeout_minutes": 120,
+                    "dual_approval_required": True,
+                    "token_rotation_days": 90,
+                },
             },
         )
 
@@ -106,6 +114,9 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["logging"]["max_stored_entries"], 500)
         self.assertEqual(body["logging"]["max_file_size_mb"], 8)
         self.assertEqual(body["notifications"]["digest"], "hourly")
+        self.assertEqual(body["security"]["session_timeout_minutes"], 120)
+        self.assertTrue(body["security"]["dual_approval_required"])
+        self.assertEqual(body["security"]["token_rotation_days"], 90)
 
         connection = connect(database_url=self.database_url)
         try:
@@ -125,6 +136,9 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(saved_settings["logging"]["max_visible_entries"], 100)
         self.assertEqual(saved_settings["logging"]["max_file_size_mb"], 8)
         self.assertEqual(saved_settings["notifications"]["channel"], "email")
+        self.assertEqual(saved_settings["security"]["session_timeout_minutes"], 120)
+        self.assertTrue(saved_settings["security"]["dual_approval_required"])
+        self.assertEqual(saved_settings["security"]["token_rotation_days"], 90)
 
     def test_get_settings_backfills_missing_logging_fields_from_defaults(self) -> None:
         connection = connect(database_url=self.database_url)

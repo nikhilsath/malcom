@@ -50,7 +50,14 @@ def write_settings_section(connection: Any, key: str, value: Any) -> None:
     connection.commit()
 
 
+def delete_stored_settings_section(connection: Any, key: str) -> None:
+    """Delete *key* from the settings table and commit."""
+    connection.execute("DELETE FROM settings WHERE key = ?", (key,))
+    connection.commit()
+
+
 __all__ = [
+    "delete_stored_settings_section",
     "merge_settings_section",
     "read_stored_settings_section",
     "write_settings_section",

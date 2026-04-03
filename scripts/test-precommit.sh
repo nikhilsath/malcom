@@ -15,6 +15,10 @@ fi
 ./.venv/bin/pytest "${BACKEND_ARGS[@]}"
 node scripts/check-ui-page-entry-modules.mjs
 
+if [[ "${SKIP_PLAYWRIGHT_ROUTE_COVERAGE:-0}" != "1" ]]; then
+  npm --prefix ui run test:e2e:coverage
+fi
+
 cd "$ROOT_DIR/ui"
 npm test
 npm run build

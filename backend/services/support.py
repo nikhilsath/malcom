@@ -19,7 +19,6 @@ from .workflow_builder import *
 from .utils import *
 from .validation import *
 from . import helpers as _helpers
-from backend.routes.connectors import _provider_display_name, _provider_metadata, _resolve_token_expiry
 
 
 def get_connection(request: Request) -> Any:

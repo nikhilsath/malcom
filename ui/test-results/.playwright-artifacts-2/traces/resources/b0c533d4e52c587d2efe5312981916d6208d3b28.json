@@ -1,1 +1,0 @@
-{"connector_id":"github_1775237577104","name":"GitHub","redirect_uri":"http://127.0.0.1:4173/api/v1/connectors/github/oauth/callback","owner":"Workspace","scopes":["repo","read:user"],"client_id":"github-client-id","client_secret_input":"github-client-secret"}

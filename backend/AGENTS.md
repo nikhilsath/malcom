@@ -41,11 +41,12 @@ Applies to backend implementation, schema, API route behavior, connector/tool ba
 
 ### Source Of Truth
 
-The schema structure source of truth is migration history in `backend/migrations/` (Alembic).
-Runtime DB helpers, connection resolution, and migration execution entrypoints live in `backend/database.py`.
+The repo-facing schema structure source of truth is `backend/database.py`.
+Alembic migrations under `backend/migrations/` are the required structural change log and execution path, and they must stay aligned with `backend/database.py`.
 
 Use the live database to inspect current state.
 Use Alembic migrations to change structure.
+Do not treat the live database as an editable source of truth.
 
 ### Database Location
 
@@ -121,6 +122,13 @@ Agents must not:
 - treat any runtime DB file as the schema source of truth
 - hand-edit runtime database tables/columns directly as a substitute for code changes
 - bypass migration files for structural schema changes
+
+## Backend Service Factoring And Canonical Fixes
+
+1. Keep provider-specific, connector-specific, or integration-specific behavior in scoped service modules (for example `backend/services/connector_<provider>*.py`) instead of growing generic route or service files with more branches.
+2. When a backend file is already carrying multiple responsibilities, extract the new concern into an adjacent helper or service before adding more conditionals to the largest file in the area.
+3. Fix the canonical backend resolver or write path rather than adding fallback reads from settings payloads, duplicated constants, or second-chance route logic.
+4. For DB-backed connector, activity, preset, and catalog state, persist and resolve through DB-backed services and routes; code constants may seed defaults but must not become a second runtime registry.
 
 ---
 

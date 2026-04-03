@@ -1,0 +1,134 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e5]:
+    - link "Dashboard" [ref=e6]:
+      - /url: ../dashboard/home.html
+    - link "Automations" [ref=e7]:
+      - /url: ../automations/overview.html
+    - link "APIs" [ref=e8]:
+      - /url: ../apis/registry.html
+    - link "Tools" [ref=e9]:
+      - /url: ../tools/catalog.html
+    - link "Scripts" [ref=e10]:
+      - /url: ../scripts.html
+    - link "Settings" [ref=e11]:
+      - /url: ../settings/workspace.html
+  - complementary [ref=e12]:
+    - generic [ref=e13]:
+      - link "Malcom home" [ref=e14]:
+        - /url: ../dashboard/home.html
+        - img "Malcom icon" [ref=e15]
+        - generic [ref=e16]: Malcom
+      - button "Collapse sidebar" [expanded] [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]: <
+    - navigation [ref=e19]:
+      - list [ref=e20]:
+        - listitem [ref=e21]:
+          - link "Overview" [ref=e22]:
+            - /url: ../automations/overview.html
+        - listitem [ref=e23]:
+          - link "Library" [ref=e24]:
+            - /url: ../automations/library.html
+        - listitem [ref=e25]:
+          - link "Builder" [ref=e26]:
+            - /url: ../automations/builder.html
+        - listitem [ref=e27]:
+          - link "Log Data" [ref=e28]:
+            - /url: ../automations/data.html
+    - button "Create +" [ref=e30] [cursor=pointer]
+  - main [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e34]:
+        - heading "Automation Builder" [level=2] [ref=e35]
+        - button "Page information" [ref=e36] [cursor=pointer]: i
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - button "Collapse Automation settings" [expanded] [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: Automation settings
+            - generic [ref=e43]: "-"
+            - generic [ref=e44]: Collapse Automation settings
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]:
+                - generic [ref=e49]: Automation name
+                - textbox "Automation name" [ref=e50]:
+                  - /placeholder: Name this automation
+                  - text: Order sync
+              - generic [ref=e51]:
+                - generic [ref=e52]: Automation description
+                - textbox "Automation description" [ref=e53]:
+                  - /placeholder: Describe what this automation is for
+                  - text: Refreshes the order feed and notifies the team.
+            - generic [ref=e55]:
+              - generic [ref=e56]:
+                - generic [ref=e57]: Enabled
+                - generic [ref=e58]: Edit the trigger directly from the canvas trigger node.
+              - switch [checked] [ref=e59] [cursor=pointer]
+              - checkbox [checked] [ref=e61]
+        - region "Builder mode selector" [ref=e62]:
+          - generic [ref=e63]:
+            - paragraph [ref=e64]: Build mode
+            - heading "Canvas Mode" [level=3] [ref=e65]
+            - paragraph [ref=e66]: Use freeform canvas editing with direct node operations and branch controls.
+          - group "Builder mode" [ref=e67]:
+            - button "Guided" [ref=e68] [cursor=pointer]
+            - button "Canvas" [pressed] [ref=e69] [cursor=pointer]
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - paragraph [ref=e73]: Builder
+              - generic [ref=e74]:
+                - heading "Automation canvas" [level=3] [ref=e75]
+                - button "More information" [ref=e76] [cursor=pointer]: i
+            - generic [ref=e78]: "Selected: Trigger"
+            - generic [ref=e79]:
+              - button "Save" [ref=e80] [cursor=pointer]
+              - button "Validate" [ref=e81] [cursor=pointer]
+              - button "Run now" [ref=e82] [cursor=pointer]
+              - button "New draft" [ref=e83] [cursor=pointer]
+              - button "Delete" [ref=e84] [cursor=pointer]
+          - application [ref=e86]:
+            - generic [ref=e88]:
+              - generic:
+                - generic:
+                  - img
+                  - img:
+                    - img "Edge from insert-node-0 to step-node-step-fetch-order" [ref=e89] [cursor=pointer]
+                  - img:
+                    - img "Edge from step-node-step-fetch-order to insert-node-1" [ref=e92] [cursor=pointer]
+                  - img:
+                    - img "Edge from insert-node-1 to step-node-step-log-result" [ref=e95] [cursor=pointer]
+                  - img:
+                    - img "Edge from step-node-step-log-result to insert-node-2" [ref=e98] [cursor=pointer]
+                - generic:
+                  - group [ref=e101]:
+                    - button "Add step here" [ref=e103] [cursor=pointer]
+                  - group [ref=e104]:
+                    - generic [ref=e105]:
+                      - generic [ref=e107]:
+                        - generic [ref=e108]: 1. HTTP request
+                        - generic [ref=e109]: Fetch order
+                      - generic [ref=e110]: https://api.example.com/orders/42
+                  - group [ref=e111]:
+                    - button "Add step here" [ref=e113] [cursor=pointer]
+                  - group [ref=e114]:
+                    - generic [ref=e115]:
+                      - generic [ref=e117]:
+                        - generic [ref=e118]: 2. Write
+                        - generic [ref=e119]: Log result
+                      - generic [ref=e120]: "Customer {{steps.Fetch order.customer_name}}"
+                  - group [ref=e121]:
+                    - button "Add step here" [ref=e123] [cursor=pointer]
+            - img
+            - generic "Control Panel" [ref=e124]:
+              - button "Zoom In" [ref=e125] [cursor=pointer]:
+                - img [ref=e126]
+              - button "Zoom Out" [ref=e128] [cursor=pointer]:
+                - img [ref=e129]
+              - button "Fit View" [ref=e131] [cursor=pointer]:
+                - img [ref=e132]
+              - button "Toggle Interactivity" [ref=e134] [cursor=pointer]:
+                - img [ref=e135]
+```

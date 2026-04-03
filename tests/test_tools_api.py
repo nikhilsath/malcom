@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -154,6 +155,118 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         local_llm = next((item for item in directory_response.json() if item["id"] == "llm-deepl"), None)
         self.assertIsNotNone(local_llm)
         self.assertTrue(local_llm["enabled"])
+
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("llm-deepl",),
+            )
+            tool_row = fetch_one(
+                connection,
+                """
+                SELECT enabled
+                FROM tools
+                WHERE id = ?
+                """,
+                ("llm-deepl",),
+            )
+            legacy_row = fetch_one(
+                connection,
+                """
+                SELECT key
+                FROM settings
+                WHERE key = ?
+                """,
+                ("local_llm_tool",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        self.assertEqual(json.loads(config_row["config_json"])["provider"], "lm_studio_api_v1")
+        self.assertEqual(tool_row["enabled"], 1)
+        self.assertIsNone(legacy_row)
+
+    def test_get_smtp_tool_migrates_legacy_settings_row_to_tool_configs(self) -> None:
+        connection = connect(database_url=self.database_url)
+        try:
+            now_value = "2026-04-03T00:00:00+00:00"
+            connection.execute(
+                """
+                INSERT INTO settings (key, value_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value_json = excluded.value_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    "smtp_tool",
+                    json.dumps(
+                        {
+                            "enabled": True,
+                            "bind_host": "127.0.0.1",
+                            "port": 2626,
+                            "recipient_email": "migrated@example.com",
+                        }
+                    ),
+                    now_value,
+                    now_value,
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        response = self.client.get("/api/v1/tools/smtp")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["config"]["enabled"])
+        self.assertEqual(body["config"]["port"], 2626)
+        self.assertEqual(body["config"]["recipient_email"], "migrated@example.com")
+
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("smtp",),
+            )
+            tool_row = fetch_one(
+                connection,
+                """
+                SELECT enabled
+                FROM tools
+                WHERE id = ?
+                """,
+                ("smtp",),
+            )
+            legacy_row = fetch_one(
+                connection,
+                """
+                SELECT key
+                FROM settings
+                WHERE key = ?
+                """,
+                ("smtp_tool",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        self.assertEqual(json.loads(config_row["config_json"])["port"], 2626)
+        self.assertEqual(tool_row["enabled"], 1)
+        self.assertIsNone(legacy_row)
 
     def test_local_llm_chat_endpoint_uses_saved_tool_config(self) -> None:
         self.client.patch(
@@ -384,6 +497,33 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(body["config"]["language"], "en")
         self.assertTrue(body["config"]["output_directory"].endswith("generated-audio"))
 
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("coqui-tts",),
+            )
+            tool_row = fetch_one(
+                connection,
+                """
+                SELECT enabled
+                FROM tools
+                WHERE id = ?
+                """,
+                ("coqui-tts",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        self.assertEqual(json.loads(config_row["config_json"])["language"], "en")
+        self.assertEqual(tool_row["enabled"], 1)
+
     def test_reads_and_updates_image_magic_tool_config(self) -> None:
         initial_response = self.client.get("/api/v1/tools/image-magic")
         self.assertEqual(initial_response.status_code, 200)
@@ -402,6 +542,33 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertTrue(body["config"]["enabled"])
         self.assertEqual(body["config"]["target_worker_id"], "worker-remote-test-host")
         self.assertEqual(body["config"]["command"], "magick")
+
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("image-magic",),
+            )
+            tool_row = fetch_one(
+                connection,
+                """
+                SELECT enabled
+                FROM tools
+                WHERE id = ?
+                """,
+                ("image-magic",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        self.assertEqual(json.loads(config_row["config_json"])["target_worker_id"], "worker-remote-test-host")
+        self.assertEqual(tool_row["enabled"], 1)
 
     def test_rejects_image_magic_enable_when_command_is_missing(self) -> None:
         with mock.patch(
