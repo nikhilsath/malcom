@@ -411,6 +411,147 @@ SHEETS_READ_RANGE_PRESET = HttpRequestPreset(
     ],
 )
 
+# ── GitHub HTTP Presets ───────────────────────────────────────────────────
+
+GITHUB_LIST_REPOSITORY_ISSUES_PRESET = HttpRequestPreset(
+    preset_id="issues_list_repository_http",
+    provider_id="github",
+    service="issues",
+    operation="read",
+    label="List repository issues",
+    description="Retrieve repository issues with optional state and label filters.",
+    http_method="GET",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/issues",
+    payload_template="{}",
+    query_params={"state": "open", "per_page": "20"},
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "state", "label": "state", "type": "select", "required": False, "options": ["open", "closed", "all"], "default": "open"},
+        {"key": "labels", "label": "labels", "type": "string", "required": False, "placeholder": "bug,triage"},
+        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
+    ],
+)
+
+GITHUB_CREATE_ISSUE_PRESET = HttpRequestPreset(
+    preset_id="issues_create_http",
+    provider_id="github",
+    service="issues",
+    operation="write",
+    label="Create issue",
+    description="Create a new GitHub issue in a repository.",
+    http_method="POST",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/issues",
+    payload_template='{"title":"{{title}}","body":"{{body}}"}',
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "title", "label": "Issue title", "type": "string", "required": True},
+        {"key": "body", "label": "Issue body", "type": "text", "required": False},
+    ],
+)
+
+GITHUB_ADD_ISSUE_COMMENT_PRESET = HttpRequestPreset(
+    preset_id="issues_add_comment_http",
+    provider_id="github",
+    service="issues",
+    operation="write",
+    label="Add issue comment",
+    description="Add a comment to a GitHub issue.",
+    http_method="POST",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/issues/{{issue_number}}/comments",
+    payload_template='{"body":"{{body}}"}',
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "issue_number", "label": "Issue number", "type": "integer", "required": True},
+        {"key": "body", "label": "Comment body", "type": "text", "required": True},
+    ],
+)
+
+GITHUB_LIST_OPEN_PULL_REQUESTS_PRESET = HttpRequestPreset(
+    preset_id="pulls_list_open_http",
+    provider_id="github",
+    service="pulls",
+    operation="read",
+    label="List open pull requests",
+    description="Retrieve open pull requests for a repository.",
+    http_method="GET",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/pulls",
+    payload_template="{}",
+    query_params={"state": "open", "per_page": "20"},
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
+    ],
+)
+
+GITHUB_LIST_REPOSITORY_WORKFLOWS_PRESET = HttpRequestPreset(
+    preset_id="actions_list_workflows_http",
+    provider_id="github",
+    service="actions",
+    operation="read",
+    label="List workflows",
+    description="Retrieve Actions workflows available in a repository.",
+    http_method="GET",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/workflows",
+    payload_template="{}",
+    query_params={"per_page": "20"},
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
+    ],
+)
+
+GITHUB_LIST_WORKFLOW_RUNS_PRESET = HttpRequestPreset(
+    preset_id="actions_list_workflow_runs_http",
+    provider_id="github",
+    service="actions",
+    operation="read",
+    label="List workflow runs",
+    description="Retrieve workflow runs with optional branch, event, and status filters.",
+    http_method="GET",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/runs",
+    payload_template="{}",
+    query_params={"per_page": "20"},
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "branch", "label": "branch", "type": "string", "required": False},
+        {"key": "event", "label": "event", "type": "string", "required": False},
+        {"key": "status", "label": "status", "type": "string", "required": False},
+        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
+    ],
+)
+
+GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET = HttpRequestPreset(
+    preset_id="actions_trigger_workflow_dispatch_http",
+    provider_id="github",
+    service="actions",
+    operation="write",
+    label="Trigger workflow dispatch",
+    description="Dispatch a workflow_dispatch event for a GitHub Actions workflow.",
+    http_method="POST",
+    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/workflows/{{workflow_id}}/dispatches",
+    payload_template='{"ref":"{{ref}}","inputs":{}}',
+    required_scopes=["repo"],
+    input_schema=[
+        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
+        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
+        {"key": "workflow_id", "label": "Workflow ID or file name", "type": "string", "required": True},
+        {"key": "ref", "label": "Git ref", "type": "string", "required": True, "placeholder": "main"},
+        {"key": "inputs_payload", "label": "Inputs JSON", "type": "text", "required": False, "placeholder": "{}"},
+    ],
+)
+
 # ── Preset Catalog ────────────────────────────────────────────────────────
 
 GOOGLE_HTTP_PRESETS = (
@@ -422,7 +563,20 @@ GOOGLE_HTTP_PRESETS = (
     SHEETS_READ_RANGE_PRESET,
 )
 
-DEFAULT_HTTP_PRESET_CATALOG = GOOGLE_HTTP_PRESETS
+GITHUB_HTTP_PRESETS = (
+    GITHUB_LIST_REPOSITORY_ISSUES_PRESET,
+    GITHUB_CREATE_ISSUE_PRESET,
+    GITHUB_ADD_ISSUE_COMMENT_PRESET,
+    GITHUB_LIST_OPEN_PULL_REQUESTS_PRESET,
+    GITHUB_LIST_REPOSITORY_WORKFLOWS_PRESET,
+    GITHUB_LIST_WORKFLOW_RUNS_PRESET,
+    GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET,
+)
+
+DEFAULT_HTTP_PRESET_CATALOG = (
+    *GOOGLE_HTTP_PRESETS,
+    *GITHUB_HTTP_PRESETS,
+)
 
 
 def _default_http_preset_catalog() -> list[dict[str, Any]]:

@@ -724,6 +724,7 @@ Connector onboarding behavior:
 
 - Start first-party connector setup from the provider's `Connect` control on the Connectors page.
 - Google, GitHub, and Notion use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
+- Google and GitHub both expose deeper workflow-builder catalogs with provider-aware connector actions and reusable HTTP presets across their major service areas.
 - Trello uses a guided non-OAuth credential flow with provider-specific API key and token fields plus connector lifecycle actions for test and revoke.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.
 

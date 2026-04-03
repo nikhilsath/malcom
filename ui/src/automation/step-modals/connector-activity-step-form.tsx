@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GOOGLE_SERVICE_LABELS, GOOGLE_SERVICE_ORDER } from "../constants";
+import { PROVIDER_SERVICE_LABELS, PROVIDER_SERVICE_ORDER } from "../constants";
 import { TokenPicker } from "../token-picker";
 import type { DataFlowToken } from "../data-flow";
 import type { AutomationStep, ConnectorActivityDefinition, ConnectorActivitySchemaField, ConnectorRecord } from "../types";
@@ -21,8 +21,16 @@ const resolveInputValue = (value: unknown) => (value === null || value === undef
 const getFieldDescription = (field: ConnectorActivitySchemaField) => [field.help_text, field.value_hint].filter(Boolean).join(" ");
 
 const normalizeService = (service: string) => service.trim().toLowerCase();
-const getServiceLabel = (service: string) => GOOGLE_SERVICE_LABELS[service] || service.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-const getOrderedServices = (activities: ConnectorActivityDefinition[]) => {
+const titleCase = (value: string) => value.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const getProviderDisplayName = (providerId: string) => {
+  if (providerId === "github") {
+    return "GitHub";
+  }
+  return titleCase(providerId);
+};
+const getServiceLabel = (providerId: string, service: string) =>
+  PROVIDER_SERVICE_LABELS[providerId]?.[service] || titleCase(service);
+const getOrderedServices = (providerId: string, activities: ConnectorActivityDefinition[]) => {
   const uniqueServices = Array.from(
     new Set(
       activities
@@ -32,8 +40,9 @@ const getOrderedServices = (activities: ConnectorActivityDefinition[]) => {
   );
 
   return uniqueServices.sort((left, right) => {
-    const leftIndex = GOOGLE_SERVICE_ORDER.indexOf(left);
-    const rightIndex = GOOGLE_SERVICE_ORDER.indexOf(right);
+    const providerOrder = PROVIDER_SERVICE_ORDER[providerId] || [];
+    const leftIndex = providerOrder.indexOf(left);
+    const rightIndex = providerOrder.indexOf(right);
 
     if (leftIndex === -1 && rightIndex === -1) {
       return left.localeCompare(right);
@@ -117,9 +126,9 @@ export const ConnectorActivityStepForm = ({
   const selectedConnectorProvider = (selectedConnector?.provider || "").toLowerCase();
   const providerActivities = selectedConnector ? activityCatalog.filter((activity) => activity.provider_id === selectedConnector.provider) : [];
   const selectedActivity = providerActivities.find((activity) => activity.activity_id === draft.config.activity_id);
-  const googleServiceOptions = selectedConnectorProvider === "google" ? getOrderedServices(providerActivities) : [];
-  const requiresGoogleServiceSelection = selectedConnectorProvider === "google" && googleServiceOptions.length > 1;
-  const visibleActivities = requiresGoogleServiceSelection
+  const providerServiceOptions = selectedConnectorProvider ? getOrderedServices(selectedConnectorProvider, providerActivities) : [];
+  const requiresProviderServiceSelection = providerServiceOptions.length > 1;
+  const visibleActivities = requiresProviderServiceSelection
     ? providerActivities.filter((activity) => normalizeService(activity.service || "") === selectedService)
     : providerActivities;
   const missingScopes = selectedConnector && selectedActivity
@@ -157,24 +166,24 @@ export const ConnectorActivityStepForm = ({
   };
 
   useEffect(() => {
-    if (selectedConnectorProvider !== "google") {
+    if (!selectedConnectorProvider) {
       setSelectedService("");
       return;
     }
 
     const selectedActivityService = normalizeService(selectedActivity?.service || "");
-    if (selectedActivityService && googleServiceOptions.includes(selectedActivityService)) {
+    if (selectedActivityService && providerServiceOptions.includes(selectedActivityService)) {
       setSelectedService(selectedActivityService);
       return;
     }
 
-    if (googleServiceOptions.length === 1) {
-      setSelectedService(googleServiceOptions[0]);
+    if (providerServiceOptions.length === 1) {
+      setSelectedService(providerServiceOptions[0]);
       return;
     }
 
-    setSelectedService((current) => (googleServiceOptions.includes(current) ? current : ""));
-  }, [selectedActivity?.service, selectedConnectorProvider, googleServiceOptions]);
+    setSelectedService((current) => (providerServiceOptions.includes(current) ? current : ""));
+  }, [selectedActivity?.service, selectedConnectorProvider, providerServiceOptions]);
 
   const handleServiceChange = (nextService: string) => {
     setSelectedService(nextService);
@@ -250,18 +259,24 @@ export const ConnectorActivityStepForm = ({
         ) : null}
       </label>
 
-      {selectedConnectorProvider === "google" && googleServiceOptions.length > 0 ? (
+      {providerServiceOptions.length > 0 ? (
         <label id={`${idPrefix}-service-field`} className="automation-field automation-field--full automation-field--inline-label">
-          <span id={`${idPrefix}-service-label`} className="automation-field__label">Google app</span>
+          <span id={`${idPrefix}-service-label`} className="automation-field__label">
+            {selectedConnectorProvider === "google" ? "Google app" : `${getProviderDisplayName(selectedConnectorProvider)} area`}
+          </span>
           <select
             id={`${idPrefix}-service-input`}
             className="automation-native-select"
             value={selectedService}
             onChange={(event) => handleServiceChange(event.target.value)}
           >
-            <option value="">{requiresGoogleServiceSelection ? "Choose a Google app" : "Select an app"}</option>
-            {googleServiceOptions.map((service) => (
-              <option key={service} value={service}>{getServiceLabel(service)}</option>
+            <option value="">
+              {requiresProviderServiceSelection
+                ? (selectedConnectorProvider === "google" ? "Choose a Google app" : `Choose a ${getProviderDisplayName(selectedConnectorProvider)} area`)
+                : "Select an area"}
+            </option>
+            {providerServiceOptions.map((service) => (
+              <option key={service} value={service}>{getServiceLabel(selectedConnectorProvider, service)}</option>
             ))}
           </select>
         </label>
@@ -273,18 +288,18 @@ export const ConnectorActivityStepForm = ({
           id={`${idPrefix}-activity-input`}
           className="automation-native-select"
           value={draft.config.activity_id || ""}
-          disabled={!selectedConnector || (requiresGoogleServiceSelection && !selectedService)}
+          disabled={!selectedConnector || (requiresProviderServiceSelection && !selectedService)}
           onChange={(event) => updateConfig({ ...draft.config, activity_id: event.target.value, activity_inputs: {} })}
         >
           <option value="">
             {!selectedConnector
               ? "Select a connector first"
-              : requiresGoogleServiceSelection && !selectedService
-                ? "Choose a Google app first"
+              : requiresProviderServiceSelection && !selectedService
+                ? (selectedConnectorProvider === "google" ? "Choose a Google app first" : `Choose a ${getProviderDisplayName(selectedConnectorProvider)} area first`)
                 : "Choose an action"}
           </option>
           {visibleActivities.map((activity) => (
-            <option key={activity.activity_id} value={activity.activity_id}>{`${getServiceLabel(normalizeService(activity.service || ""))} · ${activity.operation_type.toUpperCase()} · ${activity.label}`}</option>
+            <option key={activity.activity_id} value={activity.activity_id}>{`${getServiceLabel(selectedConnectorProvider, normalizeService(activity.service || ""))} · ${activity.operation_type.toUpperCase()} · ${activity.label}`}</option>
           ))}
         </select>
       </label>

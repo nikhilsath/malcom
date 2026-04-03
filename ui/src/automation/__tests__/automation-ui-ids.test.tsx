@@ -172,6 +172,66 @@ describe("automation UI ids", () => {
     expect(document.querySelector("#connector-step-service-input")).toBeInTheDocument();
   });
 
+  it("renders deterministic ids for non-Google provider area selectors in connector actions", () => {
+    const step: AutomationStep = {
+      id: "step-github",
+      type: "api",
+      name: "GitHub step",
+      config: {
+        connector_id: "github-primary",
+        activity_id: "",
+        activity_inputs: {}
+      }
+    };
+
+    render(
+      <ConnectorActivityStepForm
+        idPrefix="connector-step-github"
+        draft={step}
+        connectors={[
+          {
+            id: "github-primary",
+            provider: "github",
+            name: "GitHub Primary",
+            status: "connected",
+            auth_type: "oauth2"
+          }
+        ]}
+        activityCatalog={[
+          {
+            provider_id: "github",
+            activity_id: "repo_details",
+            service: "repos",
+            operation_type: "read",
+            label: "Repository details",
+            description: "Fetch repository details.",
+            required_scopes: [],
+            input_schema: [],
+            output_schema: [],
+            execution: {}
+          },
+          {
+            provider_id: "github",
+            activity_id: "list_workflow_runs",
+            service: "actions",
+            operation_type: "read",
+            label: "List workflow runs",
+            description: "List workflow runs.",
+            required_scopes: [],
+            input_schema: [],
+            output_schema: [],
+            execution: {}
+          }
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(document.querySelector("#connector-step-github-service-field")).toBeInTheDocument();
+    expect(document.querySelector("#connector-step-github-service-label")).toHaveTextContent("GitHub area");
+    expect(document.querySelector("#connector-step-github-service-input")).toBeInTheDocument();
+  });
+
   it("renders deterministic ids for automation library title rows and detail stats", async () => {
     requestJsonMock.mockImplementation(async (path: string) => {
       if (path === "/api/v1/automations") {

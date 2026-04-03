@@ -42,6 +42,21 @@ export const GOOGLE_SERVICE_LABELS: Record<string, string> = {
   sheets: "Sheets"
 };
 
+export const PROVIDER_SERVICE_ORDER: Record<string, readonly string[]> = {
+  google: GOOGLE_SERVICE_ORDER,
+  github: ["repos", "issues", "pulls", "actions"] as const,
+};
+
+export const PROVIDER_SERVICE_LABELS: Record<string, Record<string, string>> = {
+  google: GOOGLE_SERVICE_LABELS,
+  github: {
+    repos: "Repositories",
+    issues: "Issues",
+    pulls: "Pull requests",
+    actions: "Actions",
+  },
+};
+
 export const SMTP_TEMPLATE_HINTS = [
   "{{payload.smtp.from}}",
   "{{payload.smtp.to}}",

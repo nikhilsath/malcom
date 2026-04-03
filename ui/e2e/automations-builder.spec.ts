@@ -278,6 +278,66 @@ test.describe("Automation Builder - Connector Dropdown", () => {
     await expect(dropdown.locator("option[value='sheets-update-range']")).toHaveCount(1);
   });
 
+  test("filters GitHub connector actions behind a GitHub area dropdown", async ({ page }) => {
+    const state = createAutomationSuiteState({
+      connectors: [
+        createConnectorRecord({
+          id: "github-primary",
+          provider: "github",
+          name: "GitHub Primary",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["repo"],
+          owner: "Workspace",
+          base_url: "https://api.github.com",
+        }),
+      ],
+      activityCatalog: buildConnectorActivityCatalog([
+        {
+          provider_id: "github",
+          activity_id: "repo-details",
+          service: "repos",
+          operation_type: "read",
+          label: "Repository details",
+          description: "Fetch repository metadata.",
+          required_scopes: ["repo"],
+          input_schema: [],
+          output_schema: [{ key: "repository", label: "Repository", type: "string" }],
+          execution: { provider: "github", action: "repo-details" }
+        },
+        {
+          provider_id: "github",
+          activity_id: "list-workflow-runs",
+          service: "actions",
+          operation_type: "read",
+          label: "List workflow runs",
+          description: "List Actions workflow runs.",
+          required_scopes: ["repo"],
+          input_schema: [],
+          output_schema: [{ key: "workflow_runs", label: "Workflow runs", type: "array" }],
+          execution: { provider: "github", action: "workflow-runs" }
+        }
+      ]) as any
+    });
+    await installAutomationSuiteRoutes(page, state);
+
+    await page.goto("/automations/builder.html?new=true");
+    await page.locator("#automations-guided-item-step-action").click();
+    await expect(page.locator("#add-step-modal")).toBeVisible();
+    await page.locator("#add-step-type-connector_activity").click({ force: true });
+    await page.locator("#add-step-connector-activity-connector-input").selectOption("github-primary");
+
+    await expect(page.locator("#add-step-connector-activity-service-label")).toHaveText("GitHub area");
+    await expect(page.locator("#add-step-connector-activity-service-input")).toBeVisible();
+    const dropdown = page.locator("#add-step-connector-activity-activity-input");
+    await expect(dropdown).toHaveValue("");
+    await expect(dropdown.locator("option")).toContainText(["Choose a GitHub area first"]);
+
+    await page.locator("#add-step-connector-activity-service-input").selectOption("actions");
+    await expect(dropdown.locator("option[value='list-workflow-runs']")).toHaveCount(1);
+    await expect(dropdown.locator("option[value='repo-details']")).toHaveCount(0);
+  });
+
   test("renders the documented Gmail list query fields and outputs", async ({ page }) => {
     const state = createAutomationSuiteState({
       connectors: [

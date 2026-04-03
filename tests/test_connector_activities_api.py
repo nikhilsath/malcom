@@ -38,6 +38,10 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertIn(("google", "calendar_upcoming_events"), activity_ids)
         self.assertIn(("github", "list_open_pull_requests"), activity_ids)
         self.assertIn(("github", "repo_details"), activity_ids)
+        self.assertIn(("github", "list_repository_issues"), activity_ids)
+        self.assertIn(("github", "create_issue"), activity_ids)
+        self.assertIn(("github", "list_workflow_runs"), activity_ids)
+        self.assertIn(("github", "trigger_workflow_dispatch"), activity_ids)
 
     def test_builder_validation_rejects_missing_scopes_for_connector_activity(self) -> None:
         self.save_connector(
@@ -352,6 +356,146 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(output["repository"], "openai/malcom")
         self.assertEqual(output["default_branch"], "main")
         self.assertEqual(output["stars"], 42)
+
+    def test_github_issue_and_actions_activities_execute_and_normalize_output(self) -> None:
+        self.save_connector(
+            {
+                "id": "github-ops",
+                "provider": "github",
+                "name": "GitHub Ops",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "ghp_secret_token"},
+            }
+        )
+        connection = app.state.connection
+
+        issue_output = execute_connector_activity(
+            connection,
+            connector_id="github-ops",
+            activity_id="list_repository_issues",
+            inputs={"owner": "openai", "repo": "malcom", "state": "open", "labels": "bug,triage", "limit": 2},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: (
+                200,
+                [
+                    {
+                        "number": 17,
+                        "title": "Fix connector drift",
+                        "state": "open",
+                        "labels": [{"name": "bug"}, {"name": "triage"}],
+                        "assignees": [{"login": "ava"}],
+                        "html_url": "https://github.com/openai/malcom/issues/17",
+                        "user": {"login": "ava"},
+                    }
+                ],
+            ),
+        )
+        self.assertEqual(issue_output["repository"], "openai/malcom")
+        self.assertEqual(issue_output["count"], 1)
+        self.assertEqual(issue_output["issues"][0]["labels"], ["bug", "triage"])
+        self.assertEqual(issue_output["issues"][0]["assignees"], ["ava"])
+
+        actions_output = execute_connector_activity(
+            connection,
+            connector_id="github-ops",
+            activity_id="list_workflow_runs",
+            inputs={"owner": "openai", "repo": "malcom", "workflow_id": "ci.yml", "branch": "main", "status": "completed", "limit": 1},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: (
+                200,
+                {
+                    "workflow_runs": [
+                        {
+                            "id": 99,
+                            "name": "CI",
+                            "display_title": "CI on main",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "event": "push",
+                            "head_branch": "main",
+                            "html_url": "https://github.com/openai/malcom/actions/runs/99",
+                            "created_at": "2026-04-03T08:00:00Z",
+                            "updated_at": "2026-04-03T08:05:00Z",
+                        }
+                    ]
+                },
+            ),
+        )
+        self.assertEqual(actions_output["count"], 1)
+        self.assertEqual(actions_output["workflow_runs"][0]["branch"], "main")
+        self.assertEqual(actions_output["workflow_runs"][0]["conclusion"], "success")
+
+    def test_github_write_activities_execute_and_normalize_output(self) -> None:
+        self.save_connector(
+            {
+                "id": "github-write",
+                "provider": "github",
+                "name": "GitHub Write",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "ghp_secret_token"},
+            }
+        )
+        connection = app.state.connection
+
+        created_issue = execute_connector_activity(
+            connection,
+            connector_id="github-write",
+            activity_id="create_issue",
+            inputs={"owner": "openai", "repo": "malcom", "title": "Ship GitHub presets", "body": "Please ship it.", "labels": "automation"},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (
+                201,
+                {
+                    "number": 24,
+                    "title": "Ship GitHub presets",
+                    "state": "open",
+                    "labels": [{"name": "automation"}],
+                    "assignees": [],
+                    "html_url": "https://github.com/openai/malcom/issues/24",
+                    "user": {"login": "ava"},
+                },
+            ),
+        )
+        self.assertEqual(created_issue["issue"]["number"], 24)
+        self.assertEqual(created_issue["issue"]["labels"], ["automation"])
+
+        created_comment = execute_connector_activity(
+            connection,
+            connector_id="github-write",
+            activity_id="add_issue_comment",
+            inputs={"owner": "openai", "repo": "malcom", "issue_number": 24, "body": "On it."},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (
+                201,
+                {
+                    "id": 301,
+                    "body": "On it.",
+                    "html_url": "https://github.com/openai/malcom/issues/24#issuecomment-301",
+                    "user": {"login": "ava"},
+                },
+            ),
+        )
+        self.assertEqual(created_comment["issue_number"], 24)
+        self.assertEqual(created_comment["comment"]["author"], "ava")
+
+        dispatch_result = execute_connector_activity(
+            connection,
+            connector_id="github-write",
+            activity_id="trigger_workflow_dispatch",
+            inputs={"owner": "openai", "repo": "malcom", "workflow_id": "ci.yml", "ref": "main", "inputs_payload": {"target": "prod"}},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (204, None),
+        )
+        self.assertTrue(dispatch_result["dispatched"])
+        self.assertEqual(dispatch_result["workflow_id"], "ci.yml")
 
     def test_google_sheets_range_actions_support_documented_query_controls(self) -> None:
         self.save_connector(

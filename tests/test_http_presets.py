@@ -25,6 +25,11 @@ class TestHttpPresetCatalog:
         google_presets = get_http_presets_by_provider("google")
         assert len(google_presets) > 0, "Google presets should exist"
 
+    def test_github_presets_exist(self):
+        """Verify GitHub HTTP presets are defined in catalog."""
+        github_presets = get_http_presets_by_provider("github")
+        assert len(github_presets) > 0, "GitHub presets should exist"
+
     def test_preset_fields_are_valid_json(self):
         """Each preset's payload_template must be valid JSON."""
         for preset in DEFAULT_HTTP_PRESET_CATALOG:
@@ -157,6 +162,34 @@ class TestHttpPresetCatalog:
         """Drive presets should be available."""
         drive_presets = [p for p in get_http_presets_by_provider("google") if p.service == "drive"]
         assert len(drive_presets) >= 2, "Should have at least list_files and upload_file"
+
+    def test_github_issue_and_actions_presets_expose_documented_inputs(self):
+        """GitHub presets should expose repository, issue, and actions inputs in the builder."""
+        issue_preset = get_http_preset("github", "issues_create_http")
+        comment_preset = get_http_preset("github", "issues_add_comment_http")
+        dispatch_preset = get_http_preset("github", "actions_trigger_workflow_dispatch_http")
+        assert issue_preset is not None
+        assert comment_preset is not None
+        assert dispatch_preset is not None
+        assert [field["key"] for field in issue_preset.input_schema] == ["owner", "repo", "title", "body"]
+        assert [field["key"] for field in comment_preset.input_schema] == ["owner", "repo", "issue_number", "body"]
+        assert [field["key"] for field in dispatch_preset.input_schema] == ["owner", "repo", "workflow_id", "ref", "inputs_payload"]
+        assert dispatch_preset.http_method == "POST"
+        assert "{{workflow_id}}" in dispatch_preset.endpoint_path_template
+
+    def test_github_list_workflow_runs_preset_exposes_filters(self):
+        """GitHub workflow-run preset should expose the documented run filters."""
+        preset = get_http_preset("github", "actions_list_workflow_runs_http")
+        assert preset is not None
+        assert [field["key"] for field in preset.input_schema] == [
+            "owner",
+            "repo",
+            "branch",
+            "event",
+            "status",
+            "per_page",
+        ]
+        assert preset.query_params == {"per_page": "20"}
 
 
 class TestHttpPresetValidity:

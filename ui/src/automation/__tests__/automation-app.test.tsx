@@ -123,6 +123,7 @@ const renderAutomationApp = (options?: {
   };
   inboundApis?: Array<{ id: string; name: string }>;
   connectors?: Array<Record<string, unknown>>;
+  activityCatalog?: Array<Record<string, unknown>>;
   httpPresets?: Array<Record<string, unknown>>;
   tools?: Array<Record<string, unknown>>;
 }) => {
@@ -207,7 +208,7 @@ const renderAutomationApp = (options?: {
     }
 
     if (path === "/api/v1/connectors/activity-catalog") {
-      return buildConnectorActivityCatalog();
+      return buildConnectorActivityCatalog(options?.activityCatalog as any[] || []);
     }
 
     if (path === "/api/v1/connectors/http-presets") {
@@ -443,6 +444,94 @@ describe("AutomationApp", () => {
     expect(await screen.findByLabelText("Spreadsheet ID")).toBeInTheDocument();
     expect(screen.getByLabelText("A1 range")).toBeInTheDocument();
     expect(screen.getByLabelText("Values payload")).toBeInTheDocument();
+  });
+
+  it("filters GitHub connector actions by area before showing dynamic inputs in the add-step modal", async () => {
+    renderAutomationApp({
+      connectors: [
+        {
+          id: "github-primary",
+          provider: "github",
+          name: "GitHub Primary",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["repo"],
+          base_url: "https://api.github.com"
+        }
+      ],
+      activityCatalog: [
+        {
+          provider_id: "github",
+          activity_id: "repo_details",
+          service: "repos",
+          operation_type: "read",
+          label: "Repository details",
+          description: "Fetch repository details.",
+          required_scopes: ["repo"],
+          input_schema: [
+            { key: "owner", label: "Repository owner", type: "string", required: true },
+            { key: "repo", label: "Repository name", type: "string", required: true }
+          ],
+          output_schema: [{ key: "repository", label: "Repository", type: "string" }],
+          execution: {}
+        },
+        {
+          provider_id: "github",
+          activity_id: "trigger_workflow_dispatch",
+          service: "actions",
+          operation_type: "write",
+          label: "Trigger workflow dispatch",
+          description: "Trigger a workflow dispatch.",
+          required_scopes: ["repo"],
+          input_schema: [
+            { key: "owner", label: "Repository owner", type: "string", required: true },
+            { key: "repo", label: "Repository name", type: "string", required: true },
+            { key: "workflow_id", label: "Workflow ID or file name", type: "string", required: true },
+            { key: "ref", label: "Git ref", type: "string", required: true }
+          ],
+          output_schema: [{ key: "dispatched", label: "Dispatched", type: "boolean" }],
+          execution: {}
+        }
+      ] as any,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-connector_activity") as HTMLElement);
+    const savedConnectorSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    fireEvent.change(savedConnectorSelect, { target: { value: "github-primary" } });
+
+    const serviceSelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-service-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    expect(document.querySelector("#add-step-connector-activity-service-label")).toHaveTextContent("GitHub area");
+    expect(within(serviceSelect).getByRole("option", { name: "Repositories" })).toBeInTheDocument();
+    expect(within(serviceSelect).getByRole("option", { name: "Actions" })).toBeInTheDocument();
+
+    const activitySelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-activity-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    expect(within(activitySelect).getByRole("option", { name: "Choose a GitHub area first" })).toBeInTheDocument();
+
+    fireEvent.change(serviceSelect, { target: { value: "actions" } });
+    await waitFor(() => {
+      expect(within(activitySelect).getByRole("option", { name: /Actions · WRITE · Trigger workflow dispatch/i })).toBeInTheDocument();
+      expect(within(activitySelect).queryByRole("option", { name: /Repositories · READ · Repository details/i })).not.toBeInTheDocument();
+    });
+    fireEvent.change(activitySelect, { target: { value: "trigger_workflow_dispatch" } });
+    expect(await screen.findByLabelText("Workflow ID or file name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Git ref")).toBeInTheDocument();
   });
 
   it("renders all stored connectors in the builder selector without hidden status filtering", async () => {
