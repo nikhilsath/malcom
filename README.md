@@ -581,6 +581,13 @@ What this launcher does:
 
 - UI and API host: `http://127.0.0.1:8000`
 
+### Settings Data local backups
+
+- Settings -> Data includes a Local backups section for creating and restoring PostgreSQL dumps from the current workspace database.
+- Backup creation and restore use `pg_dump` and `pg_restore` against `MALCOM_DATABASE_URL`.
+- Backup files are stored locally under `backend/data/backups/` in the repository workspace on the machine running Malcom.
+- If PostgreSQL client binaries are missing from `PATH`, the Settings Data backup actions return an inline error instead of silently failing.
+
 ## Testing Workflow
 
 Malcom uses a two-tier test workflow.
@@ -767,6 +774,22 @@ Note: The Settings -> Connectors UI must fetch live connector availability from 
 
 ---
 
+#### Builder Metadata
+
+| Component | Path |
+|---|---|
+| **Frontend consumer** | `ui/src/automation/builder-api.ts:loadBuilderSupportData` |
+| **API endpoint** | `GET /api/v1/automations/builder-metadata` |
+| **Backend route handler** | `backend/routes/automations.py:get_automation_builder_metadata_endpoint()` |
+| **Backend service** | `backend/services/workflow_builder.py:get_automation_builder_metadata()` |
+| **Database tables** | **None** (backend-owned constants exposed as scoped metadata) |
+
+**Source of truth**: backend automation-domain option constants for `trigger_types`, `step_types`, `http_methods`, `storage_types`, and `log_column_types`.
+
+The frontend must render these backend-owned builder option sets from metadata and must not recreate them as local runtime literals.
+
+---
+
 #### Connector Activities
 
 | Component | Path |
@@ -810,6 +833,62 @@ Note: The Settings -> Connectors UI must fetch live connector availability from 
 | **Database table** | `scripts` (id, name, description, language, sample_input, validation_status, created_at, updated_at) |
 
 **Source of truth**: `scripts` table. All available reusable scripts for automation steps.
+
+#### Script Language Metadata
+
+| Component | Path |
+|---|---|
+| **Frontend consumers** | `ui/src/scripts-library/main.ts`, `ui/src/automation/builder-api.ts` |
+| **API endpoint** | `GET /api/v1/scripts/metadata` |
+| **Backend route handler** | `backend/routes/scripts.py:get_scripts_metadata_endpoint()` |
+| **Backend service** | `backend/services/scripts.py:get_scripts_metadata()` |
+| **Database tables** | **None** (scripts-domain metadata endpoint) |
+
+**Source of truth**: backend scripts-domain metadata for supported languages. The scripts page and automation script modal should consume the same language list.
+
+---
+
+#### Settings Option Metadata
+
+| Component | Path |
+|---|---|
+| **Frontend consumer** | `ui/scripts/settings.js` |
+| **API endpoint** | `GET /api/v1/settings` |
+| **Backend route handler** | `backend/routes/settings.py:get_app_settings()` |
+| **Backend service** | `backend/services/automation_execution.py:get_settings_payload()` |
+| **Database tables** | `settings` |
+
+**Source of truth**: the `options` block in the settings payload for `notification_channels`, `notification_digests`, and `data_export_windows`.
+
+Frontend fallback state should keep only shape-safe empty values and must not become a second source of truth for these backend-owned choices.
+
+---
+
+#### Connector Settings Metadata
+
+| Component | Path |
+|---|---|
+| **Frontend consumers** | `ui/scripts/settings/connectors/*.js`, `ui/scripts/apis/forms.js` |
+| **API endpoint** | `GET /api/v1/connectors` |
+| **Backend route handler** | `backend/routes/connectors.py:list_connectors()` |
+| **Backend service** | `backend/services/connectors.py:sanitize_connector_settings_for_response()` |
+| **Database tables** | `connectors`, `settings`, `integration_presets` |
+
+**Source of truth**: connector-domain metadata in the connectors response, including normalized provider IDs, `request_auth_type`, connector statuses, auth-policy option lists, and provider preset scope recommendations.
+
+---
+
+#### Dashboard Log Metadata
+
+| Component | Path |
+|---|---|
+| **Frontend consumer** | `ui/src/dashboard/app.tsx` |
+| **API endpoint** | `GET /api/v1/dashboard/logs` |
+| **Backend route handler** | `backend/routes/runtime.py:get_dashboard_logs_endpoint()` |
+| **Backend service** | `backend/services/automation_execution.py:get_runtime_dashboard_logs_response()` |
+| **Database tables** | `settings` plus runtime log files |
+
+**Source of truth**: dashboard/logs metadata in the response payload for allowed log levels. Dashboard time-window filters remain frontend-local and are centralized in `ui/src/dashboard/constants.ts`.
 
 ---
 

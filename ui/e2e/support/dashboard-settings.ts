@@ -99,6 +99,7 @@ export const defaultSettingsResponse = {
         category: "productivity",
         auth_types: ["oauth2"],
         default_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+        recommended_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
         docs_url: "https://developers.google.com",
         base_url: "https://www.googleapis.com"
       },
@@ -109,16 +110,55 @@ export const defaultSettingsResponse = {
         category: "engineering",
         auth_types: ["bearer"],
         default_scopes: ["repo"],
+        recommended_scopes: ["repo"],
         docs_url: "https://docs.github.com",
         base_url: "https://api.github.com"
       }
     ],
     records: [],
+    metadata: {
+      statuses: [
+        { value: "draft", label: "Draft" },
+        { value: "pending_oauth", label: "Pending OAuth" },
+        { value: "connected", label: "Connected" },
+        { value: "needs_attention", label: "Needs attention" },
+        { value: "expired", label: "Expired" },
+        { value: "revoked", label: "Revoked" }
+      ],
+      active_storage_statuses: ["connected", "needs_attention", "pending_oauth"],
+      auth_policy: {
+        rotation_intervals: [
+          { value: "30", label: "30 days" },
+          { value: "60", label: "60 days" },
+          { value: "90", label: "90 days" }
+        ],
+        credential_visibility_options: [
+          { value: "masked", label: "Masked" },
+          { value: "admin_only", label: "Admin only" }
+        ]
+      }
+    },
     auth_policy: {
       rotation_interval_days: 90,
       reconnect_requires_approval: true,
       credential_visibility: "masked"
     }
+  },
+  options: {
+    notification_channels: [
+      { value: "email", label: "Email" },
+      { value: "pager", label: "Pager" }
+    ],
+    notification_digests: [
+      { value: "realtime", label: "Realtime" },
+      { value: "hourly", label: "Hourly" },
+      { value: "daily", label: "Daily" }
+    ],
+    data_export_windows: [
+      { value: "00:00", label: "00:00" },
+      { value: "02:00", label: "02:00" },
+      { value: "04:00", label: "04:00" }
+    ]
   }
 } satisfies RouteObject;
 
@@ -451,6 +491,10 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     logs: clone(options.logs || dashboardLogEntries),
     resourceDashboard: clone(deepMerge(defaultDashboardResourceDashboardResponse, options.resourceDashboard || {})),
     logTables: clone(options.logTables || defaultLogTablesResponse),
+    backups: clone(options.backups || [
+      { filename: 'backup-2026-03-21-120000.dump', created_at: '2026-03-21T12:00:00.000Z' }
+    ]),
+    backupsDirectory: options.backupsDirectory || '/tmp/malcom-backups',
     freezeTimeIso: options.freezeTimeIso || fixedNowIso,
     settingsGetDelayMs: options.settingsGetDelayMs || 0
   };
@@ -652,6 +696,63 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
       contentType: "application/json",
       body: JSON.stringify({ ok: true })
     });
+  });
+
+  // Backup endpoints for settings data
+  await page.route("**/api/v1/settings/data/backups", async (route) => {
+    const method = route.request().method();
+
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ directory: state.backupsDirectory, backups: state.backups })
+      });
+      return;
+    }
+
+    if (method === 'POST') {
+      const nowIso = new Date(state.freezeTimeIso).toISOString();
+      const filename = `backup-${nowIso.replace(/[:.]/g, '-').replace(/T/, '-').replace(/Z/, '')}.dump`;
+      const newEntry = { id: filename, filename, created_at: nowIso };
+      state.backups.unshift(newEntry);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, message: 'Backup created', backup: newEntry })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/v1/settings/data/backups/restore", async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+
+    try {
+      const body = await route.request().postDataJSON();
+      const filename = (body && body.backup_id) || null;
+      if (!filename) {
+        await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'backup_id required' }) });
+        return;
+      }
+      const exists = state.backups.some((b: any) => b.filename === filename);
+      if (!exists) {
+        await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'backup not found' }) });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, message: 'Restore completed', restored_at: state.freezeTimeIso })
+      });
+    } catch (e) {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'invalid request' }) });
+    }
   });
 
   return state;

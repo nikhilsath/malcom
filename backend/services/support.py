@@ -13,6 +13,7 @@ from .helpers import *
 from .network import *
 from .scripts import *
 from .settings import *
+from .settings_backup_restore import create_backup, get_backup_dir, list_backups, restore_backup
 from .tool_integration import *
 from .workflow_builder import *
 from .utils import *

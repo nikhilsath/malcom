@@ -41,6 +41,7 @@ class ConnectorProviderPresetResponse(BaseModel):
     category: str
     auth_types: list[str]
     default_scopes: list[str]
+    recommended_scopes: list[str] = Field(default_factory=list)
     docs_url: str
     base_url: str
 
@@ -73,6 +74,7 @@ class ConnectorRecordResponse(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     status: str = Field(pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
     auth_type: str = Field(pattern=r"^(oauth2|bearer|api_key|basic|header)$")
+    request_auth_type: str = Field(pattern=r"^(none|bearer|basic|header)$")
     scopes: list[str] = Field(default_factory=list)
     base_url: str | None = Field(default=None, max_length=2000)
     owner: str | None = Field(default=None, max_length=120)
@@ -84,10 +86,28 @@ class ConnectorRecordResponse(BaseModel):
     auth_config: ConnectorAuthConfigResponse = Field(default_factory=ConnectorAuthConfigResponse)
 
 
+class SettingsOptionValueResponse(BaseModel):
+    value: str
+    label: str
+    description: str | None = None
+
+
+class ConnectorAuthPolicyMetadataResponse(BaseModel):
+    rotation_intervals: list[SettingsOptionValueResponse]
+    credential_visibility_options: list[SettingsOptionValueResponse]
+
+
+class ConnectorMetadataResponse(BaseModel):
+    statuses: list[SettingsOptionValueResponse]
+    active_storage_statuses: list[str]
+    auth_policy: ConnectorAuthPolicyMetadataResponse
+
+
 class ConnectorSettingsResponse(BaseModel):
     catalog: list[ConnectorProviderPresetResponse]
     records: list[ConnectorRecordResponse] = Field(default_factory=list)
     auth_policy: ConnectorAuthPolicy
+    metadata: ConnectorMetadataResponse
 
 
 class ConnectorAuthConfigUpdate(BaseModel):
@@ -136,6 +156,13 @@ class AppSettingsResponse(BaseModel):
     data: DataSettings
     automation: AutomationSettings
     connectors: ConnectorSettingsResponse
+    options: "AppSettingsOptionsResponse"
+
+
+class AppSettingsOptionsResponse(BaseModel):
+    notification_channels: list[SettingsOptionValueResponse]
+    notification_digests: list[SettingsOptionValueResponse]
+    data_export_windows: list[SettingsOptionValueResponse]
 
 
 class AppSettingsUpdate(BaseModel):
@@ -177,8 +204,38 @@ class ConnectorOAuthCallbackResponse(BaseModel):
     connector: ConnectorRecordResponse
 
 
+class SettingsBackupMetadata(BaseModel):
+    id: str
+    filename: str
+    created_at: str
+    size_bytes: int | None = None
+    path: str | None = None
+
+
+class SettingsCreateBackupResponse(BaseModel):
+    ok: bool
+    message: str
+    backup: SettingsBackupMetadata | None = None
+
+
+class SettingsListBackupsResponse(BaseModel):
+    directory: str | None = None
+    backups: list[SettingsBackupMetadata] = Field(default_factory=list)
+
+
+class SettingsBackupRestoreRequest(BaseModel):
+    backup_id: str = Field(min_length=1)
+
+
+class SettingsBackupRestoreResponse(BaseModel):
+    ok: bool
+    message: str
+    restored_at: str | None = None
+
+
 __all__ = [
     "AutomationSettings",
+    "AppSettingsOptionsResponse",
     "AppSettingsResponse",
     "AppSettingsUpdate",
     "ConnectorActionResponse",
@@ -186,8 +243,16 @@ __all__ = [
     "ConnectorAuthConfigUpdate",
     "ConnectorAuthPolicy",
     "ConnectorOAuthCallbackResponse",
+    # Settings backup/restore schemas
+    "SettingsBackupMetadata",
+    "SettingsCreateBackupResponse",
+    "SettingsListBackupsResponse",
+    "SettingsBackupRestoreRequest",
+    "SettingsBackupRestoreResponse",
     "ConnectorOAuthStartRequest",
     "ConnectorOAuthStartResponse",
+    "ConnectorMetadataResponse",
+    "ConnectorAuthPolicyMetadataResponse",
     "ConnectorProviderPresetResponse",
     "ConnectorRecordResponse",
     "ConnectorRecordUpdate",
@@ -197,4 +262,5 @@ __all__ = [
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
+    "SettingsOptionValueResponse",
 ]

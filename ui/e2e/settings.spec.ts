@@ -138,6 +138,9 @@ test("renders connector-backed storage and clears log table rows", async ({ page
 
   await expect(page.locator("#settings-storage-local-database")).toBeVisible();
   await expect(page.locator("#settings-storage-connector-google-drive")).toBeVisible();
+  await expect(page.locator("#settings-backups-section")).toBeVisible();
+  await expect(page.locator("#backup-dir")).toHaveText("/tmp/malcom-backups");
+  await expect(page.locator("#backup-list option")).toHaveCount(1);
   await expect(page.locator("#settings-data-redaction-label")).toHaveText("Disabled");
 
   await page.locator("#settings-data-redaction-toggle").click();
@@ -164,4 +167,37 @@ test("renders connector-backed storage and clears log table rows", async ({ page
   await page.locator("#settings-log-table-clear-log-table-1").click();
 
   await expect(page.locator("#settings-log-table-count-log-table-1")).toHaveText("0 rows");
+});
+
+test("creates and restores a local backup", async ({ page }) => {
+  await installDashboardSettingsFixtures(page, {});
+
+  await page.goto("/settings/data.html");
+
+  await expect(page.locator("#page-title")).toHaveText("Settings Data");
+  await expect(page.locator("#settings-backups-section")).toBeVisible();
+  await expect(page.locator("#backup-dir")).toHaveText("/tmp/malcom-backups");
+
+  const feedback = page.locator("#backup-feedback");
+  const createBtn = page.locator("#create-backup-btn");
+  const restoreBtn = page.locator("#restore-backup-btn");
+  const backupList = page.locator("#backup-list");
+  const backupOptions = page.locator("#backup-list option");
+
+  await expect(backupOptions).toHaveCount(1);
+  await expect(restoreBtn).toBeEnabled();
+
+  page.on("dialog", async (dialog) => {
+    await dialog.accept();
+  });
+
+  await createBtn.click();
+  await expect(feedback).toContainText("Backup created:");
+  await expect(backupOptions).toHaveCount(2);
+
+  const createdFilename = await backupOptions.first().getAttribute("value");
+  await expect(backupList).toHaveValue(createdFilename || "");
+
+  await restoreBtn.click();
+  await expect(feedback).toContainText("Restore succeeded:");
 });

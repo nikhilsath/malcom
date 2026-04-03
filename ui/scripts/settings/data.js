@@ -1,6 +1,203 @@
 import "../settings.js";
 import { bindCollapsibleSection } from "../collapsible.js";
 
+const backupDirEl = () => document.getElementById("backup-dir");
+const createBtn = () => document.getElementById("create-backup-btn");
+const backupList = () => document.getElementById("backup-list");
+const restoreBtn = () => document.getElementById("restore-backup-btn");
+const feedbackEl = () => document.getElementById("backup-feedback");
+
+function getErrorMessage(error) {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return "Unknown error";
+}
+
+function setBackupFeedback(message, state = "neutral") {
+    const feedback = feedbackEl();
+    if (!feedback) {
+        return;
+    }
+    feedback.textContent = message;
+    feedback.dataset.state = state;
+}
+
+function updateRestoreButtonState() {
+    const list = backupList();
+    const restore = restoreBtn();
+    if (!(list instanceof HTMLSelectElement) || !(restore instanceof HTMLButtonElement)) {
+        return;
+    }
+
+    const hasSelectedBackup = Boolean(list.value) && list.dataset.empty !== "true";
+    restore.disabled = !hasSelectedBackup;
+}
+
+function renderBackupOptions(backups, preferredFilename = "") {
+    const list = backupList();
+    if (!(list instanceof HTMLSelectElement)) {
+        return;
+    }
+
+    list.innerHTML = "";
+
+    if (!Array.isArray(backups) || backups.length === 0) {
+        const emptyOption = document.createElement("option");
+        emptyOption.id = "backup-list-empty-option";
+        emptyOption.value = "";
+        emptyOption.textContent = "No backups available yet";
+        emptyOption.disabled = true;
+        emptyOption.selected = true;
+        list.appendChild(emptyOption);
+        list.dataset.empty = "true";
+        updateRestoreButtonState();
+        return;
+    }
+
+    list.dataset.empty = "false";
+
+    backups.forEach((backup, index) => {
+        const option = document.createElement("option");
+        option.id = `backup-list-option-${index}`;
+        option.value = backup.filename || backup.id || "";
+        option.textContent = formatBackupOptionLabel(backup);
+        list.appendChild(option);
+    });
+
+    const selectedValue = preferredFilename && backups.some((backup) => (backup.filename || backup.id || "") === preferredFilename)
+        ? preferredFilename
+        : list.value || list.options[0]?.value || "";
+    list.value = selectedValue;
+    updateRestoreButtonState();
+}
+
+function formatBackupOptionLabel(backup) {
+    const filename = backup?.filename || backup?.id || "backup";
+    if (!backup?.created_at) {
+        return filename;
+    }
+    return `${formatDate(backup.created_at)} - ${filename}`;
+}
+
+function setBackupControlsBusy(isBusy) {
+    const create = createBtn();
+    const restore = restoreBtn();
+    const list = backupList();
+
+    if (create instanceof HTMLButtonElement) {
+        create.disabled = isBusy;
+    }
+    if (restore instanceof HTMLButtonElement) {
+        restore.disabled = isBusy || !(list instanceof HTMLSelectElement) || !list.value || list.dataset.empty === "true";
+    }
+    if (list instanceof HTMLSelectElement) {
+        list.disabled = isBusy;
+    }
+}
+
+async function loadBackups({ preferredFilename = "", keepFeedback = false } = {}) {
+    const directory = backupDirEl();
+    if (directory) {
+        directory.textContent = "Loading backup directory…";
+    }
+    if (!keepFeedback) {
+        setBackupFeedback("Loading backups...");
+    }
+    try {
+        const response = await fetch("/api/v1/settings/data/backups");
+        if (!response.ok) {
+            throw new Error((await response.text()) || response.statusText);
+        }
+        const payload = await response.json();
+        if (directory) {
+            directory.textContent = payload.directory || "Backup directory unavailable";
+        }
+        renderBackupOptions(payload.backups || [], preferredFilename);
+        if (!keepFeedback) {
+            setBackupFeedback((payload.backups || []).length ? "" : "No local backups found yet.");
+        }
+    } catch (error) {
+        if (directory) {
+            directory.textContent = "Backup directory unavailable";
+        }
+        renderBackupOptions([]);
+        setBackupFeedback(`Error loading backups: ${getErrorMessage(error)}`, "error");
+    }
+}
+
+async function createBackup() {
+    setBackupControlsBusy(true);
+    setBackupFeedback("Creating backup...");
+    try {
+        const response = await fetch("/api/v1/settings/data/backups", { method: "POST" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok === false) {
+            throw new Error(payload.message || payload.error || response.statusText || "Create failed");
+        }
+        const filename = payload.backup?.filename || "";
+        await loadBackups({ preferredFilename: filename, keepFeedback: true });
+        setBackupFeedback(filename ? `Backup created: ${filename}` : "Backup created.", "success");
+    } catch (error) {
+        setBackupFeedback(`Create failed: ${getErrorMessage(error)}`, "error");
+    } finally {
+        setBackupControlsBusy(false);
+    }
+}
+
+async function restoreBackup() {
+    const list = backupList();
+    if (!(list instanceof HTMLSelectElement)) {
+        setBackupFeedback("Backup list is unavailable.", "error");
+        return;
+    }
+
+    const selected = list.value;
+    if (!selected) {
+        setBackupFeedback("Select a backup to restore.", "error");
+        updateRestoreButtonState();
+        return;
+    }
+
+    if (!confirm("Restore selected backup? This will overwrite local settings. Continue?")) {
+        return;
+    }
+
+    setBackupControlsBusy(true);
+    setBackupFeedback("Restoring backup...");
+    try {
+        const response = await fetch("/api/v1/settings/data/backups/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ backup_id: selected })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok === false) {
+            throw new Error(payload.message || payload.error || response.statusText || "Restore failed");
+        }
+        setBackupFeedback(`Restore succeeded: ${selected}`, "success");
+    } catch (error) {
+        setBackupFeedback(`Restore failed: ${getErrorMessage(error)}`, "error");
+    } finally {
+        setBackupControlsBusy(false);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const create = createBtn();
+    const restore = restoreBtn();
+    const list = backupList();
+    if (!(create instanceof HTMLButtonElement) || !(restore instanceof HTMLButtonElement) || !(list instanceof HTMLSelectElement)) {
+        return;
+    }
+
+    create.addEventListener("click", createBackup);
+    restore.addEventListener("click", restoreBackup);
+    list.addEventListener("change", updateRestoreButtonState);
+    setBackupControlsBusy(false);
+    loadBackups();
+});
+
 const LOCAL_STORAGE_SPOTS = [
     {
         id: "settings-storage-local-database",
@@ -22,28 +219,19 @@ const LOCAL_STORAGE_SPOTS = [
     }
 ];
 
-const CONNECTOR_STORAGE_PROVIDER_LABELS = {
-    google: "Google Drive",
-    dropbox: "Dropbox",
-    onedrive: "Microsoft OneDrive",
-    box: "Box",
-    s3: "Amazon S3"
-};
-
-const CONNECTOR_ACTIVE_STATUSES = new Set(["connected", "pending_oauth", "needs_attention"]);
-
 const toTitleCase = (value) => value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
 
 const normalizeProvider = (provider) => {
-    const normalized = (provider || "").toString().trim().toLowerCase();
-    return normalized.startsWith("google_") ? "google" : normalized;
+    return (provider || "").toString().trim().toLowerCase();
 };
 
 const getEnabledConnectorStorageOptions = (settings) => {
     const records = settings?.connectors?.records || [];
-    const enabledRecords = records.filter((record) => CONNECTOR_ACTIVE_STATUSES.has((record.status || "").toLowerCase()));
+    const activeStatuses = new Set(settings?.connectors?.metadata?.active_storage_statuses || []);
+    const providerCatalog = new Map((settings?.connectors?.catalog || []).map((preset) => [preset.id, preset.name]));
+    const enabledRecords = records.filter((record) => activeStatuses.has((record.status || "").toLowerCase()));
     const seenProviders = new Set();
     const options = [];
 
@@ -58,7 +246,7 @@ const getEnabledConnectorStorageOptions = (settings) => {
         if (provider === "google") {
             options.push({
                 id: "settings-storage-connector-google-drive",
-                title: "Google Drive",
+                title: providerCatalog.get(provider) || "Google",
                 location: `Enabled via connector: ${record.name || "Google"}`,
                 type: "connector"
             });
@@ -67,7 +255,7 @@ const getEnabledConnectorStorageOptions = (settings) => {
 
         options.push({
             id: `settings-storage-connector-${provider}`,
-            title: CONNECTOR_STORAGE_PROVIDER_LABELS[provider] || `${toTitleCase(provider)} storage`,
+            title: providerCatalog.get(provider) || `${toTitleCase(provider)} storage`,
             location: `Enabled via connector: ${record.name || toTitleCase(provider)}`,
             type: "connector"
         });
@@ -249,4 +437,3 @@ async function loadLogTableStats() {
 }
 
 bindStorageLocations();
-

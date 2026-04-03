@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -40,9 +41,19 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
         self.assertIsInstance(body["connectors"]["records"], list)
         self.assertEqual(body["connectors"]["auth_policy"]["rotation_interval_days"], 90)
+        self.assertEqual([item["value"] for item in body["options"]["notification_channels"]], ["email", "pager"])
+        self.assertEqual([item["value"] for item in body["options"]["notification_digests"]], ["realtime", "hourly", "daily"])
+        self.assertEqual([item["value"] for item in body["options"]["data_export_windows"]], ["00:00", "02:00", "04:00"])
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
         self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
+        self.assertEqual(
+            [item["value"] for item in body["connectors"]["metadata"]["statuses"]],
+            ["draft", "pending_oauth", "connected", "needs_attention", "expired", "revoked"],
+        )
+        self.assertEqual(body["connectors"]["metadata"]["active_storage_statuses"], ["connected", "needs_attention", "pending_oauth"])
+        google_catalog = next(item for item in body["connectors"]["catalog"] if item["id"] == "google")
+        self.assertGreater(len(google_catalog["recommended_scopes"]), 0)
 
     def test_get_settings_payload_supports_connectors_section_for_startup(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -54,6 +65,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(payload["general"]["environment"], "live")
         self.assertIsInstance(payload["connectors"]["records"], list)
         self.assertEqual(payload["connectors"]["auth_policy"]["rotation_interval_days"], 90)
+        self.assertEqual([item["value"] for item in payload["options"]["notification_channels"]], ["email", "pager"])
 
     def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -182,6 +194,7 @@ class SettingsApiTestCase(unittest.TestCase):
         body = response.json()
         record = body["connectors"]["records"][0]
         self.assertEqual(record["provider"], "google")
+        self.assertEqual(record["request_auth_type"], "bearer")
         self.assertIsNotNone(record["auth_config"]["client_secret_masked"])
         self.assertIsNotNone(record["auth_config"]["access_token_masked"])
         self.assertNotIn("calendar-client-secret", json.dumps(body))
@@ -418,6 +431,60 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["general"]["timezone"], "local")
         self.assertEqual(body["notifications"]["channel"], "email")
         self.assertEqual(body["notifications"]["digest"], "hourly")
+
+    def test_create_list_and_restore_backups_with_mocked_services(self) -> None:
+        with patch("backend.services.support.create_backup") as mock_create, patch(
+            "backend.services.support.list_backups"
+        ) as mock_list, patch("backend.services.support.restore_backup") as mock_restore, patch(
+            "backend.services.support.get_backup_dir"
+        ) as mock_backup_dir:
+            mock_create.return_value = {"filename": "backup-2026-04-03.sql", "size_bytes": 1024}
+            mock_list.return_value = [
+                {"filename": "backup-2026-04-03.sql", "size_bytes": 1024, "created_at": "2026-04-03T00:00:00+00:00"}
+            ]
+            mock_restore.return_value = {"restored_at": "2026-04-03T00:00:00+00:00"}
+            mock_backup_dir.return_value = Path("/tmp/malcom-backups")
+
+            create_resp = self.client.post("/api/v1/settings/data/backups")
+            self.assertEqual(create_resp.status_code, 200)
+            create_body = create_resp.json()
+            self.assertTrue(create_body.get("ok"))
+            self.assertIsNotNone(create_body.get("backup"))
+            self.assertEqual(create_body["backup"]["filename"], "backup-2026-04-03.sql")
+
+            list_resp = self.client.get("/api/v1/settings/data/backups")
+            self.assertEqual(list_resp.status_code, 200)
+            list_body = list_resp.json()
+            self.assertEqual(list_body["directory"], "/tmp/malcom-backups")
+            self.assertIsInstance(list_body.get("backups"), list)
+            self.assertEqual(list_body["backups"][0]["filename"], "backup-2026-04-03.sql")
+
+            restore_resp = self.client.post(
+                "/api/v1/settings/data/backups/restore", json={"backup_id": "backup-2026-04-03.sql"}
+            )
+            self.assertEqual(restore_resp.status_code, 200)
+            restore_body = restore_resp.json()
+            self.assertTrue(restore_body.get("ok"))
+            self.assertIsNotNone(restore_body.get("restored_at"))
+
+    def test_backup_service_errors_propagate_gracefully(self) -> None:
+        with patch("backend.services.support.create_backup") as mock_create:
+            mock_create.side_effect = RuntimeError("pg_dump not available")
+            resp = self.client.post("/api/v1/settings/data/backups")
+            self.assertEqual(resp.status_code, 200)
+            body = resp.json()
+            self.assertFalse(body.get("ok"))
+            self.assertIn("pg_dump not available", body.get("message", ""))
+
+        with patch("backend.services.support.restore_backup") as mock_restore:
+            mock_restore.side_effect = RuntimeError("pg_restore failed")
+            resp = self.client.post(
+                "/api/v1/settings/data/backups/restore", json={"backup_id": "missing.sql"}
+            )
+            self.assertEqual(resp.status_code, 200)
+            body = resp.json()
+            self.assertFalse(body.get("ok"))
+            self.assertIn("pg_restore failed", body.get("message", ""))
 
 
 if __name__ == "__main__":

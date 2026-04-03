@@ -109,4 +109,27 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         setup=revoke_setup,
         response_assert=assert_json_response,
     ),
+    action_case(
+        "settings-backup-create",
+        "POST",
+        "/api/v1/settings/data/backups",
+        200,
+        route_path="/api/v1/settings/data/backups",
+        response_assert=assert_json_response,
+    ),
+    list_case(
+        "settings-backup-list",
+        "GET",
+        "/api/v1/settings/data/backups",
+        response_assert=assert_json_response,
+    ),
+    action_case(
+        "settings-backup-restore",
+        "POST",
+        "/api/v1/settings/data/backups/restore",
+        200,
+        route_path="/api/v1/settings/data/backups/restore",
+        payload={"backup_id": "backup-2026-04-03.sql"},
+        response_assert=assert_json_response,
+    ),
 )
