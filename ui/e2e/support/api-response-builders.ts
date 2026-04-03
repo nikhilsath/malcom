@@ -6,6 +6,7 @@ export type ConnectorRecord = {
   name: string;
   status: string;
   auth_type: string;
+  request_auth_type: string;
   scopes: string[];
   base_url: string;
   owner: string;
@@ -18,6 +19,16 @@ export type ConnectorRecord = {
 };
 
 export const INACTIVE_WORKFLOW_CONNECTOR_STATUSES = new Set(["draft", "expired", "revoked"]);
+
+const normalizeRequestAuthType = (authType: string) => {
+  if (authType === "oauth2") {
+    return "bearer";
+  }
+  if (authType === "api_key") {
+    return "header";
+  }
+  return authType || "none";
+};
 
 export function buildAppSettingsResponse(overrides: JsonRecord = {}): JsonRecord {
   const base = {
@@ -75,6 +86,10 @@ export function buildConnectorCatalog(): JsonRecord[] {
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/calendar.readonly",
       ],
+      recommended_scopes: [
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/calendar.readonly",
+      ],
     },
     {
       id: "github",
@@ -84,6 +99,180 @@ export function buildConnectorCatalog(): JsonRecord[] {
       base_url: "https://api.github.com",
       docs_url: "https://docs.github.com",
       default_scopes: ["repo"],
+      recommended_scopes: ["repo", "read:user"],
+    },
+    {
+      id: "notion",
+      name: "Notion",
+      description: "Notion API connector.",
+      auth_types: ["oauth2", "bearer"],
+      base_url: "https://api.notion.com/v1",
+      docs_url: "https://developers.notion.com/guides/get-started/authorization",
+      default_scopes: [],
+      recommended_scopes: [],
+    },
+    {
+      id: "trello",
+      name: "Trello",
+      description: "Trello API connector.",
+      auth_types: ["api_key", "header"],
+      base_url: "https://api.trello.com/1",
+      docs_url: "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
+      default_scopes: [],
+      recommended_scopes: [],
+    },
+  ];
+}
+
+export function buildConnectorProviderMetadata(): JsonRecord[] {
+  return [
+    {
+      id: "google",
+      name: "Google",
+      onboarding_mode: "oauth",
+      oauth_supported: true,
+      callback_supported: true,
+      refresh_supported: true,
+      revoke_supported: true,
+      redirect_uri_required: true,
+      redirect_uri_readonly: true,
+      scopes_locked: true,
+      default_redirect_path: "/api/v1/connectors/google/oauth/callback",
+      required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
+      setup_fields: [],
+      ui_copy: {
+        eyebrow: "Google",
+        title: "Google OAuth setup",
+        description: "Add your Google OAuth client details, then continue with Google to authorize this workspace.",
+        last_checked_empty: "Google connection has not been checked yet.",
+      },
+      action_labels: {
+        save: "Save connector",
+        test: "Check connection",
+        connect: "Continue with Google",
+        reconnect: "Reconnect Google",
+        refresh: "Refresh Google token",
+        revoke: "Revoke Google connector",
+      },
+      status_messages: {
+        draft: "Add your Google OAuth client details to begin, then continue with Google.",
+        pending_oauth: "Complete the Google sign-in flow in the browser to finish setup.",
+        connected: "Google OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
+        needs_attention: "Google needs attention. Check the connection or reconnect to repair the saved credentials.",
+        expired: "The saved Google token has expired. Refresh it or reconnect Google to continue.",
+        revoked: "Google access has been revoked. Reconnect Google to restore this integration.",
+      },
+    },
+    {
+      id: "github",
+      name: "GitHub",
+      onboarding_mode: "oauth",
+      oauth_supported: true,
+      callback_supported: true,
+      refresh_supported: true,
+      revoke_supported: true,
+      redirect_uri_required: true,
+      redirect_uri_readonly: true,
+      scopes_locked: false,
+      default_redirect_path: "/api/v1/connectors/github/oauth/callback",
+      required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
+      setup_fields: [],
+      ui_copy: {
+        eyebrow: "GitHub",
+        title: "GitHub OAuth setup",
+        description: "Add your GitHub OAuth app details, then continue with GitHub to authorize this workspace.",
+        last_checked_empty: "GitHub connection has not been checked yet.",
+      },
+      action_labels: {
+        save: "Save connector",
+        test: "Check connection",
+        connect: "Continue with GitHub",
+        reconnect: "Reconnect GitHub",
+        refresh: "Refresh GitHub token",
+        revoke: "Revoke GitHub connector",
+      },
+      status_messages: {
+        draft: "Add your GitHub OAuth app details to begin, then continue with GitHub.",
+        pending_oauth: "Complete the GitHub authorization flow in the browser to finish setup.",
+        connected: "GitHub OAuth is complete. Use Check connection to verify the saved token before using this connector in workflow actions or API resources.",
+        needs_attention: "GitHub needs attention. Check the connection or reconnect to repair the saved credentials.",
+        expired: "The saved GitHub token has expired. Refresh it or reconnect GitHub to continue.",
+        revoked: "GitHub access has been revoked. Reconnect GitHub to restore this integration.",
+      },
+    },
+    {
+      id: "notion",
+      name: "Notion",
+      onboarding_mode: "oauth",
+      oauth_supported: true,
+      callback_supported: true,
+      refresh_supported: true,
+      revoke_supported: true,
+      redirect_uri_required: true,
+      redirect_uri_readonly: true,
+      scopes_locked: false,
+      default_redirect_path: "/api/v1/connectors/notion/oauth/callback",
+      required_fields: ["name", "client_id", "client_secret", "redirect_uri"],
+      setup_fields: [],
+      ui_copy: {
+        eyebrow: "Notion",
+        title: "Notion OAuth setup",
+        description: "Add your Notion public integration details, then continue with Notion to authorize this workspace.",
+        last_checked_empty: "Notion connection has not been checked yet.",
+      },
+      action_labels: {
+        save: "Save connector",
+        test: "Check connection",
+        connect: "Continue with Notion",
+        reconnect: "Reconnect Notion",
+        refresh: "Refresh Notion token",
+        revoke: "Revoke Notion connector",
+      },
+      status_messages: {
+        draft: "Add your Notion integration details to begin, then continue with Notion.",
+        pending_oauth: "Complete the Notion authorization flow in the browser to finish setup.",
+        connected: "Notion OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
+        needs_attention: "Notion needs attention. Check the connection or reconnect to repair the saved credentials.",
+        expired: "The saved Notion token has expired. Refresh it or reconnect Notion to continue.",
+        revoked: "Notion access has been revoked. Reconnect Notion to restore this integration.",
+      },
+    },
+    {
+      id: "trello",
+      name: "Trello",
+      onboarding_mode: "credentials",
+      oauth_supported: false,
+      callback_supported: false,
+      refresh_supported: false,
+      revoke_supported: true,
+      redirect_uri_required: false,
+      redirect_uri_readonly: true,
+      scopes_locked: true,
+      default_redirect_path: null,
+      required_fields: ["name", "api_key", "access_token"],
+      setup_fields: [],
+      ui_copy: {
+        eyebrow: "Trello",
+        title: "Trello credential setup",
+        description: "Enter a Trello API key and token to save this connector for workspace use.",
+        last_checked_empty: "Trello connection has not been checked yet.",
+      },
+      action_labels: {
+        save: "Save Trello connector",
+        test: "Test connector",
+        connect: "Save Trello credentials",
+        reconnect: "Replace Trello credentials",
+        refresh: "Refresh token",
+        revoke: "Revoke Trello connector",
+      },
+      status_messages: {
+        draft: "Add your Trello API key and token, then save the connector.",
+        pending_oauth: "Trello uses saved API credentials instead of an OAuth browser callback.",
+        connected: "Trello credentials are saved. Use Test connector to verify the API key and token before using this integration.",
+        needs_attention: "Trello needs attention. Save a complete API key and token, then test the connector again.",
+        expired: "The saved Trello token is no longer valid. Replace it and test the connector again.",
+        revoked: "Trello credentials have been cleared. Save a new API key and token to restore this integration.",
+      },
     },
   ];
 }
@@ -118,6 +307,7 @@ export function buildConnectorSettingsPayload(overrides: JsonRecord = {}): JsonR
           { value: "admin_only", label: "Admin only" },
         ],
       },
+      providers: buildConnectorProviderMetadata(),
     },
   };
   return mergeDeep(base, overrides);
@@ -128,7 +318,15 @@ export function buildWorkflowBuilderConnectorOptions(records: Array<Record<strin
     .filter((record) => !INACTIVE_WORKFLOW_CONNECTOR_STATUSES.has(String(record.status || "").toLowerCase()))
     .map((record) => ({
       ...record,
-      provider_name: record.provider === "google" ? "Google" : record.provider === "github" ? "GitHub" : String(record.provider || ""),
+      provider_name: record.provider === "google"
+        ? "Google"
+        : record.provider === "github"
+          ? "GitHub"
+          : record.provider === "notion"
+            ? "Notion"
+            : record.provider === "trello"
+              ? "Trello"
+              : String(record.provider || ""),
       source_path: "connectors",
     }));
 }
@@ -212,6 +410,7 @@ export function createConnectorRecord(overrides: Partial<ConnectorRecord> & { id
     name: overrides.name,
     status: overrides.status || "draft",
     auth_type: overrides.auth_type || "oauth2",
+    request_auth_type: overrides.request_auth_type || normalizeRequestAuthType(overrides.auth_type || "oauth2"),
     scopes: overrides.scopes || [],
     base_url: overrides.base_url || "",
     owner: overrides.owner || "Workspace",
@@ -222,6 +421,102 @@ export function createConnectorRecord(overrides: Partial<ConnectorRecord> & { id
     last_tested_at: overrides.last_tested_at ?? null,
     auth_config: overrides.auth_config || {},
   };
+}
+
+export function createGoogleOAuthConnector(id = "google", overrides: Partial<ConnectorRecord> = {}): ConnectorRecord {
+  return createConnectorRecord({
+    id,
+    provider: "google",
+    name: "Google",
+    status: "connected",
+    auth_type: "oauth2",
+    scopes: [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/calendar.readonly",
+    ],
+    base_url: "https://www.googleapis.com",
+    owner: "Workspace",
+    docs_url: "https://developers.google.com",
+    auth_config: {
+      client_id: "google-client-id",
+      client_secret_masked: "goog••••cret",
+      access_token_masked: "goog••••oken",
+      refresh_token_masked: "goog••••resh",
+      redirect_uri: "http://localhost:8000/api/v1/connectors/google/oauth/callback",
+      has_refresh_token: true,
+      scope_preset: "google",
+    },
+    ...overrides,
+  });
+}
+
+export function createGithubOAuthConnector(id = "github-oauth", overrides: Partial<ConnectorRecord> = {}): ConnectorRecord {
+  return createConnectorRecord({
+    id,
+    provider: "github",
+    name: "GitHub Primary",
+    status: "connected",
+    auth_type: "oauth2",
+    scopes: ["repo", "read:user"],
+    base_url: "https://api.github.com",
+    owner: "Workspace",
+    docs_url: "https://docs.github.com",
+    auth_config: {
+      client_id: "github-client-id",
+      client_secret_masked: "gith••••cret",
+      access_token_masked: "gith••••oken",
+      refresh_token_masked: "gith••••resh",
+      redirect_uri: "http://localhost:8000/api/v1/connectors/github/oauth/callback",
+      has_refresh_token: true,
+      scope_preset: "github",
+    },
+    ...overrides,
+  });
+}
+
+export function createNotionOAuthConnector(id = "notion-oauth", overrides: Partial<ConnectorRecord> = {}): ConnectorRecord {
+  return createConnectorRecord({
+    id,
+    provider: "notion",
+    name: "Notion Primary",
+    status: "connected",
+    auth_type: "oauth2",
+    scopes: [],
+    base_url: "https://api.notion.com/v1",
+    owner: "Workspace",
+    docs_url: "https://developers.notion.com/guides/get-started/authorization",
+    auth_config: {
+      client_id: "notion-client-id",
+      client_secret_masked: "noti••••cret",
+      access_token_masked: "noti••••oken",
+      refresh_token_masked: "noti••••resh",
+      redirect_uri: "http://localhost:8000/api/v1/connectors/notion/oauth/callback",
+      has_refresh_token: true,
+      scope_preset: "notion",
+    },
+    ...overrides,
+  });
+}
+
+export function createTrelloConnector(id = "trello-primary", overrides: Partial<ConnectorRecord> = {}): ConnectorRecord {
+  return createConnectorRecord({
+    id,
+    provider: "trello",
+    name: "Trello Primary",
+    status: "connected",
+    auth_type: "api_key",
+    scopes: [],
+    base_url: "https://api.trello.com/1",
+    owner: "Workspace",
+    docs_url: "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
+    auth_config: {
+      api_key_masked: "trel••••-key",
+      access_token_masked: "trel••••oken",
+      scope_preset: "trello",
+      has_refresh_token: false,
+    },
+    ...overrides,
+  });
 }
 
 function deepClone<T>(value: T): T {

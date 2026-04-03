@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # Policy sync note: keep AGENTS.md schema workspace-state entries aligned with backend/database.py.
-# Note: updated to reflect workflow storage documentation (data.workflow_storage_path) on 2026-03-29.
+# Note: updated to reflect connector DB boundary docs and migration ownership wording on 2026-04-03.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -248,7 +248,7 @@ check_workflow_builder_connector_path_sync() {
     return 1
   fi
 
-  printf 'Workflow-builder connector source-of-truth path remains synchronized.\n'
+  printf 'Workflow-builder connector source-of-truth path remains synchronized (persisted connectors via backend resolver).\n'
 }
 
 check_test_precommit() {

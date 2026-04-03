@@ -77,6 +77,22 @@ Agents must not hardcode new topnav or sidenav markup into page HTML when the sh
 
 ---
 
+## Connector Boundary Requirements
+
+Connector entity lifecycle and auth-policy writes are connector-domain operations, not app settings writes.
+
+Rules:
+
+1. Do not route connector create/update/delete/auth-policy actions through `PATCH /api/v1/settings`.
+2. Use connector endpoints (`/api/v1/connectors`, `/api/v1/connectors/auth-policy`) for connector entity writes.
+3. For automation builder catalogs, consume only canonical endpoints:
+  - `GET /api/v1/automations/workflow-connectors`
+  - `GET /api/v1/connectors/activity-catalog`
+  - `GET /api/v1/connectors/http-presets`
+4. Do not add UI-owned provider availability lists or duplicate catalog definitions when backend resolver responses already exist.
+
+---
+
 ## Selection-Driven Detail View Policy
 
 When a page presents a directory, list, or table of selectable records, keep record details hidden in the default state and reveal them on demand in a shared modal after explicit selection, unless a documented operational reason requires an inline detail pane.

@@ -68,16 +68,13 @@ export const createApiClient = () => ({
   }
 });
 
-export const getAppSettings = () => window.MalcomLogStore?.getAppSettings?.() || { connectors: { records: [] } };
-
 export const loadConnectorEntries = async () => {
-  try {
-    await window.MalcomLogStore?.ready?.();
-  } catch {
-    return getAppSettings().connectors?.records || [];
+  const response = await window.Malcom?.requestJson?.("/api/v1/connectors");
+  if (response && Array.isArray(response.records)) {
+    return response.records;
   }
 
-  return getAppSettings().connectors?.records || [];
+  return [];
 };
 
 export const emitApiLog = ({

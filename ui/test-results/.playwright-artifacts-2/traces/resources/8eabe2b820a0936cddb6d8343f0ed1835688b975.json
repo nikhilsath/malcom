@@ -1,0 +1,1 @@
+{"table_id":"customer-events","table_name":"Customer events","columns":["row_id","customer_id","event"],"rows":[{"row_id":1,"customer_id":"CUS-1","event":"created"}],"total":1}

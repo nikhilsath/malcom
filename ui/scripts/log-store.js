@@ -5,29 +5,40 @@ const malcomLogStorageKeys = {
 const malcomDefaultAppSettings = {
   general: {
     environment: "live",
-    timezone: ""
+    timezone: "local"
   },
   logging: {
-    max_stored_entries: 0,
-    max_visible_entries: 0,
-    max_detail_characters: 0,
-    max_file_size_mb: 0
+    max_stored_entries: 250,
+    max_visible_entries: 50,
+    max_detail_characters: 4000,
+    max_file_size_mb: 5
   },
   notifications: {
-    channel: "",
-    digest: ""
+    channel: "email",
+    digest: "hourly"
   },
   data: {
-    payload_redaction: false,
-    export_window_utc: ""
+    payload_redaction: true,
+    export_window_utc: "02:00"
   },
   automation: {
-    default_tool_retries: 0
+    default_tool_retries: 2
   },
   options: {
-    notification_channels: [],
-    notification_digests: [],
-    data_export_windows: []
+    notification_channels: [
+      { value: "email", label: "Email" },
+      { value: "pager", label: "Pager" }
+    ],
+    notification_digests: [
+      { value: "realtime", label: "Realtime" },
+      { value: "hourly", label: "Hourly" },
+      { value: "daily", label: "Daily" }
+    ],
+    data_export_windows: [
+      { value: "00:00", label: "00:00" },
+      { value: "02:00", label: "02:00" },
+      { value: "04:00", label: "04:00" }
+    ]
   }
 };
 

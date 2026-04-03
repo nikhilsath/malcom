@@ -6,7 +6,7 @@
     <title>Malcom</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body class="app-shell" data-section="apis" data-settings-section="connectors" data-sidenav-item="sidenav-apis-connectors" data-shell-path-prefix="../">
+<body class="app-shell" data-section="settings" data-settings-section="connectors" data-sidenav-item="sidenav-settings-integrations" data-shell-path-prefix="../">
     <div id="topnav"></div>
 
     <aside id="sidenav"></aside>
@@ -200,6 +200,130 @@
                         <button type="button" id="settings-connectors-detail-modal-close" class="modal__close-icon-button" data-modal-close="settings-connectors-detail-modal" aria-label="Close connector details">×</button>
                     </div>
                     <form id="settings-connectors-form" class="api-form modal__body modal__body--form">
+                        <section id="settings-connectors-google-setup-panel" class="card settings-connectors-provider-setup-panel settings-connectors-google-setup-panel" hidden>
+                            <div id="settings-connectors-google-setup-header" class="settings-connectors-provider-setup-header settings-connectors-google-setup-header">
+                                <p id="settings-connectors-google-setup-eyebrow" class="section-header__eyebrow">Google status</p>
+                                <span id="settings-connectors-google-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-google-status-message" class="settings-connectors-google-status-message">Add your Google OAuth client details to begin.</p>
+                            <p id="settings-connectors-google-last-checked" class="settings-connectors-google-last-checked">Google connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-google-form-grid" class="api-form-grid settings-connectors-provider-form-grid settings-connectors-google-form-grid" hidden>
+                            <label id="settings-connectors-google-name-field" class="api-form-field">
+                                <span id="settings-connectors-google-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-google-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-google-provider-field" class="api-form-field">
+                                <span id="settings-connectors-google-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-google-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-google-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-google-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-google-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-google-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-google-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-google-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-google-scopes-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-google-scopes-label" class="api-form-label">Scopes</span>
+                                <input id="settings-connectors-google-scopes-input" class="api-form-input api-form-input--locked" type="text" maxlength="1000" readonly>
+                            </label>
+                            <label id="settings-connectors-google-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-google-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-google-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-github-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-github-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-github-setup-eyebrow" class="section-header__eyebrow">GitHub status</p>
+                                <span id="settings-connectors-github-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-github-status-message" class="settings-connectors-provider-status-message">Add your GitHub OAuth app details to begin.</p>
+                            <p id="settings-connectors-github-last-checked" class="settings-connectors-provider-last-checked">GitHub connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-github-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-github-name-field" class="api-form-field">
+                                <span id="settings-connectors-github-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-github-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-github-provider-field" class="api-form-field">
+                                <span id="settings-connectors-github-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-github-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-github-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-github-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-github-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-github-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-github-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-github-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-github-scopes-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-github-scopes-label" class="api-form-label">Scopes</span>
+                                <input id="settings-connectors-github-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="repo, read:user">
+                            </label>
+                            <label id="settings-connectors-github-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-github-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-github-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-notion-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-notion-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-notion-setup-eyebrow" class="section-header__eyebrow">Notion status</p>
+                                <span id="settings-connectors-notion-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-notion-status-message" class="settings-connectors-provider-status-message">Add your Notion integration details to begin.</p>
+                            <p id="settings-connectors-notion-last-checked" class="settings-connectors-provider-last-checked">Notion connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-notion-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-notion-name-field" class="api-form-field">
+                                <span id="settings-connectors-notion-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-notion-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-notion-provider-field" class="api-form-field">
+                                <span id="settings-connectors-notion-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-notion-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-notion-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-notion-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-notion-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-notion-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-notion-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-notion-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-notion-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-notion-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-notion-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-trello-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-trello-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-trello-setup-eyebrow" class="section-header__eyebrow">Trello status</p>
+                                <span id="settings-connectors-trello-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-trello-status-message" class="settings-connectors-provider-status-message">Add your Trello API key and token to begin.</p>
+                            <p id="settings-connectors-trello-last-checked" class="settings-connectors-provider-last-checked">Trello connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-trello-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-trello-name-field" class="api-form-field">
+                                <span id="settings-connectors-trello-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-trello-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-trello-provider-field" class="api-form-field">
+                                <span id="settings-connectors-trello-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-trello-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-trello-api-key-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-trello-api-key-label" class="api-form-label">API key</span>
+                                <input id="settings-connectors-trello-api-key-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-trello-access-token-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-trello-access-token-label" class="api-form-label">Token</span>
+                                <input id="settings-connectors-trello-access-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                        </section>
                         <div id="settings-connectors-form-grid" class="api-form-grid">
                             <label id="settings-connectors-name-field" class="api-form-field">
                                 <span id="settings-connectors-name-label" class="api-form-label">Name</span>

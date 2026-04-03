@@ -1,42 +1,19 @@
 import type { Page, Route } from "@playwright/test";
-import { buildConnectorSettingsPayload } from "./api-response-builders.ts";
+import {
+  buildAppSettingsResponse,
+  buildConnectorSettingsPayload,
+  createConnectorRecord as createConnectorFixture,
+  createGithubOAuthConnector,
+  createGoogleOAuthConnector,
+  createNotionOAuthConnector,
+  createTrelloConnector
+} from "./api-response-builders.ts";
 
 type JsonRecord = Record<string, unknown>;
 
-export const defaultSettingsResponse = {
-  connectors: {
-    catalog: [
-      {
-        id: "google",
-        name: "Google",
-        description: "Google Workspace OAuth provider.",
-        auth_types: ["oauth2"],
-        base_url: "https://www.googleapis.com",
-        docs_url: "https://developers.google.com",
-        default_scopes: [
-          "https://www.googleapis.com/auth/gmail.readonly",
-          "https://www.googleapis.com/auth/calendar.readonly",
-          "https://www.googleapis.com/auth/spreadsheets.readonly"
-        ]
-      },
-      {
-        id: "github",
-        name: "GitHub",
-        description: "GitHub API connector.",
-        auth_types: ["oauth2", "bearer"],
-        base_url: "https://api.github.com",
-        docs_url: "https://docs.github.com",
-        default_scopes: ["repo"]
-      }
-    ],
-    records: [],
-    auth_policy: {
-      rotation_interval_days: 30,
-      reconnect_requires_approval: false,
-      credential_visibility: "workspace"
-    }
-  }
-} as const;
+export const defaultSettingsResponse = buildAppSettingsResponse({
+  connectors: buildConnectorSettingsPayload(),
+});
 
 export type ConnectorRecord = {
   id: string;
@@ -44,6 +21,7 @@ export type ConnectorRecord = {
   name: string;
   status: string;
   auth_type: string;
+  request_auth_type?: string;
   scopes: string[];
   base_url: string;
   owner: string;
@@ -167,33 +145,37 @@ const toJson = (body: JsonRecord | JsonRecord[]) => ({
   body: JSON.stringify(body)
 });
 
-const createDefaultSettings = (connectors: ConnectorRecord[]) => ({
-  connectors: buildConnectorSettingsPayload({ records: connectors }),
+const createDefaultSettings = (connectors: ConnectorRecord[]) => buildAppSettingsResponse({
+  connectors: createDefaultConnectors(connectors),
 });
 
+const createDefaultConnectors = (connectors: ConnectorRecord[]) => buildConnectorSettingsPayload({ records: connectors });
+
 const createConnectorRecord = (overrides: Partial<ConnectorRecord> & { id: string; provider: string; name: string }): ConnectorRecord => ({
-  id: overrides.id,
-  provider: overrides.provider,
-  name: overrides.name,
-  status: overrides.status || "draft",
-  auth_type: overrides.auth_type || "oauth2",
-  scopes: overrides.scopes || [],
-  base_url: overrides.base_url || "",
-  owner: overrides.owner || "Workspace",
-  docs_url: overrides.docs_url,
-  credential_ref: overrides.credential_ref || `connector/${overrides.id}`,
-  created_at: overrides.created_at || iso(90),
-  updated_at: overrides.updated_at || iso(0),
-  last_tested_at: overrides.last_tested_at ?? null,
-  auth_config: overrides.auth_config || {
-    client_id: "",
-    username: "",
-    header_name: "",
-    scope_preset: overrides.provider,
-    redirect_uri: "",
-    expires_at: null,
-    has_refresh_token: false
-  }
+  ...createConnectorFixture({
+    id: overrides.id,
+    provider: overrides.provider,
+    name: overrides.name,
+    status: overrides.status || "draft",
+    auth_type: overrides.auth_type || "oauth2",
+    scopes: overrides.scopes || [],
+    base_url: overrides.base_url || "",
+    owner: overrides.owner || "Workspace",
+    docs_url: overrides.docs_url,
+    credential_ref: overrides.credential_ref || `connector/${overrides.id}`,
+    created_at: overrides.created_at || iso(90),
+    updated_at: overrides.updated_at || iso(0),
+    last_tested_at: overrides.last_tested_at ?? null,
+    auth_config: overrides.auth_config || {
+      client_id: "",
+      username: "",
+      header_name: "",
+      scope_preset: overrides.provider,
+      redirect_uri: "",
+      expires_at: null,
+      has_refresh_token: false
+    }
+  })
 });
 
 const createIncomingRecord = (overrides: Partial<IncomingApiRecord> & { id: string; name: string; path_slug: string }): IncomingApiRecord => ({
@@ -258,26 +240,8 @@ const createWebhookRecord = (overrides: Partial<WebhookRecord> & { id: string; n
 });
 
 const createDefaultConnectorFixtures = (): ConnectorRecord[] => [
-  createConnectorRecord({
-    id: "github-oauth",
-    provider: "github",
-    name: "GitHub Primary",
-    status: "connected",
-    auth_type: "oauth2",
-    scopes: ["repo"],
-    base_url: "https://api.github.com",
-    owner: "Workspace",
-    docs_url: "https://docs.github.com",
-    auth_config: {
-      client_id: "github-client-id",
-      client_secret_masked: "••••••••",
-      access_token_masked: "••••••••",
-      refresh_token_masked: "••••••••",
-      redirect_uri: "http://localhost:8000/api/v1/connectors/github/oauth/callback",
-      has_refresh_token: true,
-      scope_preset: "github"
-    },
-    last_tested_at: iso(10)
+  createGithubOAuthConnector("github-oauth", {
+    last_tested_at: iso(10),
   })
 ];
 
@@ -409,10 +373,46 @@ const writeRedirectHtml = async (route: Route, destination: string) => {
   });
 };
 
+const writeConnectorRedirectHtml = async (route: Route, destination: string, connectorsState: JsonRecord) => {
+  const escapedDestination = destination
+    .replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  await route.fulfill({
+    status: 200,
+    contentType: "text/html; charset=utf-8",
+    body: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0; url=${escapedDestination}">
+    <title>Redirecting…</title>
+  </head>
+  <body>
+    <script>
+      try {
+        const stateKey = "malcom.playwright.connectors-apis";
+        const current = JSON.parse(window.localStorage.getItem(stateKey) || "{}");
+        current.connectors = ${JSON.stringify(connectorsState)};
+        window.localStorage.setItem(stateKey, JSON.stringify(current));
+      } catch {}
+      window.location.replace(${JSON.stringify(destination)});
+    </script>
+    <a href="${escapedDestination}">Continue</a>
+  </body>
+</html>`
+  });
+};
+
 const stripSecretFields = (record: ConnectorRecord): JsonRecord => {
   const authConfig = record.auth_config || {};
+  const normalizedStatus = record.provider === "google" && authConfig.access_token_input && record.status === "draft"
+    ? "connected"
+    : record.status;
   return {
     ...record,
+    status: normalizedStatus,
     auth_config: {
       ...authConfig,
       client_secret_masked: authConfig.client_secret_masked || (authConfig.client_secret_input ? "••••••••" : authConfig.client_secret_masked),
@@ -456,11 +456,18 @@ const setConnectorStatus = (record: ConnectorRecord | null, nextStatus: string) 
   };
 };
 
-const createConnectorAuthorizationUrl = (stateToken: string, redirectUri: string) => {
-  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+const createConnectorAuthorizationUrl = (provider: string, stateToken: string, redirectUri: string) => {
+  const baseUrl = provider === "google"
+    ? "https://accounts.google.com/o/oauth2/v2/auth"
+    : provider === "github"
+      ? "https://github.com/login/oauth/authorize"
+      : "https://api.notion.com/v1/oauth/authorize";
+  const url = new URL(baseUrl);
   url.searchParams.set("state", stateToken);
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("response_type", "code");
+  if (provider !== "github") {
+    url.searchParams.set("response_type", "code");
+  }
   return url.toString();
 };
 
@@ -470,6 +477,55 @@ const buildCallbackRedirect = (connectorId: string, status: "success" | "warning
   url.searchParams.set("oauth_message", message);
   url.searchParams.set("connector_id", connectorId);
   return url.toString();
+};
+
+const getProviderBaseUrl = (provider: string) => (
+  provider === "google"
+    ? "https://www.googleapis.com"
+    : provider === "github"
+      ? "https://api.github.com"
+      : provider === "notion"
+        ? "https://api.notion.com/v1"
+        : "https://api.trello.com/1"
+);
+
+const getProviderDocsUrl = (provider: string) => (
+  provider === "google"
+    ? "https://developers.google.com"
+    : provider === "github"
+      ? "https://docs.github.com"
+      : provider === "notion"
+        ? "https://developers.notion.com/guides/get-started/authorization"
+        : "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/"
+);
+
+const getProviderSuccessMessage = (provider: string, action: "test" | "refresh" | "revoke" | "authorize") => {
+  if (action === "authorize") {
+    return `${provider === "github" ? "GitHub" : provider === "notion" ? "Notion" : "Google"} connector authorized successfully.`;
+  }
+  if (action === "test") {
+    return provider === "google"
+      ? "Google connection verified."
+      : provider === "github"
+        ? "GitHub connection verified."
+        : provider === "notion"
+          ? "Notion connection verified."
+          : "Trello connection verified.";
+  }
+  if (action === "refresh") {
+    return provider === "github"
+      ? "GitHub token refreshed."
+      : provider === "notion"
+        ? "Notion token refreshed."
+        : "Google token refreshed.";
+  }
+  return provider === "github"
+    ? "GitHub connector revoked and credentials cleared."
+    : provider === "notion"
+      ? "Notion connector revoked and credentials cleared."
+      : provider === "trello"
+        ? "Trello credentials cleared from this workspace."
+        : "Google connector revoked and credentials cleared.";
 };
 
 const makeCreatedIncoming = (body: JsonRecord, counter: number): IncomingApiRecord => createIncomingRecord({
@@ -517,13 +573,16 @@ const makeCreatedWebhook = (body: JsonRecord, counter: number): WebhookRecord =>
 });
 
 export function createConnectorsApisHarness(options: ConnectorsApisHarnessOptions = {}) {
-  const settings = createDefaultSettings(options.connectors || createDefaultConnectorFixtures());
+  const connectorRecords = options.connectors || createDefaultConnectorFixtures();
+  const settings = createDefaultSettings(connectorRecords);
+  const connectors = createDefaultConnectors(connectorRecords);
   if (options.settings) {
     Object.assign(settings, mergeDeep(settings, options.settings as JsonRecord));
   }
 
   const state = {
     settings,
+    connectors,
     oauthStateByConnector: {} as Record<string, { state: string; redirectUri: string; provider: string }>,
     inbound: options.inbound ? clone(options.inbound) : createDefaultIncomingFixtures(),
     outgoingScheduled: options.outgoingScheduled ? clone(options.outgoingScheduled) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_scheduled"),
@@ -538,22 +597,27 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
   const nextSettings = () => clone(state.settings);
 
+  const nextConnectorSettings = () => ({
+    ...clone(state.connectors),
+    records: listConnectors(),
+  });
+
   const updateSettings = (patch: JsonRecord) => {
     state.settings = mergeDeep(state.settings, patch);
     return nextSettings();
   };
 
-  const listConnectors = () => (state.settings.connectors?.records || []).map((record: ConnectorRecord) => stripSecretFields(record));
+  const listConnectors = () => (state.connectors.records || []).map((record: ConnectorRecord) => stripSecretFields(record));
 
   const replaceConnector = (record: ConnectorRecord) => {
-    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    const connectors = state.connectors.records as ConnectorRecord[];
     upsertConnector(connectors, record);
-    state.settings.connectors.records = connectors;
+    state.connectors.records = connectors;
     return record;
   };
 
   const createOAuthStartResponse = (body: JsonRecord, provider: string) => {
-    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    const connectors = state.connectors.records as ConnectorRecord[];
     const existing = findConnector(connectors, String(body.connector_id || ""));
     const nextRecord = createConnectorRecord({
       id: String(body.connector_id || provider),
@@ -561,10 +625,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       name: String(body.name || provider),
       status: "pending_oauth",
       auth_type: "oauth2",
-      scopes: Array.isArray(body.scopes) ? body.scopes as string[] : ["repo"],
-      base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+      scopes: Array.isArray(body.scopes) ? body.scopes as string[] : [],
+      base_url: getProviderBaseUrl(provider),
       owner: String(body.owner || "Workspace"),
-      docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+      docs_url: getProviderDocsUrl(provider),
       credential_ref: `connector/${String(body.connector_id || provider)}`,
       auth_config: {
         client_id: String(body.client_id || existing?.auth_config?.client_id || `${provider}-client-id`),
@@ -590,7 +654,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
     return {
       connector: stripSecretFields(nextRecord),
-      authorization_url: createConnectorAuthorizationUrl(stateToken, String(body.redirect_uri || "")),
+      authorization_url: createConnectorAuthorizationUrl(provider, stateToken, String(body.redirect_uri || "")),
       state: stateToken,
       expires_at: iso(-15),
       code_challenge_method: "S256"
@@ -601,10 +665,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     const stateToken = String(query.get("state") || "");
     const code = String(query.get("code") || "demo");
     const connectorId = String(query.get("connector_id") || "google");
-    const connectors = state.settings.connectors.records as ConnectorRecord[];
+    const connectors = state.connectors.records as ConnectorRecord[];
     const existing = findConnector(connectors, connectorId);
     const session = state.oauthStateByConnector[connectorId];
-    const providerPreset = state.settings.connectors.catalog.find((item: { id: string }) => item.id === provider);
+    const providerPreset = state.connectors.catalog.find((item: { id: string }) => item.id === provider);
 
     const hasValidHarnessState = Boolean(session && session.state === stateToken && session.provider === provider);
     const hasValidTokenShape = stateToken === `oauth-state-${connectorId}`;
@@ -620,12 +684,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         name: providerPreset?.name || provider,
         status: "pending_oauth",
         auth_type: "oauth2",
-        scopes: provider === "google"
-          ? ["https://www.googleapis.com/auth/gmail.readonly"]
-          : ["repo"],
-        base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+        scopes: existing?.scopes?.length ? existing.scopes : [],
+        base_url: getProviderBaseUrl(provider),
         owner: "Workspace",
-        docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+        docs_url: getProviderDocsUrl(provider),
         auth_config: {
           client_id: `${provider}-client-id`,
           redirect_uri: `http://127.0.0.1:4173/api/v1/connectors/${provider}/oauth/callback`,
@@ -637,11 +699,19 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       status: "connected",
       updated_at: iso(0),
       last_tested_at: iso(0),
-      scopes: existing?.scopes?.length ? existing.scopes : provider === "google" ? ["https://www.googleapis.com/auth/gmail.readonly"] : ["repo"],
+      scopes: existing?.scopes?.length ? existing.scopes : [],
       auth_config: {
         ...(existing?.auth_config || {}),
-        access_token_input: `token_${code.slice(0, 24)}`,
-        refresh_token_input: `refresh_${code.slice(0, 24)}`,
+        access_token_input: provider === "github"
+          ? `gho_${code.slice(0, 24)}`
+          : provider === "notion"
+            ? `ntn_${code.slice(0, 24)}`
+            : `token_${code.slice(0, 24)}`,
+        refresh_token_input: provider === "github"
+          ? `ghr_${code.slice(0, 24)}`
+          : provider === "notion"
+            ? `ntr_${code.slice(0, 24)}`
+            : `refresh_${code.slice(0, 24)}`,
         has_refresh_token: true,
         expires_at: iso(60),
         client_secret_input: ""
@@ -649,7 +719,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     };
 
     replaceConnector(nextRecord);
-    return buildCallbackRedirect(connectorId, "success", "Connector authorized successfully.");
+    return buildCallbackRedirect(connectorId, "success", getProviderSuccessMessage(provider, "authorize"));
   };
 
   const install = async (page: Page) => {
@@ -725,7 +795,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         };
       };
 
-      const state = loadState();
+      let state = loadState();
 
       Object.defineProperty(navigator, "clipboard", {
         configurable: true,
@@ -738,6 +808,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
       window.Malcom = window.Malcom || {};
       window.Malcom.requestJson = async (path: string, options: RequestInit = {}) => {
+        state = loadState();
         const method = (options.method || "GET").toString().toUpperCase();
         const body = typeof options.body === "string" && options.body
           ? JSON.parse(options.body)
@@ -773,7 +844,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         }
 
         if (pathname === "/api/v1/connectors" && method === "GET") {
-          const connectorSettings = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>) || {};
+          const connectorSettings = (state.connectors as Record<string, unknown>) || {};
           const records = Array.isArray(connectorSettings.records)
             ? connectorSettings.records.map((record) => stripConnectorSecrets(record as Record<string, unknown>))
             : [];
@@ -781,6 +852,9 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           return respond({
             catalog: Array.isArray(connectorSettings.catalog) ? clone(connectorSettings.catalog) : [],
             records,
+            metadata: (connectorSettings.metadata && typeof connectorSettings.metadata === "object")
+              ? clone(connectorSettings.metadata as Record<string, unknown>)
+              : {},
             auth_policy: (connectorSettings.auth_policy && typeof connectorSettings.auth_policy === "object")
               ? clone(connectorSettings.auth_policy as Record<string, unknown>)
               : {}
@@ -788,7 +862,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         }
 
         if (pathname === "/api/v1/connectors" && method === "POST") {
-          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectorsRoot = state.connectors as Record<string, unknown>;
           const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
           const connectorId = String(body.id || `${String(body.provider || "connector")}-${Date.now()}`);
           const nextRecord = {
@@ -816,7 +890,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         const connectorWriteMatch = pathname.match(/^\/api\/v1\/connectors\/([^/]+)$/);
         if (connectorWriteMatch && method === "PATCH") {
           const connectorId = connectorWriteMatch[1];
-          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectorsRoot = state.connectors as Record<string, unknown>;
           const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
           const existing = connectors.find((record) => record.id === connectorId);
           if (!existing) {
@@ -848,7 +922,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
 
         if (connectorWriteMatch && method === "DELETE") {
           const connectorId = connectorWriteMatch[1];
-          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectorsRoot = state.connectors as Record<string, unknown>;
           const connectors = (connectorsRoot.records as Array<Record<string, unknown>>) || [];
           const before = connectors.length;
           const nextRecords = connectors.filter((record) => record.id !== connectorId);
@@ -861,7 +935,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         }
 
         if (pathname === "/api/v1/connectors/auth-policy" && method === "PATCH") {
-          const connectorsRoot = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>);
+          const connectorsRoot = state.connectors as Record<string, unknown>;
           const currentPolicy = (connectorsRoot.auth_policy && typeof connectorsRoot.auth_policy === "object")
             ? connectorsRoot.auth_policy as Record<string, unknown>
             : {};
@@ -877,7 +951,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         if (connectorStartMatch && method === "POST") {
           const provider = connectorStartMatch[1];
           const connectorId = String(body.connector_id || provider);
-          const connectors = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
+          const connectors = (state.connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
           const existing = connectors.find((record) => record.id === connectorId);
           const nextRecord = {
             id: connectorId,
@@ -885,10 +959,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
             name: String(body.name || provider),
             status: "pending_oauth",
             auth_type: "oauth2",
-            scopes: Array.isArray(body.scopes) ? body.scopes : ["repo"],
-            base_url: provider === "google" ? "https://www.googleapis.com" : "https://api.github.com",
+            scopes: Array.isArray(body.scopes) ? body.scopes : [],
+            base_url: getProviderBaseUrl(provider),
             owner: String(body.owner || "Workspace"),
-            docs_url: provider === "google" ? "https://developers.google.com" : "https://docs.github.com",
+            docs_url: getProviderDocsUrl(provider),
             credential_ref: `connector/${connectorId}`,
             created_at: existing?.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -904,7 +978,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           };
 
           upsert(connectors, nextRecord);
-          ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records = connectors;
+          (state.connectors as Record<string, unknown>).records = connectors;
           (state as Record<string, unknown>).oauthStateByConnector = {
             ...((state as Record<string, unknown>).oauthStateByConnector as Record<string, unknown> || {}),
             [connectorId]: {
@@ -916,7 +990,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           saveState(state);
           return respond({
             connector: stripConnectorSecrets(nextRecord),
-            authorization_url: `https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-${connectorId}&redirect_uri=${encodeURIComponent(String(body.redirect_uri || ""))}&response_type=code`,
+            authorization_url: createConnectorAuthorizationUrl(provider, `oauth-state-${connectorId}`, String(body.redirect_uri || "")),
             state: `oauth-state-${connectorId}`,
             expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
             code_challenge_method: "S256"
@@ -927,7 +1001,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         if (connectorIdMatch && method === "POST") {
           const connectorId = connectorIdMatch[1];
           const action = connectorIdMatch[2];
-          const connectors = ((state.settings as Record<string, unknown>).connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
+          const connectors = (state.connectors as Record<string, unknown>).records as Array<Record<string, unknown>>;
           const record = connectors.find((item) => item.id === connectorId);
           if (!record) {
             return respond({ detail: "Connector not found." }, 404);
@@ -940,7 +1014,9 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
             saveState(state);
             return respond({
               ok: record.status !== "revoked",
-              message: record.status === "revoked" ? "Connector is revoked." : "Connector credentials look complete.",
+              message: record.status === "revoked"
+                ? `${record.provider === "trello" ? "Trello" : titleCase(String(record.provider || ""))} connector is revoked.`
+                : getProviderSuccessMessage(String(record.provider || ""), "test"),
               connector: stripConnectorSecrets(record)
             });
           }
@@ -950,14 +1026,23 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           record.last_tested_at = new Date().toISOString();
           record.auth_config = {
             ...record.auth_config,
-            access_token_input: `token_${connectorId.slice(0, 12)}`,
+            access_token_input: record.provider === "github"
+              ? `gho_${connectorId.slice(0, 12)}`
+              : record.provider === "notion"
+                ? `ntn_${connectorId.slice(0, 12)}`
+                : `token_${connectorId.slice(0, 12)}`,
+            refresh_token_input: record.provider === "github"
+              ? `ghr_${connectorId.slice(0, 12)}`
+              : record.provider === "notion"
+                ? `ntr_${connectorId.slice(0, 12)}`
+                : record.auth_config?.refresh_token_input,
             expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
             has_refresh_token: true
           };
           saveState(state);
           return respond({
             ok: true,
-            message: "Connector token refreshed.",
+            message: getProviderSuccessMessage(String(record.provider || ""), "refresh"),
             connector: stripConnectorSecrets(record)
           });
         }
@@ -1169,12 +1254,49 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       };
     }, clone({
       settings,
+      connectors: nextConnectorSettings(),
       oauthStateByConnector: {},
       inbound: options.inbound ? clone(options.inbound) : createDefaultIncomingFixtures(),
       outgoingScheduled: options.outgoingScheduled ? clone(options.outgoingScheduled) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_scheduled"),
       outgoingContinuous: options.outgoingContinuous ? clone(options.outgoingContinuous) : createDefaultOutgoingFixtures().filter((entry) => entry.type === "outgoing_continuous"),
       webhooks: options.webhooks ? clone(options.webhooks) : createDefaultWebhookFixtures()
     }));
+
+    const syncConnectorsStateFromBrowser = async () => {
+      try {
+        const browserConnectors = await page.evaluate(() => {
+          try {
+            const stateKey = "malcom.playwright.connectors-apis";
+            const payload = JSON.parse(window.localStorage.getItem(stateKey) || "{}");
+            return payload.connectors || null;
+          } catch {
+            return null;
+          }
+        });
+        if (browserConnectors && typeof browserConnectors === "object") {
+          state.connectors = clone(browserConnectors as JsonRecord);
+        }
+      } catch {
+        // Keep existing harness state if the page is between navigations.
+      }
+    };
+
+    const syncBrowserConnectorsStateFromHarness = async () => {
+      try {
+        await page.evaluate((connectorsState) => {
+          try {
+            const stateKey = "malcom.playwright.connectors-apis";
+            const payload = JSON.parse(window.localStorage.getItem(stateKey) || "{}");
+            payload.connectors = connectorsState;
+            window.localStorage.setItem(stateKey, JSON.stringify(payload));
+          } catch {
+            // Ignore browser-state sync errors during navigation churn.
+          }
+        }, nextConnectorSettings());
+      } catch {
+        // Keep existing browser state if the page is between navigations.
+      }
+    };
 
     await page.route("**/api/v1/settings", async (route) => {
       const method = route.request().method();
@@ -1197,7 +1319,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     await page.route("**/api/v1/connectors", async (route) => {
       const method = route.request().method();
       if (method === "GET") {
-        await writeJson(route, nextSettings().connectors as JsonRecord);
+        await writeJson(route, nextConnectorSettings() as JsonRecord);
         return;
       }
       await route.fallback();
@@ -1209,6 +1331,7 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         return;
       }
 
+      await syncConnectorsStateFromBrowser();
       const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
       await writeJson(route, createOAuthStartResponse(body, "google"));
     });
@@ -1219,62 +1342,61 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         return;
       }
 
+      await syncConnectorsStateFromBrowser();
       const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
       await writeJson(route, createOAuthStartResponse(body, "github"));
+    });
+
+    await page.route("**/api/v1/connectors/notion/oauth/start", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      await syncConnectorsStateFromBrowser();
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      await writeJson(route, createOAuthStartResponse(body, "notion"));
     });
 
     await page.route("**accounts.google.com/**", async (route) => {
       const url = new URL(route.request().url());
       const stateToken = url.searchParams.get("state") || "oauth-state-google";
-      const connectorId = "google";
-      const connectors = state.settings.connectors.records as ConnectorRecord[];
-      const existing = findConnector(connectors, connectorId);
-      const nextRecord: ConnectorRecord = {
-        ...(existing || createConnectorRecord({
-          id: connectorId,
-          provider: "google",
-          name: "Google",
-          status: "pending_oauth",
-          auth_type: "oauth2",
-          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-          base_url: "https://www.googleapis.com",
-          owner: "Workspace",
-          docs_url: "https://developers.google.com",
-          auth_config: {
-            client_id: "google-client-id",
-            redirect_uri: "http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback",
-            scope_preset: "google",
-            expires_at: null,
-            has_refresh_token: false
-          }
-        })),
-        status: "connected",
-        updated_at: iso(0),
-        last_tested_at: iso(0),
-        auth_config: {
-          ...(existing?.auth_config || {}),
-          access_token_input: `token_${stateToken.slice(0, 24)}`,
-          refresh_token_input: `refresh_${stateToken.slice(0, 24)}`,
-          has_refresh_token: true,
-          expires_at: iso(60),
-          client_secret_input: ""
-        }
-      };
-      replaceConnector(nextRecord);
-      const redirectUrl = buildCallbackRedirect(connectorId, "success", "Connector authorized successfully.");
-      await writeRedirectHtml(route, redirectUrl);
+      const connectorId = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "google")?.[0] || "google";
+      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/google/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-google&connector_id=${encodeURIComponent(connectorId)}`);
+    });
+
+    await page.route("**github.com/login/oauth/authorize**", async (route) => {
+      const url = new URL(route.request().url());
+      const stateToken = url.searchParams.get("state") || "oauth-state-github";
+      const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "github");
+      const connectorId = session?.[0] || "github-oauth";
+      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/github/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-github&connector_id=${encodeURIComponent(connectorId)}`);
+    });
+
+    await page.route("**api.notion.com/v1/oauth/authorize**", async (route) => {
+      const url = new URL(route.request().url());
+      const stateToken = url.searchParams.get("state") || "oauth-state-notion";
+      const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "notion");
+      const connectorId = session?.[0] || "notion-oauth";
+      await writeRedirectHtml(route, `http://127.0.0.1:4173/api/v1/connectors/notion/oauth/callback?state=${encodeURIComponent(stateToken)}&code=demo-notion&connector_id=${encodeURIComponent(connectorId)}`);
     });
 
     await page.route("**/api/v1/connectors/google/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = createOAuthCallbackResponse("google", url.searchParams);
-      await writeRedirectHtml(route, redirectUrl);
+      await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 
     await page.route("**/api/v1/connectors/github/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = createOAuthCallbackResponse("github", url.searchParams);
-      await writeRedirectHtml(route, redirectUrl);
+      await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
+    });
+
+    await page.route("**/api/v1/connectors/notion/oauth/callback**", async (route) => {
+      const url = new URL(route.request().url());
+      const redirectUrl = createOAuthCallbackResponse("notion", url.searchParams);
+      await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 
     await page.route("**/api/v1/connectors/*/test", async (route) => {
@@ -1283,9 +1405,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         return;
       }
 
+      await syncConnectorsStateFromBrowser();
       const path = extractPath(route);
       const connectorId = path.split("/")[4];
-      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const connectors = state.connectors.records as ConnectorRecord[];
       const record = findConnector(connectors, connectorId);
       if (!record) {
         await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
@@ -1299,9 +1422,14 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         client_secret_input: nextRecord.auth_config.client_secret_input || ""
       };
       replaceConnector(nextRecord);
+      await syncBrowserConnectorsStateFromHarness();
       await writeJson(route, {
         ok: nextStatus !== "revoked",
-        message: nextStatus === "revoked" ? "Connector is revoked." : "Connector credentials look complete.",
+        message: nextStatus === "revoked"
+          ? `${record.provider === "trello" ? "Trello" : titleCase(record.provider)} connector is revoked.`
+          : record.provider === "trello"
+            ? getProviderSuccessMessage("trello", "test")
+            : getProviderSuccessMessage(String(record.provider), "test"),
         connector: stripSecretFields(nextRecord)
       });
     });
@@ -1312,9 +1440,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         return;
       }
 
+      await syncConnectorsStateFromBrowser();
       const path = extractPath(route);
       const connectorId = path.split("/")[4];
-      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const connectors = state.connectors.records as ConnectorRecord[];
       const record = findConnector(connectors, connectorId);
       if (!record) {
         await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
@@ -1328,15 +1457,25 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         last_tested_at: iso(0),
         auth_config: {
           ...record.auth_config,
-          access_token_input: `token_${connectorId.slice(0, 12)}`,
+          access_token_input: record.provider === "github"
+            ? `gho_${connectorId.slice(0, 12)}`
+            : record.provider === "notion"
+              ? `ntn_${connectorId.slice(0, 12)}`
+              : `token_${connectorId.slice(0, 12)}`,
+          refresh_token_input: record.provider === "github"
+            ? `ghr_${connectorId.slice(0, 12)}`
+            : record.provider === "notion"
+              ? `ntr_${connectorId.slice(0, 12)}`
+              : record.auth_config.refresh_token_input,
           expires_at: iso(60),
           has_refresh_token: true
         }
       };
       replaceConnector(nextRecord);
+      await syncBrowserConnectorsStateFromHarness();
       await writeJson(route, {
         ok: true,
-        message: "Connector token refreshed.",
+        message: getProviderSuccessMessage(String(record.provider), "refresh"),
         connector: stripSecretFields(nextRecord)
       });
     });
@@ -1347,9 +1486,10 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
         return;
       }
 
+      await syncConnectorsStateFromBrowser();
       const path = extractPath(route);
       const connectorId = path.split("/")[4];
-      const connectors = state.settings.connectors.records as ConnectorRecord[];
+      const connectors = state.connectors.records as ConnectorRecord[];
       const record = findConnector(connectors, connectorId);
       if (!record) {
         await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
@@ -1364,14 +1504,16 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
           ...record.auth_config,
           access_token_input: "",
           refresh_token_input: "",
+          api_key_input: "",
           has_refresh_token: false,
           expires_at: null
         }
       };
       replaceConnector(nextRecord);
+      await syncBrowserConnectorsStateFromHarness();
       await writeJson(route, {
         ok: true,
-        message: "Connector revoked and stored credentials cleared.",
+        message: getProviderSuccessMessage(String(record.provider), "revoke"),
         connector: stripSecretFields(nextRecord)
       });
     });

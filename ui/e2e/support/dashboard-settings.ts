@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { buildAppSettingsResponse } from "./api-response-builders.ts";
+import { buildAppSettingsResponse, buildConnectorSettingsPayload } from "./api-response-builders.ts";
 
 type RouteObject = Record<string, unknown>;
 
@@ -385,6 +385,7 @@ const deepMerge = <T,>(base: T, patch: unknown): T => {
 
 export type DashboardSettingsFixtureOptions = {
   settings?: RouteObject;
+  connectors?: RouteObject;
   summary?: RouteObject;
   devices?: RouteObject;
   queue?: RouteObject;
@@ -399,6 +400,7 @@ export type DashboardSettingsFixtureOptions = {
 export async function installDashboardSettingsFixtures(page: Page, options: DashboardSettingsFixtureOptions = {}) {
   const state = {
     settings: clone(deepMerge(defaultSettingsResponse, options.settings || {})),
+    connectors: clone(deepMerge(buildConnectorSettingsPayload(), options.connectors || {})),
     summary: clone(deepMerge(defaultDashboardSummaryResponse, options.summary || {})),
     devices: clone(deepMerge(defaultDashboardDevicesResponse, options.devices || {})),
     queue: clone(deepMerge(defaultDashboardQueueResponse, options.queue || {})),
@@ -462,6 +464,19 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     }
 
     await route.fallback();
+  });
+
+  await page.route("**/api/v1/connectors", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(state.connectors)
+    });
   });
 
   await page.route("**/api/v1/dashboard/summary", async (route) => {

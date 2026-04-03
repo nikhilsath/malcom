@@ -4,7 +4,7 @@ import urllib.parse
 from typing import Any
 
 from .connector_activities_defs import ConnectorActivityDefinition, JSON_SOURCE_HINT, _field, _output
-from .connector_activities_runtime import RequestExecutor, _execute_request
+from .connector_activities_runtime import RequestExecutor, _coerce_bool, _execute_request
 
 
 GOOGLE_SHEETS_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
@@ -54,17 +54,21 @@ GOOGLE_SHEETS_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         service="sheets",
         operation_type="read",
         label="Read range",
-        description="Read values from a Google Sheets range.",
+        description="Read values from a Google Sheets range with render and dimension options.",
         required_scopes=("https://www.googleapis.com/auth/spreadsheets.readonly",),
         input_schema=(
             _field("spreadsheet_id", "Spreadsheet ID", "string", required=True),
             _field("range", "A1 range", "string", required=True, placeholder="Sheet1!A1:C10"),
+            _field("major_dimension", "majorDimension", "select", required=False, options=["ROWS", "COLUMNS"]),
+            _field("value_render_option", "valueRenderOption", "select", required=False, options=["FORMATTED_VALUE", "UNFORMATTED_VALUE", "FORMULA"]),
+            _field("date_time_render_option", "dateTimeRenderOption", "select", required=False, options=["SERIAL_NUMBER", "FORMATTED_STRING"]),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
             _output("spreadsheet_id", "Spreadsheet ID", "string"),
             _output("range", "Range", "string"),
+            _output("major_dimension", "Major dimension", "string"),
             _output("values", "Values", "array"),
             _output("row_count", "Row count", "integer"),
         ),
@@ -83,14 +87,19 @@ GOOGLE_SHEETS_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
             _field("range", "A1 range", "string", required=True),
             _field("values_payload", "Values payload", "json", required=True, placeholder='[[\"a\",1],[\"b\",2]]', help_text=JSON_SOURCE_HINT),
             _field("value_input_option", "Input mode", "select", required=False, default="USER_ENTERED", options=["RAW", "USER_ENTERED"], help_text="RAW preserves exact values. USER_ENTERED lets Sheets parse formulas and dates."),
+            _field("include_values_in_response", "includeValuesInResponse", "boolean", required=False, default=False),
+            _field("response_value_render_option", "responseValueRenderOption", "select", required=False, options=["FORMATTED_VALUE", "UNFORMATTED_VALUE", "FORMULA"]),
+            _field("response_date_time_render_option", "responseDateTimeRenderOption", "select", required=False, options=["SERIAL_NUMBER", "FORMATTED_STRING"]),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
+            _output("spreadsheet_id", "Spreadsheet ID", "string"),
             _output("updated_range", "Updated range", "string"),
             _output("updated_rows", "Updated rows", "integer"),
             _output("updated_columns", "Updated columns", "integer"),
             _output("updated_cells", "Updated cells", "integer"),
+            _output("updated_data", "Updated data", "object"),
         ),
         execution={"kind": "google_sheets_update_range"},
     ),
@@ -108,10 +117,14 @@ GOOGLE_SHEETS_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
             _field("values_payload", "Values payload", "json", required=True, placeholder='[[\"a\",1],[\"b\",2]]', help_text=JSON_SOURCE_HINT),
             _field("value_input_option", "Input mode", "select", required=False, default="USER_ENTERED", options=["RAW", "USER_ENTERED"]),
             _field("insert_data_option", "Append mode", "select", required=False, default="INSERT_ROWS", options=["INSERT_ROWS", "OVERWRITE"]),
+            _field("include_values_in_response", "includeValuesInResponse", "boolean", required=False, default=False),
+            _field("response_value_render_option", "responseValueRenderOption", "select", required=False, options=["FORMATTED_VALUE", "UNFORMATTED_VALUE", "FORMULA"]),
+            _field("response_date_time_render_option", "responseDateTimeRenderOption", "select", required=False, options=["SERIAL_NUMBER", "FORMATTED_STRING"]),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
+            _output("spreadsheet_id", "Spreadsheet ID", "string"),
             _output("table_range", "Table range", "string"),
             _output("updates", "Updates", "object"),
         ),
@@ -205,6 +218,20 @@ def _raise_for_status(status_code: int) -> None:
         raise RuntimeError(f"Connector activity request failed with status {status_code}.")
 
 
+def _first_populated_input(resolved_inputs: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key not in resolved_inputs:
+            continue
+        value = resolved_inputs.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                continue
+        if value is not None:
+            return value
+    return None
+
+
 def google_sheets_create_spreadsheet(
     provider_id: str,
     activity_id: str,
@@ -248,7 +275,18 @@ def google_sheets_read_range(
 ) -> dict[str, Any]:
     spreadsheet_id = str(resolved_inputs.get("spreadsheet_id") or "")
     encoded_range = urllib.parse.quote(str(resolved_inputs.get("range") or ""), safe="")
-    status_code, payload = _execute_request(executor, f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}", "GET", headers)
+    params: dict[str, Any] = {}
+    major_dimension = str(_first_populated_input(resolved_inputs, "major_dimension", "majorDimension") or "").strip()
+    if major_dimension:
+        params["majorDimension"] = major_dimension
+    value_render_option = str(_first_populated_input(resolved_inputs, "value_render_option", "valueRenderOption") or "").strip()
+    if value_render_option:
+        params["valueRenderOption"] = value_render_option
+    date_time_render_option = str(_first_populated_input(resolved_inputs, "date_time_render_option", "dateTimeRenderOption") or "").strip()
+    if date_time_render_option:
+        params["dateTimeRenderOption"] = date_time_render_option
+    query_suffix = f"?{urllib.parse.urlencode(params)}" if params else ""
+    status_code, payload = _execute_request(executor, f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}{query_suffix}", "GET", headers)
     _raise_for_status(status_code)
     payload = payload or {}
     values = payload.get("values") or []
@@ -257,6 +295,7 @@ def google_sheets_read_range(
         "activity": activity_id,
         "spreadsheet_id": spreadsheet_id,
         "range": payload.get("range") or resolved_inputs.get("range"),
+        "major_dimension": payload.get("majorDimension"),
         "values": values,
         "row_count": len(values),
     }
@@ -273,17 +312,34 @@ def google_sheets_update_range(
 ) -> dict[str, Any]:
     spreadsheet_id = urllib.parse.quote(str(resolved_inputs.get("spreadsheet_id") or ""), safe="")
     encoded_range = urllib.parse.quote(str(resolved_inputs.get("range") or ""), safe="")
-    option = urllib.parse.quote(str(resolved_inputs.get("value_input_option") or "USER_ENTERED"), safe="")
-    status_code, payload = _execute_request(executor, f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}?valueInputOption={option}", "PUT", headers, {"values": resolved_inputs.get("values_payload")})
+    params: dict[str, Any] = {"valueInputOption": str(_first_populated_input(resolved_inputs, "value_input_option", "valueInputOption") or "USER_ENTERED")}
+    include_values_in_response = _first_populated_input(resolved_inputs, "include_values_in_response", "includeValuesInResponse")
+    if include_values_in_response is not None:
+        params["includeValuesInResponse"] = "true" if _coerce_bool(include_values_in_response) else "false"
+    response_value_render_option = str(_first_populated_input(resolved_inputs, "response_value_render_option", "responseValueRenderOption") or "").strip()
+    if response_value_render_option:
+        params["responseValueRenderOption"] = response_value_render_option
+    response_date_time_render_option = str(_first_populated_input(resolved_inputs, "response_date_time_render_option", "responseDateTimeRenderOption") or "").strip()
+    if response_date_time_render_option:
+        params["responseDateTimeRenderOption"] = response_date_time_render_option
+    status_code, payload = _execute_request(
+        executor,
+        f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}?{urllib.parse.urlencode(params)}",
+        "PUT",
+        headers,
+        {"values": resolved_inputs.get("values_payload")},
+    )
     _raise_for_status(status_code)
     payload = payload or {}
     return {
         "provider": provider_id,
         "activity": activity_id,
+        "spreadsheet_id": payload.get("spreadsheetId") or resolved_inputs.get("spreadsheet_id"),
         "updated_range": payload.get("updatedRange"),
         "updated_rows": payload.get("updatedRows"),
         "updated_columns": payload.get("updatedColumns"),
         "updated_cells": payload.get("updatedCells"),
+        "updated_data": payload.get("updatedData"),
     }
 
 
@@ -298,13 +354,32 @@ def google_sheets_append_rows(
 ) -> dict[str, Any]:
     spreadsheet_id = urllib.parse.quote(str(resolved_inputs.get("spreadsheet_id") or ""), safe="")
     encoded_range = urllib.parse.quote(str(resolved_inputs.get("range") or ""), safe="")
-    params = urllib.parse.urlencode({"valueInputOption": resolved_inputs.get("value_input_option") or "USER_ENTERED", "insertDataOption": resolved_inputs.get("insert_data_option") or "INSERT_ROWS"})
-    status_code, payload = _execute_request(executor, f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}:append?{params}", "POST", headers, {"values": resolved_inputs.get("values_payload")})
+    params: dict[str, Any] = {
+        "valueInputOption": str(_first_populated_input(resolved_inputs, "value_input_option", "valueInputOption") or "USER_ENTERED"),
+        "insertDataOption": str(_first_populated_input(resolved_inputs, "insert_data_option", "insertDataOption") or "INSERT_ROWS"),
+    }
+    include_values_in_response = _first_populated_input(resolved_inputs, "include_values_in_response", "includeValuesInResponse")
+    if include_values_in_response is not None:
+        params["includeValuesInResponse"] = "true" if _coerce_bool(include_values_in_response) else "false"
+    response_value_render_option = str(_first_populated_input(resolved_inputs, "response_value_render_option", "responseValueRenderOption") or "").strip()
+    if response_value_render_option:
+        params["responseValueRenderOption"] = response_value_render_option
+    response_date_time_render_option = str(_first_populated_input(resolved_inputs, "response_date_time_render_option", "responseDateTimeRenderOption") or "").strip()
+    if response_date_time_render_option:
+        params["responseDateTimeRenderOption"] = response_date_time_render_option
+    status_code, payload = _execute_request(
+        executor,
+        f"{base_url}/sheets/v4/spreadsheets/{spreadsheet_id}/values/{encoded_range}:append?{urllib.parse.urlencode(params)}",
+        "POST",
+        headers,
+        {"values": resolved_inputs.get("values_payload")},
+    )
     _raise_for_status(status_code)
     payload = payload or {}
     return {
         "provider": provider_id,
         "activity": activity_id,
+        "spreadsheet_id": payload.get("spreadsheetId") or resolved_inputs.get("spreadsheet_id"),
         "table_range": payload.get("tableRange"),
         "updates": payload.get("updates") or {},
     }

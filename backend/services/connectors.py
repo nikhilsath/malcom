@@ -143,6 +143,177 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "base_url": "https://api.trello.com/1",
     },
 ]
+DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
+    {
+        "id": "google",
+        "name": "Google",
+        "onboarding_mode": "oauth",
+        "oauth_supported": True,
+        "callback_supported": True,
+        "refresh_supported": True,
+        "revoke_supported": True,
+        "redirect_uri_required": True,
+        "redirect_uri_readonly": True,
+        "scopes_locked": True,
+        "default_redirect_path": "/api/v1/connectors/google/oauth/callback",
+        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
+        "setup_fields": [
+            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
+            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
+            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
+            {"key": "scopes", "label": "Scopes", "input_type": "text", "readonly": True},
+            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
+        ],
+        "ui_copy": {
+            "eyebrow": "Google",
+            "title": "Google OAuth setup",
+            "description": "Add your Google OAuth client details, then continue with Google to authorize this workspace.",
+            "last_checked_empty": "Google connection has not been checked yet.",
+        },
+        "action_labels": {
+            "save": "Save connector",
+            "test": "Check connection",
+            "connect": "Continue with Google",
+            "reconnect": "Reconnect Google",
+            "refresh": "Refresh Google token",
+            "revoke": "Revoke Google connector",
+        },
+        "status_messages": {
+            "draft": "Add your Google OAuth client details to begin, then continue with Google.",
+            "pending_oauth": "Complete the Google sign-in flow in the browser to finish setup.",
+            "connected": "Google OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
+            "needs_attention": "Google needs attention. Check the connection or reconnect to repair the saved credentials.",
+            "expired": "The saved Google token has expired. Refresh it or reconnect Google to continue.",
+            "revoked": "Google access has been revoked. Reconnect Google to restore this integration.",
+        },
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "onboarding_mode": "oauth",
+        "oauth_supported": True,
+        "callback_supported": True,
+        "refresh_supported": True,
+        "revoke_supported": True,
+        "redirect_uri_required": True,
+        "redirect_uri_readonly": True,
+        "scopes_locked": False,
+        "default_redirect_path": "/api/v1/connectors/github/oauth/callback",
+        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
+        "setup_fields": [
+            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
+            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
+            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
+            {"key": "scopes", "label": "Scopes", "input_type": "text"},
+            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
+        ],
+        "ui_copy": {
+            "eyebrow": "GitHub",
+            "title": "GitHub OAuth setup",
+            "description": "Add your GitHub OAuth app details, then continue with GitHub to authorize this workspace.",
+            "last_checked_empty": "GitHub connection has not been checked yet.",
+        },
+        "action_labels": {
+            "save": "Save connector",
+            "test": "Check connection",
+            "connect": "Continue with GitHub",
+            "reconnect": "Reconnect GitHub",
+            "refresh": "Refresh GitHub token",
+            "revoke": "Revoke GitHub connector",
+        },
+        "status_messages": {
+            "draft": "Add your GitHub OAuth app details to begin, then continue with GitHub.",
+            "pending_oauth": "Complete the GitHub authorization flow in the browser to finish setup.",
+            "connected": "GitHub OAuth is complete. Use Check connection to verify the saved token before using this connector in workflow actions or API resources.",
+            "needs_attention": "GitHub needs attention. Check the connection or reconnect to repair the saved credentials.",
+            "expired": "The saved GitHub token has expired. Refresh it or reconnect GitHub to continue.",
+            "revoked": "GitHub access has been revoked. Reconnect GitHub to restore this integration.",
+        },
+    },
+    {
+        "id": "notion",
+        "name": "Notion",
+        "onboarding_mode": "oauth",
+        "oauth_supported": True,
+        "callback_supported": True,
+        "refresh_supported": True,
+        "revoke_supported": True,
+        "redirect_uri_required": True,
+        "redirect_uri_readonly": True,
+        "scopes_locked": False,
+        "default_redirect_path": "/api/v1/connectors/notion/oauth/callback",
+        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
+        "setup_fields": [
+            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
+            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
+            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
+            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
+        ],
+        "ui_copy": {
+            "eyebrow": "Notion",
+            "title": "Notion OAuth setup",
+            "description": "Add your Notion public integration details, then continue with Notion to authorize this workspace.",
+            "last_checked_empty": "Notion connection has not been checked yet.",
+        },
+        "action_labels": {
+            "save": "Save connector",
+            "test": "Check connection",
+            "connect": "Continue with Notion",
+            "reconnect": "Reconnect Notion",
+            "refresh": "Refresh Notion token",
+            "revoke": "Revoke Notion connector",
+        },
+        "status_messages": {
+            "draft": "Add your Notion integration details to begin, then continue with Notion.",
+            "pending_oauth": "Complete the Notion authorization flow in the browser to finish setup.",
+            "connected": "Notion OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
+            "needs_attention": "Notion needs attention. Check the connection or reconnect to repair the saved credentials.",
+            "expired": "The saved Notion token has expired. Refresh it or reconnect Notion to continue.",
+            "revoked": "Notion access has been revoked. Reconnect Notion to restore this integration.",
+        },
+    },
+    {
+        "id": "trello",
+        "name": "Trello",
+        "onboarding_mode": "credentials",
+        "oauth_supported": False,
+        "callback_supported": False,
+        "refresh_supported": False,
+        "revoke_supported": True,
+        "redirect_uri_required": False,
+        "redirect_uri_readonly": True,
+        "scopes_locked": True,
+        "default_redirect_path": None,
+        "required_fields": ["name", "api_key", "access_token"],
+        "setup_fields": [
+            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
+            {"key": "api_key", "label": "API key", "input_type": "password", "required": True, "secret": True},
+            {"key": "access_token", "label": "Token", "input_type": "password", "required": True, "secret": True},
+        ],
+        "ui_copy": {
+            "eyebrow": "Trello",
+            "title": "Trello credential setup",
+            "description": "Enter a Trello API key and token to save this connector for workspace use.",
+            "last_checked_empty": "Trello connection has not been checked yet.",
+        },
+        "action_labels": {
+            "save": "Save Trello connector",
+            "test": "Test connector",
+            "connect": "Save Trello credentials",
+            "reconnect": "Replace Trello credentials",
+            "refresh": "Refresh token",
+            "revoke": "Revoke Trello connector",
+        },
+        "status_messages": {
+            "draft": "Add your Trello API key and token, then save the connector.",
+            "pending_oauth": "Trello uses saved API credentials instead of an OAuth browser callback.",
+            "connected": "Trello credentials are saved. Use Test connector to verify the API key and token before using this integration.",
+            "needs_attention": "Trello needs attention. Save a complete API key and token, then test the connector again.",
+            "expired": "The saved Trello token is no longer valid. Replace it and test the connector again.",
+            "revoked": "Trello credentials have been cleared. Save a new API key and token to restore this integration.",
+        },
+    },
+)
 
 
 def get_connector_protection_secret(*, root_dir: Path | None = None, db_path: str | None = None) -> str:
@@ -360,6 +531,13 @@ def get_connector_preset(provider: str, *, connection: DatabaseConnection | None
     return _row_to_connector_preset(row)
 
 
+def get_connector_provider_metadata(provider: str | None) -> dict[str, Any] | None:
+    canonical_provider = canonicalize_connector_provider(provider)
+    if not canonical_provider:
+        return None
+    return next((json.loads(json.dumps(item)) for item in DEFAULT_CONNECTOR_PROVIDER_METADATA if item["id"] == canonical_provider), None)
+
+
 def extract_connector_secret_map(auth_config: dict[str, Any], protection_secret: str) -> dict[str, str]:
     protected_values = auth_config.get("protected_secrets") or {}
     secret_map: dict[str, str] = {}
@@ -560,6 +738,7 @@ def build_connector_response_metadata() -> dict[str, Any]:
             "rotation_intervals": [dict(item) for item in CONNECTOR_ROTATION_INTERVAL_OPTIONS],
             "credential_visibility_options": [dict(item) for item in CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS],
         },
+        "providers": [json.loads(json.dumps(item)) for item in DEFAULT_CONNECTOR_PROVIDER_METADATA],
     }
 
 
@@ -877,6 +1056,10 @@ def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> 
     connection.commit()
 
 
+def ensure_legacy_connector_storage_migrated(connection: DatabaseConnection) -> None:
+    _migrate_legacy_connectors_from_settings(connection)
+
+
 def persist_connector_settings(connection: DatabaseConnection, settings_value: dict[str, Any]) -> None:
     records = [item for item in settings_value.get("records", []) if isinstance(item, dict)]
     replace_stored_connector_records(connection, records)
@@ -1035,6 +1218,7 @@ __all__ = [
     "CONNECTOR_PROTECTION_VERSION",
     "CONNECTOR_SECRET_FIELD_INPUTS",
     "DEFAULT_CONNECTOR_CATALOG",
+    "DEFAULT_CONNECTOR_PROVIDER_METADATA",
     "SUPPORTED_CONNECTOR_AUTH_TYPES",
     "SUPPORTED_CONNECTOR_PROVIDERS",
     "SUPPORTED_CONNECTOR_STATUSES",
@@ -1048,9 +1232,11 @@ __all__ = [
     "create_connector_record",
     "delete_connector_record",
     "derive_connector_protection_key",
+    "ensure_legacy_connector_storage_migrated",
     "extract_connector_secret_map",
     "find_stored_connector_record",
     "get_connector_preset",
+    "get_connector_provider_metadata",
     "get_connector_protection_secret",
     "get_default_connector_settings",
     "get_stored_connector_settings",

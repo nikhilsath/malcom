@@ -1,13 +1,69 @@
 import { formatDateTime } from "../../format-utils.js";
 import { connectorElements } from "./dom.js";
 import {
+  canonicalizeProvider,
   connectorState,
   getDefaultScopesForProvider,
+  getProviderActionLabel,
+  getProviderMetadata,
   getProviderPreset,
   getSelectedConnector,
-  isGoogleConnector,
-  titleCase
+  providerSupportsOauth,
+  titleCase,
+  usesProviderSetupPanel
 } from "./state.js";
+
+const PROVIDER_PANEL_ELEMENTS = {
+  google: {
+    panel: connectorElements.googleSetupPanel,
+    formGrid: connectorElements.googleFormGrid,
+    statusBadge: connectorElements.googleStatusBadge,
+    statusMessage: connectorElements.googleStatusMessage,
+    lastChecked: connectorElements.googleLastChecked,
+    nameInput: connectorElements.googleNameInput,
+    providerInput: connectorElements.googleProviderInput,
+    clientIdInput: connectorElements.googleClientIdInput,
+    clientSecretInput: connectorElements.googleClientSecretInput,
+    scopesInput: connectorElements.googleScopesInput,
+    redirectUriInput: connectorElements.googleRedirectUriInput
+  },
+  github: {
+    panel: connectorElements.githubSetupPanel,
+    formGrid: connectorElements.githubFormGrid,
+    statusBadge: connectorElements.githubStatusBadge,
+    statusMessage: connectorElements.githubStatusMessage,
+    lastChecked: connectorElements.githubLastChecked,
+    nameInput: connectorElements.githubNameInput,
+    providerInput: connectorElements.githubProviderInput,
+    clientIdInput: connectorElements.githubClientIdInput,
+    clientSecretInput: connectorElements.githubClientSecretInput,
+    scopesInput: connectorElements.githubScopesInput,
+    redirectUriInput: connectorElements.githubRedirectUriInput
+  },
+  notion: {
+    panel: connectorElements.notionSetupPanel,
+    formGrid: connectorElements.notionFormGrid,
+    statusBadge: connectorElements.notionStatusBadge,
+    statusMessage: connectorElements.notionStatusMessage,
+    lastChecked: connectorElements.notionLastChecked,
+    nameInput: connectorElements.notionNameInput,
+    providerInput: connectorElements.notionProviderInput,
+    clientIdInput: connectorElements.notionClientIdInput,
+    clientSecretInput: connectorElements.notionClientSecretInput,
+    redirectUriInput: connectorElements.notionRedirectUriInput
+  },
+  trello: {
+    panel: connectorElements.trelloSetupPanel,
+    formGrid: connectorElements.trelloFormGrid,
+    statusBadge: connectorElements.trelloStatusBadge,
+    statusMessage: connectorElements.trelloStatusMessage,
+    lastChecked: connectorElements.trelloLastChecked,
+    nameInput: connectorElements.trelloNameInput,
+    providerInput: connectorElements.trelloProviderInput,
+    apiKeyInput: connectorElements.trelloApiKeyInput,
+    accessTokenInput: connectorElements.trelloAccessTokenInput
+  }
+};
 
 export const setFeedback = (message, tone = "") => {
   if (!connectorElements.feedback) {
@@ -33,6 +89,22 @@ const renderSelectOptions = (element, options, { selectedValue = "" } = {}) => {
   }
 };
 
+const setSectionVisibility = (section, visible) => {
+  if (!section) {
+    return;
+  }
+
+  section.hidden = !visible;
+  if (visible) {
+    section.style.removeProperty("display");
+  } else {
+    section.style.setProperty("display", "none", "important");
+  }
+  section.querySelectorAll("input, select, textarea, button").forEach((element) => {
+    element.disabled = !visible;
+  });
+};
+
 const setFieldVisibility = (fieldId, visible) => {
   const field = document.getElementById(fieldId);
   if (!field) {
@@ -46,55 +118,163 @@ const setFieldVisibility = (fieldId, visible) => {
   }
 };
 
-const applyProviderFieldVisibility = (record) => {
-  const google = isGoogleConnector(record);
+const getStatusBadgeClassName = (status) => {
+  if (status === "connected") {
+    return "status-badge status-badge--success";
+  }
+  if (status === "needs_attention" || status === "expired") {
+    return "status-badge status-badge--warning";
+  }
+  if (status === "revoked") {
+    return "status-badge status-badge--danger";
+  }
+  return "status-badge status-badge--muted";
+};
 
-  setFieldVisibility("settings-connectors-status-field", !google);
-  setFieldVisibility("settings-connectors-auth-type-field", !google);
-  setFieldVisibility("settings-connectors-owner-field", !google);
-  setFieldVisibility("settings-connectors-base-url-field", !google);
-  setFieldVisibility("settings-connectors-username-field", !google);
-  setFieldVisibility("settings-connectors-password-field", !google);
-  setFieldVisibility("settings-connectors-access-token-field", !google);
-  setFieldVisibility("settings-connectors-refresh-token-field", !google);
-  setFieldVisibility("settings-connectors-api-key-field", !google);
-  setFieldVisibility("settings-connectors-header-name-field", !google);
-  setFieldVisibility("settings-connectors-header-value-field", !google);
+const hasStoredConnectionMaterial = (record) => Boolean(
+  record?.auth_config?.has_refresh_token
+  || record?.auth_config?.refresh_token_masked
+  || record?.auth_config?.access_token_masked
+  || record?.auth_config?.api_key_masked
+  || record?.auth_config?.password_masked
+  || record?.auth_config?.header_value_masked
+);
+
+const getDisplayStatus = (record) => {
+  const provider = canonicalizeProvider(record?.provider);
+  if (providerSupportsOauth(provider) && record?.status === "draft" && hasStoredConnectionMaterial(record)) {
+    return "connected";
+  }
+  return record?.status || "draft";
+};
+
+const getProviderStatusMessage = (record) => {
+  const providerMetadata = getProviderMetadata(record?.provider);
+  const displayStatus = getDisplayStatus(record);
+  return providerMetadata?.status_messages?.[displayStatus]
+    || providerMetadata?.status_messages?.draft
+    || "Enter credentials and complete provider-specific setup for this connector.";
+};
+
+const clearProviderPanelInputs = () => {
+  Object.values(PROVIDER_PANEL_ELEMENTS).forEach((elements) => {
+    Object.values(elements).forEach((element) => {
+      if (element instanceof HTMLInputElement) {
+        element.value = "";
+      }
+    });
+  });
+};
+
+const renderProviderSetupState = (record) => {
+  const provider = canonicalizeProvider(record?.provider);
+
+  Object.entries(PROVIDER_PANEL_ELEMENTS).forEach(([providerId, elements]) => {
+    const visible = record && providerId === provider;
+    elements.panel?.toggleAttribute("hidden", !visible);
+
+    if (!visible) {
+      if (elements.statusBadge) {
+        elements.statusBadge.textContent = "Draft";
+        elements.statusBadge.className = getStatusBadgeClassName("draft");
+      }
+      if (elements.statusMessage) {
+        const emptyCopy = getProviderMetadata(providerId)?.status_messages?.draft || "Connector setup is not active.";
+        elements.statusMessage.textContent = emptyCopy;
+      }
+      if (elements.lastChecked) {
+        const emptyMessage = getProviderMetadata(providerId)?.ui_copy?.last_checked_empty || "Connector has not been checked yet.";
+        elements.lastChecked.textContent = emptyMessage;
+      }
+      return;
+    }
+
+    const providerMetadata = getProviderMetadata(providerId);
+    const displayStatus = getDisplayStatus(record);
+    if (elements.statusBadge) {
+      elements.statusBadge.textContent = titleCase(displayStatus);
+      elements.statusBadge.className = getStatusBadgeClassName(displayStatus);
+    }
+    if (elements.statusMessage) {
+      elements.statusMessage.textContent = getProviderStatusMessage(record);
+    }
+    if (elements.lastChecked) {
+      elements.lastChecked.textContent = record.last_tested_at
+        ? `Last checked ${formatDateTime(record.last_tested_at, "Not checked")}.`
+        : (providerMetadata?.ui_copy?.last_checked_empty || "Connector has not been checked yet.");
+    }
+  });
+};
+
+const applyProviderFieldVisibility = (record) => {
+  const provider = canonicalizeProvider(record?.provider);
+  const providerMetadata = getProviderMetadata(provider);
+  const providerPanel = usesProviderSetupPanel(record);
+  const oauthProvider = providerSupportsOauth(provider);
+  const displayStatus = getDisplayStatus(record);
+  const hasStoredMaterial = hasStoredConnectionMaterial(record);
+
+  setSectionVisibility(connectorElements.formGrid, !providerPanel);
+  Object.entries(PROVIDER_PANEL_ELEMENTS).forEach(([providerId, elements]) => {
+    setSectionVisibility(elements.formGrid, providerPanel && providerId === provider);
+  });
+
+  const hideGenericFields = providerPanel;
+  setFieldVisibility("settings-connectors-status-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-auth-type-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-owner-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-base-url-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-username-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-password-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-access-token-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-refresh-token-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-api-key-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-header-name-field", !hideGenericFields);
+  setFieldVisibility("settings-connectors-header-value-field", !hideGenericFields);
 
   if (connectorElements.credentialSummary) {
-    connectorElements.credentialSummary.closest("#settings-connectors-credential-summary")?.toggleAttribute("hidden", google);
+    connectorElements.credentialSummary.closest("#settings-connectors-credential-summary")?.toggleAttribute("hidden", providerPanel);
   }
 
   if (connectorElements.scopesInput) {
-    connectorElements.scopesInput.readOnly = google;
-    connectorElements.scopesInput.disabled = google;
-    connectorElements.scopesInput.classList.toggle("api-form-input--locked", google);
-    connectorElements.scopesInput.placeholder = google
-      ? "Google default scopes"
+    connectorElements.scopesInput.readOnly = oauthProvider;
+    connectorElements.scopesInput.disabled = oauthProvider;
+    connectorElements.scopesInput.classList.toggle("api-form-input--locked", oauthProvider);
+    connectorElements.scopesInput.placeholder = oauthProvider
+      ? "Default provider scopes"
       : "Leave empty or enter comma-separated scopes";
   }
 
   if (connectorElements.redirectUriInput) {
-    connectorElements.redirectUriInput.readOnly = false;
+    connectorElements.redirectUriInput.readOnly = oauthProvider;
     connectorElements.redirectUriInput.disabled = false;
-    connectorElements.redirectUriInput.classList.remove("api-form-input--locked");
+    connectorElements.redirectUriInput.classList.toggle("api-form-input--locked", oauthProvider);
   }
 
-  if (connectorElements.testButton) {
-    connectorElements.testButton.hidden = google;
-  }
   if (connectorElements.saveButton) {
-    connectorElements.saveButton.hidden = google;
+    connectorElements.saveButton.hidden = providerPanel && oauthProvider;
+    connectorElements.saveButton.textContent = getProviderActionLabel(provider, "save", "Save connector");
   }
-  if (connectorElements.refreshButton) {
-    connectorElements.refreshButton.hidden = google;
-  }
-  if (connectorElements.revokeButton) {
-    connectorElements.revokeButton.hidden = google;
+  if (connectorElements.testButton) {
+    connectorElements.testButton.hidden = providerPanel && oauthProvider ? !record || displayStatus === "pending_oauth" : false;
+    connectorElements.testButton.textContent = getProviderActionLabel(provider, "test", "Test connector");
   }
   if (connectorElements.oauthStartButton) {
-    connectorElements.oauthStartButton.hidden = !google;
-    connectorElements.oauthStartButton.textContent = google ? "Continue with Google" : "Start OAuth";
+    const reconnecting = displayStatus === "connected" || displayStatus === "needs_attention" || displayStatus === "revoked" || hasStoredMaterial;
+    connectorElements.oauthStartButton.hidden = !oauthProvider;
+    connectorElements.oauthStartButton.textContent = reconnecting
+      ? getProviderActionLabel(provider, "reconnect", "Reconnect provider")
+      : getProviderActionLabel(provider, "connect", "Start OAuth");
+  }
+  if (connectorElements.refreshButton) {
+    const showRefresh = Boolean(providerMetadata?.refresh_supported) && Boolean(record?.auth_config?.has_refresh_token || record?.auth_config?.refresh_token_masked);
+    connectorElements.refreshButton.hidden = !showRefresh;
+    connectorElements.refreshButton.textContent = getProviderActionLabel(provider, "refresh", "Refresh token");
+  }
+  if (connectorElements.revokeButton) {
+    const showRevoke = Boolean(providerMetadata?.revoke_supported || !providerPanel) && Boolean(record) && (hasStoredMaterial || displayStatus !== "draft");
+    connectorElements.revokeButton.hidden = !showRevoke;
+    connectorElements.revokeButton.textContent = getProviderActionLabel(provider, "revoke", "Revoke connector");
   }
 };
 
@@ -168,6 +348,7 @@ export const renderDirectory = (onSelectRecord) => {
   connectorElements.tableBody.textContent = "";
 
   records.forEach((record) => {
+    const displayStatus = getDisplayStatus(record);
     const row = document.createElement("tr");
     row.id = `settings-connectors-row-${record.id}`;
     row.className = "api-directory-row";
@@ -181,7 +362,7 @@ export const renderDirectory = (onSelectRecord) => {
         <span id="settings-connectors-row-name-meta-${record.id}" class="api-directory-description">${record.docs_url || "No provider docs recorded."}</span>
       </td>
       <td id="settings-connectors-row-provider-${record.id}" class="api-directory-cell">${titleCase(record.provider)}</td>
-      <td id="settings-connectors-row-status-${record.id}" class="api-directory-cell"><span class="status-badge ${record.status === "connected" ? "status-badge--success" : record.status === "needs_attention" || record.status === "expired" ? "status-badge--warning" : "status-badge--muted"}">${titleCase(record.status)}</span></td>
+      <td id="settings-connectors-row-status-${record.id}" class="api-directory-cell"><span class="${getStatusBadgeClassName(displayStatus)}">${titleCase(displayStatus)}</span></td>
       <td id="settings-connectors-row-auth-${record.id}" class="api-directory-cell">${titleCase(record.auth_type)}</td>
       <td id="settings-connectors-row-owner-${record.id}" class="api-directory-cell">${record.owner || "Workspace"}</td>
     `;
@@ -218,39 +399,47 @@ export const renderDetail = () => {
     if (connectorElements.credentialSummary) {
       connectorElements.credentialSummary.textContent = "Select a connector to edit its settings.";
     }
+    clearProviderPanelInputs();
+    renderProviderSetupState(null);
     applyProviderFieldVisibility(null);
     return;
   }
 
-  const google = isGoogleConnector(record);
+  const provider = canonicalizeProvider(record.provider);
+  const providerMetadata = getProviderMetadata(provider);
+  const preset = getProviderPreset(record.provider);
+  const providerPanel = usesProviderSetupPanel(record);
+  const providerUiCopy = providerMetadata?.ui_copy;
+
   if (connectorElements.detailTitle) {
-    connectorElements.detailTitle.textContent = google ? "Google OAuth setup" : (record.name || "Connector details");
+    connectorElements.detailTitle.textContent = providerPanel
+      ? (providerUiCopy?.title || `${titleCase(provider)} setup`)
+      : (record.name || "Connector details");
   }
   if (connectorElements.detailEyebrow) {
-    connectorElements.detailEyebrow.textContent = google ? "Google" : "Connector setup";
+    connectorElements.detailEyebrow.textContent = providerPanel
+      ? (providerUiCopy?.eyebrow || titleCase(provider))
+      : "Connector setup";
   }
   if (connectorElements.detailDescription) {
-    connectorElements.detailDescription.textContent = google
-      ? "Use Google OAuth Web Application credentials. Enter Name, Client ID, Client secret, and a redirect URI that exactly matches Google Cloud."
+    connectorElements.detailDescription.textContent = providerPanel
+      ? (providerUiCopy?.description || "Enter credentials and complete provider-specific setup for this connector.")
       : "Provider metadata, scope selection, and saved auth settings appear here.";
   }
   if (connectorElements.detailDescriptionBadge) {
     connectorElements.detailDescriptionBadge.setAttribute(
       "aria-label",
-      google ? "Google OAuth setup information" : "More information"
+      providerPanel ? `${titleCase(provider)} setup information` : "More information"
     );
   }
+
   renderStatusOptions(record);
   renderAuthTypeOptions(record);
   connectorElements.nameInput.value = record.name || "";
-  connectorElements.providerInput.value = getProviderPreset(record.provider)?.name || titleCase(record.provider);
+  connectorElements.providerInput.value = preset?.name || titleCase(record.provider);
   connectorElements.ownerInput.value = record.owner || "";
   connectorElements.baseUrlInput.value = record.base_url || "";
-  connectorElements.scopesInput.value = (
-    google
-      ? getDefaultScopesForProvider(record.provider, getProviderPreset(record.provider)).map((scope) => scope.trim()).filter(Boolean)
-      : (record.scopes || [])
-  ).join(", ");
+  connectorElements.scopesInput.value = (record.scopes || []).join(", ");
   connectorElements.clientIdInput.value = record.auth_config?.client_id || "";
   connectorElements.clientSecretInput.value = "";
   connectorElements.redirectUriInput.value = record.auth_config?.redirect_uri || "";
@@ -261,6 +450,44 @@ export const renderDetail = () => {
   connectorElements.apiKeyInput.value = "";
   connectorElements.headerNameInput.value = record.auth_config?.header_name || "";
   connectorElements.headerValueInput.value = "";
+
+  clearProviderPanelInputs();
+  const panelElements = PROVIDER_PANEL_ELEMENTS[provider];
+  if (panelElements) {
+    if (panelElements.nameInput) {
+      panelElements.nameInput.value = record.name || "";
+    }
+    if (panelElements.providerInput) {
+      panelElements.providerInput.value = preset?.name || titleCase(record.provider);
+    }
+    if (panelElements.clientIdInput) {
+      panelElements.clientIdInput.value = record.auth_config?.client_id || "";
+    }
+    if (panelElements.clientSecretInput) {
+      panelElements.clientSecretInput.value = "";
+    }
+    if (panelElements.scopesInput) {
+      const scopes = providerMetadata?.scopes_locked
+        ? getDefaultScopesForProvider(record.provider, preset)
+        : (record.scopes || []);
+      panelElements.scopesInput.value = scopes.join(", ");
+      panelElements.scopesInput.readOnly = Boolean(providerMetadata?.scopes_locked);
+      panelElements.scopesInput.classList.toggle("api-form-input--locked", Boolean(providerMetadata?.scopes_locked));
+    }
+    if (panelElements.redirectUriInput) {
+      const redirectUri = record.auth_config?.redirect_uri
+        || (providerMetadata?.default_redirect_path ? `${window.location.origin}${providerMetadata.default_redirect_path}` : "");
+      panelElements.redirectUriInput.value = redirectUri;
+    }
+    if (panelElements.apiKeyInput) {
+      panelElements.apiKeyInput.value = "";
+    }
+    if (panelElements.accessTokenInput) {
+      panelElements.accessTokenInput.value = "";
+    }
+  }
+
+  renderProviderSetupState(record);
   renderCredentialSummary(record);
   applyProviderFieldVisibility(record);
 };
@@ -302,12 +529,18 @@ export const renderModalProviders = (onSelectPreset) => {
   }
 
   const catalog = connectorState.connectors?.catalog || [];
-  connectorElements.modalProviderGrid.innerHTML = catalog.map((preset) => `
-    <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-popup-option" data-provider-id="${preset.id}">
-      <span id="settings-connectors-provider-option-title-${preset.id}" class="api-popup-option__title">${preset.name}</span>
-      <span id="settings-connectors-provider-option-description-${preset.id}" class="api-popup-option__description">${preset.id === "google" ? "Continue with Google to connect your workspace." : preset.description}</span>
-    </button>
-  `).join("");
+  connectorElements.modalProviderGrid.innerHTML = catalog.map((preset) => {
+    const providerMetadata = getProviderMetadata(preset.id);
+    const connectLabel = getProviderActionLabel(preset.id, "connect", preset.description);
+    const description = providerMetadata?.ui_copy?.description
+      || (providerSupportsOauth(preset.id) ? connectLabel : preset.description);
+    return `
+      <button type="button" id="settings-connectors-provider-option-${preset.id}" class="api-popup-option" data-provider-id="${preset.id}">
+        <span id="settings-connectors-provider-option-title-${preset.id}" class="api-popup-option__title">${preset.name}</span>
+        <span id="settings-connectors-provider-option-description-${preset.id}" class="api-popup-option__description">${description}</span>
+      </button>
+    `;
+  }).join("");
 
   connectorElements.modalProviderGrid.querySelectorAll("[data-provider-id]").forEach((button) => {
     button.addEventListener("click", () => {

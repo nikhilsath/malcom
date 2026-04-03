@@ -153,39 +153,6 @@
   color: #666;
 }
 
-.automation-connector-activity-groups {
-  display: grid;
-  gap: 12px;
-}
-
-.automation-connector-activity-group {
-  display: grid;
-  gap: 8px;
-}
-
-.automation-connector-activity-group__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.automation-connector-activity-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-
-.automation-connector-activity-card {
-  min-height: 96px;
-  text-align: left;
-  align-items: flex-start;
-}
-
-.automation-connector-activity-card--selected {
-  border-color: var(--automation-accent, #4a90e2);
-  box-shadow: 0 0 0 1px rgba(74, 144, 226, 0.35);
-}
-
 /* ─── Button variants ─── */
 
 .button--outline {

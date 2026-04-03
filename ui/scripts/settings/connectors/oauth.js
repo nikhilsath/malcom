@@ -5,10 +5,13 @@ import { closeDetailModal, openDetailModal } from "./modal.js";
 import {
   canonicalizeProvider,
   connectorState,
+  getProviderActionLabel,
   getDefaultScopesForProvider,
   createEmptyConnectorPayload,
   getGoogleConnector,
+  getProviderMetadata,
   getProviderPreset,
+  providerSupportsOauth,
   getStore
 } from "./state.js";
 import { setFeedback } from "./render.js";
@@ -23,25 +26,28 @@ export const startConnectorOauth = async (
   }
 
   const provider = canonicalizeProvider(record.provider);
-  const fallbackRedirectPath = `/api/v1/connectors/${provider}/oauth/callback`;
+  const providerMetadata = getProviderMetadata(provider);
+  if (!providerSupportsOauth(provider)) {
+    setFeedback(`${providerMetadata?.name || provider} uses saved credentials and does not support browser OAuth.`, "error");
+    return;
+  }
+  const fallbackRedirectPath = providerMetadata?.default_redirect_path || `/api/v1/connectors/${provider}/oauth/callback`;
   const redirectUri = (record.auth_config?.redirect_uri || `${window.location.origin}${fallbackRedirectPath}`).trim();
 
-  if (provider === "google") {
-    const clientId = (record.auth_config?.client_id || "").trim();
-    if (!clientId) {
-      setFeedback("Google OAuth requires a Client ID. Enter it in the Client ID field.", "error");
-      connectorElements.clientIdInput?.focus();
-      return;
+  const clientId = (record.auth_config?.client_id || "").trim();
+  if (!clientId) {
+    setFeedback(`${providerMetadata?.name || provider} OAuth requires a Client ID. Enter it in the Client ID field.`, "error");
+    return;
+  }
+
+  try {
+    const parsedRedirectUri = new URL(redirectUri);
+    if (!["http:", "https:"].includes(parsedRedirectUri.protocol)) {
+      throw new Error("Invalid redirect URI protocol");
     }
-    try {
-      const parsedRedirectUri = new URL(redirectUri);
-      if (!["http:", "https:"].includes(parsedRedirectUri.protocol)) {
-        throw new Error("Invalid redirect URI protocol");
-      }
-    } catch {
-      setFeedback("Google OAuth requires a valid Redirect URI (http or https).", "error");
-      return;
-    }
+  } catch {
+    setFeedback(`${providerMetadata?.name || provider} OAuth requires a valid Redirect URI (http or https).`, "error");
+    return;
   }
 
   const response = await requestJson(`/api/v1/connectors/${provider}/oauth/start`, {
@@ -66,7 +72,7 @@ export const startConnectorOauth = async (
   if (closeDetailOnRedirect) {
     closeDetailModal({ restoreFocus: false });
   }
-  setFeedback(`Redirecting to ${provider === "google" ? "Google" : provider} login...`, "success");
+  setFeedback(`Redirecting to ${providerMetadata?.name || provider} login...`, "success");
   window.location.assign(response.authorization_url);
 };
 

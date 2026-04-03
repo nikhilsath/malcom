@@ -14,7 +14,8 @@ from backend.database import DatabaseConnection
 from backend.services.connectors import (
     build_connector_catalog,
     canonicalize_connector_provider,
-    get_stored_connector_settings,
+    ensure_legacy_connector_storage_migrated,
+    list_stored_connector_records,
 )
 
 INACTIVE_WORKFLOW_CONNECTOR_STATUSES = {"draft", "expired", "revoked"}
@@ -83,9 +84,9 @@ def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dic
     normalized records directly.
     """
 
-    settings = get_stored_connector_settings(connection)
+    ensure_legacy_connector_storage_migrated(connection)
     provider_catalog = {item.get("id"): item for item in build_connector_catalog(connection)}
-    records = settings.get("records", [])
+    records = list_stored_connector_records(connection)
 
     options: list[dict[str, Any]] = []
     for record in records:

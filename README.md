@@ -689,9 +689,11 @@ Rule of thumb:
 - Use connector activities for common provider actions in the automation builder; keep generic HTTP steps for raw or custom calls.
 - Do not model remote API calls as tools unless local runtime execution or worker-bound machine behavior is required.
 
-Google-specific onboarding:
+Connector onboarding behavior:
 
-- Start from the Connect provider control on the Connectors page.
+- Start first-party connector setup from the provider's `Connect` control on the Connectors page.
+- Google, GitHub, and Notion use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
+- Trello uses a guided non-OAuth credential flow with provider-specific API key and token fields plus connector lifecycle actions for test and revoke.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.
 
 ### Workflow builder connector option source of truth
@@ -770,6 +772,8 @@ Maintainer update points for this lineage:
 
 **Source of truth**: `connectors` table rows. Any connector option shown in the builder must originate from this persistent location.
 
+Schema ownership note: PostgreSQL schema evolution is migration-driven through Alembic (`alembic.ini`, `backend/migrations/`), with `backend/database.py` as the runtime DB helper layer.
+
 Note: The Settings -> Connectors UI must fetch live connector availability from `GET /api/v1/connectors` (database-backed) on initial page load and must not rely on a cached `settings` payload as the authoritative source for connector availability.
 
 ---
@@ -799,10 +803,10 @@ The frontend must render these backend-owned builder option sets from metadata a
 | **API endpoint** | `GET /api/v1/connectors/activity-catalog` |
 | **Backend route handler** | `backend/routes/connectors.py:list_connector_activity_catalog()` (line 19) |
 | **Backend service** | `backend/services/connector_activities_catalog.py:build_connector_activity_catalog()` (line 19) |
-| **Database tables** | **None** (generated from code) |
-| **Code-based definitions** | `backend/services/connector_activities_google.py`, `backend/services/connector_activities_github.py` |
+| **Database tables** | `connector_endpoint_definitions` |
+| **Seed definitions** | `backend/services/connector_activities_google*.py` modules |
 
-**Source of truth**: Provider-specific activity definition modules. Activities are computed at request time from `CONNECTOR_ACTIVITY_DEFINITIONS` tuples in code.
+**Source of truth**: persisted rows in `connector_endpoint_definitions` with `endpoint_kind = activity`. Code catalogs provide seed/default content only.
 
 ---
 
@@ -814,10 +818,10 @@ The frontend must render these backend-owned builder option sets from metadata a
 | **HTML element** | `#add-step-http-preset-input` (`<select>`) |
 | **API endpoint** | `GET /api/v1/connectors/http-presets` |
 | **Backend route handler** | `backend/routes/connectors.py:list_http_presets()` (line 27) |
-| **Backend service** | `backend/services/http_presets.py:DEFAULT_HTTP_PRESET_CATALOG` (line 317) |
-| **Database tables** | **None** (hardcoded) |
+| **Backend service** | `backend/services/http_presets.py:build_http_preset_catalog()` |
+| **Database tables** | `connector_endpoint_definitions` |
 
-**Source of truth**: Python constant `DEFAULT_HTTP_PRESET_CATALOG` in `http_presets.py`. Currently includes Google API presets (Gmail, Drive, Sheets).
+**Source of truth**: persisted rows in `connector_endpoint_definitions` with `endpoint_kind = http_preset`. `DEFAULT_HTTP_PRESET_CATALOG` remains seed/default content.
 
 ---
 

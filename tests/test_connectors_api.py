@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
+from io import BytesIO
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.routes.connectors import _probe_google_access_token
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -37,7 +40,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
                 "base_url": "https://api.github.com",
                 "owner": "Workspace",
                 "auth_config": {
-                    "access_token_input": "ghp_secret_token",
+                    "access_token_input": "token_secret_test_value",
                 },
             },
         )
@@ -84,7 +87,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
                 "base_url": "https://api.github.com",
                 "owner": "Workspace",
                 "auth_config": {
-                    "access_token_input": "ghp_secret_token",
+                    "access_token_input": "token_secret_test_value",
                 },
             },
         )
@@ -122,6 +125,13 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertTrue(callback_body["ok"])
         self.assertEqual(callback_body["connector"]["status"], "connected")
         self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
+
+        test_response = self.client.post("/api/v1/connectors/google-primary/test")
+        self.assertEqual(test_response.status_code, 200)
+        test_body = test_response.json()
+        self.assertTrue(test_body["ok"])
+        self.assertEqual(test_body["message"], "Google connection verified.")
+        self.assertEqual(test_body["connector"]["status"], "connected")
 
         refresh_response = self.client.post("/api/v1/connectors/google-primary/refresh")
         self.assertEqual(refresh_response.status_code, 200)
@@ -169,11 +179,33 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(callback_body["connector"]["status"], "connected")
         self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
 
+        test_response = self.client.post("/api/v1/connectors/google-workspace-primary/test")
+        self.assertEqual(test_response.status_code, 200)
+        self.assertTrue(test_response.json()["ok"])
+
         refresh_response = self.client.post("/api/v1/connectors/google-workspace-primary/refresh")
         self.assertEqual(refresh_response.status_code, 200)
         refresh_body = refresh_response.json()
         self.assertTrue(refresh_body["ok"])
         self.assertEqual(refresh_body["connector"]["status"], "connected")
+
+    def test_google_probe_returns_actionable_invalid_token_message(self) -> None:
+        http_error = urllib.error.HTTPError(
+            url="https://oauth2.googleapis.com/tokeninfo?access_token=demo",
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,
+            fp=BytesIO(b'{"error":"invalid_token"}'),
+        )
+
+        with patch("backend.routes.connectors.urllib.request.urlopen", side_effect=http_error):
+            ok, message = _probe_google_access_token(access_token="demo-access-token")
+
+        self.assertFalse(ok)
+        self.assertEqual(
+            message,
+            "Google rejected the saved access token as invalid or revoked. Reconnect Google and try again.",
+        )
 
     def test_google_oauth_start_requires_client_id(self) -> None:
         with patch.dict("os.environ", {"MALCOM_GOOGLE_OAUTH_CLIENT_ID": ""}, clear=False):
@@ -255,6 +287,174 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(start_response.status_code, 200)
         start_body = start_response.json()
         self.assertEqual(start_body["connector"]["provider"], "google")
+
+    def test_connector_metadata_exposes_first_party_provider_onboarding_contracts(self) -> None:
+        response = self.client.get("/api/v1/connectors")
+        self.assertEqual(response.status_code, 200)
+        metadata = response.json()["metadata"]["providers"]
+        providers = {item["id"]: item for item in metadata}
+
+        self.assertEqual(set(providers), {"google", "github", "notion", "trello"})
+        self.assertTrue(providers["github"]["oauth_supported"])
+        self.assertTrue(providers["notion"]["oauth_supported"])
+        self.assertFalse(providers["trello"]["oauth_supported"])
+        self.assertEqual(providers["github"]["default_redirect_path"], "/api/v1/connectors/github/oauth/callback")
+        self.assertIn("client_secret", providers["github"]["required_fields"])
+        self.assertIn("api_key", providers["trello"]["required_fields"])
+
+    def test_github_oauth_start_callback_refresh_and_revoke_flow(self) -> None:
+        start_response = self.client.post(
+            "/api/v1/connectors/github/oauth/start",
+            json={
+                "connector_id": "github-primary",
+                "name": "GitHub Primary",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/github/oauth/callback",
+                "owner": "Workspace",
+                "client_id": "github-client-id",
+                "client_secret_input": "github-client-secret",
+                "scopes": ["repo", "read:user"],
+            },
+        )
+        self.assertEqual(start_response.status_code, 200)
+        start_body = start_response.json()
+        self.assertEqual(start_body["connector"]["status"], "pending_oauth")
+        self.assertIn("github.com/login/oauth/authorize", start_body["authorization_url"])
+
+        callback_response = self.client.get(
+            f"/api/v1/connectors/github/oauth/callback?state={start_body['state']}&code=demo-github"
+        )
+        self.assertEqual(callback_response.status_code, 200)
+        callback_body = callback_response.json()
+        self.assertTrue(callback_body["ok"])
+        self.assertEqual(callback_body["message"], "GitHub connector authorized successfully.")
+        self.assertEqual(callback_body["connector"]["status"], "connected")
+        self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
+
+        test_response = self.client.post("/api/v1/connectors/github-primary/test")
+        self.assertEqual(test_response.status_code, 200)
+        self.assertTrue(test_response.json()["ok"])
+        self.assertEqual(test_response.json()["message"], "GitHub connection verified.")
+
+        refresh_response = self.client.post("/api/v1/connectors/github-primary/refresh")
+        self.assertEqual(refresh_response.status_code, 200)
+        self.assertTrue(refresh_response.json()["ok"])
+        self.assertEqual(refresh_response.json()["message"], "GitHub token refreshed.")
+
+        revoke_response = self.client.post("/api/v1/connectors/github-primary/revoke")
+        self.assertEqual(revoke_response.status_code, 200)
+        self.assertTrue(revoke_response.json()["ok"])
+        self.assertEqual(revoke_response.json()["message"], "GitHub connector revoked and credentials cleared.")
+        self.assertEqual(revoke_response.json()["connector"]["status"], "revoked")
+
+    def test_github_oauth_start_requires_client_secret(self) -> None:
+        response = self.client.post(
+            "/api/v1/connectors/github/oauth/start",
+            json={
+                "connector_id": "github-missing-secret",
+                "name": "GitHub Missing Secret",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/github/oauth/callback",
+                "owner": "Workspace",
+                "client_id": "github-client-id",
+                "client_secret_input": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "GitHub OAuth client_secret is required.")
+
+    def test_notion_oauth_start_callback_and_refresh_flow(self) -> None:
+        start_response = self.client.post(
+            "/api/v1/connectors/notion/oauth/start",
+            json={
+                "connector_id": "notion-primary",
+                "name": "Notion Primary",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/notion/oauth/callback",
+                "owner": "Workspace",
+                "client_id": "notion-client-id",
+                "client_secret_input": "notion-client-secret",
+            },
+        )
+        self.assertEqual(start_response.status_code, 200)
+        start_body = start_response.json()
+        self.assertEqual(start_body["connector"]["status"], "pending_oauth")
+        self.assertIn("api.notion.com/v1/oauth/authorize", start_body["authorization_url"])
+
+        callback_response = self.client.get(
+            f"/api/v1/connectors/notion/oauth/callback?state={start_body['state']}&code=demo-notion"
+        )
+        self.assertEqual(callback_response.status_code, 200)
+        callback_body = callback_response.json()
+        self.assertTrue(callback_body["ok"])
+        self.assertEqual(callback_body["message"], "Notion connector authorized successfully.")
+        self.assertEqual(callback_body["connector"]["status"], "connected")
+        self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
+
+        test_response = self.client.post("/api/v1/connectors/notion-primary/test")
+        self.assertEqual(test_response.status_code, 200)
+        self.assertTrue(test_response.json()["ok"])
+        self.assertEqual(test_response.json()["message"], "Notion connection verified.")
+
+        refresh_response = self.client.post("/api/v1/connectors/notion-primary/refresh")
+        self.assertEqual(refresh_response.status_code, 200)
+        self.assertTrue(refresh_response.json()["ok"])
+        self.assertEqual(refresh_response.json()["message"], "Notion token refreshed.")
+
+    def test_trello_oauth_start_returns_provider_conflict(self) -> None:
+        response = self.client.post(
+            "/api/v1/connectors/trello/oauth/start",
+            json={
+                "connector_id": "trello-primary",
+                "name": "Trello Primary",
+                "redirect_uri": "http://localhost:8000/api/v1/connectors/trello/oauth/callback",
+                "owner": "Workspace",
+                "client_id": "",
+                "client_secret_input": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.json()["detail"],
+            "Trello uses saved credentials and does not support OAuth browser setup.",
+        )
+
+    def test_trello_credentials_test_and_revoke_flow(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": "trello-primary",
+                "provider": "trello",
+                "name": "Trello Primary",
+                "status": "draft",
+                "auth_type": "api_key",
+                "scopes": [],
+                "base_url": "https://api.trello.com/1",
+                "owner": "Workspace",
+                "auth_config": {
+                    "api_key_input": "trello_key_demo",
+                    "access_token_input": "trello_token_demo",
+                },
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+
+        test_response = self.client.post("/api/v1/connectors/trello-primary/test")
+        self.assertEqual(test_response.status_code, 200)
+        test_body = test_response.json()
+        self.assertTrue(test_body["ok"])
+        self.assertEqual(test_body["message"], "Trello connection verified.")
+        self.assertEqual(test_body["connector"]["status"], "connected")
+
+        refresh_response = self.client.post("/api/v1/connectors/trello-primary/refresh")
+        self.assertEqual(refresh_response.status_code, 409)
+        self.assertEqual(refresh_response.json()["detail"], "Trello does not support token refresh.")
+
+        revoke_response = self.client.post("/api/v1/connectors/trello-primary/revoke")
+        self.assertEqual(revoke_response.status_code, 200)
+        revoke_body = revoke_response.json()
+        self.assertTrue(revoke_body["ok"])
+        self.assertEqual(revoke_body["message"], "Trello credentials cleared from this workspace.")
+        self.assertEqual(revoke_body["connector"]["status"], "revoked")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import { bindFormEvents, buildDefaultConnectorRecord } from "./form.js";
 import { bindModalEvents, closeModal, openDetailModal } from "./modal.js";
 import { ensureGoogleConnectorRecord, handleOauthQueryState, startConnectorOauth } from "./oauth.js";
 import { renderDetail, renderDirectory, renderModalProviders, renderPolicy, renderSummary, setFeedback } from "./render.js";
-import { connectorState, createEmptyConnectorPayload, getProviderPreset, getStore, slugifyConnectorId } from "./state.js";
+import { connectorState, createEmptyConnectorPayload, getProviderActionLabel, getProviderPreset, getStore, providerSupportsOauth, slugifyConnectorId, usesProviderSetupPanel } from "./state.js";
 
 const handleSelectRecord = (recordId, returnFocusElement) => {
   connectorState.selectedConnectorId = recordId;
@@ -31,14 +31,12 @@ const handleSelectPreset = async (providerId) => {
       connectorState.detailReturnFocusElement = connectorElements.createButton;
       renderAll();
       openDetailModal();
-      if (!(googleRecord.name || "").trim()) {
-        connectorElements.nameInput?.focus();
-      } else if ((googleRecord.auth_config?.client_id || "").trim()) {
+      if ((googleRecord.auth_config?.client_id || "").trim()) {
         connectorElements.oauthStartButton?.focus();
       } else {
-        connectorElements.clientIdInput?.focus();
+        connectorElements.googleClientIdInput?.focus();
       }
-      setFeedback("Google connector draft ready. Enter Name and OAuth credentials, then continue with Google.", "success");
+      setFeedback("Google integration ready. Enter Name and OAuth credentials, then continue with Google.", "success");
     } catch (error) {
       setFeedback(normalizeRequestError(error).message, "error");
     }
@@ -55,10 +53,20 @@ const handleSelectPreset = async (providerId) => {
     closeModal();
     renderAll();
     openDetailModal();
-    setFeedback(`Prepared ${preset.name} connector draft. Add credentials and save to persist the record.`, "success");
-  } catch (error) {
-    setFeedback(normalizeRequestError(error).message, "error");
-  }
+    if (usesProviderSetupPanel(preset.id)) {
+      const connectLabel = getProviderActionLabel(preset.id, "connect", `Continue with ${preset.name}`);
+      setFeedback(
+        providerSupportsOauth(preset.id)
+          ? `Prepared ${preset.name} connector draft. Enter provider credentials, then ${connectLabel.toLowerCase()}.`
+          : `Prepared ${preset.name} connector draft. Enter provider credentials, then save the connector.`,
+        "success"
+      );
+    } else {
+      setFeedback(`Prepared ${preset.name} connector draft. Add credentials and save to persist the record.`, "success");
+    }
+    } catch (error) {
+      setFeedback(normalizeRequestError(error).message, "error");
+    }
 };
 
 const renderAll = () => {

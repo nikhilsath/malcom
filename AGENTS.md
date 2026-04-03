@@ -139,7 +139,7 @@ When deciding where a new integration belongs, agents must:
 
 Workflow-builder connector dropdown/options must follow one explicit resolver path:
 
-1. persistence source: `settings.connectors.records`
+1. persistence source: `connectors` table rows
 2. backend resolver: `backend/services/workflow_builder.py:list_workflow_builder_connectors`
 3. API surface: `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py`
 4. UI consumer: automation builder support loading in `ui/src/automation/app.tsx`
@@ -162,7 +162,7 @@ When schema tables or table groups change, update `AGENTS.md` and `README.md` in
 Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `settings`, `integration_presets`
+- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `connector_endpoint_definitions`
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
 - Log schema: `log_db_tables`, `log_db_columns`
@@ -208,7 +208,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-001 | Google connector onboarding must begin from the Connect provider control and must not collect OAuth credentials through browser prompt dialogs | Connector onboarding UX and OAuth setup flows |
 | R-CONN-002 | When adding a connector provider, also evaluate and define provider-aware prebuilt workflow activities in the connector activity catalog, including scopes, input schema, output schema, and execution mapping | Connector/provider implementation workflow |
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
-| R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from `settings.connectors.records`; do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
+| R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from persisted connector rows (`connectors` table); do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
 | R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
 | R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
@@ -235,7 +235,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 22,
+  "version": 23,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",

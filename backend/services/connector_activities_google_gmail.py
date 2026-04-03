@@ -4,7 +4,7 @@ import urllib.parse
 from typing import Any
 
 from .connector_activities_defs import ConnectorActivityDefinition, VALUE_SOURCE_HINT, _field, _output
-from .connector_activities_runtime import RequestExecutor, _coerce_int, _csv_to_list, _execute_request, _gmail_raw_message
+from .connector_activities_runtime import RequestExecutor, _coerce_bool, _coerce_int, _csv_to_list, _execute_request, _gmail_raw_message
 
 
 GOOGLE_GMAIL_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
@@ -14,18 +14,19 @@ GOOGLE_GMAIL_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         service="gmail",
         operation_type="read",
         label="List emails",
-        description="List Gmail messages with optional labels and result limits.",
+        description="List Gmail messages with optional q, labelIds[], pageToken, and includeSpamTrash filters.",
         required_scopes=("https://www.googleapis.com/auth/gmail.readonly",),
         input_schema=(
-            _field("labels", "Labels", "string", required=False, placeholder="INBOX,IMPORTANT", help_text="Comma-separated Gmail label IDs.", value_hint="csv"),
-            _field("max_results", "Max results", "integer", required=False, default=25),
+            _field("q", "q", "string", required=False, placeholder="from:alerts@example.com is:unread", help_text=VALUE_SOURCE_HINT),
+            _field("labels", "labelIds[]", "string", required=False, placeholder="INBOX,IMPORTANT", help_text="Comma-separated Gmail label IDs.", value_hint="csv"),
+            _field("max_results", "maxResults", "integer", required=False, default=100, help_text="Defaults to 100. Gmail allows up to 500."),
+            _field("page_token", "pageToken", "string", required=False, help_text=VALUE_SOURCE_HINT),
+            _field("include_spam_trash", "includeSpamTrash", "boolean", required=False, default=False),
         ),
         output_schema=(
-            _output("provider", "Provider", "string"),
-            _output("activity", "Activity", "string"),
             _output("messages", "Messages", "array"),
             _output("next_page_token", "Next page token", "string"),
-            _output("count", "Count", "integer"),
+            _output("result_size_estimate", "Result size estimate", "integer"),
         ),
         execution={"kind": "google_gmail_list_messages"},
     ),
@@ -39,15 +40,14 @@ GOOGLE_GMAIL_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         required_scopes=("https://www.googleapis.com/auth/gmail.readonly",),
         input_schema=(
             _field("search_query", "Search query", "string", required=True, placeholder="from:alerts@example.com newer_than:7d", help_text=VALUE_SOURCE_HINT),
-            _field("labels", "Labels", "string", required=False, placeholder="INBOX,UNREAD", help_text="Optional comma-separated label IDs."),
-            _field("max_results", "Max results", "integer", required=False, default=25),
+            _field("labels", "labelIds[]", "string", required=False, placeholder="INBOX,UNREAD", help_text="Optional comma-separated label IDs."),
+            _field("max_results", "maxResults", "integer", required=False, default=100, help_text="Defaults to 100. Gmail allows up to 500."),
         ),
         output_schema=(
-            _output("provider", "Provider", "string"),
-            _output("activity", "Activity", "string"),
             _output("query", "Query", "string"),
             _output("messages", "Messages", "array"),
-            _output("count", "Count", "integer"),
+            _output("next_page_token", "Next page token", "string"),
+            _output("result_size_estimate", "Result size estimate", "integer"),
         ),
         execution={"kind": "google_gmail_list_messages", "force_query": True},
     ),
@@ -62,6 +62,7 @@ GOOGLE_GMAIL_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         input_schema=(
             _field("message_id", "Message ID", "string", required=True, help_text=VALUE_SOURCE_HINT),
             _field("format", "Response format", "select", required=False, default="full", options=["minimal", "full", "metadata", "raw"]),
+            _field("metadata_headers", "metadataHeaders[]", "string", required=False, placeholder="Subject,From,To", help_text="Optional comma-separated header names when format is metadata.", value_hint="csv"),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
@@ -81,6 +82,7 @@ GOOGLE_GMAIL_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         input_schema=(
             _field("thread_id", "Thread ID", "string", required=True, help_text=VALUE_SOURCE_HINT),
             _field("format", "Message format", "select", required=False, default="full", options=["minimal", "full", "metadata"]),
+            _field("metadata_headers", "metadataHeaders[]", "string", required=False, placeholder="Subject,From,To", help_text="Optional comma-separated header names when format is metadata.", value_hint="csv"),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
@@ -168,6 +170,20 @@ def _raise_for_status(status_code: int) -> None:
         raise RuntimeError(f"Connector activity request failed with status {status_code}.")
 
 
+def _first_populated_input(resolved_inputs: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key not in resolved_inputs:
+            continue
+        value = resolved_inputs.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                continue
+        if value is not None:
+            return value
+    return None
+
+
 def google_gmail_list_messages(
     provider_id: str,
     activity_id: str,
@@ -177,26 +193,34 @@ def google_gmail_list_messages(
     _context: dict[str, Any] | None,
     executor: RequestExecutor,
 ) -> dict[str, Any]:
-    params = {"maxResults": _coerce_int(resolved_inputs.get("max_results"), 25)}
-    labels = _csv_to_list(resolved_inputs.get("labels"))
+    params = {"maxResults": _coerce_int(_first_populated_input(resolved_inputs, "max_results", "maxResults"), 100)}
+    labels = _csv_to_list(_first_populated_input(resolved_inputs, "labels", "label_ids", "labelIds"))
     if labels:
         params["labelIds"] = labels
-    query = str(resolved_inputs.get("search_query") or "").strip()
+    page_token = str(_first_populated_input(resolved_inputs, "page_token", "pageToken") or "").strip()
+    if page_token:
+        params["pageToken"] = page_token
+    query = str(_first_populated_input(resolved_inputs, "q", "search_query") or "").strip()
     if query:
         params["q"] = query
+    include_spam_trash = _first_populated_input(resolved_inputs, "include_spam_trash", "includeSpamTrash")
+    if include_spam_trash is not None:
+        params["includeSpamTrash"] = "true" if _coerce_bool(include_spam_trash) else "false"
     query_string = urllib.parse.urlencode(params, doseq=True)
     status_code, payload = _execute_request(executor, f"{base_url}/gmail/v1/users/me/messages?{query_string}", "GET", headers)
     _raise_for_status(status_code)
     payload = payload or {}
     messages = payload.get("messages") or []
-    return {
+    result = {
         "provider": provider_id,
         "activity": activity_id,
-        "query": query or None,
         "messages": messages,
         "next_page_token": payload.get("nextPageToken"),
-        "count": len(messages),
+        "result_size_estimate": payload.get("resultSizeEstimate"),
     }
+    if activity_id == "gmail_search_messages":
+        result["query"] = query or None
+    return result
 
 
 def google_gmail_get_message(
@@ -209,8 +233,16 @@ def google_gmail_get_message(
     executor: RequestExecutor,
 ) -> dict[str, Any]:
     message_id = urllib.parse.quote(str(resolved_inputs.get("message_id") or ""), safe="")
-    fmt = urllib.parse.quote(str(resolved_inputs.get("format") or "full"), safe="")
-    status_code, payload = _execute_request(executor, f"{base_url}/gmail/v1/users/me/messages/{message_id}?format={fmt}", "GET", headers)
+    params: dict[str, Any] = {"format": str(resolved_inputs.get("format") or "full")}
+    metadata_headers = _csv_to_list(_first_populated_input(resolved_inputs, "metadata_headers", "metadataHeaders"))
+    if metadata_headers:
+        params["metadataHeaders"] = metadata_headers
+    status_code, payload = _execute_request(
+        executor,
+        f"{base_url}/gmail/v1/users/me/messages/{message_id}?{urllib.parse.urlencode(params, doseq=True)}",
+        "GET",
+        headers,
+    )
     _raise_for_status(status_code)
     return {"provider": provider_id, "activity": activity_id, "message": payload}
 
@@ -225,8 +257,16 @@ def google_gmail_get_thread(
     executor: RequestExecutor,
 ) -> dict[str, Any]:
     thread_id = urllib.parse.quote(str(resolved_inputs.get("thread_id") or ""), safe="")
-    fmt = urllib.parse.quote(str(resolved_inputs.get("format") or "full"), safe="")
-    status_code, payload = _execute_request(executor, f"{base_url}/gmail/v1/users/me/threads/{thread_id}?format={fmt}", "GET", headers)
+    params: dict[str, Any] = {"format": str(resolved_inputs.get("format") or "full")}
+    metadata_headers = _csv_to_list(_first_populated_input(resolved_inputs, "metadata_headers", "metadataHeaders"))
+    if metadata_headers:
+        params["metadataHeaders"] = metadata_headers
+    status_code, payload = _execute_request(
+        executor,
+        f"{base_url}/gmail/v1/users/me/threads/{thread_id}?{urllib.parse.urlencode(params, doseq=True)}",
+        "GET",
+        headers,
+    )
     _raise_for_status(status_code)
     return {"provider": provider_id, "activity": activity_id, "thread": payload}
 

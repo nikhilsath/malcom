@@ -46,6 +46,50 @@ class ConnectorProviderPresetResponse(BaseModel):
     base_url: str
 
 
+class ConnectorProviderSetupFieldResponse(BaseModel):
+    key: str
+    label: str
+    input_type: Literal["text", "password", "url"]
+    required: bool = False
+    secret: bool = False
+    readonly: bool = False
+
+
+class ConnectorProviderUiCopyResponse(BaseModel):
+    eyebrow: str
+    title: str
+    description: str
+    last_checked_empty: str
+
+
+class ConnectorProviderActionLabelsResponse(BaseModel):
+    save: str
+    test: str
+    connect: str
+    reconnect: str
+    refresh: str
+    revoke: str
+
+
+class ConnectorProviderMetadataResponse(BaseModel):
+    id: str
+    name: str
+    onboarding_mode: Literal["oauth", "credentials"]
+    oauth_supported: bool
+    callback_supported: bool
+    refresh_supported: bool
+    revoke_supported: bool
+    redirect_uri_required: bool
+    redirect_uri_readonly: bool
+    scopes_locked: bool
+    default_redirect_path: str | None = None
+    required_fields: list[str] = Field(default_factory=list)
+    setup_fields: list[ConnectorProviderSetupFieldResponse] = Field(default_factory=list)
+    ui_copy: ConnectorProviderUiCopyResponse
+    action_labels: ConnectorProviderActionLabelsResponse
+    status_messages: dict[str, str] = Field(default_factory=dict)
+
+
 class ConnectorAuthPolicy(BaseModel):
     rotation_interval_days: Literal[30, 60, 90]
     reconnect_requires_approval: bool
@@ -101,6 +145,7 @@ class ConnectorMetadataResponse(BaseModel):
     statuses: list[SettingsOptionValueResponse]
     active_storage_statuses: list[str]
     auth_policy: ConnectorAuthPolicyMetadataResponse
+    providers: list[ConnectorProviderMetadataResponse]
 
 
 class ConnectorSettingsResponse(BaseModel):
@@ -271,6 +316,10 @@ __all__ = [
     "ConnectorMetadataResponse",
     "ConnectorAuthPolicyMetadataResponse",
     "ConnectorProviderPresetResponse",
+    "ConnectorProviderSetupFieldResponse",
+    "ConnectorProviderUiCopyResponse",
+    "ConnectorProviderActionLabelsResponse",
+    "ConnectorProviderMetadataResponse",
     "ConnectorRecordResponse",
     "ConnectorSettingsResponse",
     "ConnectorUpdateRequest",

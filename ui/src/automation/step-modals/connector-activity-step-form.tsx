@@ -125,12 +125,6 @@ export const ConnectorActivityStepForm = ({
   const missingScopes = selectedConnector && selectedActivity
     ? selectedActivity.required_scopes.filter((scope) => !(selectedConnector.scopes || []).includes(scope))
     : [];
-  const groupedActivities = visibleActivities.reduce<Record<string, ConnectorActivityDefinition[]>>((groups, activity) => {
-    const key = `${normalizeService(activity.service || "")}:${activity.operation_type}`;
-    groups[key] = groups[key] || [];
-    groups[key].push(activity);
-    return groups;
-  }, {});
 
   const updateConfig = (nextConfig: AutomationStep["config"]) => onChange({ ...draft, config: nextConfig });
   const connectorActivitiesByProvider = activityCatalog.reduce<Record<string, ConnectorActivityDefinition[]>>((groups, activity) => {
@@ -273,50 +267,8 @@ export const ConnectorActivityStepForm = ({
         </label>
       ) : null}
 
-      <div id={`${idPrefix}-activity-picker`} className="automation-field automation-field--full automation-field__info">
-        <div id={`${idPrefix}-activity-picker-label`} className="automation-field__label">Connector actions</div>
-        {!selectedConnector ? (
-          <div id={`${idPrefix}-activity-picker-empty`} className="automation-switch-field__description">Select a connector to view its supported actions.</div>
-        ) : requiresGoogleServiceSelection && !selectedService ? (
-          <div id={`${idPrefix}-activity-picker-empty`} className="automation-switch-field__description">Choose a Google app to view its supported actions.</div>
-        ) : visibleActivities.length === 0 ? (
-          <div id={`${idPrefix}-activity-picker-empty`} className="automation-switch-field__description">No connector actions are available for this selection.</div>
-        ) : (
-          <div id={`${idPrefix}-activity-groups`} className="automation-connector-activity-groups">
-            {Object.entries(groupedActivities).map(([groupKey, activities]) => {
-              const [service, operationType] = groupKey.split(":");
-              return (
-                <section key={groupKey} id={`${idPrefix}-group-${groupKey.replace(/[:]/g, "-")}`} className="automation-connector-activity-group">
-                  <div id={`${idPrefix}-group-header-${groupKey.replace(/[:]/g, "-")}`} className="automation-connector-activity-group__header">
-                    <span className="automation-field__label">{getServiceLabel(service)}</span>
-                    <span className={`automation-run-badge automation-run-badge--${operationType === "write" ? "error" : "neutral"}`}>{operationType.toUpperCase()}</span>
-                  </div>
-                  <div className="automation-connector-activity-list">
-                    {activities.map((activity) => {
-                      const active = draft.config.activity_id === activity.activity_id;
-                      return (
-                        <button
-                          key={activity.activity_id}
-                          id={`${idPrefix}-activity-card-${activity.activity_id}`}
-                          type="button"
-                          className={`add-step-type-card automation-connector-activity-card${active ? " automation-connector-activity-card--selected" : ""}`}
-                          onClick={() => updateConfig({ ...draft.config, activity_id: activity.activity_id, activity_inputs: {} })}
-                        >
-                          <span className="add-step-type-card__label">{activity.label}</span>
-                          <span className="add-step-type-card__description">{activity.description}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       <label id={`${idPrefix}-activity-field`} className="automation-field automation-field--full automation-field--inline-label">
-        <span id={`${idPrefix}-activity-label`} className="automation-field__label">Selected action</span>
+        <span id={`${idPrefix}-activity-label`} className="automation-field__label">Connector action</span>
         <select
           id={`${idPrefix}-activity-input`}
           className="automation-native-select"

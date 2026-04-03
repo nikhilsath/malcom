@@ -415,12 +415,19 @@ describe("AutomationApp", () => {
     expect(within(serviceSelect).queryByRole("option", { name: "Drive" })).not.toBeInTheDocument();
     expect(within(serviceSelect).queryByRole("option", { name: "Calendar" })).not.toBeInTheDocument();
     expect(within(serviceSelect).getByRole("option", { name: "Sheets" })).toBeInTheDocument();
-    expect(screen.getByText("Choose a Google app to view its supported actions.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send email/i })).not.toBeInTheDocument();
+    const activitySelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-activity-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    expect(within(activitySelect).getByRole("option", { name: "Choose a Google app first" })).toBeInTheDocument();
+    expect(within(activitySelect).queryByRole("option", { name: /Send email/i })).not.toBeInTheDocument();
 
     fireEvent.change(serviceSelect, { target: { value: "gmail" } });
-
-    fireEvent.click(screen.getByRole("button", { name: /send email/i }));
+    await waitFor(() => {
+      expect(within(activitySelect).getByRole("option", { name: /Gmail · WRITE · Send email/i })).toBeInTheDocument();
+    });
+    fireEvent.change(activitySelect, { target: { value: "gmail_send_email" } });
 
     expect(await screen.findByLabelText("Recipients")).toBeInTheDocument();
     expect(screen.getByLabelText("Subject")).toBeInTheDocument();
@@ -428,8 +435,11 @@ describe("AutomationApp", () => {
     expect(screen.getByText(/message_id/i)).toBeInTheDocument();
 
     fireEvent.change(serviceSelect, { target: { value: "sheets" } });
-    expect(screen.queryByRole("button", { name: /send email/i })).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: /update range/i }));
+    await waitFor(() => {
+      expect(within(activitySelect).queryByRole("option", { name: /Gmail · WRITE · Send email/i })).not.toBeInTheDocument();
+      expect(within(activitySelect).getByRole("option", { name: /Sheets · WRITE · Update range/i })).toBeInTheDocument();
+    });
+    fireEvent.change(activitySelect, { target: { value: "sheets_update_range" } });
     expect(await screen.findByLabelText("Spreadsheet ID")).toBeInTheDocument();
     expect(screen.getByLabelText("A1 range")).toBeInTheDocument();
     expect(screen.getByLabelText("Values payload")).toBeInTheDocument();
@@ -530,7 +540,15 @@ describe("AutomationApp", () => {
       return element as HTMLSelectElement;
     });
     fireEvent.change(serviceSelect, { target: { value: "gmail" } });
-    fireEvent.click(screen.getByRole("button", { name: /send email/i }));
+    const activitySelect = await waitFor(() => {
+      const element = document.querySelector("#add-step-connector-activity-activity-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+    await waitFor(() => {
+      expect(within(activitySelect).getByRole("option", { name: /Gmail · WRITE · Send email/i })).toBeInTheDocument();
+    });
+    fireEvent.change(activitySelect, { target: { value: "gmail_send_email" } });
     fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
     fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
 

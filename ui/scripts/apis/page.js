@@ -668,8 +668,11 @@ export const createApiPageController = ({
     await initOutgoingRegistry();
     await initWebhookRegistry();
 
-    window.addEventListener("malcom:app-settings-updated", (event) => {
-      state.connectorEntries = event.detail?.settings?.connectors?.records || [];
+    window.addEventListener("malcom:connectors-updated", (event) => {
+      const nextConnectorEntries = event.detail?.connectors?.records;
+      if (Array.isArray(nextConnectorEntries) && nextConnectorEntries.length > 0) {
+        state.connectorEntries = nextConnectorEntries;
+      }
     });
   };
 

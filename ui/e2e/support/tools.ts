@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import { buildAppSettingsResponse } from "./api-response-builders.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -160,38 +161,12 @@ const mergeDeep = <T>(base: T, override: DeepPartial<T>): T => {
   return mergeValue(clonedBase, override) as T;
 };
 
-const defaultSettingsResponse = {
-  general: {
-    environment: "live",
-    timezone: "local"
-  },
-  logging: {
-    max_stored_entries: 250,
-    max_visible_entries: 50,
-    max_detail_characters: 4000,
-    max_file_size_mb: 5
-  },
+const defaultSettingsResponse = buildAppSettingsResponse({
   notifications: {
     channel: "slack",
     digest: "hourly"
-  },
-  data: {
-    payload_redaction: true,
-    export_window_utc: "02:00"
-  },
-  automation: {
-    default_tool_retries: 2
-  },
-  connectors: {
-    catalog: [],
-    records: [],
-    auth_policy: {
-      rotation_interval_days: 90,
-      reconnect_requires_approval: true,
-      credential_visibility: "masked"
-    }
   }
-};
+});
 
 const defaultTools: ToolDirectoryEntry[] = [
   {

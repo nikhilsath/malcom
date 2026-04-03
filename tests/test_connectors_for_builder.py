@@ -6,8 +6,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from backend.database import connect
 from backend.main import app
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import get_test_database_url, setup_postgres_test_app
 
 
 class ConnectorsForBuilderTestCase(unittest.TestCase):
@@ -90,6 +91,46 @@ class ConnectorsForBuilderTestCase(unittest.TestCase):
         resp = self.client.get("/api/v1/automations/workflow-connectors")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
+
+    def test_prefers_connectors_table_over_legacy_settings_payload(self) -> None:
+        connection = connect(database_url=get_test_database_url())
+        try:
+            connection.execute(
+                """
+                INSERT INTO connectors (id, provider, name, status, auth_type, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "table-connector",
+                    "google",
+                    "Table Connector",
+                    "connected",
+                    "oauth2",
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z",
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO settings (key, value_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    "connectors",
+                    '{"records":[{"id":"settings-connector","provider":"github","name":"Settings Connector","status":"connected","auth_type":"oauth2"}]}',
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T00:00:00Z",
+                ),
+            )
+            connection.commit()
+
+            response = self.client.get("/api/v1/automations/workflow-connectors")
+            self.assertEqual(response.status_code, 200)
+            ids = [item["id"] for item in response.json()]
+            self.assertIn("table-connector", ids)
+            self.assertNotIn("settings-connector", ids)
+        finally:
+            connection.close()
 
 
 if __name__ == "__main__":

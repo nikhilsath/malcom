@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malcom</title>
+  <script type="module" crossorigin src="/assets/settingsConnectors-B_XMAYNl.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/navigation-Bo57ogZE.js">
+  <link rel="modulepreload" crossorigin href="/assets/format-utils-CLSOLEfl.js">
+  <link rel="stylesheet" crossorigin href="/assets/navigation-BhEr06pl.css">
+</head>
+<body class="app-shell" data-section="settings" data-settings-section="connectors" data-sidenav-item="sidenav-settings-integrations" data-shell-path-prefix="../">
+    <div id="topnav"></div>
+
+    <aside id="sidenav"></aside>
+
+    <main class="main" id="settings-main-layout">
+        <div class="content-shell">
+            <div class="page-header section-header--page" id="settings-header">
+                <div class="title-row">
+                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
+                </div>
+                <p class="page-description section-header__description--page" id="page-description" hidden></p>
+            </div>
+
+            <section id="settings-connectors-summary-section" class="card settings-section">
+                <div id="settings-connectors-summary-header" class="settings-section__header">
+                    <p id="settings-connectors-summary-eyebrow" class="section-header__eyebrow">Connectors</p>
+                    <div class="title-row">
+                        <h3 id="settings-connectors-summary-title" class="settings-card__title">Workspace connector registry</h3>
+                        <button type="button" id="settings-connectors-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-description">i</button>
+                    </div>
+                    <p id="settings-connectors-summary-description" class="settings-card__description" hidden>Store reusable provider definitions, track authentication state, and feed outbound APIs or automation steps from one registry.</p>
+                </div>
+                <div id="settings-connectors-summary-grid" class="settings-option-grid">
+                    <article id="settings-connectors-summary-connected-card" class="stat-card settings-option-card">
+                        <div id="settings-connectors-summary-connected-copy" class="settings-option-card__copy">
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-connected-title" class="settings-option-card__title">Connected</h4>
+                                <button type="button" id="settings-connectors-summary-connected-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-connected-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-connected-description" class="settings-option-card__description" hidden>Providers with working credentials.</p>
+                        </div>
+                        <p id="settings-connectors-summary-connected-value" class="settings-connectors-summary-value">0</p>
+                    </article>
+                    <article id="settings-connectors-summary-oauth-card" class="stat-card settings-option-card">
+                        <div id="settings-connectors-summary-oauth-copy" class="settings-option-card__copy">
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-oauth-title" class="settings-option-card__title">OAuth connectors</h4>
+                                <button type="button" id="settings-connectors-summary-oauth-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-oauth-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-oauth-description" class="settings-option-card__description" hidden>Providers that use authorization code setup.</p>
+                        </div>
+                        <p id="settings-connectors-summary-oauth-value" class="settings-connectors-summary-value">0</p>
+                    </article>
+                    <article id="settings-connectors-summary-attention-card" class="stat-card settings-option-card">
+                        <div id="settings-connectors-summary-attention-copy" class="settings-option-card__copy">
+                            <div class="title-row">
+                                <h4 id="settings-connectors-summary-attention-title" class="settings-option-card__title">Needs attention</h4>
+                                <button type="button" id="settings-connectors-summary-attention-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-summary-attention-description">i</button>
+                            </div>
+                            <p id="settings-connectors-summary-attention-description" class="settings-option-card__description" hidden>Expired, revoked, or incomplete entries.</p>
+                        </div>
+                        <p id="settings-connectors-summary-attention-value" class="settings-connectors-summary-value">0</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="settings-connectors-workspace-section" class="card settings-section">
+                <div id="settings-connectors-workspace-header" class="section-header api-panel-header">
+                    <div id="settings-connectors-workspace-copy" class="section-header__copy api-panel-header-copy">
+                        <p id="settings-connectors-workspace-eyebrow" class="section-header__eyebrow api-panel-eyebrow">Registry</p>
+                        <div class="title-row">
+                            <h3 id="settings-connectors-workspace-title" class="section-header__title api-panel-title">Configured connectors</h3>
+                            <button type="button" id="settings-connectors-workspace-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-workspace-description">i</button>
+                        </div>
+                        <p id="settings-connectors-workspace-description" class="section-header__description" hidden>Select any configured connector to edit metadata, rotate auth, or test the saved configuration.</p>
+                    </div>
+                    <div id="settings-connectors-workspace-actions" class="api-form-actions">
+                        <button type="button" id="settings-connectors-create-button" class="button button--success primary-action-button">Connect provider</button>
+                    </div>
+                </div>
+                <div id="settings-connectors-feedback" class="api-form-feedback" aria-live="polite"></div>
+                <div id="settings-connectors-layout" class="settings-connectors-layout">
+                    <section id="settings-connectors-directory-panel" class="card api-directory-panel">
+                        <div id="settings-connectors-directory-status" class="api-directory-status-bar">
+                            <p id="settings-connectors-directory-status-copy" class="api-directory-status-copy" hidden>Saved connectors are shared across this workspace.</p>
+                        </div>
+                        <div id="settings-connectors-empty" class="api-empty-state" hidden>
+                            <h4 id="settings-connectors-empty-title" class="api-empty-state__title">No connectors configured</h4>
+                            <p id="settings-connectors-empty-description" class="api-empty-state__description">Connect a provider to begin.</p>
+                        </div>
+                        <div id="settings-connectors-table-shell" class="api-table-shell">
+                            <table id="settings-connectors-table" class="api-directory-table">
+                                <thead>
+                                    <tr id="settings-connectors-table-header-row">
+                                        <th id="settings-connectors-table-header-name">Connector</th>
+                                        <th id="settings-connectors-table-header-provider">Provider</th>
+                                        <th id="settings-connectors-table-header-status">Status</th>
+                                        <th id="settings-connectors-table-header-auth">Auth</th>
+                                        <th id="settings-connectors-table-header-owner">Owner</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="settings-connectors-table-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <section id="settings-connectors-policy-section" class="card settings-section">
+                <div id="settings-connectors-policy-header" class="settings-section__header">
+                    <p id="settings-connectors-policy-eyebrow" class="section-header__eyebrow">Access policy</p>
+                    <div class="title-row">
+                        <h3 id="settings-connectors-policy-title" class="settings-card__title">Connector auth defaults</h3>
+                        <button type="button" id="settings-connectors-policy-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-description">i</button>
+                    </div>
+                    <p id="settings-connectors-policy-description" class="settings-card__description" hidden>Apply shared policy defaults for new or reconnected connectors.</p>
+                </div>
+                <form id="settings-connectors-policy-form" class="api-form">
+                    <div id="settings-connectors-policy-grid" class="settings-option-grid">
+                        <article id="settings-connectors-policy-rotation-card" class="stat-card settings-option-card">
+                            <div id="settings-connectors-policy-rotation-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-rotation-title" class="settings-option-card__title">Rotation interval</h4>
+                                    <button type="button" id="settings-connectors-policy-rotation-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-rotation-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-rotation-description" class="settings-option-card__description" hidden>Default token rotation target for connector credentials.</p>
+                            </div>
+                            <select id="settings-connectors-policy-rotation-input" class="api-form-input"></select>
+                        </article>
+                        <article id="settings-connectors-policy-approval-card" class="stat-card settings-option-card">
+                            <div id="settings-connectors-policy-approval-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-approval-title" class="settings-option-card__title">Reconnect approval</h4>
+                                    <button type="button" id="settings-connectors-policy-approval-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-approval-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-approval-description" class="settings-option-card__description" hidden>Require approval before reconnecting saved providers.</p>
+                            </div>
+                            <label id="settings-connectors-policy-approval-toggle" class="toggle settings-option-card__toggle toggle--on">
+                                <input id="settings-connectors-policy-approval-input" class="sr-only" type="checkbox" checked>
+                                <div id="settings-connectors-policy-approval-slider" class="toggle__slider" aria-hidden="true">
+                                    <div id="settings-connectors-policy-approval-knob" class="toggle__knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-connectors-policy-approval-label" class="toggle__label">Required</span>
+                            </label>
+                        </article>
+                        <article id="settings-connectors-policy-visibility-card" class="stat-card settings-option-card">
+                            <div id="settings-connectors-policy-visibility-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-connectors-policy-visibility-title" class="settings-option-card__title">Credential visibility</h4>
+                                    <button type="button" id="settings-connectors-policy-visibility-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-policy-visibility-description">i</button>
+                                </div>
+                                <p id="settings-connectors-policy-visibility-description" class="settings-option-card__description" hidden>How secret summaries are displayed in the workspace.</p>
+                            </div>
+                            <select id="settings-connectors-policy-visibility-input" class="api-form-input"></select>
+                        </article>
+                    </div>
+                    <div id="settings-connectors-policy-actions" class="api-form-actions">
+                        <button type="submit" id="settings-connectors-policy-save-button" class="button button--primary primary-action-button">Save policy</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <div id="settings-connectors-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-connectors-modal-title" aria-hidden="true">
+        <div id="settings-connectors-modal-backdrop" class="modal__backdrop" data-modal-close="settings-connectors-modal"></div>
+        <div id="settings-connectors-modal-dialog" class="modal__dialog modal__dialog--choice">
+            <div id="settings-connectors-modal-content" class="modal__content">
+                <div id="settings-connectors-modal-panel" class="modal__panel">
+                    <div id="settings-connectors-modal-header" class="modal__header">
+                        <div id="settings-connectors-modal-header-copy" class="modal__header-copy">
+                            <p id="settings-connectors-modal-eyebrow" class="modal__eyebrow">Connect</p>
+                            <h3 id="settings-connectors-modal-title" class="modal__title">Choose a provider preset</h3>
+                            <p id="settings-connectors-modal-description" class="modal__description">Pick a preset.</p>
+                        </div>
+                        <button type="button" id="settings-connectors-modal-close" class="modal__close-icon-button" data-modal-close="settings-connectors-modal" aria-label="Close connector preset modal">×</button>
+                    </div>
+                    <div id="settings-connectors-modal-body" class="modal__body modal__body--form">
+                        <div id="settings-connectors-modal-provider-grid" class="api-popup-option-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-connectors-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-connectors-detail-title" aria-describedby="settings-connectors-detail-description" aria-hidden="true">
+        <button type="button" id="settings-connectors-detail-modal-backdrop" class="modal__backdrop" data-modal-close="settings-connectors-detail-modal" aria-label="Close connector details"></button>
+        <div id="settings-connectors-detail-modal-dialog" class="modal__dialog modal__dialog--form settings-connectors-detail-modal-dialog">
+            <div id="settings-connectors-detail-modal-content" class="modal__content">
+                <section id="settings-connectors-detail-panel" class="modal__panel settings-connectors-detail-panel" aria-live="polite">
+                    <div id="settings-connectors-detail-header" class="section-header api-panel-header modal__header">
+                        <div id="settings-connectors-detail-copy" class="section-header__copy api-panel-header-copy modal__header-copy">
+                            <p id="settings-connectors-detail-eyebrow" class="section-header__eyebrow api-panel-eyebrow modal__eyebrow">Connector setup</p>
+                            <div class="title-row">
+                                <h3 id="settings-connectors-detail-title" class="section-header__title api-panel-title modal__title">Connector setup</h3>
+                                <button type="button" id="settings-connectors-detail-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-connectors-detail-description">i</button>
+                            </div>
+                            <p id="settings-connectors-detail-description" class="section-header__description modal__description" hidden>Enter credentials and complete provider-specific setup for this connector.</p>
+                        </div>
+                        <button type="button" id="settings-connectors-detail-modal-close" class="modal__close-icon-button" data-modal-close="settings-connectors-detail-modal" aria-label="Close connector details">×</button>
+                    </div>
+                    <form id="settings-connectors-form" class="api-form modal__body modal__body--form">
+                        <section id="settings-connectors-google-setup-panel" class="card settings-connectors-provider-setup-panel settings-connectors-google-setup-panel" hidden>
+                            <div id="settings-connectors-google-setup-header" class="settings-connectors-provider-setup-header settings-connectors-google-setup-header">
+                                <p id="settings-connectors-google-setup-eyebrow" class="section-header__eyebrow">Google status</p>
+                                <span id="settings-connectors-google-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-google-status-message" class="settings-connectors-google-status-message">Add your Google OAuth client details to begin.</p>
+                            <p id="settings-connectors-google-last-checked" class="settings-connectors-google-last-checked">Google connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-google-form-grid" class="api-form-grid settings-connectors-provider-form-grid settings-connectors-google-form-grid" hidden>
+                            <label id="settings-connectors-google-name-field" class="api-form-field">
+                                <span id="settings-connectors-google-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-google-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-google-provider-field" class="api-form-field">
+                                <span id="settings-connectors-google-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-google-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-google-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-google-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-google-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-google-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-google-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-google-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-google-scopes-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-google-scopes-label" class="api-form-label">Scopes</span>
+                                <input id="settings-connectors-google-scopes-input" class="api-form-input api-form-input--locked" type="text" maxlength="1000" readonly>
+                            </label>
+                            <label id="settings-connectors-google-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-google-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-google-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-github-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-github-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-github-setup-eyebrow" class="section-header__eyebrow">GitHub status</p>
+                                <span id="settings-connectors-github-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-github-status-message" class="settings-connectors-provider-status-message">Add your GitHub OAuth app details to begin.</p>
+                            <p id="settings-connectors-github-last-checked" class="settings-connectors-provider-last-checked">GitHub connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-github-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-github-name-field" class="api-form-field">
+                                <span id="settings-connectors-github-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-github-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-github-provider-field" class="api-form-field">
+                                <span id="settings-connectors-github-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-github-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-github-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-github-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-github-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-github-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-github-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-github-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-github-scopes-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-github-scopes-label" class="api-form-label">Scopes</span>
+                                <input id="settings-connectors-github-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="repo, read:user">
+                            </label>
+                            <label id="settings-connectors-github-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-github-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-github-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-notion-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-notion-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-notion-setup-eyebrow" class="section-header__eyebrow">Notion status</p>
+                                <span id="settings-connectors-notion-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-notion-status-message" class="settings-connectors-provider-status-message">Add your Notion integration details to begin.</p>
+                            <p id="settings-connectors-notion-last-checked" class="settings-connectors-provider-last-checked">Notion connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-notion-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-notion-name-field" class="api-form-field">
+                                <span id="settings-connectors-notion-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-notion-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-notion-provider-field" class="api-form-field">
+                                <span id="settings-connectors-notion-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-notion-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-notion-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-notion-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-notion-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-notion-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-notion-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-notion-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-notion-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-notion-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-notion-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                        </section>
+                        <section id="settings-connectors-trello-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
+                            <div id="settings-connectors-trello-setup-header" class="settings-connectors-provider-setup-header">
+                                <p id="settings-connectors-trello-setup-eyebrow" class="section-header__eyebrow">Trello status</p>
+                                <span id="settings-connectors-trello-status-badge" class="status-badge status-badge--muted">Draft</span>
+                            </div>
+                            <p id="settings-connectors-trello-status-message" class="settings-connectors-provider-status-message">Add your Trello API key and token to begin.</p>
+                            <p id="settings-connectors-trello-last-checked" class="settings-connectors-provider-last-checked">Trello connection has not been checked yet.</p>
+                        </section>
+                        <section id="settings-connectors-trello-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
+                            <label id="settings-connectors-trello-name-field" class="api-form-field">
+                                <span id="settings-connectors-trello-name-label" class="api-form-label">Integration name</span>
+                                <input id="settings-connectors-trello-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-trello-provider-field" class="api-form-field">
+                                <span id="settings-connectors-trello-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-trello-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-trello-api-key-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-trello-api-key-label" class="api-form-label">API key</span>
+                                <input id="settings-connectors-trello-api-key-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-trello-access-token-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-trello-access-token-label" class="api-form-label">Token</span>
+                                <input id="settings-connectors-trello-access-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                        </section>
+                        <div id="settings-connectors-form-grid" class="api-form-grid">
+                            <label id="settings-connectors-name-field" class="api-form-field">
+                                <span id="settings-connectors-name-label" class="api-form-label">Name</span>
+                                <input id="settings-connectors-name-input" class="api-form-input" type="text" maxlength="120" required>
+                            </label>
+                            <label id="settings-connectors-provider-field" class="api-form-field">
+                                <span id="settings-connectors-provider-label" class="api-form-label">Provider</span>
+                                <input id="settings-connectors-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
+                            </label>
+                            <label id="settings-connectors-status-field" class="api-form-field">
+                                <span id="settings-connectors-status-label" class="api-form-label">Status</span>
+                                <select id="settings-connectors-status-input" class="api-form-input"></select>
+                            </label>
+                            <label id="settings-connectors-auth-type-field" class="api-form-field">
+                                <span id="settings-connectors-auth-type-label" class="api-form-label">Authentication</span>
+                                <select id="settings-connectors-auth-type-input" class="api-form-input"></select>
+                            </label>
+                            <label id="settings-connectors-owner-field" class="api-form-field">
+                                <span id="settings-connectors-owner-label" class="api-form-label">Owner</span>
+                                <input id="settings-connectors-owner-input" class="api-form-input" type="text" maxlength="120">
+                            </label>
+                            <label id="settings-connectors-base-url-field" class="api-form-field">
+                                <span id="settings-connectors-base-url-label" class="api-form-label">Base URL</span>
+                                <input id="settings-connectors-base-url-input" class="api-form-input" type="url" maxlength="2000">
+                            </label>
+                            <label id="settings-connectors-scopes-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-scopes-label" class="api-form-label">Scopes</span>
+                                <input id="settings-connectors-scopes-input" class="api-form-input api-form-input--locked" type="text" maxlength="1000" placeholder="Default provider scopes" readonly>
+                            </label>
+                            <label id="settings-connectors-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-client-id-input" class="api-form-input" type="text" maxlength="255">
+                            </label>
+                            <label id="settings-connectors-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                            </label>
+                            <label id="settings-connectors-username-field" class="api-form-field">
+                                <span id="settings-connectors-username-label" class="api-form-label">Username</span>
+                                <input id="settings-connectors-username-input" class="api-form-input" type="text" maxlength="120">
+                            </label>
+                            <label id="settings-connectors-password-field" class="api-form-field">
+                                <span id="settings-connectors-password-label" class="api-form-label">Password</span>
+                                <input id="settings-connectors-password-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-access-token-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-access-token-label" class="api-form-label">Access token</span>
+                                <input id="settings-connectors-access-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-refresh-token-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-refresh-token-label" class="api-form-label">Refresh token</span>
+                                <input id="settings-connectors-refresh-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-api-key-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-api-key-label" class="api-form-label">API key</span>
+                                <input id="settings-connectors-api-key-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-header-name-field" class="api-form-field">
+                                <span id="settings-connectors-header-name-label" class="api-form-label">Header name</span>
+                                <input id="settings-connectors-header-name-input" class="api-form-input" type="text" maxlength="120" placeholder="X-API-Key">
+                            </label>
+                            <label id="settings-connectors-header-value-field" class="api-form-field">
+                                <span id="settings-connectors-header-value-label" class="api-form-label">Header value</span>
+                                <input id="settings-connectors-header-value-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                        </div>
+                        <div id="settings-connectors-credential-summary" class="selected-tools-summary">
+                            <p id="settings-connectors-credential-summary-label" class="selected-tools-label">Credential summary</p>
+                            <p id="settings-connectors-credential-summary-value" class="selected-tools-value">Saved credential fields stay masked.</p>
+                        </div>
+                        <div id="settings-connectors-form-actions" class="api-form-actions">
+                            <button type="submit" id="settings-connectors-save-button" class="button button--primary primary-action-button">Save connector</button>
+                            <button type="button" id="settings-connectors-test-button" class="button button--secondary secondary-action-button">Test connector</button>
+                            <button type="button" id="settings-connectors-oauth-start-button" class="button button--secondary secondary-action-button">Start OAuth</button>
+                            <button type="button" id="settings-connectors-refresh-button" class="button button--secondary secondary-action-button">Refresh token</button>
+                            <button type="button" id="settings-connectors-revoke-button" class="button button--secondary secondary-action-button">Revoke connector</button>
+                            <button type="button" id="settings-connectors-remove-button" class="button button--danger">Remove connector</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

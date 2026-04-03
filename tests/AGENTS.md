@@ -26,6 +26,8 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 - use `scripts/test-precommit.sh` as the fast local backend/frontend iteration gate before commits
 - use `scripts/test-full.sh` as the completion gate when backend route smoke coverage, browser coverage, or shared test infrastructure changes are involved
 - keep `/health` and every `/api/v1/**` route represented in `tests/test_api_smoke_matrix.py`, with scenarios sourced from `tests/api_smoke_registry/`
+- keep connector/settings boundary assertions explicit: connector CRUD/auth-policy behavior belongs to `/api/v1/connectors*`, while `/api/v1/settings` covers app settings sections only
+- keep builder catalog tests aligned to persisted `connector_endpoint_definitions` sourcing for `/api/v1/connectors/activity-catalog` and `/api/v1/connectors/http-presets`
 
 ### Frontend
 

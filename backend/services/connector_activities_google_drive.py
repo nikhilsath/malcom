@@ -21,17 +21,25 @@ GOOGLE_DRIVE_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         service="drive",
         operation_type="read",
         label="List files",
-        description="List Google Drive files with optional folder filtering.",
+        description="List Google Drive files with pagination, corpus, and shared-drive filters.",
         required_scopes=("https://www.googleapis.com/auth/drive.metadata.readonly",),
         input_schema=(
             _field("parent_id", "Folder / parent ID", "string", required=False, help_text="Optional folder to list from."),
-            _field("max_results", "Max results", "integer", required=False, default=25),
+            _field("max_results", "pageSize", "integer", required=False, default=100),
+            _field("page_token", "pageToken", "string", required=False),
+            _field("corpora", "corpora", "select", required=False, default="user", options=["user", "domain", "drive", "allDrives"]),
+            _field("drive_id", "driveId", "string", required=False),
+            _field("include_items_from_all_drives", "includeItemsFromAllDrives", "boolean", required=False, default=False),
+            _field("order_by", "orderBy", "string", required=False, placeholder="folder,modifiedTime desc,name"),
+            _field("spaces", "spaces", "string", required=False, default="drive", placeholder="drive,appDataFolder"),
+            _field("supports_all_drives", "supportsAllDrives", "boolean", required=False, default=False),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
             _output("files", "Files", "array"),
             _output("next_page_token", "Next page token", "string"),
+            _output("incomplete_search", "Incomplete search", "boolean"),
             _output("count", "Count", "integer"),
         ),
         execution={"kind": "google_drive_list_files"},
@@ -42,17 +50,26 @@ GOOGLE_DRIVE_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         service="drive",
         operation_type="read",
         label="Search files",
-        description="Search Google Drive files with Drive query syntax.",
+        description="Search Google Drive files with Drive query syntax plus pagination and shared-drive filters.",
         required_scopes=("https://www.googleapis.com/auth/drive.metadata.readonly",),
         input_schema=(
-            _field("search_query", "Search query", "string", required=True, placeholder="name contains 'invoice' and trashed = false"),
-            _field("max_results", "Max results", "integer", required=False, default=25),
+            _field("search_query", "q", "string", required=True, placeholder="name contains 'invoice' and trashed = false"),
+            _field("max_results", "pageSize", "integer", required=False, default=100),
+            _field("page_token", "pageToken", "string", required=False),
+            _field("corpora", "corpora", "select", required=False, default="user", options=["user", "domain", "drive", "allDrives"]),
+            _field("drive_id", "driveId", "string", required=False),
+            _field("include_items_from_all_drives", "includeItemsFromAllDrives", "boolean", required=False, default=False),
+            _field("order_by", "orderBy", "string", required=False, placeholder="folder,modifiedTime desc,name"),
+            _field("spaces", "spaces", "string", required=False, default="drive", placeholder="drive,appDataFolder"),
+            _field("supports_all_drives", "supportsAllDrives", "boolean", required=False, default=False),
         ),
         output_schema=(
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
             _output("query", "Query", "string"),
             _output("files", "Files", "array"),
+            _output("next_page_token", "Next page token", "string"),
+            _output("incomplete_search", "Incomplete search", "boolean"),
             _output("count", "Count", "integer"),
         ),
         execution={"kind": "google_drive_search_files"},
@@ -242,6 +259,20 @@ def _raise_for_status(status_code: int) -> None:
         raise RuntimeError(f"Connector activity request failed with status {status_code}.")
 
 
+def _first_populated_input(resolved_inputs: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key not in resolved_inputs:
+            continue
+        value = resolved_inputs.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                continue
+        if value is not None:
+            return value
+    return None
+
+
 def _google_drive_list_or_search_files(
     provider_id: str,
     activity_id: str,
@@ -253,18 +284,43 @@ def _google_drive_list_or_search_files(
     *,
     search_mode: bool,
 ) -> dict[str, Any]:
-    max_results = _coerce_int(resolved_inputs.get("max_results"), 25)
+    max_results = _coerce_int(_first_populated_input(resolved_inputs, "max_results", "pageSize"), 100)
     query_parts: list[str] = []
     if not search_mode and resolved_inputs.get("parent_id"):
         query_parts.append(f"'{resolved_inputs['parent_id']}' in parents")
     if search_mode:
-        query_parts.append(str(resolved_inputs.get("search_query") or ""))
+        query_parts.append(str(_first_populated_input(resolved_inputs, "search_query", "q") or ""))
     query_parts.append("trashed = false")
     params = {
         "pageSize": max_results,
         "fields": _google_file_fields(),
         "q": " and ".join([part for part in query_parts if part]),
     }
+    page_token = str(_first_populated_input(resolved_inputs, "page_token", "pageToken") or "").strip()
+    if page_token:
+        params["pageToken"] = page_token
+    corpora = str(_first_populated_input(resolved_inputs, "corpora") or "").strip()
+    if corpora:
+        params["corpora"] = corpora
+    drive_id = str(_first_populated_input(resolved_inputs, "drive_id", "driveId") or "").strip()
+    if drive_id:
+        params["driveId"] = drive_id
+    include_items_from_all_drives = _first_populated_input(
+        resolved_inputs,
+        "include_items_from_all_drives",
+        "includeItemsFromAllDrives",
+    )
+    if include_items_from_all_drives is not None:
+        params["includeItemsFromAllDrives"] = "true" if _coerce_bool(include_items_from_all_drives) else "false"
+    order_by = str(_first_populated_input(resolved_inputs, "order_by", "orderBy") or "").strip()
+    if order_by:
+        params["orderBy"] = order_by
+    spaces = str(_first_populated_input(resolved_inputs, "spaces") or "").strip()
+    if spaces:
+        params["spaces"] = spaces
+    supports_all_drives = _first_populated_input(resolved_inputs, "supports_all_drives", "supportsAllDrives")
+    if supports_all_drives is not None:
+        params["supportsAllDrives"] = "true" if _coerce_bool(supports_all_drives) else "false"
     url = f"{base_url}/drive/v3/files?{urllib.parse.urlencode(params)}"
     status_code, payload = _execute_request(executor, url, "GET", headers)
     _raise_for_status(status_code)
@@ -275,6 +331,7 @@ def _google_drive_list_or_search_files(
         "query": params.get("q") or None,
         "files": files,
         "next_page_token": (payload or {}).get("nextPageToken"),
+        "incomplete_search": (payload or {}).get("incompleteSearch"),
         "count": len(files),
     }
 

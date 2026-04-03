@@ -35,7 +35,7 @@ test("creates a new automation draft, adds a connector activity step, edits it, 
   await page.locator("#add-step-name-input").fill("Send customer email");
   await expect(page.locator("#add-step-connector-activity-connector-input")).toContainText("Google Primary");
   await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
-  await page.locator("#add-step-connector-activity-activity-card-gmail-send-email").click();
+  await page.locator("#add-step-connector-activity-activity-input").selectOption("gmail-send-email");
   await expect(page.locator("#add-step-connector-activity-required-scopes")).toContainText("gmail.send");
   await page.locator("#add-step-connector-activity-input-to").fill("customer@example.com");
   await page.locator("#add-step-modal-confirm").click();
@@ -270,16 +270,78 @@ test.describe("Automation Builder - Connector Dropdown", () => {
     await page.locator("#add-step-connector-activity-connector-input").selectOption("google-primary");
 
     await expect(page.locator("#add-step-connector-activity-service-input")).toBeVisible();
-    await expect(page.locator("#add-step-connector-activity-activity-picker-empty")).toContainText("Choose a Google app");
-    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toHaveCount(0);
+    const dropdown = page.locator("#add-step-connector-activity-activity-input");
+    await expect(dropdown).toHaveValue("");
 
     await page.locator("#add-step-connector-activity-service-input").selectOption("gmail");
-    await expect(page.locator("#add-step-connector-activity-group-gmail-write")).toBeVisible();
-    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toBeVisible();
+    await expect(dropdown.locator("option[value='gmail-send-email']")).toHaveCount(1);
 
     await page.locator("#add-step-connector-activity-service-input").selectOption("sheets");
-    await expect(page.locator("#add-step-connector-activity-activity-card-gmail-send-email")).toHaveCount(0);
-    await expect(page.locator("#add-step-connector-activity-activity-card-sheets-update-range")).toBeVisible();
+    await expect(dropdown.locator("option[value='gmail-send-email']")).toHaveCount(0);
+    await expect(dropdown.locator("option[value='sheets-update-range']")).toHaveCount(1);
+  });
+
+  test("renders the documented Gmail list query fields and outputs", async ({ page }) => {
+    const state = createAutomationSuiteState({
+      connectors: [
+        createConnectorRecord({
+          id: "google-gmail-readonly",
+          provider: "google",
+          name: "Google Gmail Readonly",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          owner: "Workspace",
+          base_url: "https://www.googleapis.com",
+        }),
+      ],
+      activityCatalog: buildConnectorActivityCatalog([
+        {
+          provider_id: "google",
+          activity_id: "gmail_list_messages",
+          service: "gmail",
+          operation_type: "read",
+          label: "List emails",
+          description: "List Gmail messages with optional q, labelIds[], pageToken, and includeSpamTrash filters.",
+          required_scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          input_schema: [
+            { key: "q", label: "q", type: "string", required: false },
+            { key: "labels", label: "labelIds[]", type: "string", required: false },
+            { key: "max_results", label: "maxResults", type: "integer", required: false, default: 100 },
+            { key: "page_token", label: "pageToken", type: "string", required: false },
+            { key: "include_spam_trash", label: "includeSpamTrash", type: "boolean", required: false, default: false },
+          ],
+          output_schema: [
+            { key: "messages", label: "Messages", type: "array" },
+            { key: "next_page_token", label: "Next page token", type: "string" },
+            { key: "result_size_estimate", label: "Result size estimate", type: "integer" },
+          ],
+          execution: { provider: "google", action: "list-messages" },
+        },
+      ]) as any,
+    });
+    await installAutomationSuiteRoutes(page, state);
+
+    await page.goto("/automations/builder.html?new=true");
+    await page.locator("#automations-guided-item-step-action").click();
+    await expect(page.locator("#add-step-modal")).toBeVisible();
+    await page.locator("#add-step-type-connector_activity").click({ force: true });
+    await page.locator("#add-step-connector-activity-connector-input").selectOption("google-gmail-readonly");
+    await page.locator("#add-step-connector-activity-service-input").selectOption("gmail");
+    await page.locator("#add-step-connector-activity-activity-input").selectOption("gmail_list_messages");
+
+    await expect(page.locator("#add-step-connector-activity-input-q-label")).toHaveText("q");
+    await expect(page.locator("#add-step-connector-activity-input-labels-label")).toHaveText("labelIds[]");
+    await expect(page.locator("#add-step-connector-activity-input-max_results-label")).toHaveText("maxResults");
+    await expect(page.locator("#add-step-connector-activity-input-page_token-label")).toHaveText("pageToken");
+    await expect(page.locator("#add-step-connector-activity-input-include_spam_trash-label")).toHaveText("includeSpamTrash");
+
+    await expect(page.locator("#add-step-connector-activity-output-messages")).toContainText("messages");
+    await expect(page.locator("#add-step-connector-activity-output-next_page_token")).toContainText("next_page_token");
+    await expect(page.locator("#add-step-connector-activity-output-result_size_estimate")).toContainText("result_size_estimate");
+    await expect(page.locator("#add-step-connector-activity-output-provider")).toHaveCount(0);
+    await expect(page.locator("#add-step-connector-activity-output-activity")).toHaveCount(0);
+    await expect(page.locator("#add-step-connector-activity-output-count")).toHaveCount(0);
   });
 
   test("shows empty state when no connectors are returned", async ({ page }) => {
@@ -327,7 +389,7 @@ test.describe("Automation Builder - Connector Dropdown", () => {
         },
       ]) as any,
     });
-    ((state.settings as Record<string, unknown>).connectors as { records: Array<Record<string, unknown>> }).records = [
+    state.connectors = [
       createConnectorRecord({
         id: "google-missing-scope",
         provider: "google",
@@ -364,7 +426,7 @@ test.describe("Automation Builder - Connector Dropdown", () => {
 
   test("shows only active connectors in step modal", async ({ page }) => {
     const state = createAutomationSuiteState();
-    ((state.settings as Record<string, unknown>).connectors as { records: Array<Record<string, unknown>> }).records = [
+    state.connectors = [
       createConnectorRecord({
         id: "google-primary",
         provider: "google",

@@ -96,6 +96,19 @@ class TestHttpPresetCatalog:
         assert "subject" in required_keys
         assert "body" in required_keys
 
+    def test_gmail_list_messages_preset_exposes_documented_query_params(self):
+        """Gmail list preset should expose the supported list query parameters in the builder UI."""
+        preset = get_http_preset("google", "gmail_list_messages_http")
+        assert preset is not None
+        assert [field["key"] for field in preset.input_schema] == [
+            "q",
+            "labelIds",
+            "maxResults",
+            "pageToken",
+            "includeSpamTrash",
+        ]
+        assert preset.query_params == {"maxResults": "100"}
+
     def test_sheets_range_presets_have_spreadsheet_id_input(self):
         """Sheets read/update presets should include spreadsheet_id input."""
         for preset_id in ["sheets_read_range_http", "sheets_update_range_http"]:
@@ -104,6 +117,41 @@ class TestHttpPresetCatalog:
             input_keys = {field["key"] for field in preset.input_schema}
             assert "spreadsheet_id" in input_keys
             assert "range_name" in input_keys
+
+    def test_drive_list_preset_exposes_shared_drive_query_controls(self):
+        """Drive list preset should expose the supported list query parameters."""
+        preset = get_http_preset("google", "drive_list_files_http")
+        assert preset is not None
+        assert [field["key"] for field in preset.input_schema] == [
+            "q",
+            "corpora",
+            "pageSize",
+            "pageToken",
+            "driveId",
+            "includeItemsFromAllDrives",
+            "orderBy",
+            "spaces",
+            "supportsAllDrives",
+        ]
+        assert preset.query_params == {"pageSize": "100", "fields": "files(id,name,mimeType,parents)"}
+
+    def test_sheets_presets_expose_render_and_response_query_controls(self):
+        """Sheets presets should expose documented read and update query parameters."""
+        read_preset = get_http_preset("google", "sheets_read_range_http")
+        update_preset = get_http_preset("google", "sheets_update_range_http")
+        assert read_preset is not None
+        assert update_preset is not None
+        assert [field["key"] for field in read_preset.input_schema][-3:] == [
+            "majorDimension",
+            "valueRenderOption",
+            "dateTimeRenderOption",
+        ]
+        assert [field["key"] for field in update_preset.input_schema][-4:] == [
+            "valueInputOption",
+            "includeValuesInResponse",
+            "responseValueRenderOption",
+            "responseDateTimeRenderOption",
+        ]
 
     def test_drive_presets_exist(self):
         """Drive presets should be available."""

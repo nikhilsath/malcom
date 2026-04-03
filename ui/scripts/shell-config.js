@@ -157,13 +157,6 @@ export const shellSections = {
         href: "apis/webhooks.html",
         pageTitle: "API Webhooks",
         description: "Manage webhook definitions and verification."
-      },
-      {
-        id: "sidenav-apis-connectors",
-        label: "Connectors",
-        href: "settings/connectors.html",
-        pageTitle: "API Connectors",
-        description: "Manage connector presets and credentials."
       }
     ]
   },
@@ -231,6 +224,13 @@ export const shellSections = {
         href: "settings/data.html",
         pageTitle: "Settings Data",
         description: "Set data handling defaults."
+      },
+      {
+        id: "sidenav-settings-integrations",
+        label: "Integrations",
+        href: "settings/connectors.html",
+        pageTitle: "Settings Integrations",
+        description: "Manage connector presets, OAuth setup, and saved credentials."
       }
     ],
     footer: {

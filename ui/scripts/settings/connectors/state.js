@@ -59,6 +59,27 @@ export const getProviderPreset = (providerId) => (
   getConnectorPayload()?.catalog?.find((item) => item.id === providerId) || null
 );
 
+export const getProviderMetadata = (providerId) => (
+  getConnectorPayload()?.metadata?.providers?.find((item) => item.id === canonicalizeProvider(providerId)) || null
+);
+
+export const providerSupportsOauth = (providerId) => Boolean(getProviderMetadata(providerId)?.oauth_supported);
+
+export const getProviderSetupMode = (providerId) => (
+  getProviderMetadata(providerId)?.onboarding_mode || "credentials"
+);
+
+export const usesProviderSetupPanel = (recordOrProvider) => {
+  const providerId = typeof recordOrProvider === "string"
+    ? recordOrProvider
+    : recordOrProvider?.provider;
+  return ["google", "github", "notion", "trello"].includes(canonicalizeProvider(providerId));
+};
+
+export const getProviderActionLabel = (providerId, actionKey, fallback = "") => (
+  getProviderMetadata(providerId)?.action_labels?.[actionKey] || fallback
+);
+
 export const getDefaultScopesForProvider = (providerId, preset = null) => {
   const presetScopes = preset?.recommended_scopes?.length ? preset.recommended_scopes : (preset?.default_scopes || []);
   if (presetScopes.length > 0) {

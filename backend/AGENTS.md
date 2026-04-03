@@ -41,10 +41,11 @@ Applies to backend implementation, schema, API route behavior, connector/tool ba
 
 ### Source Of Truth
 
-The schema source of truth is `backend/database.py`, not any checked-in database file.
+The schema structure source of truth is migration history in `backend/migrations/` (Alembic).
+Runtime DB helpers, connection resolution, and migration execution entrypoints live in `backend/database.py`.
 
 Use the live database to inspect current state.
-Use `backend/database.py` to change structure.
+Use Alembic migrations to change structure.
 
 ### Database Location
 
@@ -80,6 +81,12 @@ Use `backend/database.py` to change structure.
 
 - `settings`
   - JSON settings payloads keyed by setting name
+- `integration_presets`
+  - provider catalog defaults and metadata
+- `connectors`
+  - saved connector entities and auth state
+- `connector_endpoint_definitions`
+  - persisted connector activity and HTTP preset catalog rows
 
 #### Automation Tables
 
@@ -103,8 +110,8 @@ Use `backend/database.py` to change structure.
 When changing the DB schema, agents must:
 
 1. update `backend/database.py`
-2. add new `CREATE TABLE IF NOT EXISTS` definitions there if introducing a table
-3. use `_ensure_column(...)` for additive column changes to existing tables
+2. add a new migration under `backend/migrations/versions/` for table/column changes
+3. keep `backend/database.py:run_migrations()` and initialization flow aligned with migration ownership
 4. keep booleans as integer-compatible values (`0`/`1`) for cross-database compatibility
 5. keep structured payloads in `*_json` text columns unless there is a strong reason not to
 6. update API serialization/deserialization logic and tests in the same task
@@ -113,7 +120,7 @@ Agents must not:
 
 - treat any runtime DB file as the schema source of truth
 - hand-edit runtime database tables/columns directly as a substitute for code changes
-- create ad hoc migration files unless the repo adopts a formal migration system first
+- bypass migration files for structural schema changes
 
 ---
 

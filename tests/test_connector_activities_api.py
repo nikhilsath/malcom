@@ -153,20 +153,166 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
             }
         )
         connection = app.state.connection
+        captured_request: dict[str, str] = {}
 
         output = execute_connector_activity(
             connection,
             connector_id="google-primary",
             activity_id="gmail_list_messages",
-            inputs={"max_results": 2},
+            inputs={"max_results": 2, "page_token": "page-2", "include_spam_trash": True},
             root_dir=Path(app.state.root_dir),
-            request_executor=lambda url, method, headers: (200, {"messages": [{"id": "m1"}, {"id": "m2"}], "nextPageToken": "next"}),
+            request_executor=lambda url, method, headers: captured_request.update({"url": url, "method": method}) or (
+                200,
+                {"messages": [{"id": "m1"}, {"id": "m2"}], "nextPageToken": "next", "resultSizeEstimate": 42},
+            ),
         )
 
         self.assertEqual(output["provider"], "google")
         self.assertEqual(output["activity"], "gmail_list_messages")
-        self.assertEqual(output["count"], 2)
         self.assertEqual(output["messages"][0]["id"], "m1")
+        self.assertEqual(output["next_page_token"], "next")
+        self.assertEqual(output["result_size_estimate"], 42)
+        self.assertEqual(captured_request["method"], "GET")
+        self.assertIn("maxResults=2", captured_request["url"])
+        self.assertIn("pageToken=page-2", captured_request["url"])
+        self.assertIn("includeSpamTrash=true", captured_request["url"])
+
+    def test_google_gmail_get_message_and_thread_support_metadata_headers(self) -> None:
+        self.save_connector(
+            {
+                "id": "google-primary",
+                "provider": "google",
+                "name": "Google",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "google-access-token"},
+            }
+        )
+        connection = app.state.connection
+        captured_urls: list[str] = []
+
+        execute_connector_activity(
+            connection,
+            connector_id="google-primary",
+            activity_id="gmail_get_message",
+            inputs={"message_id": "msg-123", "format": "metadata", "metadata_headers": "Subject,From"},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: captured_urls.append(url) or (200, {"id": "msg-123"}),
+        )
+        execute_connector_activity(
+            connection,
+            connector_id="google-primary",
+            activity_id="gmail_get_thread",
+            inputs={"thread_id": "thr-123", "format": "metadata", "metadata_headers": "Subject,From"},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: captured_urls.append(url) or (200, {"id": "thr-123"}),
+        )
+
+        self.assertIn("format=metadata", captured_urls[0])
+        self.assertIn("metadataHeaders=Subject", captured_urls[0])
+        self.assertIn("metadataHeaders=From", captured_urls[0])
+        self.assertIn("format=metadata", captured_urls[1])
+        self.assertIn("metadataHeaders=Subject", captured_urls[1])
+        self.assertIn("metadataHeaders=From", captured_urls[1])
+
+    def test_google_drive_list_activity_supports_documented_query_params_and_outputs(self) -> None:
+        self.save_connector(
+            {
+                "id": "google-drive",
+                "provider": "google",
+                "name": "Google Drive",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "google-access-token"},
+            }
+        )
+        connection = app.state.connection
+        captured_request: dict[str, str] = {}
+
+        output = execute_connector_activity(
+            connection,
+            connector_id="google-drive",
+            activity_id="drive_list_files",
+            inputs={
+                "parent_id": "folder-1",
+                "max_results": 15,
+                "page_token": "drive-page-2",
+                "corpora": "drive",
+                "drive_id": "drive-123",
+                "include_items_from_all_drives": True,
+                "order_by": "modifiedTime desc",
+                "spaces": "drive",
+                "supports_all_drives": True,
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: captured_request.update({"url": url, "method": method}) or (
+                200,
+                {"files": [{"id": "file-1"}], "nextPageToken": "drive-next", "incompleteSearch": True},
+            ),
+        )
+
+        self.assertEqual(output["next_page_token"], "drive-next")
+        self.assertEqual(output["incomplete_search"], True)
+        self.assertEqual(captured_request["method"], "GET")
+        self.assertIn("pageSize=15", captured_request["url"])
+        self.assertIn("pageToken=drive-page-2", captured_request["url"])
+        self.assertIn("corpora=drive", captured_request["url"])
+        self.assertIn("driveId=drive-123", captured_request["url"])
+        self.assertIn("includeItemsFromAllDrives=true", captured_request["url"])
+        self.assertIn("orderBy=modifiedTime+desc", captured_request["url"])
+        self.assertIn("supportsAllDrives=true", captured_request["url"])
+
+    def test_google_calendar_activity_supports_documented_query_params_and_outputs(self) -> None:
+        self.save_connector(
+            {
+                "id": "google-calendar",
+                "provider": "google",
+                "name": "Google Calendar",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/calendar.readonly"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "google-access-token"},
+            }
+        )
+        connection = app.state.connection
+        captured_request: dict[str, str] = {}
+
+        output = execute_connector_activity(
+            connection,
+            connector_id="google-calendar",
+            activity_id="calendar_upcoming_events",
+            inputs={
+                "calendar_id": "primary",
+                "limit": 5,
+                "page_token": "calendar-page-2",
+                "search_query": "office",
+                "show_deleted": True,
+                "time_max": "2026-04-03T12:00:00Z",
+                "updated_min": "2026-04-03T08:00:00Z",
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: captured_request.update({"url": url, "method": method}) or (
+                200,
+                {"items": [{"id": "evt-1", "summary": "Office"}], "nextPageToken": "calendar-next", "nextSyncToken": "calendar-sync"},
+            ),
+        )
+
+        self.assertEqual(output["next_page_token"], "calendar-next")
+        self.assertEqual(output["next_sync_token"], "calendar-sync")
+        self.assertIn("maxResults=5", captured_request["url"])
+        self.assertIn("pageToken=calendar-page-2", captured_request["url"])
+        self.assertIn("q=office", captured_request["url"])
+        self.assertIn("showDeleted=true", captured_request["url"])
+        self.assertIn("timeMax=2026-04-03T12%3A00%3A00Z", captured_request["url"])
+        self.assertIn("updatedMin=2026-04-03T08%3A00%3A00Z", captured_request["url"])
 
     def test_github_repo_details_activity_executes_and_normalizes_output(self) -> None:
         self.save_connector(
@@ -206,6 +352,91 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(output["repository"], "openai/malcom")
         self.assertEqual(output["default_branch"], "main")
         self.assertEqual(output["stars"], 42)
+
+    def test_google_sheets_range_actions_support_documented_query_controls(self) -> None:
+        self.save_connector(
+            {
+                "id": "google-sheets",
+                "provider": "google",
+                "name": "Google Sheets",
+                "status": "connected",
+                "auth_type": "oauth2",
+                "scopes": ["https://www.googleapis.com/auth/spreadsheets"],
+                "base_url": "https://www.googleapis.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "google-access-token"},
+            }
+        )
+        connection = app.state.connection
+        captured_urls: list[str] = []
+
+        read_output = execute_connector_activity(
+            connection,
+            connector_id="google-sheets",
+            activity_id="sheets_read_range",
+            inputs={
+                "spreadsheet_id": "sheet-1",
+                "range": "Sheet1!A1:B2",
+                "major_dimension": "COLUMNS",
+                "value_render_option": "UNFORMATTED_VALUE",
+                "date_time_render_option": "FORMATTED_STRING",
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers: captured_urls.append(url) or (200, {"range": "Sheet1!A1:B2", "majorDimension": "COLUMNS", "values": [[1, 2]]}),
+        )
+        update_output = execute_connector_activity(
+            connection,
+            connector_id="google-sheets",
+            activity_id="sheets_update_range",
+            inputs={
+                "spreadsheet_id": "sheet-1",
+                "range": "Sheet1!A1:B2",
+                "values_payload": [[1, 2]],
+                "value_input_option": "RAW",
+                "include_values_in_response": True,
+                "response_value_render_option": "UNFORMATTED_VALUE",
+                "response_date_time_render_option": "FORMATTED_STRING",
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: captured_urls.append(url) or (
+                200,
+                {"spreadsheetId": "sheet-1", "updatedRange": "Sheet1!A1:B2", "updatedRows": 1, "updatedColumns": 2, "updatedCells": 2, "updatedData": {"values": [[1, 2]]}},
+            ),
+        )
+        append_output = execute_connector_activity(
+            connection,
+            connector_id="google-sheets",
+            activity_id="sheets_append_rows",
+            inputs={
+                "spreadsheet_id": "sheet-1",
+                "range": "Sheet1!A:B",
+                "values_payload": [[1, 2]],
+                "value_input_option": "RAW",
+                "insert_data_option": "OVERWRITE",
+                "include_values_in_response": True,
+                "response_value_render_option": "UNFORMATTED_VALUE",
+                "response_date_time_render_option": "FORMATTED_STRING",
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: captured_urls.append(url) or (
+                200,
+                {"spreadsheetId": "sheet-1", "tableRange": "Sheet1!A1:B1", "updates": {"updatedRows": 1}},
+            ),
+        )
+
+        self.assertEqual(read_output["major_dimension"], "COLUMNS")
+        self.assertEqual(update_output["spreadsheet_id"], "sheet-1")
+        self.assertEqual(update_output["updated_data"]["values"][0][0], 1)
+        self.assertEqual(append_output["spreadsheet_id"], "sheet-1")
+        self.assertIn("majorDimension=COLUMNS", captured_urls[0])
+        self.assertIn("valueRenderOption=UNFORMATTED_VALUE", captured_urls[0])
+        self.assertIn("dateTimeRenderOption=FORMATTED_STRING", captured_urls[0])
+        self.assertIn("valueInputOption=RAW", captured_urls[1])
+        self.assertIn("includeValuesInResponse=true", captured_urls[1])
+        self.assertIn("responseValueRenderOption=UNFORMATTED_VALUE", captured_urls[1])
+        self.assertIn("responseDateTimeRenderOption=FORMATTED_STRING", captured_urls[1])
+        self.assertIn("insertDataOption=OVERWRITE", captured_urls[2])
+        self.assertIn("includeValuesInResponse=true", captured_urls[2])
 
     def test_google_sheets_update_range_requires_json_payload(self) -> None:
         self.save_connector(

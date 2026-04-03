@@ -1,0 +1,1 @@
+[{"provider_id":"google","activity_id":"gmail-send-email","service":"gmail","operation_type":"write","label":"Send email","description":"Send an email using a saved Google connector.","required_scopes":["https://www.googleapis.com/auth/gmail.send"],"input_schema":[],"output_schema":[],"execution":{"provider":"google","action":"send-email"}}]

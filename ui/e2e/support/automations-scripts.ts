@@ -5,6 +5,7 @@ import {
   buildConnectorActivityCatalog,
   buildHttpPresetCatalog,
   buildWorkflowBuilderConnectorOptions,
+  type ConnectorRecord,
 } from "./api-response-builders.ts";
 
 export type AutomationStepFixture = {
@@ -92,6 +93,7 @@ export type LogTableFixture = {
 
 type AutomationBrowserState = {
   settings: ReturnType<typeof buildSettingsResponse>;
+  connectors: ConnectorRecord[];
   runtimeStatus: {
     active: boolean;
     last_tick_started_at: string | null;
@@ -443,35 +445,41 @@ export function createAutomationSuiteState(overrides: Partial<AutomationBrowserS
   const automations = (overrides.automations || defaultAutomationFixtures()).map(createAutomationFixture);
   const scripts = (overrides.scripts || defaultScriptFixtures()).map((script) => deepClone(script));
   const logTables = (overrides.logTables || defaultLogTableFixtures()).map((table) => deepClone(table));
-  const settings = overrides.settings || buildSettingsResponse({
-    connectors: {
-      records: [
-        {
-          id: "google-primary",
-          provider: "google",
-          name: "Google Primary",
-          status: "connected",
-          auth_type: "oauth2",
-          scopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/calendar"],
-          owner: "Workspace",
-          base_url: "https://www.googleapis.com"
-        },
-        {
-          id: "github-primary",
-          provider: "github",
-          name: "GitHub Primary",
-          status: "connected",
-          auth_type: "bearer",
-          scopes: ["repo"],
-          owner: "Workspace",
-          base_url: "https://api.github.com"
-        }
-      ]
-    }
-  });
+  const settings = overrides.settings || buildSettingsResponse();
+  const connectors = overrides.connectors || [
+    {
+      id: "google-primary",
+      provider: "google",
+      name: "Google Primary",
+      status: "connected",
+      auth_type: "oauth2",
+      scopes: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/calendar"],
+      owner: "Workspace",
+      base_url: "https://www.googleapis.com",
+      created_at: iso("2026-03-23T08:00:00.000Z"),
+      updated_at: iso("2026-03-23T08:30:00.000Z"),
+      last_tested_at: iso("2026-03-23T08:45:00.000Z"),
+      auth_config: {},
+    },
+    {
+      id: "github-primary",
+      provider: "github",
+      name: "GitHub Primary",
+      status: "connected",
+      auth_type: "bearer",
+      scopes: ["repo"],
+      owner: "Workspace",
+      base_url: "https://api.github.com",
+      created_at: iso("2026-03-23T08:05:00.000Z"),
+      updated_at: iso("2026-03-23T08:35:00.000Z"),
+      last_tested_at: iso("2026-03-23T08:50:00.000Z"),
+      auth_config: {},
+    },
+  ];
 
   return {
     settings,
+    connectors: connectors.map((connector) => deepClone(connector)),
     runtimeStatus: overrides.runtimeStatus || defaultRuntimeStatus(),
     tools: overrides.tools || defaultTools(),
     inboundApis: overrides.inboundApis || [
@@ -771,7 +779,7 @@ const mapMetadataRoute = (state: AutomationBrowserState, requestUrl: string, met
       return { status: state.connectorsResponseOverride.status, body: state.connectorsResponseOverride.body };
     }
 
-    const connectorRecords = ((state.settings.connectors as { records?: Array<Record<string, unknown>> })?.records || []);
+    const connectorRecords = state.connectors || [];
     return {
       status: 200,
       body: buildWorkflowBuilderConnectorOptions(connectorRecords)

@@ -28,26 +28,24 @@ test("saves and resets workspace defaults", async ({ page }) => {
 test("preserves saved connectors when workspace settings are saved before settings finish loading", async ({ page }) => {
   await installDashboardSettingsFixtures(page, {
     settingsGetDelayMs: 1500,
-    settings: {
-      connectors: {
-        records: [
-          {
-            id: "google-drive-primary",
-            provider: "google",
-            name: "Google Drive",
-            status: "connected",
-            auth_type: "oauth2",
-            scopes: ["https://www.googleapis.com/auth/drive"],
-            base_url: "https://www.googleapis.com/drive/v3",
-            owner: "Workspace",
-            auth_config: {
-              client_id: "google-client-id",
-              client_secret_masked: "••••••••",
-              access_token_masked: "••••••••"
-            }
+    connectors: {
+      records: [
+        {
+          id: "google-drive-primary",
+          provider: "google",
+          name: "Google Drive",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/drive"],
+          base_url: "https://www.googleapis.com/drive/v3",
+          owner: "Workspace",
+          auth_config: {
+            client_id: "google-client-id",
+            client_secret_masked: "••••••••",
+            access_token_masked: "••••••••"
           }
-        ]
-      }
+        }
+      ]
     }
   });
 
@@ -111,26 +109,26 @@ test("renders connector-backed storage and clears log table rows", async ({ page
       data: {
         payload_redaction: false,
         export_window_utc: "02:00"
-      },
-      connectors: {
-        records: [
-          {
-            id: "google-drive-primary",
-            provider: "google",
-            name: "Google Drive",
-            status: "connected",
-            auth_type: "oauth2",
-            scopes: ["https://www.googleapis.com/auth/drive"],
-            base_url: "https://www.googleapis.com/drive/v3",
-            owner: "Workspace",
-            auth_config: {
-              client_id: "google-client-id",
-              client_secret_masked: "••••••••",
-              access_token_masked: "••••••••"
-            }
-          }
-        ]
       }
+    },
+    connectors: {
+      records: [
+        {
+          id: "google-drive-primary",
+          provider: "google",
+          name: "Google Drive",
+          status: "connected",
+          auth_type: "oauth2",
+          scopes: ["https://www.googleapis.com/auth/drive"],
+          base_url: "https://www.googleapis.com/drive/v3",
+          owner: "Workspace",
+          auth_config: {
+            client_id: "google-client-id",
+            client_secret_masked: "••••••••",
+            access_token_masked: "••••••••"
+          }
+        }
+      ]
     }
   });
 

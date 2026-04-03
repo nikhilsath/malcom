@@ -1,102 +1,12 @@
 import { expect, Page } from "@playwright/test";
+import { buildAppSettingsResponse } from "./api-response-builders.ts";
 
-export const defaultSettingsResponse = {
-  general: {
-    environment: "live",
-    timezone: "local"
-  },
-  logging: {
-    max_stored_entries: 250,
-    max_visible_entries: 50,
-    max_detail_characters: 4000,
-    max_file_size_mb: 5
-  },
+export const defaultSettingsResponse = buildAppSettingsResponse({
   notifications: {
     channel: "slack",
     digest: "hourly"
-  },
-  data: {
-    payload_redaction: true,
-    export_window_utc: "02:00"
-  },
-  automation: {
-    default_tool_retries: 2
-  },
-  connectors: {
-    catalog: [
-      {
-        id: "google",
-        name: "Google",
-        description: "Google APIs",
-        category: "productivity",
-        auth_types: ["oauth2"],
-        default_scopes: [
-          "https://www.googleapis.com/auth/gmail.readonly"
-        ],
-        recommended_scopes: [
-          "https://www.googleapis.com/auth/gmail.readonly"
-        ],
-        docs_url: "https://developers.google.com",
-        base_url: "https://www.googleapis.com"
-      },
-      {
-        id: "github",
-        name: "GitHub",
-        description: "GitHub APIs",
-        category: "engineering",
-        auth_types: ["bearer"],
-        default_scopes: ["repo"],
-        recommended_scopes: ["repo"],
-        docs_url: "https://docs.github.com",
-        base_url: "https://api.github.com"
-      }
-    ],
-    records: [],
-    metadata: {
-      statuses: [
-        { value: "draft", label: "Draft" },
-        { value: "pending_oauth", label: "Pending OAuth" },
-        { value: "connected", label: "Connected" },
-        { value: "needs_attention", label: "Needs attention" },
-        { value: "expired", label: "Expired" },
-        { value: "revoked", label: "Revoked" }
-      ],
-      active_storage_statuses: ["connected", "needs_attention", "pending_oauth"],
-      auth_policy: {
-        rotation_intervals: [
-          { value: "30", label: "30 days" },
-          { value: "60", label: "60 days" },
-          { value: "90", label: "90 days" }
-        ],
-        credential_visibility_options: [
-          { value: "masked", label: "Masked" },
-          { value: "admin_only", label: "Admin only" }
-        ]
-      }
-    },
-    auth_policy: {
-      rotation_interval_days: 90,
-      reconnect_requires_approval: true,
-      credential_visibility: "masked"
-    }
-  },
-  options: {
-    notification_channels: [
-      { value: "email", label: "Email" },
-      { value: "pager", label: "Pager" }
-    ],
-    notification_digests: [
-      { value: "realtime", label: "Realtime" },
-      { value: "hourly", label: "Hourly" },
-      { value: "daily", label: "Daily" }
-    ],
-    data_export_windows: [
-      { value: "00:00", label: "00:00" },
-      { value: "02:00", label: "02:00" },
-      { value: "04:00", label: "04:00" }
-    ]
   }
-};
+});
 
 export const defaultToolsDirectory = [
   {
