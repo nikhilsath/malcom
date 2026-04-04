@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from backend.main import LocalLlmChatResponse
+from backend.schemas import LocalLlmChatResponse
 
 from .core import default_invoke
 

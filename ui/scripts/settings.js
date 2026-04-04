@@ -19,7 +19,10 @@ const settingsElements = {
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
-  storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
+  storageMaxMbInput: document.getElementById("settings-storage-max-mb-input"),
+  accessSessionSelect: document.getElementById("settings-access-session-select"),
+  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
+  accessTokenSelect: document.getElementById("settings-access-token-select")
 };
 
 const currentSettingsSection = document.body?.dataset.settingsSection || null;
@@ -177,6 +180,23 @@ const buildSectionPatch = (section, fallbackSettings) => {
     };
   }
 
+  if (section === "access") {
+    return {
+      security: {
+        session_timeout_minutes: Number.parseInt(
+          settingsElements.accessSessionSelect?.value || "",
+          10
+        ) || fallbackSettings.security.session_timeout_minutes,
+        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked
+          ?? fallbackSettings.security.dual_approval_required,
+        token_rotation_days: Number.parseInt(
+          settingsElements.accessTokenSelect?.value || "",
+          10
+        ) || fallbackSettings.security.token_rotation_days
+      }
+    };
+  }
+
   return {};
 };
 
@@ -246,6 +266,17 @@ const applySettingsToPage = (settings) => {
     settingsElements.dataRedactionCheckbox.checked = settings.data.payload_redaction;
   }
 
+  if (settingsElements.accessSessionSelect) {
+    settingsElements.accessSessionSelect.value = String(settings.security.session_timeout_minutes);
+  }
+
+  if (settingsElements.accessApprovalCheckbox) {
+    settingsElements.accessApprovalCheckbox.checked = Boolean(settings.security.dual_approval_required);
+  }
+
+  if (settingsElements.accessTokenSelect) {
+    settingsElements.accessTokenSelect.value = String(settings.security.token_rotation_days);
+  }
 
   if (settingsElements.storageMaxMbInput) {
     settingsElements.storageMaxMbInput.value = String(settings.logging.max_file_size_mb);

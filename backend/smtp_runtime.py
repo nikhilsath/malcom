@@ -5,10 +5,11 @@ import logging
 import socketserver
 import threading
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from email import policy
 from email.parser import Parser
 from typing import Any, Callable
+
+from backend.services.utils import utc_now_iso
 
 
 MAX_RECENT_MESSAGES = 25
@@ -76,10 +77,6 @@ def extract_message_subject(message_data: str) -> str | None:
         return None
     normalized = str(subject).strip()
     return normalized or None
-
-
-def utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 @dataclass(frozen=True)
