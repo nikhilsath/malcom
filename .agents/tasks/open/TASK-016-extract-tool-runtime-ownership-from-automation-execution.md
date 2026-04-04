@@ -1,6 +1,6 @@
 ## Execution steps
 
-1. [ ] [backend]
+1. [-] [backend]
 Files: backend/services/tool_configs.py, backend/services/automation_execution.py
 Action: Move managed-tool configuration constants and config read/write/normalize functions (SMTP, local LLM, Coqui TTS, ImageMagick) from backend/services/automation_execution.py into backend/services/tool_configs.py so tool config ownership is local to the tool-config module rather than a shim import.
 Completion check: backend/services/tool_configs.py contains real implementations (not only imports), and backend/services/automation_execution.py no longer contains the moved tool-config implementations.
