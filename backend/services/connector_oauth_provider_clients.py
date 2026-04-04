@@ -12,6 +12,11 @@ from uuid import uuid4
 from fastapi import HTTPException
 from fastapi import status
 
+from backend.services.connector_trello_oauth_client import (
+    exchange_trello_oauth_code_for_tokens,
+    revoke_trello_token,
+)
+
 
 def extract_provider_error_detail(body: str, *, fallback: str) -> str:
     try:
@@ -134,11 +139,13 @@ def exchange_notion_oauth_code_for_tokens(
     client_secret: str,
 ) -> dict[str, Any]:
     if code.startswith("demo"):
-        return {
-            "access_token": f"ntn_{uuid4().hex[:24]}",
-            "refresh_token": f"ntr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-        }
+        return _normalize_oauth_token_payload(
+            {
+                "access_token": f"ntn_{uuid4().hex[:24]}",
+                "refresh_token": f"ntr_{uuid4().hex[:24]}",
+                "expires_in": 3600,
+            }
+        )
 
     payload = json.dumps(
         {
@@ -177,11 +184,14 @@ def exchange_notion_oauth_code_for_tokens(
             detail="Notion token endpoint returned malformed JSON.",
         ) from error
 
+    if not isinstance(token_payload, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Notion token endpoint returned malformed JSON.")
+
     access_token = token_payload.get("access_token")
     if not isinstance(access_token, str) or not access_token.strip():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion token exchange did not return an access token.")
 
-    return token_payload
+    return _normalize_oauth_token_payload(token_payload)
 
 
 def refresh_github_access_token(
@@ -258,11 +268,13 @@ def refresh_notion_access_token(
     client_secret: str,
 ) -> dict[str, Any]:
     if refresh_token.startswith("ntr_"):
-        return {
-            "access_token": f"ntn_{uuid4().hex[:24]}",
-            "refresh_token": f"ntr_{uuid4().hex[:24]}",
-            "expires_in": 3600,
-        }
+        return _normalize_oauth_token_payload(
+            {
+                "access_token": f"ntn_{uuid4().hex[:24]}",
+                "refresh_token": f"ntr_{uuid4().hex[:24]}",
+                "expires_in": 3600,
+            }
+        )
 
     payload = json.dumps(
         {
@@ -299,11 +311,14 @@ def refresh_notion_access_token(
             detail="Notion token endpoint returned malformed JSON.",
         ) from error
 
+    if not isinstance(token_payload, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Notion token endpoint returned malformed JSON.")
+
     access_token = token_payload.get("access_token")
     if not isinstance(access_token, str) or not access_token.strip():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion token refresh did not return an access token.")
 
-    return token_payload
+    return _normalize_oauth_token_payload(token_payload)
 
 
 def revoke_github_token(*, token: str, client_id: str, client_secret: str) -> None:

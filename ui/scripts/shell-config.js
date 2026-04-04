@@ -211,14 +211,6 @@ export const shellSections = {
         description: "Control alert routing and cadence."
       },
       {
-        id: "sidenav-settings-access",
-        label: "Access",
-        href: "settings/access.html",
-        aliases: ["settings/security.html"],
-        pageTitle: "Settings Access",
-        description: "Manage approval and session controls."
-      },
-      {
         id: "sidenav-settings-data",
         label: "Data",
         href: "settings/data.html",

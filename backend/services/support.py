@@ -9,6 +9,7 @@ from .api_serialization import *
 from .automation_executor import *
 from .connectors import *
 from .connector_activities import *
+from .domain_proxy import *
 from .helpers import *
 from .network import *
 from .scripts import *

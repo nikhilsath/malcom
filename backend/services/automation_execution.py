@@ -550,6 +550,12 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "workflow_storage_path": "backend/data/workflows",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
+    "proxy": {
+        "domain": "",
+        "http_port": 80,
+        "https_port": 443,
+        "enabled": False,
+    },
 }
 def get_default_settings() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
@@ -769,6 +775,7 @@ def normalize_settings_response_section(
         "security": SecuritySettings,
         "data": DataSettings,
         "automation": AutomationSettings,
+        "proxy": ProxySettings,
         "options": AppSettingsOptionsResponse,
     }
     schema = schema_map[section_key]

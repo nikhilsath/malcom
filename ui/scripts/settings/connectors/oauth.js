@@ -31,10 +31,20 @@ export const startConnectorOauth = async (
     setFeedback(`${providerMetadata?.name || provider} uses saved credentials and does not support browser OAuth.`, "error");
     return;
   }
+  const clientIdInput = document.getElementById(`settings-connectors-${provider}-client-id-input`);
+  const redirectUriInput = document.getElementById(`settings-connectors-${provider}-redirect-uri-input`);
   const fallbackRedirectPath = providerMetadata?.default_redirect_path || `/api/v1/connectors/${provider}/oauth/callback`;
-  const redirectUri = (record.auth_config?.redirect_uri || `${window.location.origin}${fallbackRedirectPath}`).trim();
+  const redirectUri = (
+    (redirectUriInput instanceof HTMLInputElement ? redirectUriInput.value : "")
+    || record.auth_config?.redirect_uri
+    || `${window.location.origin}${fallbackRedirectPath}`
+  ).trim();
 
-  const clientId = (record.auth_config?.client_id || "").trim();
+  const clientId = (
+    (clientIdInput instanceof HTMLInputElement ? clientIdInput.value : "")
+    || record.auth_config?.client_id
+    || ""
+  ).trim();
   if (!clientId) {
     setFeedback(`${providerMetadata?.name || provider} OAuth requires a Client ID. Enter it in the Client ID field.`, "error");
     return;

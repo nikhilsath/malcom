@@ -55,7 +55,7 @@ export function buildAppSettingsFixture(overrides: Record<string, unknown> = {})
       max_file_size_mb: 5,
     },
     notifications: { channel: "email", digest: "hourly" },
-    data: { payload_redaction: true, export_window_utc: "02:00" },
+    data: { payload_redaction: true },
     automation: { default_tool_retries: 2 },
     options: {
       notification_channels: [
@@ -67,11 +67,7 @@ export function buildAppSettingsFixture(overrides: Record<string, unknown> = {})
         { value: "hourly", label: "Hourly" },
         { value: "daily", label: "Daily" },
       ],
-      data_export_windows: [
-        { value: "00:00", label: "00:00" },
-        { value: "02:00", label: "02:00" },
-        { value: "04:00", label: "04:00" },
-      ],
+      // data_export_windows removed
     },
   };
   return mergeDeep(base, overrides);

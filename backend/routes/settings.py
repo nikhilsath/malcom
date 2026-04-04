@@ -43,6 +43,8 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
 
     connection.commit()
     settings_payload = get_settings_payload(connection)
+    if "proxy" in changes:
+        sync_proxy_to_caddy_runtime(get_root_dir(request), settings_payload.get("proxy") or {})
     if "logging" in changes:
         request.app.state.logger = configure_application_logger(
             request.app,

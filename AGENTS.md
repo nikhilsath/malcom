@@ -155,7 +155,7 @@ Rules:
 1. Keep provider-specific connector business logic, including OAuth token exchange, refresh, and revoke handlers, in dedicated `backend/services/connector_<provider>*.py` or adjacent connector service modules.
 2. Keep `backend/routes/connectors.py` focused on HTTP parameter extraction, response shaping, redirects, and dependency wiring rather than provider-specific OAuth token lifecycle implementations.
 3. Do not make backend services import connector route helpers as the source of truth for provider-specific connector business logic.
-4. GitHub OAuth setup may resolve omitted client credentials from `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET`; the OAuth app redirect URI remains `/api/v1/connectors/github/oauth/callback`.
+4. GitHub OAuth setup may resolve omitted client credentials from `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET`; the OAuth app redirect URI remains `/api/v1/connectors/github/oauth/callback`. Trello OAuth may resolve omitted client credentials from `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET`; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
 
 ### Workflow Builder Connector Source Of Truth {#workflow-builder-connector-source-of-truth}
 

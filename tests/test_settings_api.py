@@ -42,10 +42,14 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertFalse(body["security"]["dual_approval_required"])
         self.assertEqual(body["security"]["token_rotation_days"], 30)
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
+        self.assertEqual(body["proxy"]["domain"], "")
+        self.assertEqual(body["proxy"]["http_port"], 80)
+        self.assertEqual(body["proxy"]["https_port"], 443)
+        self.assertFalse(body["proxy"]["enabled"])
         self.assertNotIn("connectors", body)
         self.assertEqual([item["value"] for item in body["options"]["notification_channels"]], ["email", "pager"])
         self.assertEqual([item["value"] for item in body["options"]["notification_digests"]], ["realtime", "hourly", "daily"])
-        self.assertEqual([item["value"] for item in body["options"]["data_export_windows"]], ["00:00", "02:00", "04:00"])
+        # data_export_windows option removed
 
     def test_get_settings_payload_excludes_connectors_section_for_startup(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -139,6 +143,57 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(saved_settings["security"]["session_timeout_minutes"], 120)
         self.assertTrue(saved_settings["security"]["dual_approval_required"])
         self.assertEqual(saved_settings["security"]["token_rotation_days"], 90)
+
+    def test_patch_proxy_settings_persists_and_syncs(self) -> None:
+        with patch("backend.routes.settings.sync_proxy_to_caddy_runtime") as mock_sync:
+            response = self.client.patch(
+                "/api/v1/settings",
+                json={
+                    "proxy": {
+                        "domain": "tools.example.com",
+                        "http_port": 8080,
+                        "https_port": 8443,
+                        "enabled": True,
+                    }
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["proxy"]["domain"], "tools.example.com")
+        self.assertEqual(body["proxy"]["http_port"], 8080)
+        self.assertEqual(body["proxy"]["https_port"], 8443)
+        self.assertTrue(body["proxy"]["enabled"])
+
+        mock_sync.assert_called_once_with(
+            self.root_dir,
+            {
+                "domain": "tools.example.com",
+                "http_port": 8080,
+                "https_port": 8443,
+                "enabled": True,
+            },
+        )
+
+        connection = connect(database_url=self.database_url)
+        try:
+            row = fetch_all(
+                connection,
+                """
+                SELECT value_json
+                FROM settings
+                WHERE key = 'proxy'
+                """,
+            )
+        finally:
+            connection.close()
+
+        self.assertEqual(len(row), 1)
+        saved_proxy = json.loads(row[0]["value_json"])
+        self.assertEqual(saved_proxy["domain"], "tools.example.com")
+        self.assertEqual(saved_proxy["http_port"], 8080)
+        self.assertEqual(saved_proxy["https_port"], 8443)
+        self.assertTrue(saved_proxy["enabled"])
 
     def test_get_settings_backfills_missing_logging_fields_from_defaults(self) -> None:
         connection = connect(database_url=self.database_url)

@@ -461,8 +461,21 @@ const createConnectorAuthorizationUrl = (provider: string, stateToken: string, r
     ? "https://accounts.google.com/o/oauth2/v2/auth"
     : provider === "github"
       ? "https://github.com/login/oauth/authorize"
-      : "https://api.notion.com/v1/oauth/authorize";
+      : provider === "notion"
+        ? "https://api.notion.com/v1/oauth/authorize"
+        : "https://trello.com/1/authorize";
   const url = new URL(baseUrl);
+  if (provider === "trello") {
+    const returnUrl = new URL(redirectUri);
+    returnUrl.searchParams.set("state", stateToken);
+    url.searchParams.set("key", "trello-client-id");
+    url.searchParams.set("name", "Malcom");
+    url.searchParams.set("scope", "read,write");
+    url.searchParams.set("expiration", "never");
+    url.searchParams.set("response_type", "token");
+    url.searchParams.set("return_url", returnUrl.toString());
+    return url.toString();
+  }
   url.searchParams.set("state", stateToken);
   url.searchParams.set("redirect_uri", redirectUri);
   if (provider !== "github") {
@@ -497,12 +510,19 @@ const resolveAppOrigin = (redirectUri: string | null | undefined, fallbackOrigin
 
 const buildProviderCallbackUrl = (
   provider: string,
-  *,
-  stateToken: string,
-  code: string,
-  connectorId: string,
-  redirectUri: string | null | undefined,
-  fallbackOrigin: string
+  {
+    stateToken,
+    code,
+    connectorId,
+    redirectUri,
+    fallbackOrigin
+  }: {
+    stateToken: string;
+    code: string;
+    connectorId: string;
+    redirectUri: string | null | undefined;
+    fallbackOrigin: string;
+  }
 ) => {
   const origin = resolveAppOrigin(redirectUri, fallbackOrigin);
   const url = new URL(`/api/v1/connectors/${provider}/oauth/callback`, origin);
@@ -534,7 +554,7 @@ const getProviderDocsUrl = (provider: string) => (
 
 const getProviderSuccessMessage = (provider: string, action: "test" | "refresh" | "revoke" | "authorize") => {
   if (action === "authorize") {
-    return `${provider === "github" ? "GitHub" : provider === "notion" ? "Notion" : "Google"} connector authorized successfully.`;
+    return `${provider === "github" ? "GitHub" : provider === "notion" ? "Notion" : provider === "trello" ? "Trello" : "Google"} connector authorized successfully.`;
   }
   if (action === "test") {
     return provider === "google"
@@ -557,7 +577,7 @@ const getProviderSuccessMessage = (provider: string, action: "test" | "refresh" 
     : provider === "notion"
       ? "Notion connector revoked and credentials cleared."
       : provider === "trello"
-        ? "Trello credentials cleared from this workspace."
+        ? "Trello connector revoked and credentials cleared."
         : "Google connector revoked and credentials cleared.";
 };
 
@@ -698,7 +718,8 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
   const createOAuthCallbackResponse = (provider: string, query: URLSearchParams, appOrigin: string) => {
     const stateToken = String(query.get("state") || "");
     const code = String(query.get("code") || "demo");
-    const connectorId = String(query.get("connector_id") || "google");
+    const stateEntry = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === provider);
+    const connectorId = String(query.get("connector_id") || stateEntry?.[0] || provider);
     const connectors = state.connectors.records as ConnectorRecord[];
     const existing = findConnector(connectors, connectorId);
     const session = state.oauthStateByConnector[connectorId];
@@ -1393,6 +1414,17 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       await writeJson(route, createOAuthStartResponse(body, "notion"));
     });
 
+    await page.route("**/api/v1/connectors/trello/oauth/start", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      await syncConnectorsStateFromBrowser();
+      const body = (route.request().postDataJSON?.() || {}) as JsonRecord;
+      await writeJson(route, createOAuthStartResponse(body, "trello"));
+    });
+
     await page.route("**accounts.google.com/**", async (route) => {
       const url = new URL(route.request().url());
       const stateToken = url.searchParams.get("state") || "oauth-state-google";
@@ -1444,6 +1476,25 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       );
     });
 
+    await page.route("**trello.com/1/authorize**", async (route) => {
+      const url = new URL(route.request().url());
+      const returnUrl = url.searchParams.get("return_url") || "";
+      const parsedReturnUrl = returnUrl ? new URL(returnUrl) : null;
+      const stateToken = parsedReturnUrl?.searchParams.get("state") || "oauth-state-trello";
+      const session = Object.entries(state.oauthStateByConnector).find(([, value]) => value.state === stateToken && value.provider === "trello");
+      const connectorId = session?.[0] || "trello-primary";
+      await writeRedirectHtml(
+        route,
+        buildProviderCallbackUrl("trello", {
+          stateToken,
+          code: "demo-trello",
+          connectorId,
+          redirectUri: parsedReturnUrl?.toString() || session?.[1]?.redirectUri,
+          fallbackOrigin: new URL(page.url()).origin,
+        })
+      );
+    });
+
     await page.route("**/api/v1/connectors/google/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = createOAuthCallbackResponse("google", url.searchParams, url.origin);
@@ -1459,6 +1510,12 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
     await page.route("**/api/v1/connectors/notion/oauth/callback**", async (route) => {
       const url = new URL(route.request().url());
       const redirectUrl = createOAuthCallbackResponse("notion", url.searchParams, url.origin);
+      await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
+    });
+
+    await page.route("**/api/v1/connectors/trello/oauth/callback**", async (route) => {
+      const url = new URL(route.request().url());
+      const redirectUrl = createOAuthCallbackResponse("trello", url.searchParams, url.origin);
       await writeConnectorRedirectHtml(route, redirectUrl, nextConnectorSettings() as JsonRecord);
     });
 
@@ -1510,6 +1567,14 @@ export function createConnectorsApisHarness(options: ConnectorsApisHarnessOption
       const record = findConnector(connectors, connectorId);
       if (!record) {
         await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Connector not found." }) });
+        return;
+      }
+      if (record.provider === "trello") {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Trello does not support token refresh." }),
+        });
         return;
       }
 

@@ -5,7 +5,8 @@ set -uo pipefail
 # including dedicated tool_configs and connector_auth_policies ownership when present, plus connector
 # storage ownership notes when policy text changes around runtime-vs-migration source of truth.
 # Note: updated to reflect factoring/fix-first/source-of-truth wording plus
-# startup-only connector legacy migration and workflow-builder service-only sync checks on 2026-04-03.
+# startup-only connector legacy migration, workflow-builder service-only sync checks,
+# and Trello OAuth connector policy sync notes on 2026-04-04.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"

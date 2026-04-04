@@ -66,6 +66,34 @@
                             </div>
                             <input id="settings-workspace-tool-retries-input" class="api-form-input" type="number" min="0" max="10" step="1" value="2">
                         </article>
+                        <article id="settings-workspace-proxy-card" class="stat-card settings-option-card">
+                            <div id="settings-workspace-proxy-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-workspace-proxy-title" class="settings-option-card__title">Public proxy domain</h4>
+                                    <button type="button" id="settings-workspace-proxy-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-workspace-proxy-description">i</button>
+                                </div>
+                                <p id="settings-workspace-proxy-description" class="settings-option-card__description" hidden>Route external traffic to this workspace at a custom domain using the built-in Caddy reverse proxy.</p>
+                            </div>
+                            <label id="settings-workspace-proxy-domain-field" class="api-form-field">
+                                <span id="settings-workspace-proxy-domain-label" class="api-form-label">Domain</span>
+                                <input id="settings-workspace-proxy-domain-input" class="api-form-input" type="text" placeholder="e.g. tools.example.com" value="">
+                            </label>
+                            <label id="settings-workspace-proxy-http-port-field" class="api-form-field">
+                                <span id="settings-workspace-proxy-http-port-label" class="api-form-label">HTTP port</span>
+                                <input id="settings-workspace-proxy-http-port-input" class="api-form-input" type="number" min="1" max="65535" step="1" value="80">
+                            </label>
+                            <label id="settings-workspace-proxy-https-port-field" class="api-form-field">
+                                <span id="settings-workspace-proxy-https-port-label" class="api-form-label">HTTPS port</span>
+                                <input id="settings-workspace-proxy-https-port-input" class="api-form-input" type="number" min="1" max="65535" step="1" value="443">
+                            </label>
+                            <label id="settings-workspace-proxy-enabled-toggle" class="toggle settings-option-card__toggle">
+                                <input type="checkbox" class="sr-only" id="settings-workspace-proxy-enabled-checkbox">
+                                <div class="toggle__slider" id="settings-workspace-proxy-enabled-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-workspace-proxy-enabled-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-workspace-proxy-enabled-label" class="toggle__label">Disabled</span>
+                            </label>
+                        </article>
                     </div>
                     <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
                     <div id="settings-actions" class="api-form-actions">

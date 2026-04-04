@@ -23,11 +23,16 @@ const malcomDefaultAppSettings = {
     token_rotation_days: 30
   },
   data: {
-    payload_redaction: true,
-    export_window_utc: "02:00"
+    payload_redaction: true
   },
   automation: {
     default_tool_retries: 2
+  },
+  proxy: {
+    domain: "",
+    http_port: 80,
+    https_port: 443,
+    enabled: false
   },
   options: {
     notification_channels: [
@@ -39,11 +44,7 @@ const malcomDefaultAppSettings = {
       { value: "hourly", label: "Hourly" },
       { value: "daily", label: "Daily" }
     ],
-    data_export_windows: [
-      { value: "00:00", label: "00:00" },
-      { value: "02:00", label: "02:00" },
-      { value: "04:00", label: "04:00" }
-    ]
+    // data_export_windows removed — export scheduling not supported
   }
 };
 
@@ -180,7 +181,7 @@ const normalizeAppSettings = (settings = {}) => ({
     ...malcomDefaultAppSettings.security,
     ...(settings.security || {})
   },
-  data: {
+    data: {
     ...malcomDefaultAppSettings.data,
     ...(settings.data || {})
   },
@@ -188,12 +189,16 @@ const normalizeAppSettings = (settings = {}) => ({
     ...malcomDefaultAppSettings.automation,
     ...(settings.automation || {})
   },
+  proxy: {
+    ...malcomDefaultAppSettings.proxy,
+    ...(settings.proxy || {})
+  },
   options: {
     ...cloneJsonValue(malcomDefaultAppSettings.options),
     ...(settings.options || {}),
     notification_channels: Array.isArray(settings.options?.notification_channels) ? settings.options.notification_channels : [],
     notification_digests: Array.isArray(settings.options?.notification_digests) ? settings.options.notification_digests : [],
-    data_export_windows: Array.isArray(settings.options?.data_export_windows) ? settings.options.data_export_windows : []
+    // data_export_windows removed
   }
 });
 

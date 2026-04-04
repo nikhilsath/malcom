@@ -12,17 +12,31 @@ test("saves and resets workspace defaults", async ({ page }) => {
 
   await page.locator("#settings-workspace-timezone-select").selectOption("utc");
   await page.locator("#settings-workspace-tool-retries-input").fill("4");
+  await page.locator("#settings-workspace-proxy-domain-input").fill("tools.example.com");
+  await page.locator("#settings-workspace-proxy-http-port-input").fill("8080");
+  await page.locator("#settings-workspace-proxy-https-port-input").fill("8443");
+  await page.locator("#settings-workspace-proxy-enabled-toggle").click();
   await page.locator("#settings-save-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
   await expect(page.locator("#settings-workspace-timezone-select")).toHaveValue("utc");
   await expect(page.locator("#settings-workspace-tool-retries-input")).toHaveValue("4");
+  await expect(page.locator("#settings-workspace-proxy-domain-input")).toHaveValue("tools.example.com");
+  await expect(page.locator("#settings-workspace-proxy-http-port-input")).toHaveValue("8080");
+  await expect(page.locator("#settings-workspace-proxy-https-port-input")).toHaveValue("8443");
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).toBeChecked();
+  await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Enabled");
 
   await page.locator("#settings-reset-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
   await expect(page.locator("#settings-workspace-timezone-select")).toHaveValue("local");
   await expect(page.locator("#settings-workspace-tool-retries-input")).toHaveValue("2");
+  await expect(page.locator("#settings-workspace-proxy-domain-input")).toHaveValue("");
+  await expect(page.locator("#settings-workspace-proxy-http-port-input")).toHaveValue("80");
+  await expect(page.locator("#settings-workspace-proxy-https-port-input")).toHaveValue("443");
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).not.toBeChecked();
+  await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Disabled");
 });
 
 test("preserves saved connectors when workspace settings are saved before settings finish loading", async ({ page }) => {
@@ -103,50 +117,13 @@ test("toggles notifications and restores the defaults", async ({ page }) => {
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("hourly");
 });
 
-test("saves access controls and restores the defaults", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {
-    settings: {
-      security: {
-        session_timeout_minutes: 60,
-        dual_approval_required: false,
-        token_rotation_days: 30
-      }
-    }
-  });
-
-  await page.goto("/settings/access.html");
-
-  await expect(page.locator("#nav-settings")).toHaveAttribute("aria-current", "page");
-  await expect(page.locator("#sidenav-settings-access")).toHaveAttribute("aria-current", "page");
-  await expect(page.locator("#page-title")).toHaveText("Settings Access");
-  await expect(page.locator("#settings-access-session-select")).toHaveValue("60");
-  await expect(page.locator("#settings-access-approval-label")).toHaveText("Optional");
-  await expect(page.locator("#settings-access-token-select")).toHaveValue("30");
-
-  await page.locator("#settings-access-session-select").selectOption("120");
-  await page.locator("#settings-access-approval-toggle").click();
-  await page.locator("#settings-access-token-select").selectOption("90");
-  await page.locator("#settings-save-button").click();
-
-  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
-  await expect(page.locator("#settings-access-session-select")).toHaveValue("120");
-  await expect(page.locator("#settings-access-approval-label")).toHaveText("Required");
-  await expect(page.locator("#settings-access-token-select")).toHaveValue("90");
-
-  await page.locator("#settings-reset-button").click();
-
-  await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
-  await expect(page.locator("#settings-access-session-select")).toHaveValue("60");
-  await expect(page.locator("#settings-access-approval-label")).toHaveText("Optional");
-  await expect(page.locator("#settings-access-token-select")).toHaveValue("30");
-});
+// Access page removed: access-related tests removed
 
 test("renders connector-backed storage and clears log table rows", async ({ page }) => {
   await installDashboardSettingsFixtures(page, {
     settings: {
       data: {
-        payload_redaction: false,
-        export_window_utc: "02:00"
+        payload_redaction: false
       }
     },
     connectors: {
@@ -183,12 +160,10 @@ test("renders connector-backed storage and clears log table rows", async ({ page
   await expect(page.locator("#settings-data-redaction-label")).toHaveText("Enabled");
 
   await page.locator("#settings-storage-max-mb-input").fill("7");
-  await page.locator("#settings-data-export-select").selectOption("04:00");
   await page.locator("#settings-save-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
   await expect(page.locator("#settings-storage-max-mb-input")).toHaveValue("7");
-  await expect(page.locator("#settings-data-export-select")).toHaveValue("04:00");
 
   await expect(page.locator("#settings-log-storage-body")).toBeHidden();
   await page.locator("#settings-log-storage-collapse-toggle").click();

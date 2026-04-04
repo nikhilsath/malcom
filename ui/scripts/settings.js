@@ -8,18 +8,17 @@ const settingsElements = {
   workspaceEnvironmentSelect: document.getElementById("settings-workspace-environment-select"),
   workspaceTimezoneSelect: document.getElementById("settings-workspace-timezone-select"),
   workspaceToolRetriesInput: document.getElementById("settings-workspace-tool-retries-input"),
+  workspaceProxyDomainInput: document.getElementById("settings-workspace-proxy-domain-input"),
+  workspaceProxyHttpPortInput: document.getElementById("settings-workspace-proxy-http-port-input"),
+  workspaceProxyHttpsPortInput: document.getElementById("settings-workspace-proxy-https-port-input"),
+  workspaceProxyEnabledCheckbox: document.getElementById("settings-workspace-proxy-enabled-checkbox"),
   retentionInput: document.getElementById("settings-log-retention-input"),
   visibleInput: document.getElementById("settings-log-visible-input"),
   detailInput: document.getElementById("settings-log-detail-input"),
   fileSizeInput: document.getElementById("settings-log-file-size-input"),
   notificationsChannelSelect: document.getElementById("settings-notifications-channel-select"),
   notificationsDigestSelect: document.getElementById("settings-notifications-digest-select"),
-  accessSessionSelect: document.getElementById("settings-access-session-select"),
-  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
-  accessTokenSelect: document.getElementById("settings-access-token-select"),
-
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
-  dataExportSelect: document.getElementById("settings-data-export-select"),
   storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
 };
 
@@ -107,6 +106,15 @@ const initSettingsToggles = () => {
 
 const buildSectionPatch = (section, fallbackSettings) => {
   if (section === "workspace") {
+    const parsedHttpPort = Number.parseInt(
+      settingsElements.workspaceProxyHttpPortInput?.value || "",
+      10
+    );
+    const parsedHttpsPort = Number.parseInt(
+      settingsElements.workspaceProxyHttpsPortInput?.value || "",
+      10
+    );
+
     return {
       general: {
         environment: "live",
@@ -117,6 +125,17 @@ const buildSectionPatch = (section, fallbackSettings) => {
           settingsElements.workspaceToolRetriesInput?.value || "",
           10
         )
+      },
+      proxy: {
+        domain: (settingsElements.workspaceProxyDomainInput?.value || "").trim(),
+        http_port: Number.isFinite(parsedHttpPort)
+          ? parsedHttpPort
+          : (fallbackSettings.proxy?.http_port || 80),
+        https_port: Number.isFinite(parsedHttpsPort)
+          ? parsedHttpsPort
+          : (fallbackSettings.proxy?.https_port || 443),
+        enabled: settingsElements.workspaceProxyEnabledCheckbox?.checked
+          ?? Boolean(fallbackSettings.proxy?.enabled)
       }
     };
   }
@@ -141,29 +160,13 @@ const buildSectionPatch = (section, fallbackSettings) => {
     };
   }
 
-  if (section === "access") {
-    return {
-      security: {
-        session_timeout_minutes: Number.parseInt(
-          settingsElements.accessSessionSelect?.value || "",
-          10
-        ) || fallbackSettings.security.session_timeout_minutes,
-        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
-        token_rotation_days: Number.parseInt(
-          settingsElements.accessTokenSelect?.value || "",
-          10
-        ) || fallbackSettings.security.token_rotation_days
-      }
-    };
-  }
 
   if (section === "data") {
     const maxStorageMb = Number.parseInt(settingsElements.storageMaxMbInput?.value || "", 10);
 
     return {
       data: {
-        payload_redaction: settingsElements.dataRedactionCheckbox?.checked ?? fallbackSettings.data.payload_redaction,
-        export_window_utc: settingsElements.dataExportSelect?.value || fallbackSettings.data.export_window_utc
+        payload_redaction: settingsElements.dataRedactionCheckbox?.checked ?? fallbackSettings.data.payload_redaction
       },
       logging: {
         ...fallbackSettings.logging,
@@ -186,7 +189,6 @@ const buildSettingsPayload = () => {
 const applySettingsToPage = (settings) => {
   renderSelectOptions(settingsElements.notificationsChannelSelect, settings.options?.notification_channels || []);
   renderSelectOptions(settingsElements.notificationsDigestSelect, settings.options?.notification_digests || []);
-  renderSelectOptions(settingsElements.dataExportSelect, settings.options?.data_export_windows || []);
 
   if (settingsElements.workspaceEnvironmentSelect) {
     settingsElements.workspaceEnvironmentSelect.value = "Live";
@@ -198,6 +200,22 @@ const applySettingsToPage = (settings) => {
 
   if (settingsElements.workspaceToolRetriesInput) {
     settingsElements.workspaceToolRetriesInput.value = String(settings.automation.default_tool_retries);
+  }
+
+  if (settingsElements.workspaceProxyDomainInput) {
+    settingsElements.workspaceProxyDomainInput.value = settings.proxy?.domain || "";
+  }
+
+  if (settingsElements.workspaceProxyHttpPortInput) {
+    settingsElements.workspaceProxyHttpPortInput.value = String(settings.proxy?.http_port || 80);
+  }
+
+  if (settingsElements.workspaceProxyHttpsPortInput) {
+    settingsElements.workspaceProxyHttpsPortInput.value = String(settings.proxy?.https_port || 443);
+  }
+
+  if (settingsElements.workspaceProxyEnabledCheckbox) {
+    settingsElements.workspaceProxyEnabledCheckbox.checked = Boolean(settings.proxy?.enabled);
   }
 
   if (settingsElements.retentionInput) {
@@ -224,25 +242,10 @@ const applySettingsToPage = (settings) => {
     settingsElements.notificationsDigestSelect.value = settings.notifications.digest;
   }
 
-  if (settingsElements.accessSessionSelect) {
-    settingsElements.accessSessionSelect.value = String(settings.security.session_timeout_minutes);
-  }
-
-  if (settingsElements.accessApprovalCheckbox) {
-    settingsElements.accessApprovalCheckbox.checked = settings.security.dual_approval_required;
-  }
-
-  if (settingsElements.accessTokenSelect) {
-    settingsElements.accessTokenSelect.value = String(settings.security.token_rotation_days);
-  }
-
   if (settingsElements.dataRedactionCheckbox) {
     settingsElements.dataRedactionCheckbox.checked = settings.data.payload_redaction;
   }
 
-  if (settingsElements.dataExportSelect) {
-    settingsElements.dataExportSelect.value = settings.data.export_window_utc;
-  }
 
   if (settingsElements.storageMaxMbInput) {
     settingsElements.storageMaxMbInput.value = String(settings.logging.max_file_size_mb);
