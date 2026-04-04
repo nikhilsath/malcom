@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from backend.database import connect, fetch_all, fetch_one, get_database_url, initialize
+from backend.services.utils import utc_now_iso
 
 REQUIRED_FIELDS = ("id", "name", "description")
 DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
@@ -81,10 +81,6 @@ DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
 )
 
 
-def utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat()
-
-
 def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
@@ -111,8 +107,7 @@ def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> 
     return validated
 
 
-def discover_tools(root_dir: Path | None = None) -> list[dict[str, str]]:
-    _ = root_dir
+def discover_tools() -> list[dict[str, str]]:
     seen_ids: set[str] = set()
     tools: list[dict[str, str]] = []
 
@@ -149,7 +144,7 @@ def row_to_tool_directory_entry(row: dict[str, Any], *, enabled: bool | None = N
 
 
 def sync_tools_to_database(root_dir: Path, connection: Any) -> list[dict[str, str]]:
-    discovered_tools = discover_tools(root_dir)
+    discovered_tools = discover_tools()
     known_tool_ids = [tool["id"] for tool in discovered_tools]
     now = utc_now_iso()
 
