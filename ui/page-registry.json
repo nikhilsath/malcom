@@ -175,6 +175,15 @@
         "/scripts",
         "/scripts/"
       ]
+    },
+    {
+      "routePath": "/docs/index.html",
+      "sourceHtmlPath": "docs/index.html",
+      "serveMode": "served",
+      "legacyAliases": [
+        "/docs",
+        "/docs/"
+      ]
     }
   ]
 }

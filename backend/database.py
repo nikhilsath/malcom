@@ -264,6 +264,16 @@ CREATE TABLE IF NOT EXISTS log_db_columns (
     UNIQUE(table_id, column_name)
 );
 
+CREATE TABLE IF NOT EXISTS connectors (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    auth_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS automations_enabled_trigger_type_next_run_at_idx
     ON automations (enabled, trigger_type, next_run_at);
 

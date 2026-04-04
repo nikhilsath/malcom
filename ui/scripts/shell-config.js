@@ -43,6 +43,13 @@ export const topNavItems = [
     label: "Settings",
     href: "settings/workspace.html",
     section: "settings"
+  },
+  {
+    id: "nav-docs",
+    label: "Docs",
+    href: "docs/index.html",
+    section: "docs",
+    align: "right"
   }
 ];
 

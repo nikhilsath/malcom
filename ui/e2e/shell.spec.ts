@@ -65,6 +65,7 @@ test("keeps shared shell navigation active and persists sidebar collapse", async
 
   await expect(page.locator("#nav-dashboard")).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#topnav-active-indicator")).toBeVisible();
+  await expect(page.locator("#nav-docs")).toBeVisible();
   await expect(page.locator("#sidenav-dashboard-home")).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#dashboard-page-title")).toHaveText("Dashboard Home");
   await expect(page.locator("#dashboard-overview-summary-queue-status-value")).toHaveText("Running");
