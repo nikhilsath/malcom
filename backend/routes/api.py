@@ -10,6 +10,7 @@ from backend.routes.log_tables import router as log_tables_router
 from backend.routes.runtime import router as runtime_router
 from backend.routes.scripts import router as scripts_router
 from backend.routes.settings import router as settings_router
+from backend.routes.storage import router as storage_router
 from backend.routes.tools import router as tools_router
 from backend.routes.workers import router as workers_router
 
@@ -21,6 +22,7 @@ router.include_router(docs_router)
 router.include_router(log_tables_router)
 router.include_router(scripts_router)
 router.include_router(settings_router)
+router.include_router(storage_router)
 router.include_router(workers_router)
 router.include_router(connectors_router)
 router.include_router(apis_router)

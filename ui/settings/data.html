@@ -59,45 +59,69 @@
                                     <h4 id="settings-storage-locations-title" class="settings-option-card__title">Storage locations</h4>
                                     <button type="button" id="settings-storage-locations-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-locations-description">i</button>
                                 </div>
-                                <p id="settings-storage-locations-description" class="settings-option-card__description" hidden>Define machine storage spots and connector-backed destinations used by data archival workflows.</p>
+                                <p id="settings-storage-locations-description" class="settings-option-card__description" hidden>Define storage destinations used by workflow write steps. Each location can be a local folder, a Google Drive folder (backed by a connector), or a managed Git repo root. Set a per-location quota and optionally mark one as the default for API logs.</p>
                             </div>
 
-                            <label id="settings-storage-max-field" class="api-form-field settings-storage-locations__max-field">
-                                <span id="settings-storage-max-label" class="api-form-label">Maximum storage per location (MB)</span>
-                                <input
-                                    id="settings-storage-max-mb-input"
-                                    class="api-form-input"
-                                    type="number"
-                                    min="1"
-                                    max="100"
-                                    step="1"
-                                    value="5"
-                                >
-                            </label>
-
-                            <div id="settings-storage-location-groups" class="settings-storage-location-groups">
-                                <article id="settings-storage-local-card" class="stat-card settings-option-card">
-                                    <div id="settings-storage-local-copy" class="settings-option-card__copy">
-                                        <div class="title-row" id="settings-storage-local-title-row">
-                                            <h5 id="settings-storage-local-title" class="settings-storage-location-group-title">Local machine spots</h5>
-                                            <button type="button" id="settings-storage-local-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-local-description">i</button>
-                                        </div>
-                                        <p id="settings-storage-local-description" class="settings-option-card__description" hidden>Configured directories and local runtime stores on this machine.</p>
-                                    </div>
-                                    <div id="settings-storage-local-list" class="settings-storage-location-list" aria-live="polite"></div>
-                                </article>
-
-                                <article id="settings-storage-connectors-card" class="stat-card settings-option-card">
-                                    <div id="settings-storage-connectors-copy" class="settings-option-card__copy">
-                                        <div class="title-row" id="settings-storage-connectors-title-row">
-                                            <h5 id="settings-storage-connectors-title" class="settings-storage-location-group-title">Connector-backed storage</h5>
-                                            <button type="button" id="settings-storage-connectors-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-storage-connectors-description">i</button>
-                                        </div>
-                                        <p id="settings-storage-connectors-description" class="settings-option-card__description" hidden>Google Drive appears when Google is enabled. Other connectors are listed when available.</p>
-                                    </div>
-                                    <div id="settings-storage-connectors-list" class="settings-storage-location-list" aria-live="polite"></div>
-                                </article>
+                            <div id="settings-storage-locations-list" class="settings-storage-location-list" aria-live="polite">
+                                <p id="settings-storage-locations-loading" class="automation-empty-state">Loading storage locations…</p>
                             </div>
+
+                            <div id="settings-storage-locations-actions" class="api-form-actions">
+                                <button type="button" id="settings-storage-add-btn" class="button button--secondary">+ Add location</button>
+                            </div>
+
+                            <dialog id="settings-storage-modal" class="malcom-dialog" aria-labelledby="settings-storage-modal-title">
+                                <form id="settings-storage-modal-form" class="api-form" method="dialog">
+                                    <h4 id="settings-storage-modal-title" class="settings-card__title">Storage location</h4>
+                                    <input type="hidden" id="settings-storage-modal-id" value="">
+
+                                    <label id="settings-storage-modal-name-field" class="api-form-field">
+                                        <span class="api-form-label">Name</span>
+                                        <input id="settings-storage-modal-name" class="api-form-input" type="text" placeholder="e.g. Workflow outputs" required>
+                                    </label>
+
+                                    <label id="settings-storage-modal-type-field" class="api-form-field">
+                                        <span class="api-form-label">Type</span>
+                                        <select id="settings-storage-modal-type" class="api-form-input">
+                                            <option value="local">Local folder</option>
+                                            <option value="google_drive">Google Drive</option>
+                                            <option value="repo">Git repo root</option>
+                                        </select>
+                                    </label>
+
+                                    <label id="settings-storage-modal-path-field" class="api-form-field">
+                                        <span class="api-form-label">Path / Folder ID</span>
+                                        <input id="settings-storage-modal-path" class="api-form-input" type="text" placeholder="e.g. backend/data/outputs or Drive folder ID">
+                                    </label>
+
+                                    <label id="settings-storage-modal-max-mb-field" class="api-form-field">
+                                        <span class="api-form-label">Max size (MB, optional)</span>
+                                        <input id="settings-storage-modal-max-mb" class="api-form-input" type="number" min="1" placeholder="Leave blank for unlimited">
+                                    </label>
+
+                                    <label id="settings-storage-modal-folder-tmpl-field" class="api-form-field">
+                                        <span class="api-form-label">Folder template (optional)</span>
+                                        <input id="settings-storage-modal-folder-tmpl" class="api-form-input" type="text" placeholder="e.g. {data_type}/{year}-{month}">
+                                    </label>
+
+                                    <label id="settings-storage-modal-file-tmpl-field" class="api-form-field">
+                                        <span class="api-form-label">File name template (optional)</span>
+                                        <input id="settings-storage-modal-file-tmpl" class="api-form-input" type="text" placeholder="e.g. {target}-{timestamp}">
+                                    </label>
+
+                                    <label id="settings-storage-modal-default-logs-field" class="api-form-field settings-storage-modal-checkbox-field">
+                                        <input id="settings-storage-modal-default-logs" type="checkbox">
+                                        <span class="api-form-label">Use as default logs location</span>
+                                    </label>
+
+                                    <p id="settings-storage-modal-error" class="api-form-feedback" role="alert" hidden></p>
+
+                                    <div class="api-form-actions">
+                                        <button type="submit" id="settings-storage-modal-save" class="button button--primary">Save</button>
+                                        <button type="button" id="settings-storage-modal-cancel" class="button button--secondary">Cancel</button>
+                                    </div>
+                                </form>
+                            </dialog>
                         </section>
 
                         <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>

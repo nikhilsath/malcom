@@ -321,6 +321,38 @@ CREATE INDEX IF NOT EXISTS automation_runs_next_run_at_idx
 CREATE INDEX IF NOT EXISTS connectors_provider_status_idx
     ON connectors (provider, status);
 
+CREATE TABLE IF NOT EXISTS storage_locations (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    location_type TEXT NOT NULL,
+    path TEXT,
+    connector_id TEXT REFERENCES connectors(id) ON DELETE SET NULL,
+    folder_template TEXT,
+    file_name_template TEXT,
+    max_size_mb INTEGER,
+    is_default_logs INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS repo_checkouts (
+    id TEXT PRIMARY KEY,
+    storage_location_id TEXT NOT NULL REFERENCES storage_locations(id) ON DELETE CASCADE,
+    repo_url TEXT NOT NULL,
+    local_path TEXT NOT NULL,
+    branch TEXT NOT NULL DEFAULT 'main',
+    last_synced_at TEXT,
+    size_bytes INTEGER,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS storage_locations_type_idx
+    ON storage_locations (location_type);
+
+CREATE INDEX IF NOT EXISTS repo_checkouts_location_idx
+    ON repo_checkouts (storage_location_id);
+
 CREATE INDEX IF NOT EXISTS runtime_resource_snapshots_captured_at_idx
     ON runtime_resource_snapshots (captured_at DESC);
 

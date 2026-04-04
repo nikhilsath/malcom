@@ -4,6 +4,43 @@
 export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
 export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_chat" | "outbound_request" | "connector_activity";
 
+export type AutomationBuilderOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+export type StorageLocationOption = {
+  id: string;
+  name: string;
+  location_type: "local" | "google_drive" | "repo";
+  path?: string | null;
+  connector_id?: string | null;
+  folder_template?: string | null;
+  file_name_template?: string | null;
+  max_size_mb?: number | null;
+  is_default_logs: boolean;
+};
+
+export type RepoCheckoutOption = {
+  id: string;
+  storage_location_id: string;
+  repo_url: string;
+  local_path: string;
+  branch: string;
+  last_synced_at?: string | null;
+};
+
+export type AutomationBuilderMetadata = {
+  trigger_types: AutomationBuilderOption[];
+  step_types: AutomationBuilderOption[];
+  http_methods: AutomationBuilderOption[];
+  storage_types: AutomationBuilderOption[];
+  log_column_types: AutomationBuilderOption[];
+  storage_locations: StorageLocationOption[];
+  repo_checkouts: RepoCheckoutOption[];
+};
+
 declare global {
   interface Window {
     TOOLS_MANIFEST?: ToolManifestEntry[];
@@ -124,6 +161,12 @@ export type InboundApiOption = {
   name: string;
 };
 
+export type ScriptLanguageOption = {
+  value: "python" | "javascript";
+  label: string;
+  description?: string | null;
+};
+
 export type ScriptLibraryItem = {
   id: string;
   name: string;
@@ -173,6 +216,19 @@ export type AutomationStep = {
     storage_type?: "csv" | "table" | "json" | "other";
     storage_target?: string;
     storage_new_file?: boolean;
+    // Legacy aliases used in storage-step-form
+    target?: string;
+    new_file?: boolean;
+    // Multi-location storage fields
+    storage_location_id?: string;
+    folder_template?: string;
+    file_name_template?: string;
+    // Repo-backed script step fields
+    repo_checkout_id?: string;
+    working_directory?: string;
+    // Advanced overrides (legacy, not type-checked)
+    storage_path?: string;
+    storage_overrides?: string;
   };
 };
 

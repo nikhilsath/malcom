@@ -16,6 +16,8 @@ from backend.services.connectors import (
     canonicalize_connector_provider,
     list_stored_connector_records,
 )
+from backend.services.storage_locations import list_storage_locations
+from backend.services.repo_checkout_service import list_repo_checkouts
 
 INACTIVE_WORKFLOW_CONNECTOR_STATUSES = {"draft", "expired", "revoked"}
 
@@ -122,13 +124,23 @@ def list_workflow_builder_connectors(connection: DatabaseConnection) -> list[dic
     return options
 
 
-def get_automation_builder_metadata() -> dict[str, Any]:
+def get_automation_builder_metadata(connection: DatabaseConnection | None = None) -> dict[str, Any]:
+    storage_locations: list[dict[str, Any]] = []
+    repo_checkouts: list[dict[str, Any]] = []
+    if connection is not None:
+        try:
+            storage_locations = list_storage_locations(connection)
+            repo_checkouts = list_repo_checkouts(connection)
+        except Exception:
+            pass
     return {
         "trigger_types": [dict(item) for item in AUTOMATION_TRIGGER_TYPE_OPTIONS],
         "step_types": [dict(item) for item in AUTOMATION_STEP_TYPE_OPTIONS],
         "http_methods": [dict(item) for item in AUTOMATION_HTTP_METHOD_OPTIONS],
         "storage_types": [dict(item) for item in AUTOMATION_STORAGE_TYPE_OPTIONS],
         "log_column_types": [dict(item) for item in AUTOMATION_LOG_COLUMN_TYPE_OPTIONS],
+        "storage_locations": storage_locations,
+        "repo_checkouts": repo_checkouts,
     }
 
 

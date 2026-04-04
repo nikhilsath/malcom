@@ -189,6 +189,8 @@ Current schema groups defined there:
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
 - Log schema: `log_db_tables`, `log_db_columns`
+- Storage: `storage_locations`, `repo_checkouts`
+  Persisted storage destination rows (`storage_locations`) are the runtime source of truth for local folders, Google Drive folders, and repo roots. `repo_checkouts` tracks managed GitHub repo clones linked to a storage location.
 
 ---
 
