@@ -4,22 +4,16 @@ import { Switch } from "@base-ui/react/switch";
 import { Background, Controls, ReactFlow } from "@xyflow/react";
 import { AutomationSettingsFields } from "./automation-settings-fields";
 import { nodeTypes, STEP_GAP, STEP_Y } from "./builder-flow";
-import { appendToken, formatDateTime, formatDuration, getNodeMenuLabel, getRunStatusTone, getTriggerTypeLabel, reorderSteps } from "./builder-utils";
+import { formatDateTime, formatDuration, getNodeMenuLabel, getRunStatusTone, getTriggerTypeLabel, reorderSteps } from "./builder-utils";
 import { useAutomationBuilderController } from "./useAutomationBuilderController";
-import { HttpStepForm } from "./step-modals/http-step-form";
-import { ScriptStepForm } from "./step-modals/script-step-form";
-import { TokenPicker } from "./token-picker";
-import { ToolStepFields } from "./tool-step-fields";
+import StepEditor from "./step-editors";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 import { CollapsibleSection } from "../lib/collapsible-section";
 import type { AutomationStep } from "./types";
-import { getDefaultStepName } from "./types";
+
 
 const AddStepModal = lazy(() => import("./add-step-modal").then((m) => ({ default: m.AddStepModal })));
-const StorageStepForm = lazy(() => import("./step-modals/storage-step-form"));
-const ConnectorActivityStepForm = lazy(() =>
-  import("./step-modals/connector-activity-step-form").then((m) => ({ default: m.ConnectorActivityStepForm }))
-);
+// Step modal forms are rendered from the step-editors dispatcher.
 
 export const AutomationApp = () => {
   const controller = useAutomationBuilderController();
@@ -92,247 +86,7 @@ export const AutomationApp = () => {
     reloadSupportData
   } = controller;
 
-  const renderStepEditor = (step: AutomationStep) => {
-    const customLabelValue = step.name === getDefaultStepName(step.type) ? "" : step.name;
-    const usesCustomHttpMode = step.type === "outbound_request" || (step.type === "api" && step.config.api_mode === "custom");
-    const usesConnectorActivityMode = step.type === "connector_activity" || (step.type === "api" && step.config.api_mode !== "custom");
-
-    return (
-      <div id="automations-step-modal-form" className="automation-form">
-        {step.type === "log" ? (
-          <Suspense fallback={null}>
-            <StorageStepForm
-              draft={step}
-              storageTypeOptions={builderMetadata.storage_types}
-              logColumnTypeOptions={builderMetadata.log_column_types}
-              storageLocationOptions={builderMetadata.storage_locations}
-              onChange={(updated) => updateDrawerStep(() => updated)}
-            />
-          </Suspense>
-        ) : null}
-
-        {usesCustomHttpMode ? (
-          <HttpStepForm
-            draft={step}
-            connectors={connectors}
-            httpPresets={httpPresets}
-            httpMethodOptions={builderMetadata.http_methods}
-            dataFlowTokens={drawerDataFlowTokens}
-            onChange={(updated) => updateDrawerStep(() => updated)}
-            idPrefix="automations-step-http"
-          />
-        ) : null}
-
-        {usesConnectorActivityMode ? (
-          <Suspense fallback={null}>
-            <ConnectorActivityStepForm
-              draft={step}
-              connectors={connectors}
-              connectorsLoading={supportDataLoading}
-              connectorsError={supportDataError}
-              onRetryConnectors={reloadSupportData}
-              activityCatalog={activityCatalog}
-              onChange={(updated) => updateDrawerStep(() => updated)}
-              idPrefix="automations-step-connector-activity"
-            />
-          </Suspense>
-        ) : null}
-
-        {step.type === "script" ? (
-          <ScriptStepForm
-            draft={step}
-            scripts={scripts}
-            scriptLanguages={scriptLanguages}
-            repoCheckoutOptions={builderMetadata.repo_checkouts}
-            dataFlowTokens={drawerDataFlowTokens}
-            onChange={(updated) => updateDrawerStep(() => updated)}
-            idPrefix="automations-step"
-          />
-        ) : null}
-
-        {step.type === "tool" ? (
-          <ToolStepFields
-            idPrefix="automations-step"
-            step={step}
-            toolsManifest={toolsManifest}
-            dataFlowTokens={drawerDataFlowTokens}
-            onChange={(updatedStep) => updateDrawerStep(() => updatedStep)}
-          />
-        ) : null}
-
-        {step.type === "condition" ? (
-          <>
-            <label id="automations-step-condition-expression-field" className="automation-field automation-field--full">
-              <span id="automations-step-condition-expression-label" className="automation-field__label">Expression</span>
-              <textarea
-                id="automations-step-condition-expression-input"
-                className="automation-textarea automation-textarea--code"
-                rows={4}
-                value={step.config.expression || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, expression: event.target.value } }))}
-              />
-            </label>
-            {drawerDataFlowTokens.length > 0 ? (
-              <TokenPicker
-                idPrefix="automations-step-condition"
-                tokens={drawerDataFlowTokens}
-                description="Insert data references into condition expressions."
-                onInsert={(token) => updateDrawerStep((currentStep) => ({
-                  ...currentStep,
-                  config: { ...currentStep.config, expression: appendToken(currentStep.config.expression || "", token) }
-                }))}
-              />
-            ) : null}
-            <div id="automations-step-condition-stop-field" className="automation-switch-field">
-              <div id="automations-step-condition-stop-copy" className="automation-switch-field__copy">
-                <span id="automations-step-condition-stop-label" className="automation-field__label">Stop on false</span>
-                <span id="automations-step-condition-stop-description" className="automation-switch-field__description">
-                  Exit the automation when the guard evaluates to false (ignored when a FALSE branch target is set).
-                </span>
-              </div>
-              <Switch.Root
-                id="automations-step-condition-stop-input"
-                checked={Boolean(step.config.stop_on_false)}
-                onCheckedChange={(checked) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, stop_on_false: checked } }))}
-                className="automation-switch"
-              >
-                <Switch.Thumb className="automation-switch__thumb" />
-              </Switch.Root>
-            </div>
-
-            <label id="automations-step-condition-true-branch-field" className="automation-field automation-field--full">
-              <span id="automations-step-condition-true-branch-label" className="automation-field__label">On TRUE — jump to step</span>
-              <select
-                id="automations-step-condition-true-branch-input"
-                className="automation-native-select"
-                value={step.on_true_step_id || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, on_true_step_id: event.target.value || null }))}
-              >
-                <option value="">Continue in sequence</option>
-                {currentAutomation.steps.filter((candidate) => candidate.id !== step.id).map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label id="automations-step-condition-false-branch-field" className="automation-field automation-field--full">
-              <span id="automations-step-condition-false-branch-label" className="automation-field__label">On FALSE — jump to step</span>
-              <select
-                id="automations-step-condition-false-branch-input"
-                className="automation-native-select"
-                value={step.on_false_step_id || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, on_false_step_id: event.target.value || null }))}
-              >
-                <option value="">Use &ldquo;stop on false&rdquo; setting</option>
-                {currentAutomation.steps.filter((candidate) => candidate.id !== step.id).map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : null}
-
-        {step.type === "llm_chat" ? (
-          <>
-            <label id="automations-step-llm-model-field" className="automation-field automation-field--full">
-              <span id="automations-step-llm-model-label" className="automation-field__label">Model override</span>
-              <input
-                id="automations-step-llm-model-input"
-                className="automation-input"
-                value={step.config.model_identifier || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, model_identifier: event.target.value } }))}
-              />
-            </label>
-            <label id="automations-step-llm-system-field" className="automation-field automation-field--full">
-              <span id="automations-step-llm-system-label" className="automation-field__label">System prompt</span>
-              <textarea
-                id="automations-step-llm-system-input"
-                className="automation-textarea automation-textarea--code"
-                rows={5}
-                value={step.config.system_prompt || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, system_prompt: event.target.value } }))}
-              />
-            </label>
-            <label id="automations-step-llm-user-field" className="automation-field automation-field--full">
-              <span id="automations-step-llm-user-label" className="automation-field__label">User prompt</span>
-              <textarea
-                id="automations-step-llm-user-input"
-                className="automation-textarea automation-textarea--code"
-                rows={7}
-                value={step.config.user_prompt || ""}
-                onChange={(event) => updateDrawerStep((currentStep) => ({ ...currentStep, config: { ...currentStep.config, user_prompt: event.target.value } }))}
-              />
-            </label>
-            {drawerDataFlowTokens.length > 0 ? (
-              <TokenPicker
-                idPrefix="automations-step-llm"
-                tokens={drawerDataFlowTokens}
-                description="Insert workflow output tokens into prompts."
-                onInsert={(token) => updateDrawerStep((currentStep) => ({
-                  ...currentStep,
-                  config: { ...currentStep.config, user_prompt: appendToken(currentStep.config.user_prompt || "", token) }
-                }))}
-              />
-            ) : null}
-          </>
-        ) : null}
-
-        <details id="automations-step-advanced-section" className="automation-advanced-section" open={advancedLabelOpen} onToggle={(event) => setAdvancedLabelOpen((event.currentTarget as HTMLDetailsElement).open)}>
-          <summary id="automations-step-advanced-summary" className="automation-advanced-section__summary">
-            Advanced
-          </summary>
-          <div id="automations-step-advanced-content" className="automation-advanced-section__content">
-            <label id="automations-step-name-field" className="automation-field automation-field--full">
-              <span id="automations-step-name-label" className="automation-field__label">Custom label (optional)</span>
-              <input
-                id="automations-step-name-input"
-                className="automation-input"
-                value={customLabelValue}
-                placeholder={getDefaultStepName(step.type)}
-                onChange={(event) => updateDrawerStep((currentStep) => ({
-                  ...currentStep,
-                  name: event.target.value.trim() || getDefaultStepName(currentStep.type)
-                }))}
-              />
-            </label>
-
-            <div id="automations-step-merge-target-field" className="automation-switch-field">
-              <div id="automations-step-merge-target-copy" className="automation-switch-field__copy">
-                <span id="automations-step-merge-target-label" className="automation-field__label">Merge target</span>
-                <span id="automations-step-merge-target-description" className="automation-switch-field__description">
-                  Mark this step as the convergence point where conditional branches rejoin.
-                </span>
-              </div>
-              <Switch.Root
-                id="automations-step-merge-target-input"
-                checked={Boolean(step.is_merge_target)}
-                onCheckedChange={(checked) => updateDrawerStep((currentStep) => ({ ...currentStep, is_merge_target: checked }))}
-                className="automation-switch"
-              >
-                <Switch.Thumb className="automation-switch__thumb" />
-              </Switch.Root>
-            </div>
-          </div>
-        </details>
-
-        <div id="automations-step-danger-zone" className="automation-danger-zone">
-          <span id="automations-step-danger-label" className="automation-field__label">Danger zone</span>
-          <button
-            id="automations-step-remove-button"
-            type="button"
-            className="button button--danger automation-danger-zone__button"
-            onClick={() => {
-              if (step.id) {
-                removeStepById(step.id);
-              }
-            }}
-          >
-            Remove step
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // Step editor rendering moved to ui/src/automation/step-editors/index.tsx
 
   return (
     <div id="automations-app-shell" className="automations-app automations-builder-app">
@@ -719,7 +473,27 @@ export const AutomationApp = () => {
                   modalScreen={triggerEditorScreen}
                   onModalScreenChange={setTriggerEditorScreen}
                 />
-              ) : drawerStep ? renderStepEditor(drawerStep) : null}
+              ) : drawerStep ? (
+                <StepEditor
+                  step={drawerStep}
+                  currentAutomation={currentAutomation}
+                  builderMetadata={builderMetadata}
+                  connectors={connectors}
+                  supportDataLoading={supportDataLoading}
+                  supportDataError={supportDataError}
+                  reloadSupportData={reloadSupportData}
+                  httpPresets={httpPresets}
+                  scripts={scripts}
+                  scriptLanguages={scriptLanguages}
+                  toolsManifest={toolsManifest}
+                  drawerDataFlowTokens={drawerDataFlowTokens}
+                  updateDrawerStep={updateDrawerStep}
+                  removeStepById={removeStepById}
+                  advancedLabelOpen={advancedLabelOpen}
+                  setAdvancedLabelOpen={setAdvancedLabelOpen}
+                  activityCatalog={activityCatalog}
+                />
+              ) : null}
             </div>
             <div id="automations-editor-modal-actions" className="automation-dialog__actions">
               <Dialog.Close

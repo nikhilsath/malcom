@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { flushSync } from "react-dom";
+import useRunFlash from "./hooks/useRunFlash";
+import useUrlSync from "./hooks/useUrlSync";
 import type { ReactFlowInstance } from "@xyflow/react";
 import { buildDataFlowTokens } from "./data-flow";
 import {
@@ -65,11 +67,10 @@ export const useAutomationBuilderController = () => {
   const [pendingInsertIndex, setPendingInsertIndex] = useState(0);
   const [testResults, setTestResults] = useState<TestResultState>(null);
   const [runInFlight, setRunInFlight] = useState(false);
-  const [runCompletedFlash, setRunCompletedFlash] = useState(false);
   const [advancedLabelOpen, setAdvancedLabelOpen] = useState(false);
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
-  const runCompletedFlashTimeoutRef = useRef<number | null>(null);
+  
   const activeAutomationIdRef = useRef(currentAutomation.id);
 
   const hasBranchSteps = useMemo(
@@ -86,17 +87,7 @@ export const useAutomationBuilderController = () => {
   const hasAtLeastOneStep = currentAutomation.steps.length > 0;
   const hasPersistedDraft = Boolean(currentAutomation.id);
 
-  const clearRunCompletedFlashTimeout = () => {
-    if (runCompletedFlashTimeoutRef.current !== null) {
-      window.clearTimeout(runCompletedFlashTimeoutRef.current);
-      runCompletedFlashTimeoutRef.current = null;
-    }
-  };
-
-  const resetRunCompletedFlash = () => {
-    clearRunCompletedFlashTimeout();
-    setRunCompletedFlash(false);
-  };
+  const { runCompletedFlash, setRunCompletedFlash, clearRunCompletedFlashTimeout, resetRunCompletedFlash, scheduleRunCompletedFlash } = useRunFlash();
 
   const guidedRunButtonLabel = runInFlight ? "Running..." : runCompletedFlash ? "Done" : "Test run";
   const canvasRunButtonLabel = runInFlight ? "Running..." : runCompletedFlash ? "Done" : "Run now";
@@ -222,33 +213,7 @@ export const useAutomationBuilderController = () => {
     closeNodeMenu();
   };
 
-  const updateBuilderUrl = ({
-    automationId,
-    useNewDraft,
-    mode
-  }: {
-    automationId?: string;
-    useNewDraft: boolean;
-    mode: BuilderMode;
-  }) => {
-    const params = new URLSearchParams();
-    if (automationId) {
-      params.set("id", automationId);
-    } else if (useNewDraft) {
-      params.set("new", "true");
-    }
-    params.set("mode", mode);
-    window.history.replaceState({}, "", `builder.html?${params.toString()}`);
-  };
-
-  const syncModeOnlyInUrl = (mode: BuilderMode) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("mode", mode);
-    if (!params.get("id") && params.get("new") !== "true") {
-      params.set("new", "true");
-    }
-    window.history.replaceState({}, "", `builder.html?${params.toString()}`);
-  };
+  const { updateBuilderUrl, syncModeOnlyInUrl } = useUrlSync({ builderMode, setBuilderMode, applyNewAutomationDraft, loadSupportData, loadAutomations, setAutomations, setFeedback, setFeedbackTone });
 
   const switchBuilderMode = (mode: BuilderMode) => {
     setBuilderMode(mode);
@@ -389,12 +354,7 @@ export const useAutomationBuilderController = () => {
     }
   }, [currentAutomation.steps, editorDrawer]);
 
-  useEffect(() => () => {
-    if (runCompletedFlashTimeoutRef.current !== null) {
-      window.clearTimeout(runCompletedFlashTimeoutRef.current);
-      runCompletedFlashTimeoutRef.current = null;
-    }
-  }, []);
+  // run-flash cleanup handled in useRunFlash hook
 
   const saveAutomation = async () => {
     const issues = validateAutomationDefinition(currentAutomation, inboundApis, activityCatalog, connectors, toolsManifest);
@@ -443,8 +403,7 @@ export const useAutomationBuilderController = () => {
       setFeedbackTone("error");
       return;
     }
-    setRunCompletedFlash(false);
-    clearRunCompletedFlashTimeout();
+    resetRunCompletedFlash();
     setRunInFlight(true);
     let shouldFlashCompletion = false;
     try {
@@ -468,12 +427,7 @@ export const useAutomationBuilderController = () => {
       flushSync(() => {
         setRunInFlight(false);
         if (shouldFlashCompletion) {
-          clearRunCompletedFlashTimeout();
-          setRunCompletedFlash(true);
-          runCompletedFlashTimeoutRef.current = window.setTimeout(() => {
-            setRunCompletedFlash(false);
-            runCompletedFlashTimeoutRef.current = null;
-          }, 1500);
+          scheduleRunCompletedFlash();
         }
       });
     }
