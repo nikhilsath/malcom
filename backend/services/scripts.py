@@ -31,6 +31,14 @@ DEFAULT_SCRIPT_LIBRARY: tuple[dict[str, str], ...] = (
             },
             indent=2,
         ),
+        "expected_output": json.dumps(
+            {
+                "text": "Transformed text with the new delimiter.",
+                "line_count": "Number of lines produced.",
+                "from": "The source delimiter used.",
+                "to": "The target delimiter used.",
+            }
+        ),
         "code": "\n".join(
             [
                 "def run(context, script_input=None):",
@@ -74,6 +82,13 @@ DEFAULT_SCRIPT_LIBRARY: tuple[dict[str, str], ...] = (
                 "all_matches": False,
             },
             indent=2,
+        ),
+        "expected_output": json.dumps(
+            {
+                "matches": "List of all captured matches (when all_matches is true).",
+                "match": "Single captured match (when all_matches is false).",
+                "count": "Number of matches found.",
+            }
         ),
         "code": "\n".join(
             [
@@ -131,6 +146,12 @@ DEFAULT_SCRIPT_LIBRARY: tuple[dict[str, str], ...] = (
                 "count": 0,
             },
             indent=2,
+        ),
+        "expected_output": json.dumps(
+            {
+                "text": "Result text after substitutions.",
+                "replacements": "Number of substitutions performed.",
+            }
         ),
         "code": "\n".join(
             [
@@ -262,6 +283,7 @@ def seed_default_scripts(connection: Any, *, timestamp: str | None = None) -> No
                 description,
                 language,
                 sample_input,
+                expected_output,
                 code,
                 validation_status,
                 validation_message,
@@ -269,7 +291,7 @@ def seed_default_scripts(connection: Any, *, timestamp: str | None = None) -> No
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING
             """,
             (
@@ -278,6 +300,7 @@ def seed_default_scripts(connection: Any, *, timestamp: str | None = None) -> No
                 script["description"],
                 script["language"],
                 script["sample_input"],
+                script.get("expected_output", "{}"),
                 script["code"],
                 validation_status,
                 validation_message,
@@ -296,6 +319,7 @@ def row_to_script_summary(row: dict[str, Any]) -> ScriptSummaryResponse:
         description=row["description"],
         language=row["language"],
         sample_input=row["sample_input"] if "sample_input" in row else "",
+        expected_output=row["expected_output"] if "expected_output" in row else "{}",
         validation_status=row["validation_status"],
         validation_message=row["validation_message"],
         last_validated_at=row["last_validated_at"],

@@ -202,6 +202,28 @@ export const ScriptStepForm = ({
         </div>
       ) : null}
 
+      {selectedScript?.expected_output && (() => {
+        try {
+          const parsed = JSON.parse(selectedScript.expected_output) as Record<string, string>;
+          const entries = Object.entries(parsed).filter(([key]) => Boolean(key));
+          if (entries.length === 0) return null;
+          return (
+            <div id={`${idPrefix}-script-output-fields`} className="automation-switch-field__description">
+              <strong>Output fields:</strong>{" "}
+              {entries.map(([key, desc], i) => (
+                <span key={key}>
+                  <code>{`{{steps.…${key}}}`}</code>
+                  {desc ? ` — ${desc}` : ""}
+                  {i < entries.length - 1 ? ", " : ""}
+                </span>
+              ))}
+            </div>
+          );
+        } catch {
+          return null;
+        }
+      })()}
+
       <label id={`${idPrefix}-script-input-field`} className="automation-field automation-field--full">
         <span id={`${idPrefix}-script-input-label`} className="automation-field__label">Script input</span>
         <textarea

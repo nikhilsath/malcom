@@ -116,12 +116,12 @@ export const useAutomationBuilderController = () => {
   }, [hasAtLeastOneStep, hasName, hasPersistedDraft, triggerReady]);
 
   const drawerDataFlowTokens = useMemo(
-    () => buildDataFlowTokens(currentAutomation.steps, drawerStep?.id || null, toolsManifest, activityCatalog),
-    [currentAutomation.steps, drawerStep?.id, toolsManifest, activityCatalog]
+    () => buildDataFlowTokens(currentAutomation.steps, drawerStep?.id || null, toolsManifest, activityCatalog, scripts),
+    [currentAutomation.steps, drawerStep?.id, toolsManifest, activityCatalog, scripts]
   );
   const addStepDataFlowTokens = useMemo(
-    () => buildDataFlowTokens(currentAutomation.steps.slice(0, pendingInsertIndex), null, toolsManifest, activityCatalog),
-    [currentAutomation.steps, pendingInsertIndex, toolsManifest, activityCatalog]
+    () => buildDataFlowTokens(currentAutomation.steps.slice(0, pendingInsertIndex), null, toolsManifest, activityCatalog, scripts),
+    [currentAutomation.steps, pendingInsertIndex, toolsManifest, activityCatalog, scripts]
   );
 
   const openAddStepFlow = (index: number) => {
