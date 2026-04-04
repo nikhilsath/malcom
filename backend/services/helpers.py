@@ -108,6 +108,7 @@ from backend.services.serialization import (
     worker_to_response,
 )
 from backend.services.utils import utc_now_iso
+from backend.services.ui_assets import ensure_built_ui, get_built_ui_file, get_ui_dir, get_ui_dist_dir
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
 INBOUND_SECRET_BYTES = 32
@@ -217,24 +218,6 @@ def get_local_worker_name() -> str:
     return f"{get_runtime_hostname()} local worker"
 def get_local_worker_address() -> str:
     return get_runtime_hostname()
-def get_ui_dir(root_dir: Path) -> Path:
-    return root_dir / "ui"
-def get_ui_dist_dir(root_dir: Path) -> Path:
-    return get_ui_dir(root_dir) / "dist"
-def ensure_built_ui(root_dir: Path) -> None:
-    dist_dir = get_ui_dist_dir(root_dir)
-    required_paths = [
-        dist_dir / "dashboard" / "home.html",
-        dist_dir / "assets",
-    ]
-    missing_paths = [path for path in required_paths if not path.exists()]
-
-    if missing_paths:
-        missing_display = ", ".join(str(path.relative_to(root_dir)) for path in missing_paths)
-        raise RuntimeError(
-            "Built UI assets are missing. Run './malcom' or 'npm run build' in 'ui/' before starting the backend. "
-            f"Missing: {missing_display}"
-        )
 def configure_application_logger(app: FastAPI, *, root_dir: Path, max_file_size_mb: int) -> logging.Logger:
     return configure_application_logger_core(app, root_dir=root_dir, max_file_size_mb=max_file_size_mb)
 def get_application_logger(request: Request) -> logging.Logger:
