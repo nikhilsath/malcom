@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDataFlowTokens } from "../data-flow";
-import type { AutomationStep, ConnectorActivityDefinition, ToolManifestEntry } from "../types";
+import type { AutomationStep, ConnectorActivityDefinition, ScriptLibraryItem, ToolManifestEntry } from "../types";
 
 const toolsManifest: ToolManifestEntry[] = [
   {
@@ -30,6 +30,25 @@ const connectorActivityCatalog: ConnectorActivityDefinition[] = [
       { key: "message_id", label: "Message ID", type: "string" }
     ],
     execution: {}
+  }
+];
+
+const scriptLibrary: ScriptLibraryItem[] = [
+  {
+    id: "script_seed_change_delimiter",
+    name: "Change Delimiter",
+    description: "Split text on one delimiter and join it with another.",
+    language: "python",
+    sample_input: "{}",
+    expected_output: JSON.stringify({ text: "Transformed text.", line_count: "Number of lines.", from: "Source delimiter.", to: "Target delimiter." })
+  },
+  {
+    id: "script_no_output",
+    name: "No Output Script",
+    description: "Returns nothing declared.",
+    language: "python",
+    sample_input: "{}",
+    expected_output: "{}"
   }
 ];
 
@@ -76,5 +95,80 @@ describe("buildDataFlowTokens", () => {
     expect(values).toContain("{{steps.step-http.response_body_json}}");
     expect(values).not.toContain("{{steps.step-tool.status}}");
     expect(values).not.toContain("{{steps.step-connector.message_id}}");
+  });
+
+  it("generates specific tokens for script steps with expected_output", () => {
+    const steps: AutomationStep[] = [
+      {
+        id: "step-script",
+        type: "script",
+        name: "Change delimiter step",
+        config: { script_id: "script_seed_change_delimiter", script_input_template: "" }
+      },
+      {
+        id: "step-next",
+        type: "log",
+        name: "Write result",
+        config: {}
+      }
+    ];
+
+    const tokens = buildDataFlowTokens(steps, "step-next", toolsManifest, connectorActivityCatalog, scriptLibrary);
+    const values = tokens.map((token) => token.token);
+
+    expect(values).toContain("{{steps.step-script.text}}");
+    expect(values).toContain("{{steps.step-script.line_count}}");
+    expect(values).toContain("{{steps.step-script.from}}");
+    expect(values).toContain("{{steps.step-script.to}}");
+    expect(values).not.toContain("{{steps.step-script.result}}");
+  });
+
+  it("only emits base token for script steps with empty expected_output", () => {
+    const steps: AutomationStep[] = [
+      {
+        id: "step-script",
+        type: "script",
+        name: "No output script",
+        config: { script_id: "script_no_output", script_input_template: "" }
+      },
+      {
+        id: "step-next",
+        type: "log",
+        name: "Write result",
+        config: {}
+      }
+    ];
+
+    const tokens = buildDataFlowTokens(steps, "step-next", toolsManifest, connectorActivityCatalog, scriptLibrary);
+    const values = tokens.map((token) => token.token);
+
+    expect(values).toContain("{{steps.step-script}}");
+    // No field-specific tokens beyond the base
+    const scriptFieldTokens = values.filter((v) => v.startsWith("{{steps.step-script."));
+    expect(scriptFieldTokens).toHaveLength(0);
+  });
+
+  it("falls back to base token when script is not in library", () => {
+    const steps: AutomationStep[] = [
+      {
+        id: "step-script",
+        type: "script",
+        name: "Unknown script",
+        config: { script_id: "script_unknown_id", script_input_template: "" }
+      },
+      {
+        id: "step-next",
+        type: "log",
+        name: "Next step",
+        config: {}
+      }
+    ];
+
+    const tokens = buildDataFlowTokens(steps, "step-next", toolsManifest, connectorActivityCatalog, scriptLibrary);
+    const values = tokens.map((token) => token.token);
+
+    expect(values).toContain("{{steps.step-script}}");
+    const scriptFieldTokens = values.filter((v) => v.startsWith("{{steps.step-script."));
+    expect(scriptFieldTokens).toHaveLength(0);
   });
 });

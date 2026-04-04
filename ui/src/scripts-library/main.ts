@@ -17,6 +17,7 @@ type ScriptSummary = {
   description: string;
   language: ScriptLanguage;
   sample_input: string;
+  expected_output: string;
   validation_status: ValidationStatus;
   validation_message: string | null;
   last_validated_at: string | null;
@@ -61,6 +62,7 @@ const scriptElements = {
   descriptionInput: document.getElementById("scripts-library-description-input") as HTMLTextAreaElement | null,
   languageInput: document.getElementById("scripts-library-language-input") as HTMLSelectElement | null,
   sampleInputInput: document.getElementById("scripts-library-sample-input-input") as HTMLTextAreaElement | null,
+  expectedOutputInput: document.getElementById("scripts-library-expected-output-input") as HTMLTextAreaElement | null,
   editorHost: document.getElementById("scripts-library-editor"),
   validateButton: document.getElementById("scripts-library-validate-button") as HTMLButtonElement | null,
   validationFeedback: document.getElementById("scripts-library-validation-feedback"),
@@ -326,6 +328,9 @@ const resetForm = (language: ScriptLanguage = "python") => {
   if (scriptElements.sampleInputInput) {
     scriptElements.sampleInputInput.value = "";
   }
+  if (scriptElements.expectedOutputInput) {
+    scriptElements.expectedOutputInput.value = "";
+  }
   setEditorLanguage(language);
   setEditorCode(SCRIPT_LANGUAGE_TEMPLATES[language]);
   setValidationChip("unknown", "Not validated");
@@ -350,6 +355,9 @@ const applyScriptToForm = (script: ScriptRecord) => {
   }
   if (scriptElements.sampleInputInput) {
     scriptElements.sampleInputInput.value = script.sample_input || "";
+  }
+  if (scriptElements.expectedOutputInput) {
+    scriptElements.expectedOutputInput.value = script.expected_output || "";
   }
   setEditorLanguage(script.language);
   setEditorCode(script.code);
@@ -453,6 +461,7 @@ const handleSave = async (event: SubmitEvent) => {
   const description = scriptElements.descriptionInput?.value.trim() || "";
   const language = (scriptElements.languageInput?.value || "python") as ScriptLanguage;
   const sampleInput = scriptElements.sampleInputInput?.value || "";
+  const expectedOutput = scriptElements.expectedOutputInput?.value || "{}";
   const code = getEditorCode();
   const scriptId = scriptElements.scriptIdInput?.value || "";
 
@@ -479,6 +488,7 @@ const handleSave = async (event: SubmitEvent) => {
         description,
         language,
         sample_input: sampleInput,
+        expected_output: expectedOutput,
         code
       })
     });

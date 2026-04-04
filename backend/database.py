@@ -237,6 +237,7 @@ CREATE TABLE IF NOT EXISTS scripts (
     description TEXT NOT NULL DEFAULT '',
     language TEXT NOT NULL,
     sample_input TEXT NOT NULL DEFAULT '',
+    expected_output TEXT NOT NULL DEFAULT '{}',
     code TEXT NOT NULL,
     validation_status TEXT NOT NULL DEFAULT 'unknown',
     validation_message TEXT,
@@ -430,6 +431,7 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "scripts", "validation_message", "TEXT")
     _ensure_column(connection, "scripts", "last_validated_at", "TEXT")
     _ensure_column(connection, "scripts", "sample_input", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(connection, "scripts", "expected_output", "TEXT NOT NULL DEFAULT '{}'")
     _ensure_column(connection, "automations", "last_run_at", "TEXT")
     _ensure_column(connection, "automations", "next_run_at", "TEXT")
     _ensure_column(connection, "automation_steps", "on_true_step_id", "TEXT")

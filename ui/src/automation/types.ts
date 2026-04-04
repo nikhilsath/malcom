@@ -130,6 +130,7 @@ export type ScriptLibraryItem = {
   description: string;
   language: "python" | "javascript";
   sample_input: string;
+  expected_output: string;
 };
 
 export type AutomationStep = {
