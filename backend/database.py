@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
 
@@ -142,18 +141,7 @@ CREATE TABLE IF NOT EXISTS runtime_resource_snapshots (
     total_error_count INTEGER NOT NULL DEFAULT 0,
     hottest_operation TEXT,
     hottest_total_duration_ms REAL NOT NULL DEFAULT 0,
-    max_memory_peak_mb REAL NOT NULL DEFAULT 0,
-    total_storage_used_bytes BIGINT NOT NULL DEFAULT 0,
-    total_storage_capacity_bytes BIGINT NOT NULL DEFAULT 0,
-    total_storage_usage_percent REAL NOT NULL DEFAULT 0,
-    local_storage_used_bytes BIGINT NOT NULL DEFAULT 0,
-    local_storage_capacity_bytes BIGINT NOT NULL DEFAULT 0,
-    local_storage_usage_percent REAL NOT NULL DEFAULT 0,
-    disk_read_bytes BIGINT NOT NULL DEFAULT 0,
-    disk_write_bytes BIGINT NOT NULL DEFAULT 0,
-    network_sent_bytes BIGINT NOT NULL DEFAULT 0,
-    network_received_bytes BIGINT NOT NULL DEFAULT 0,
-    top_processes_json TEXT NOT NULL DEFAULT '[]'
+    max_memory_peak_mb REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS tools (
@@ -163,13 +151,6 @@ CREATE TABLE IF NOT EXISTS tools (
     enabled INTEGER NOT NULL DEFAULT 0,
     name_override TEXT,
     description_override TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS tool_configs (
-    tool_id TEXT PRIMARY KEY REFERENCES tools(id) ON DELETE CASCADE,
-    config_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -191,51 +172,6 @@ CREATE TABLE IF NOT EXISTS integration_presets (
     default_scopes_json TEXT NOT NULL DEFAULT '[]',
     docs_url TEXT NOT NULL DEFAULT '',
     base_url TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS connectors (
-    id TEXT PRIMARY KEY,
-    provider TEXT NOT NULL,
-    name TEXT NOT NULL,
-    status TEXT NOT NULL,
-    auth_type TEXT NOT NULL,
-    scopes_json TEXT NOT NULL DEFAULT '[]',
-    base_url TEXT,
-    owner TEXT,
-    docs_url TEXT,
-    credential_ref TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    auth_config_json TEXT NOT NULL DEFAULT '{}',
-    last_tested_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS connector_auth_policies (
-    policy_id TEXT PRIMARY KEY,
-    auth_policy_json TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS connector_endpoint_definitions (
-    endpoint_id TEXT PRIMARY KEY,
-    provider_id TEXT NOT NULL REFERENCES integration_presets(id) ON DELETE CASCADE,
-    endpoint_kind TEXT NOT NULL,
-    service TEXT NOT NULL,
-    operation_type TEXT NOT NULL,
-    label TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    http_method TEXT NOT NULL,
-    endpoint_path_template TEXT NOT NULL,
-    query_params_json TEXT NOT NULL DEFAULT '{}',
-    required_scopes_json TEXT NOT NULL DEFAULT '[]',
-    input_schema_json TEXT NOT NULL DEFAULT '[]',
-    output_schema_json TEXT NOT NULL DEFAULT '[]',
-    payload_template TEXT NOT NULL DEFAULT '',
-    execution_json TEXT NOT NULL DEFAULT '{}',
-    metadata_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -328,6 +264,16 @@ CREATE TABLE IF NOT EXISTS log_db_columns (
     UNIQUE(table_id, column_name)
 );
 
+CREATE TABLE IF NOT EXISTS connectors (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    auth_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS automations_enabled_trigger_type_next_run_at_idx
     ON automations (enabled, trigger_type, next_run_at);
 
@@ -397,34 +343,6 @@ def connect(*, database_url: str) -> Any:
 
 def get_database_url() -> str:
     return os.getenv("MALCOM_DATABASE_URL", DEFAULT_POSTGRES_URL).strip()
-
-
-def get_project_root() -> Path:
-    return Path(__file__).resolve().parent.parent
-
-
-def get_alembic_config_path() -> Path:
-    return get_project_root() / "alembic.ini"
-
-
-def run_migrations(*, database_url: str | None = None) -> None:
-    resolved_url = (database_url or get_database_url()).strip()
-    if not _is_postgres_url(resolved_url):
-        raise RuntimeError("MALCOM_DATABASE_URL must be a valid PostgreSQL URL (postgresql://...)")
-
-    try:
-        from alembic import command
-        from alembic.config import Config
-    except ModuleNotFoundError as error:
-        raise RuntimeError(
-            "Alembic is not installed. Add 'alembic' to requirements before running database migrations."
-        ) from error
-
-    alembic_config_path = get_alembic_config_path()
-    alembic_config = Config(str(alembic_config_path))
-    alembic_config.set_main_option("script_location", str(get_project_root() / "backend" / "migrations"))
-    alembic_config.set_main_option("sqlalchemy.url", resolved_url)
-    command.upgrade(alembic_config, "head")
 
 
 def is_unique_violation(error: Exception) -> bool:
@@ -499,25 +417,6 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "runtime_resource_snapshots", "hottest_operation", "TEXT")
     _ensure_column(connection, "runtime_resource_snapshots", "hottest_total_duration_ms", "REAL NOT NULL DEFAULT 0")
     _ensure_column(connection, "runtime_resource_snapshots", "max_memory_peak_mb", "REAL NOT NULL DEFAULT 0")
-    _ensure_column(connection, "runtime_resource_snapshots", "total_storage_used_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "total_storage_used_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "total_storage_capacity_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "total_storage_capacity_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "total_storage_usage_percent", "REAL NOT NULL DEFAULT 0")
-    _ensure_column(connection, "runtime_resource_snapshots", "local_storage_used_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "local_storage_used_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "local_storage_capacity_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "local_storage_capacity_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "local_storage_usage_percent", "REAL NOT NULL DEFAULT 0")
-    _ensure_column(connection, "runtime_resource_snapshots", "disk_read_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "disk_read_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "disk_write_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "disk_write_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "network_sent_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "network_sent_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "network_received_bytes", "BIGINT NOT NULL DEFAULT 0")
-    _ensure_column_type(connection, "runtime_resource_snapshots", "network_received_bytes", "bigint")
-    _ensure_column(connection, "runtime_resource_snapshots", "top_processes_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "tools", "enabled", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(connection, "tools", "inputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(connection, "tools", "outputs_schema_json", "TEXT NOT NULL DEFAULT '[]'")
@@ -635,33 +534,6 @@ def _ensure_column(connection: Any, table_name: str, column_name: str, definitio
     quoted_table = _quote_identifier(table_name)
     quoted_column = _quote_identifier(column_name)
     connection.execute(f"ALTER TABLE {quoted_table} ADD COLUMN IF NOT EXISTS {quoted_column} {definition}")
-
-
-def _ensure_column_type(connection: Any, table_name: str, column_name: str, expected_type: str) -> None:
-    row = connection.execute(
-        """
-        SELECT data_type
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = ?
-          AND column_name = ?
-        LIMIT 1
-        """,
-        (table_name, column_name),
-    ).fetchone()
-    if row is None:
-        return
-
-    actual_type = str(row.get("data_type") or "").strip().lower()
-    normalized_expected_type = expected_type.strip().lower()
-    if actual_type == normalized_expected_type:
-        return
-
-    quoted_table = _quote_identifier(table_name)
-    quoted_column = _quote_identifier(column_name)
-    connection.execute(
-        f"ALTER TABLE {quoted_table} ALTER COLUMN {quoted_column} TYPE {normalized_expected_type}"
-    )
 
 
 def fetch_one(connection: Any, query: str, params: Sequence[Any] = ()) -> Mapping[str, Any] | None:

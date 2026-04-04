@@ -1,3 +1,5 @@
+import { toolsManifest } from "./tools-manifest.js";
+
 export const shellBrand = {
   homeHref: "dashboard/home.html",
   iconHref: new URL("../assets/malcom-icon.svg", import.meta.url).href,
@@ -41,6 +43,13 @@ export const topNavItems = [
     label: "Settings",
     href: "settings/workspace.html",
     section: "settings"
+  },
+  {
+    id: "nav-docs",
+    label: "Docs",
+    href: "docs/index.html",
+    section: "docs",
+    align: "right"
   }
 ];
 
@@ -157,6 +166,13 @@ export const shellSections = {
         href: "apis/webhooks.html",
         pageTitle: "API Webhooks",
         description: "Manage webhook definitions and verification."
+      },
+      {
+        id: "sidenav-apis-connectors",
+        label: "Connectors",
+        href: "settings/connectors.html",
+        pageTitle: "API Connectors",
+        description: "Manage connector presets and credentials."
       }
     ]
   },
@@ -170,7 +186,14 @@ export const shellSections = {
         aliases: ["tools/overview.html"],
         pageTitle: "Tools Catalog",
         description: "Manage tool metadata and availability."
-      }
+      },
+      ...toolsManifest.map((tool) => ({
+        id: `sidenav-tools-${tool.id}`,
+        label: tool.name,
+        href: tool.pageHref,
+        pageTitle: `${tool.name} Configuration`,
+        description: `Configure ${tool.name}.`
+      }))
     ]
   },
   scripts: {
@@ -211,18 +234,19 @@ export const shellSections = {
         description: "Control alert routing and cadence."
       },
       {
+        id: "sidenav-settings-access",
+        label: "Access",
+        href: "settings/access.html",
+        aliases: ["settings/security.html"],
+        pageTitle: "Settings Access",
+        description: "Manage approval and session controls."
+      },
+      {
         id: "sidenav-settings-data",
         label: "Data",
         href: "settings/data.html",
         pageTitle: "Settings Data",
         description: "Set data handling defaults."
-      },
-      {
-        id: "sidenav-settings-integrations",
-        label: "Integrations",
-        href: "settings/connectors.html",
-        pageTitle: "Settings Integrations",
-        description: "Manage connector presets, OAuth setup, and saved credentials."
       }
     ],
     footer: {

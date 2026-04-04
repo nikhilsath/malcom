@@ -9,6 +9,7 @@ declare module "../../scripts/shell-config.js" {
     route?: string;
     pageTitle?: string;
     description?: string;
+    align?: "right";
   };
 
   export const shellBrand: {

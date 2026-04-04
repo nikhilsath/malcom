@@ -24,26 +24,20 @@ class NotificationSettings(BaseModel):
     digest: str = Field(pattern=r"^(realtime|hourly|daily)$")
 
 
-class SecuritySettings(BaseModel):
-    session_timeout_minutes: Literal[15, 30, 60, 120]
-    dual_approval_required: bool
-    token_rotation_days: Literal[30, 60, 90]
-
-
 class DataSettings(BaseModel):
     payload_redaction: bool
-    workflow_storage_path: str = Field(default="backend/data/workflows")
+    export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
+    workflow_storage_path: str = "backend/data/workflows"
 
 
 class AutomationSettings(BaseModel):
     default_tool_retries: int = Field(ge=0, le=10)
 
 
-class ProxySettings(BaseModel):
-    domain: str = Field(default="", max_length=253)
-    http_port: int = Field(default=80, ge=1, le=65535)
-    https_port: int = Field(default=443, ge=1, le=65535)
-    enabled: bool = False
+class SecuritySettings(BaseModel):
+    session_timeout_minutes: Literal[30, 60, 120, 480]
+    dual_approval_required: bool
+    token_rotation_days: Literal[30, 60, 90]
 
 
 class ConnectorProviderPresetResponse(BaseModel):
@@ -53,53 +47,8 @@ class ConnectorProviderPresetResponse(BaseModel):
     category: str
     auth_types: list[str]
     default_scopes: list[str]
-    recommended_scopes: list[str] = Field(default_factory=list)
     docs_url: str
     base_url: str
-
-
-class ConnectorProviderSetupFieldResponse(BaseModel):
-    key: str
-    label: str
-    input_type: Literal["text", "password", "url", "multiselect"]
-    required: bool = False
-    secret: bool = False
-    readonly: bool = False
-
-
-class ConnectorProviderUiCopyResponse(BaseModel):
-    eyebrow: str
-    title: str
-    description: str
-    last_checked_empty: str
-
-
-class ConnectorProviderActionLabelsResponse(BaseModel):
-    save: str
-    test: str
-    connect: str
-    reconnect: str
-    refresh: str
-    revoke: str
-
-
-class ConnectorProviderMetadataResponse(BaseModel):
-    id: str
-    name: str
-    onboarding_mode: Literal["oauth", "credentials"]
-    oauth_supported: bool
-    callback_supported: bool
-    refresh_supported: bool
-    revoke_supported: bool
-    redirect_uri_required: bool
-    redirect_uri_readonly: bool
-    scopes_locked: bool
-    default_redirect_path: str | None = None
-    required_fields: list[str] = Field(default_factory=list)
-    setup_fields: list[ConnectorProviderSetupFieldResponse] = Field(default_factory=list)
-    ui_copy: ConnectorProviderUiCopyResponse
-    action_labels: ConnectorProviderActionLabelsResponse
-    status_messages: dict[str, str] = Field(default_factory=dict)
 
 
 class ConnectorAuthPolicy(BaseModel):
@@ -130,7 +79,6 @@ class ConnectorRecordResponse(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     status: str = Field(pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
     auth_type: str = Field(pattern=r"^(oauth2|bearer|api_key|basic|header)$")
-    request_auth_type: str = Field(pattern=r"^(none|bearer|basic|header)$")
     scopes: list[str] = Field(default_factory=list)
     base_url: str | None = Field(default=None, max_length=2000)
     owner: str | None = Field(default=None, max_length=120)
@@ -142,29 +90,10 @@ class ConnectorRecordResponse(BaseModel):
     auth_config: ConnectorAuthConfigResponse = Field(default_factory=ConnectorAuthConfigResponse)
 
 
-class SettingsOptionValueResponse(BaseModel):
-    value: str
-    label: str
-    description: str | None = None
-
-
-class ConnectorAuthPolicyMetadataResponse(BaseModel):
-    rotation_intervals: list[SettingsOptionValueResponse]
-    credential_visibility_options: list[SettingsOptionValueResponse]
-
-
-class ConnectorMetadataResponse(BaseModel):
-    statuses: list[SettingsOptionValueResponse]
-    active_storage_statuses: list[str]
-    auth_policy: ConnectorAuthPolicyMetadataResponse
-    providers: list[ConnectorProviderMetadataResponse]
-
-
 class ConnectorSettingsResponse(BaseModel):
     catalog: list[ConnectorProviderPresetResponse]
     records: list[ConnectorRecordResponse] = Field(default_factory=list)
     auth_policy: ConnectorAuthPolicy
-    metadata: ConnectorMetadataResponse
 
 
 class ConnectorAuthConfigUpdate(BaseModel):
@@ -184,8 +113,8 @@ class ConnectorAuthConfigUpdate(BaseModel):
     clear_credentials: bool = False
 
 
-class ConnectorCreateRequest(BaseModel):
-    id: str | None = Field(default=None, min_length=1, max_length=120)
+class ConnectorRecordUpdate(BaseModel):
+    id: str = Field(min_length=1, max_length=120)
     provider: str = Field(pattern=r"^[a-z0-9_]+$")
     name: str = Field(min_length=1, max_length=120)
     status: str = Field(default="draft", pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
@@ -195,58 +124,35 @@ class ConnectorCreateRequest(BaseModel):
     owner: str | None = Field(default=None, max_length=120)
     docs_url: str | None = Field(default=None, max_length=2000)
     credential_ref: str | None = Field(default=None, max_length=255)
+    created_at: str | None = None
+    updated_at: str | None = None
+    last_tested_at: str | None = None
     auth_config: ConnectorAuthConfigUpdate = Field(default_factory=ConnectorAuthConfigUpdate)
 
 
-class ConnectorUpdateRequest(BaseModel):
-    provider: str | None = Field(default=None, pattern=r"^[a-z0-9_]+$")
-    name: str | None = Field(default=None, min_length=1, max_length=120)
-    status: str | None = Field(default=None, pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
-    auth_type: str | None = Field(default=None, pattern=r"^(oauth2|bearer|api_key|basic|header)$")
-    scopes: list[str] | None = None
-    base_url: str | None = Field(default=None, max_length=2000)
-    owner: str | None = Field(default=None, max_length=120)
-    docs_url: str | None = Field(default=None, max_length=2000)
-    credential_ref: str | None = Field(default=None, max_length=255)
-    last_tested_at: str | None = None
-    auth_config: ConnectorAuthConfigUpdate | None = None
-
-
-class ConnectorAuthPolicyUpdateRequest(BaseModel):
-    auth_policy: ConnectorAuthPolicy
-
-
-class ConnectorDeleteResponse(BaseModel):
-    ok: bool
-    message: str
-    connector_id: str
+class ConnectorSettingsUpdate(BaseModel):
+    records: list[ConnectorRecordUpdate] | None = None
+    auth_policy: ConnectorAuthPolicy | None = None
 
 
 class AppSettingsResponse(BaseModel):
     general: GeneralSettings
     logging: LoggingSettings
     notifications: NotificationSettings
-    security: SecuritySettings
     data: DataSettings
     automation: AutomationSettings
-    proxy: ProxySettings
-    options: "AppSettingsOptionsResponse"
-
-
-class AppSettingsOptionsResponse(BaseModel):
-    notification_channels: list[SettingsOptionValueResponse]
-    notification_digests: list[SettingsOptionValueResponse]
-    # `data_export_windows` removed — export scheduling not supported
+    security: SecuritySettings
+    connectors: ConnectorSettingsResponse
 
 
 class AppSettingsUpdate(BaseModel):
     general: GeneralSettings | None = None
     logging: LoggingSettings | None = None
     notifications: NotificationSettings | None = None
-    security: SecuritySettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
-    proxy: ProxySettings | None = None
+    security: SecuritySettings | None = None
+    connectors: ConnectorSettingsUpdate | None = None
 
 
 class ConnectorActionResponse(BaseModel):
@@ -279,71 +185,25 @@ class ConnectorOAuthCallbackResponse(BaseModel):
     connector: ConnectorRecordResponse
 
 
-class SettingsBackupMetadata(BaseModel):
-    id: str
-    filename: str
-    created_at: str
-    size_bytes: int | None = None
-    path: str | None = None
-
-
-class SettingsCreateBackupResponse(BaseModel):
-    ok: bool
-    message: str
-    backup: SettingsBackupMetadata | None = None
-
-
-class SettingsListBackupsResponse(BaseModel):
-    directory: str | None = None
-    backups: list[SettingsBackupMetadata] = Field(default_factory=list)
-
-
-class SettingsBackupRestoreRequest(BaseModel):
-    backup_id: str = Field(min_length=1)
-
-
-class SettingsBackupRestoreResponse(BaseModel):
-    ok: bool
-    message: str
-    restored_at: str | None = None
-
-
 __all__ = [
     "AutomationSettings",
-    "AppSettingsOptionsResponse",
     "AppSettingsResponse",
     "AppSettingsUpdate",
     "ConnectorActionResponse",
     "ConnectorAuthConfigResponse",
     "ConnectorAuthConfigUpdate",
     "ConnectorAuthPolicy",
-    "ConnectorAuthPolicyUpdateRequest",
-    "ConnectorCreateRequest",
-    "ConnectorDeleteResponse",
     "ConnectorOAuthCallbackResponse",
-    # Settings backup/restore schemas
-    "SettingsBackupMetadata",
-    "SettingsCreateBackupResponse",
-    "SettingsListBackupsResponse",
-    "SettingsBackupRestoreRequest",
-    "SettingsBackupRestoreResponse",
     "ConnectorOAuthStartRequest",
     "ConnectorOAuthStartResponse",
-    "ConnectorMetadataResponse",
-    "ConnectorAuthPolicyMetadataResponse",
     "ConnectorProviderPresetResponse",
-    "ConnectorProviderSetupFieldResponse",
-    "ConnectorProviderUiCopyResponse",
-    "ConnectorProviderActionLabelsResponse",
-    "ConnectorProviderMetadataResponse",
     "ConnectorRecordResponse",
+    "ConnectorRecordUpdate",
     "ConnectorSettingsResponse",
-    "ConnectorUpdateRequest",
+    "ConnectorSettingsUpdate",
     "DataSettings",
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
-    "ProxySettings",
     "SecuritySettings",
-    "SettingsOptionValueResponse",
 ]

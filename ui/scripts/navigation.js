@@ -241,22 +241,17 @@ const getToolItemsWithEnabledState = async () => {
     return [];
   }
 
-  const [catalogItem] = sectionConfig.items;
+  const [catalogItem, ...manifestToolItems] = sectionConfig.items;
   const toolsDirectory = await requestJson("/api/v1/tools");
-  const toolItems = toolsDirectory
-    .filter((tool) => tool.enabled)
-    .map((tool) => ({
-      id: `sidenav-tools-${tool.id}`,
-      label: tool.name,
-      href: String(tool.page_href || "").replace(/^\/+/, ""),
-      pageTitle: `${tool.name} Configuration`,
-      description: tool.description
-    }))
-    .filter((item) => item.href);
+  const enabledToolIds = new Set(
+    toolsDirectory
+      .filter((tool) => tool.enabled)
+      .map((tool) => tool.id)
+  );
 
   return [
     catalogItem,
-    ...toolItems
+    ...manifestToolItems.filter((item) => enabledToolIds.has(item.id.replace("sidenav-tools-", "")))
   ];
 };
 
@@ -344,6 +339,10 @@ const renderTopNav = () => {
       },
       item.label
     );
+
+    if (item.align === "right") {
+      link.style.marginLeft = "auto";
+    }
 
     if (item.id === activeItemId) {
       link.setAttribute("aria-current", "page");
