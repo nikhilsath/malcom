@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_one
 from backend.main import app
-from backend.routes.connectors import _probe_google_access_token
+from backend.services.connector_health import _probe_google_access_token
 from tests.postgres_test_utils import setup_postgres_test_app
 
 
@@ -279,7 +279,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
             fp=BytesIO(b'{"error":"invalid_token"}'),
         )
 
-        with patch("backend.routes.connectors.urllib.request.urlopen", side_effect=http_error):
+        with patch("backend.services.connector_health.urllib.request.urlopen", side_effect=http_error):
             ok, message = _probe_google_access_token(access_token="demo-access-token")
 
         self.assertFalse(ok)
@@ -430,7 +430,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         context_manager.__enter__ = Mock(return_value=mock_response)
         context_manager.__exit__ = Mock(return_value=False)
 
-        with patch("backend.routes.connectors.urllib.request.urlopen", return_value=context_manager):
+        with patch("backend.services.connector_health.urllib.request.urlopen", return_value=context_manager):
             create_response = self.client.post(
                 "/api/v1/connectors",
                 json={
@@ -454,7 +454,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertNotIn("access_token_input", created["auth_config"])
         self.assertTrue(created["auth_config"]["access_token_masked"])
 
-        with patch("backend.routes.connectors.urllib.request.urlopen", return_value=context_manager):
+        with patch("backend.services.connector_health.urllib.request.urlopen", return_value=context_manager):
             test_response = self.client.post("/api/v1/connectors/github-scopes/test")
 
         self.assertEqual(test_response.status_code, 200, test_response.text)
