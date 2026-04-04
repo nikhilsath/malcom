@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
@@ -417,6 +418,76 @@ class ConnectorsApiTestCase(unittest.TestCase):
         )
         self.assertEqual(revoke_response.json()["connector"]["status"], "revoked")
         self.assertFalse(revoke_response.json()["connector"]["auth_config"]["has_refresh_token"])
+
+    def test_github_save_and_test_detect_scopes_from_token_header_and_keep_token_masked(self) -> None:
+        github_user_payload = {"login": "octocat"}
+
+        mock_response = Mock()
+        mock_response.read.return_value = json.dumps(github_user_payload).encode("utf-8")
+        mock_response.headers = {"X-OAuth-Scopes": "repo, workflow, read:user"}
+
+        context_manager = Mock()
+        context_manager.__enter__ = Mock(return_value=mock_response)
+        context_manager.__exit__ = Mock(return_value=False)
+
+        with patch("backend.routes.connectors.urllib.request.urlopen", return_value=context_manager):
+            create_response = self.client.post(
+                "/api/v1/connectors",
+                json={
+                    "id": "github-scopes",
+                    "provider": "github",
+                    "name": "GitHub Scoped",
+                    "status": "draft",
+                    "auth_type": "bearer",
+                    "scopes": ["admin:org"],
+                    "base_url": "https://api.github.com",
+                    "owner": "Workspace",
+                    "auth_config": {
+                        "access_token_input": "ghp_detect_scopes_token",
+                    },
+                },
+            )
+
+        self.assertEqual(create_response.status_code, 201, create_response.text)
+        created = create_response.json()
+        self.assertEqual(created["scopes"], ["read:user", "repo", "workflow"])
+        self.assertNotIn("access_token_input", created["auth_config"])
+        self.assertTrue(created["auth_config"]["access_token_masked"])
+
+        with patch("backend.routes.connectors.urllib.request.urlopen", return_value=context_manager):
+            test_response = self.client.post("/api/v1/connectors/github-scopes/test")
+
+        self.assertEqual(test_response.status_code, 200, test_response.text)
+        tested = test_response.json()["connector"]
+        self.assertEqual(tested["scopes"], ["read:user", "repo", "workflow"])
+        self.assertNotIn("access_token_input", tested["auth_config"])
+        self.assertTrue(tested["auth_config"]["access_token_masked"])
+
+    def test_github_repositories_endpoint_returns_available_repositories(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": "github-repo-list",
+                "provider": "github",
+                "name": "GitHub Repo List",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {
+                    "access_token_input": "token_repo_listing_fixture",
+                },
+            },
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.text)
+
+        response = self.client.get("/api/v1/connectors/github-repo-list/github/repositories")
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertIn("repositories", body)
+        self.assertGreaterEqual(len(body["repositories"]), 1)
+        self.assertEqual(body["repositories"][0]["full_name"], "openai/malcom")
 
     def test_github_oauth_start_returns_conflict_for_pat_contract(self) -> None:
         response = self.client.post(

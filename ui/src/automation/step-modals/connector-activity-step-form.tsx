@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { loadGithubConnectorRepositories, type GithubConnectorRepository } from "../builder-api";
 import { PROVIDER_SERVICE_LABELS, PROVIDER_SERVICE_ORDER } from "../constants";
 import { TokenPicker } from "../token-picker";
 import type { DataFlowToken } from "../data-flow";
@@ -122,6 +123,9 @@ export const ConnectorActivityStepForm = ({
 }: Props) => {
   const [showTokenPicker, setShowTokenPicker] = useState(false);
   const [selectedService, setSelectedService] = useState("");
+  const [githubRepositories, setGithubRepositories] = useState<GithubConnectorRepository[]>([]);
+  const [githubRepositoriesLoading, setGithubRepositoriesLoading] = useState(false);
+  const [githubRepositoriesError, setGithubRepositoriesError] = useState<string | null>(null);
   const selectedConnector = connectors.find((connector) => connector.id === (draft.config.connector_id || ""));
   const selectedConnectorProvider = (selectedConnector?.provider || "").toLowerCase();
   const providerActivities = selectedConnector ? activityCatalog.filter((activity) => activity.provider_id === selectedConnector.provider) : [];
@@ -136,6 +140,15 @@ export const ConnectorActivityStepForm = ({
     : [];
 
   const updateConfig = (nextConfig: AutomationStep["config"]) => onChange({ ...draft, config: nextConfig });
+  const setActivityInputValue = (key: string, nextValue: string | boolean) => {
+    const nextInputs = { ...(draft.config.activity_inputs || {}) } as Record<string, string | number | boolean>;
+    nextInputs[key] = nextValue;
+    updateConfig({ ...draft.config, activity_inputs: nextInputs });
+  };
+  const setActivityInputValues = (nextValues: Record<string, string | number | boolean>) => {
+    const nextInputs = { ...(draft.config.activity_inputs || {}), ...nextValues } as Record<string, string | number | boolean>;
+    updateConfig({ ...draft.config, activity_inputs: nextInputs });
+  };
   const connectorActivitiesByProvider = activityCatalog.reduce<Record<string, ConnectorActivityDefinition[]>>((groups, activity) => {
     groups[activity.provider_id] = groups[activity.provider_id] || [];
     groups[activity.provider_id].push(activity);
@@ -184,6 +197,45 @@ export const ConnectorActivityStepForm = ({
 
     setSelectedService((current) => (providerServiceOptions.includes(current) ? current : ""));
   }, [selectedActivity?.service, selectedConnectorProvider, providerServiceOptions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedConnector || selectedConnectorProvider !== "github") {
+      setGithubRepositories([]);
+      setGithubRepositoriesError(null);
+      setGithubRepositoriesLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setGithubRepositoriesLoading(true);
+    setGithubRepositoriesError(null);
+    loadGithubConnectorRepositories(selectedConnector.id)
+      .then((repositories) => {
+        if (cancelled) {
+          return;
+        }
+        setGithubRepositories(repositories);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Unable to load repositories.";
+        setGithubRepositoriesError(message);
+        setGithubRepositories([]);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setGithubRepositoriesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedConnector?.id, selectedConnectorProvider]);
 
   const handleServiceChange = (nextService: string) => {
     setSelectedService(nextService);
@@ -323,6 +375,13 @@ export const ConnectorActivityStepForm = ({
       {selectedActivity?.input_schema.map((field) => {
         const value = draft.config.activity_inputs?.[field.key];
         const fieldId = `${idPrefix}-input-${field.key}`;
+        const ownerValue = resolveInputValue(draft.config.activity_inputs?.owner);
+        const filteredRepos = ownerValue
+          ? githubRepositories.filter((repo) => repo.owner.toLowerCase() === ownerValue.toLowerCase())
+          : githubRepositories;
+        const supportsRepoPicker = selectedConnectorProvider === "github" && githubRepositories.length > 0;
+        const isOwnerField = field.key === "owner";
+        const isRepoField = field.key === "repo";
         const setFieldValue = (nextValue: string | boolean) => {
           const nextInputs = { ...(draft.config.activity_inputs || {}) } as Record<string, string | number | boolean>;
           nextInputs[field.key] = field.type === "integer" && typeof nextValue === "string" && nextValue ? Number(nextValue) : nextValue;
@@ -333,8 +392,49 @@ export const ConnectorActivityStepForm = ({
         return (
           <label key={field.key} id={`${fieldId}-field`} className="automation-field automation-field--full automation-field--inline-label">
             <span id={`${fieldId}-label`} className="automation-field__label">{field.label}</span>
-            {renderFieldInput(field, fieldId, value, setFieldValue)}
+            {isOwnerField && supportsRepoPicker ? (
+              <select
+                id={fieldId}
+                className="automation-native-select"
+                value={resolveInputValue(value)}
+                onChange={(event) => setActivityInputValue("owner", event.target.value)}
+              >
+                <option value="">Choose repository owner</option>
+                {Array.from(new Set(githubRepositories.map((repo) => repo.owner))).sort().map((owner) => (
+                  <option key={owner} value={owner}>{owner}</option>
+                ))}
+              </select>
+            ) : isRepoField && supportsRepoPicker ? (
+              <select
+                id={fieldId}
+                className="automation-native-select"
+                value={ownerValue && resolveInputValue(value) ? `${ownerValue}/${resolveInputValue(value)}` : ""}
+                onChange={(event) => {
+                  const [owner, repo] = event.target.value.split("/");
+                  if (!owner || !repo) {
+                    return;
+                  }
+                  setActivityInputValues({ owner, repo });
+                }}
+              >
+                <option value="">Choose repository</option>
+                {filteredRepos.map((repo) => (
+                  <option key={repo.full_name} value={repo.full_name}>{repo.full_name}</option>
+                ))}
+              </select>
+            ) : (
+              renderFieldInput(field, fieldId, value, setFieldValue)
+            )}
             {getFieldDescription(field) ? <span id={`${fieldId}-help`} className="automation-field__help-text">{getFieldDescription(field)}</span> : null}
+            {supportsRepoPicker && (isOwnerField || isRepoField) ? (
+              <span id={`${fieldId}-repo-help`} className="automation-field__help-text" aria-live="polite">
+                {githubRepositoriesLoading
+                  ? "Loading repositories from the selected GitHub connector..."
+                  : githubRepositoriesError
+                    ? `Unable to load repositories: ${githubRepositoriesError}`
+                    : "Repository options are loaded from the selected GitHub connector."}
+              </span>
+            ) : null}
             {supportsTokenInsertion && dataFlowTokens.length > 0 && (
               <button
                 id={`${fieldId}-token-button`}

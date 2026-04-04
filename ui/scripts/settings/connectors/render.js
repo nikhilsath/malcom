@@ -470,11 +470,13 @@ export const renderDetail = () => {
     }
     if (panelElements.scopesInput) {
       const scopes = providerMetadata?.scopes_locked
-        ? getDefaultScopesForProvider(record.provider, preset)
+        ? (provider === "github" ? (record.scopes || []) : getDefaultScopesForProvider(record.provider, preset))
         : (record.scopes || []);
       const scopeOptions = (preset?.recommended_scopes?.length ? preset.recommended_scopes : preset?.default_scopes || []);
       if (panelElements.scopesInput instanceof HTMLSelectElement) {
-        const optionValues = Array.from(new Set([...scopeOptions, ...scopes]));
+        const optionValues = provider === "github" && providerMetadata?.scopes_locked
+          ? Array.from(new Set(scopes))
+          : Array.from(new Set([...scopeOptions, ...scopes]));
         panelElements.scopesInput.innerHTML = optionValues
           .map((scope) => `<option value="${scope}">${scope}</option>`)
           .join("");

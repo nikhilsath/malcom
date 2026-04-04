@@ -31,8 +31,18 @@ def _request_json(url: str, headers: dict[str, str], *, method: str = "GET", bod
     request = urllib.request.Request(url, data=request_body, headers=request_headers, method=method)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            body_text = response.read().decode("utf-8", errors="replace")
-            return response.status, json.loads(body_text) if body_text else None
+            body_bytes = response.read()
+            if not body_bytes:
+                return response.status, None
+            body_text = body_bytes.decode("utf-8", errors="replace")
+            try:
+                return response.status, json.loads(body_text)
+            except json.JSONDecodeError:
+                # Preserve non-JSON payloads (for example archives) as base64 bytes.
+                return response.status, {
+                    "_raw_bytes_b64": base64.b64encode(body_bytes).decode("ascii"),
+                    "_raw_content_type": response.headers.get("Content-Type", ""),
+                }
     except urllib.error.HTTPError as error:
         body_text = error.read().decode("utf-8", errors="replace")
         try:
@@ -245,7 +255,9 @@ def execute_connector_activity(
     if missing_scopes:
         raise RuntimeError(f"Connector is missing required scopes: {', '.join(missing_scopes)}.")
 
-    resolved_inputs = _resolve_inputs(definition["input_schema"], inputs, context)
+    runtime_context = dict(context or {})
+    runtime_context.setdefault("_root_dir", str(root_dir))
+    resolved_inputs = _resolve_inputs(definition["input_schema"], inputs, runtime_context)
     executor = request_executor or (
         lambda url, method, req_headers, body=None: _request_json(url, req_headers, method=method, body=body)
     )
@@ -258,4 +270,4 @@ def execute_connector_activity(
     handler = handler_registry.get(kind)
     if handler is None:
         raise RuntimeError(f"Unsupported connector activity execution mapping '{kind}'.")
-    return handler(provider_id, activity_id, resolved_inputs, base_url, headers, context or {}, executor)
+    return handler(provider_id, activity_id, resolved_inputs, base_url, headers, runtime_context, executor)

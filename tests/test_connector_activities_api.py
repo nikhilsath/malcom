@@ -42,6 +42,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertIn(("github", "create_issue"), activity_ids)
         self.assertIn(("github", "list_workflow_runs"), activity_ids)
         self.assertIn(("github", "trigger_workflow_dispatch"), activity_ids)
+        self.assertIn(("github", "download_repo_archive"), activity_ids)
 
     def test_builder_validation_rejects_missing_scopes_for_connector_activity(self) -> None:
         self.save_connector(
@@ -496,6 +497,50 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         )
         self.assertTrue(dispatch_result["dispatched"])
         self.assertEqual(dispatch_result["workflow_id"], "ci.yml")
+
+    def test_github_download_repo_archive_activity_saves_archive_to_workflow_storage(self) -> None:
+        self.save_connector(
+            {
+                "id": "github-archive",
+                "provider": "github",
+                "name": "GitHub Archive",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": ["repo"],
+                "base_url": "https://api.github.com",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "ghp_secret_token"},
+            }
+        )
+        connection = app.state.connection
+
+        output = execute_connector_activity(
+            connection,
+            connector_id="github-archive",
+            activity_id="download_repo_archive",
+            inputs={
+                "owner": "openai",
+                "repo": "malcom",
+                "ref": "main",
+                "archive_format": "zipball",
+                "output_prefix": "malcom-main",
+            },
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (
+                200,
+                {
+                    "_raw_bytes_b64": "UEsDBAoAAAAAAA==",
+                    "_raw_content_type": "application/zip",
+                },
+            ),
+        )
+
+        archive_path = Path(output["archive_path"])
+        self.assertTrue(archive_path.exists())
+        self.assertEqual(output["archive_format"], "zipball")
+        self.assertEqual(output["repository"], "openai/malcom")
+        self.assertEqual(output["content_type"], "application/zip")
+        self.assertEqual(output["bytes_written"], archive_path.stat().st_size)
 
     def test_google_sheets_range_actions_support_documented_query_controls(self) -> None:
         self.save_connector(

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import base64
+from datetime import UTC, datetime
+from pathlib import Path
+import re
 import urllib.parse
 from typing import Any
 
@@ -53,7 +57,50 @@ GITHUB_REPO_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         ),
         execution={"kind": "github_list_repository_branches"},
     ),
+    ConnectorActivityDefinition(
+        provider_id="github",
+        activity_id="download_repo_archive",
+        service="repos",
+        operation_type="read",
+        label="Download repository archive",
+        description="Download a repository archive (zipball/tarball) and save it to workflow storage.",
+        required_scopes=("repo",),
+        input_schema=(
+            _field("owner", "Repository owner", "string", required=True),
+            _field("repo", "Repository name", "string", required=True),
+            _field("ref", "Branch, tag, or commit (optional)", "string", required=False, default=""),
+            _field("archive_format", "Archive format", "string", required=False, default="zipball"),
+            _field("output_prefix", "Output file prefix", "string", required=False, default=""),
+        ),
+        output_schema=(
+            _output("provider", "Provider", "string"),
+            _output("activity", "Activity", "string"),
+            _output("repository", "Repository", "string"),
+            _output("ref", "Resolved ref", "string"),
+            _output("archive_format", "Archive format", "string"),
+            _output("content_type", "Content type", "string"),
+            _output("bytes_written", "Bytes written", "integer"),
+            _output("archive_path", "Archive file path", "string"),
+            _output("archive_file", "Archive file name", "string"),
+        ),
+        execution={"kind": "github_download_repo_archive"},
+    ),
 )
+
+
+_SAFE_FILE_SEGMENT_RE = re.compile(r"[^a-z0-9._-]+")
+
+
+def _safe_segment(value: str) -> str:
+    normalized = _SAFE_FILE_SEGMENT_RE.sub("-", value.lower()).strip("-._")
+    return normalized or "value"
+
+
+def _workflow_storage_dir(context: dict[str, Any] | None) -> Path:
+    root_dir = Path(str((context or {}).get("_root_dir") or Path.cwd()))
+    storage_dir = root_dir / "backend" / "data" / "workflows"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    return storage_dir
 
 
 def _raise_for_status(status_code: int) -> None:
@@ -119,7 +166,56 @@ def _github_list_repository_branches(
     }
 
 
+def _github_download_repo_archive(
+    provider_id: str,
+    activity_id: str,
+    resolved_inputs: dict[str, Any],
+    base_url: str,
+    headers: dict[str, str],
+    context: dict[str, Any] | None,
+    executor: RequestExecutor,
+) -> dict[str, Any]:
+    owner = str(resolved_inputs.get("owner") or "")
+    repo = str(resolved_inputs.get("repo") or "")
+    ref = str(resolved_inputs.get("ref") or "").strip()
+    requested_format = str(resolved_inputs.get("archive_format") or "zipball").strip().lower()
+    archive_format = "tarball" if requested_format == "tarball" else "zipball"
+    suffix = ".tar.gz" if archive_format == "tarball" else ".zip"
+    ref_segment = urllib.parse.quote(ref, safe="") if ref else ""
+    endpoint = f"{base_url}/repos/{owner}/{repo}/{archive_format}"
+    if ref_segment:
+        endpoint = f"{endpoint}/{ref_segment}"
+
+    status_code, payload = _execute_request(executor, endpoint, "GET", headers)
+    _raise_for_status(status_code)
+
+    raw_bytes_b64 = payload.get("_raw_bytes_b64") if isinstance(payload, dict) else None
+    if not isinstance(raw_bytes_b64, str) or not raw_bytes_b64:
+        raise RuntimeError("Repository archive download did not return binary payload data.")
+
+    archive_bytes = base64.b64decode(raw_bytes_b64.encode("ascii"))
+    output_prefix_raw = str(resolved_inputs.get("output_prefix") or "").strip()
+    output_prefix = _safe_segment(output_prefix_raw) if output_prefix_raw else f"{_safe_segment(owner)}-{_safe_segment(repo)}"
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    file_name = f"{output_prefix}-{archive_format}-{timestamp}{suffix}"
+    archive_path = _workflow_storage_dir(context) / file_name
+    archive_path.write_bytes(archive_bytes)
+
+    return {
+        "provider": provider_id,
+        "activity": activity_id,
+        "repository": f"{owner}/{repo}",
+        "ref": ref,
+        "archive_format": archive_format,
+        "content_type": (payload.get("_raw_content_type") if isinstance(payload, dict) else "") or "application/octet-stream",
+        "bytes_written": len(archive_bytes),
+        "archive_path": str(archive_path),
+        "archive_file": file_name,
+    }
+
+
 GITHUB_REPO_HANDLER_REGISTRY = {
     "github_repo_details": _github_repo_details,
     "github_list_repository_branches": _github_list_repository_branches,
+    "github_download_repo_archive": _github_download_repo_archive,
 }

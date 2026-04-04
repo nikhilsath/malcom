@@ -17,7 +17,7 @@ import { setFeedback } from "./render.js";
 
 export const buildDefaultConnectorRecord = (preset) => {
   const connectorId = preset.id === "google" ? "google" : slugifyConnectorId(`${preset.id}-${preset.name}`);
-  const defaultScopes = getDefaultScopesForProvider(preset.id, preset);
+  const defaultScopes = preset.id === "github" ? [] : getDefaultScopesForProvider(preset.id, preset);
   const providerMetadata = getProviderMetadata(preset.id);
   const redirectPath = providerMetadata?.default_redirect_path;
 
@@ -154,7 +154,11 @@ const buildConnectorUpdatePayload = (record) => {
           ? getDefaultScopesForProvider(record.provider, preset)
           : selectedScopes
       )
-      : selectedScopes,
+      : (
+        providerMetadata?.scopes_locked
+          ? (record.scopes || [])
+          : selectedScopes
+      ),
     auth_config: {
       client_id: clientId,
       username: providerPanel ? (record.auth_config?.username || "") : connectorElements.usernameInput.value.trim(),

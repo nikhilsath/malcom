@@ -157,7 +157,7 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "description": "Use repository, issue, and workflow APIs with a GitHub personal access token.",
         "category": "developer",
         "auth_types": ["bearer"],
-        "default_scopes": ["repo", "read:user"],
+        "default_scopes": [],
         "recommended_scopes": list(GITHUB_AVAILABLE_SCOPES),
         "docs_url": "https://docs.github.com/en/rest/about-the-rest-api/about-the-rest-api",
         "base_url": "https://api.github.com",
@@ -239,7 +239,7 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
         "revoke_supported": True,
         "redirect_uri_required": False,
         "redirect_uri_readonly": False,
-        "scopes_locked": False,
+        "scopes_locked": True,
         "default_redirect_path": None,
         "required_fields": ["name", "access_token_input"],
         "setup_fields": [
@@ -251,7 +251,7 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
                 "required": True,
                 "secret": True,
             },
-            {"key": "scopes", "label": "Scopes", "input_type": "multiselect"},
+            {"key": "scopes", "label": "Detected scopes", "input_type": "multiselect", "readonly": True},
         ],
         "ui_copy": {
             "eyebrow": "GitHub",

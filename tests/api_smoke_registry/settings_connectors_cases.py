@@ -122,6 +122,14 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         response_assert=assert_json_response,
     ),
     list_case(
+        "connectors-github-repositories",
+        "GET",
+        "/api/v1/connectors/github-primary/github/repositories",
+        route_path="/api/v1/connectors/{connector_id}/github/repositories",
+        setup=connector_setup,
+        response_assert=assert_json_response,
+    ),
+    list_case(
         "connectors-activity-catalog",
         "GET",
         "/api/v1/connectors/activity-catalog",

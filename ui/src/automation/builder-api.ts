@@ -87,3 +87,19 @@ export const executeAutomationRequest = (automationId: string) =>
 
 export const deleteAutomationRequest = (automationId: string) =>
   requestJsonCompat(`/api/v1/automations/${automationId}`, { method: "DELETE" });
+
+export type GithubConnectorRepository = {
+  id: number | null;
+  name: string;
+  full_name: string;
+  owner: string;
+  private: boolean;
+  default_branch: string;
+};
+
+export const loadGithubConnectorRepositories = async (connectorId: string): Promise<GithubConnectorRepository[]> => {
+  const response = await requestJsonCompat<{ repositories: GithubConnectorRepository[] }>(
+    `/api/v1/connectors/${encodeURIComponent(connectorId)}/github/repositories`,
+  );
+  return Array.isArray(response.repositories) ? response.repositories : [];
+};

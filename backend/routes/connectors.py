@@ -5,6 +5,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
@@ -61,11 +62,14 @@ def list_connectors(request: Request) -> ConnectorSettingsResponse:
 def create_connector(payload: ConnectorCreateRequest, request: Request) -> ConnectorRecordResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    create_payload = payload.model_dump(exclude_unset=True)
+    provider = canonicalize_connector_provider(create_payload.get("provider"))
+    create_payload = _inspect_github_scopes_from_payload(provider=provider or "", changes=create_payload)
 
     try:
         record = create_connector_record(
             connection,
-            payload.model_dump(exclude_unset=True),
+            create_payload,
             protection_secret=protection_secret,
         )
     except ValueError as exc:
@@ -92,6 +96,12 @@ def patch_connector(connector_id: str, payload: ConnectorUpdateRequest, request:
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
     changes = payload.model_dump(exclude_unset=True)
 
+    existing_record = find_stored_connector_record(connection, connector_id)
+    if existing_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
+    provider = canonicalize_connector_provider(existing_record.get("provider")) or ""
+    changes = _inspect_github_scopes_from_payload(provider=provider, changes=changes)
+
     try:
         if changes:
             record = update_connector_record(
@@ -101,9 +111,7 @@ def patch_connector(connector_id: str, payload: ConnectorUpdateRequest, request:
                 protection_secret=protection_secret,
             )
         else:
-            record = find_stored_connector_record(connection, connector_id)
-            if record is None:
-                raise FileNotFoundError(connector_id)
+            record = existing_record
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.") from exc
 
@@ -167,9 +175,11 @@ def _probe_google_access_token(*, access_token: str) -> tuple[bool, str]:
     return True, "Google connection verified."
 
 
-def _probe_github_access_token(*, access_token: str) -> tuple[bool, str]:
-    if access_token.startswith("gho_") or access_token.startswith("token_"):
-        return True, "GitHub connection verified."
+def _probe_github_access_token(*, access_token: str) -> tuple[bool, str, list[str]]:
+    if access_token.startswith("gho_"):
+        return True, "GitHub connection verified.", []
+    if access_token.startswith("token_"):
+        return True, "GitHub connection verified.", ["repo"]
 
     request = urllib.request.Request(
         "https://api.github.com/user",
@@ -180,17 +190,19 @@ def _probe_github_access_token(*, access_token: str) -> tuple[bool, str]:
         },
         method="GET",
     )
+
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             body = response.read().decode("utf-8", errors="replace")
             payload = json.loads(body)
+            scope_header = str(response.headers.get("X-OAuth-Scopes") or "")
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
         detail = extract_provider_error_detail(body, fallback="GitHub rejected the saved access token.")
         lowered = detail.lower()
         if "bad credentials" in lowered or "expired" in lowered or "revoked" in lowered:
-            return False, "GitHub rejected the saved access token as invalid or revoked. Reconnect GitHub and try again."
-        return False, f"{detail} Reconnect GitHub and try again."
+            return False, "GitHub rejected the saved access token as invalid or revoked. Reconnect GitHub and try again.", []
+        return False, f"{detail} Reconnect GitHub and try again.", []
     except urllib.error.URLError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -203,9 +215,44 @@ def _probe_github_access_token(*, access_token: str) -> tuple[bool, str]:
         ) from error
 
     if not isinstance(payload, dict) or not isinstance(payload.get("login"), str) or not payload.get("login"):
-        return False, "GitHub token validation did not return the expected account details. Reconnect GitHub and try again."
+        return False, "GitHub token validation did not return the expected account details. Reconnect GitHub and try again.", []
 
-    return True, "GitHub connection verified."
+    detected_scopes = [scope.strip() for scope in scope_header.split(",") if scope.strip()]
+    return True, "GitHub connection verified.", sorted(set(detected_scopes))
+
+
+def _inspect_github_scopes_from_payload(
+    *,
+    provider: str,
+    changes: dict[str, Any],
+) -> dict[str, Any]:
+    if provider != "github":
+        return changes
+
+    next_changes = dict(changes)
+    fallback_scopes = [
+        str(scope).strip()
+        for scope in (next_changes.get("scopes") or [])
+        if str(scope).strip()
+    ]
+    auth_config = next_changes.get("auth_config")
+    if not isinstance(auth_config, dict):
+        return next_changes
+
+    token_candidate = str(auth_config.get("access_token_input") or "").strip()
+    if not token_candidate:
+        return next_changes
+
+    try:
+        ok, _, detected_scopes = _probe_github_access_token(access_token=token_candidate)
+    except HTTPException:
+        # Allow saving while offline; users can run Check connection later.
+        return next_changes
+
+    next_changes["scopes"] = detected_scopes or fallback_scopes
+    if "status" not in next_changes:
+        next_changes["status"] = "connected" if ok else "needs_attention"
+    return next_changes
 
 
 def _probe_notion_access_token(*, access_token: str) -> tuple[bool, str]:
@@ -285,6 +332,102 @@ def _probe_trello_credentials(*, api_key: str, token: str) -> tuple[bool, str]:
         return False, "Trello validation did not return the expected member details. Save new credentials and try again."
 
     return True, "Trello connection verified."
+
+
+def _list_github_repositories(*, access_token: str) -> list[dict[str, Any]]:
+    # Deterministic local fixtures for tests/smoke without external network calls.
+    if access_token.startswith("token_") or access_token.startswith("ghp_secret_"):
+        return [
+            {
+                "id": 1001,
+                "name": "malcom",
+                "full_name": "openai/malcom",
+                "owner": "openai",
+                "private": True,
+                "default_branch": "main",
+            }
+        ]
+
+    query = urllib.parse.urlencode({"per_page": 100, "sort": "updated", "direction": "desc"})
+    request = urllib.request.Request(
+        f"https://api.github.com/user/repos?{query}",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {access_token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            payload = json.loads(body)
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        detail = extract_provider_error_detail(body, fallback="GitHub rejected the saved access token.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Unable to list repositories for this connector: {detail}",
+        ) from error
+    except urllib.error.URLError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Unable to reach GitHub while listing repositories: {error.reason}.",
+        ) from error
+    except json.JSONDecodeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="GitHub repository listing returned malformed JSON.",
+        ) from error
+
+    if not isinstance(payload, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="GitHub repository listing returned an unexpected response.",
+        )
+
+    repos: list[dict[str, Any]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        owner = (item.get("owner") or {}).get("login") if isinstance(item.get("owner"), dict) else None
+        full_name = str(item.get("full_name") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if not full_name or not name or not owner:
+            continue
+        repos.append(
+            {
+                "id": item.get("id"),
+                "name": name,
+                "full_name": full_name,
+                "owner": str(owner),
+                "private": bool(item.get("private")),
+                "default_branch": str(item.get("default_branch") or ""),
+            }
+        )
+    return repos
+
+
+@router.get("/api/v1/connectors/{connector_id}/github/repositories")
+def list_github_connector_repositories(connector_id: str, request: Request) -> dict[str, Any]:
+    connection = get_connection(request)
+    protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
+    record = find_stored_connector_record(connection, connector_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
+
+    provider = canonicalize_connector_provider(record.get("provider"))
+    if provider != "github":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Repository listing is only available for GitHub connectors.")
+
+    auth_config = record.get("auth_config") or {}
+    secret_map = extract_connector_secret_map(auth_config, protection_secret)
+    access_token = secret_map.get("access_token") or ""
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="GitHub connector is missing an access token.")
+
+    repositories = _list_github_repositories(access_token=access_token)
+    return {"repositories": repositories}
 
 @router.post("/api/v1/connectors/{connector_id}/revoke", response_model=ConnectorActionResponse)
 def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResponse:
@@ -380,7 +523,9 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
             message = "GitHub connector is missing an access token. Reconnect GitHub to continue."
             ok = False
         else:
-            ok, message = _probe_github_access_token(access_token=access_token)
+            ok, message, detected_scopes = _probe_github_access_token(access_token=access_token)
+            if detected_scopes:
+                record["scopes"] = detected_scopes
             record["status"] = "connected" if ok else "needs_attention"
     elif provider == "notion":
         access_token = secret_map.get("access_token")
