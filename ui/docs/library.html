@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom - Documentation</title>
+    <title>Malcom - Documentation Library</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
-<body class="app-shell" data-section="docs" data-sidenav-item="sidenav-docs-home" data-shell-path-prefix="../">
+<body class="app-shell" data-section="docs" data-sidenav-item="sidenav-docs-library" data-shell-path-prefix="../">
     <div id="topnav"></div>
 
     <aside id="sidenav"></aside>
@@ -15,19 +15,19 @@
         <div class="content-shell">
             <div class="page-header section-header--page">
                 <div class="title-row">
-                    <h2 class="page-title section-header__title--page">Documentation</h2>
+                    <h2 class="page-title section-header__title--page">Documentation Library</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Articles are written in Markdown and stored as .md files in the docs/ directory at the project root. Use the Library to browse and edit articles.</p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Browse, search, and edit documentation articles. Articles are stored as Markdown files in the docs/ directory.</p>
             </div>
 
-            <div id="docs-homepage-root"></div>
+            <div id="docs-react-root"></div>
         </div>
     </main>
 
     <script type="module" src="../scripts/utils.js"></script>
     <script type="module" src="../scripts/log-store.js"></script>
     <script type="module" src="../scripts/navigation.js"></script>
-    <script type="module" src="../src/docs/main.tsx"></script>
+    <script type="module" src="../src/docs/library.tsx"></script>
 </body>
 </html>

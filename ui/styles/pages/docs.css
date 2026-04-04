@@ -255,3 +255,77 @@
   padding: 16px 0;
   font-size: 0.9rem;
 }
+
+/* Homepage */
+.docs-homepage-intro {
+  font-size: 0.9rem;
+  color: var(--color-text, #0f172a);
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+.docs-homepage-code {
+  font-family: SFMono-Regular, Consolas, Liberation Mono, monospace;
+  font-size: 0.85em;
+  background: var(--color-muted-bg, #f1f5f9);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.docs-homepage-features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.docs-homepage-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.875rem;
+  color: var(--color-text, #0f172a);
+}
+
+.docs-homepage-feature__icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.docs-homepage-feature p {
+  margin: 2px 0 0;
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.docs-homepage-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Create form */
+.docs-create-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.docs-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docs-create-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text, #0f172a);
+}
+
+.docs-create-required {
+  color: var(--color-error, #ef4444);
+}

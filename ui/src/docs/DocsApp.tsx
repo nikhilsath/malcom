@@ -3,11 +3,15 @@ import { requestJson } from "../lib/request";
 import type { DocArticle, DocArticleSummary } from "./types";
 import { DocViewer } from "./DocViewer";
 import { DocEditor } from "./DocEditor";
+import DocsCreateForm from "./DocsCreateForm";
 
-type AppView = "list" | "detail" | "edit";
+type AppView = "list" | "detail" | "edit" | "create";
 
 const DocsApp = () => {
-  const [view, setView] = useState<AppView>("list");
+  const initialView: AppView =
+    new URLSearchParams(window.location.search).get("create") === "1" ? "create" : "list";
+
+  const [view, setView] = useState<AppView>(initialView);
   const [articles, setArticles] = useState<DocArticleSummary[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<DocArticle | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,6 +36,13 @@ const DocsApp = () => {
   useEffect(() => {
     loadArticles();
   }, [loadArticles]);
+
+  useEffect(() => {
+    const createButton = document.getElementById("docs-create-button");
+    const handleCreate = () => setView("create");
+    createButton?.addEventListener("click", handleCreate);
+    return () => createButton?.removeEventListener("click", handleCreate);
+  }, []);
 
   const openArticle = useCallback((slug: string) => {
     setLoading(true);
@@ -79,6 +90,36 @@ const DocsApp = () => {
     [selectedArticle, loadArticles]
   );
 
+  const handleCreate = useCallback(
+    (fields: {
+      slug: string;
+      title: string;
+      summary: string;
+      tags: string[];
+      content: string;
+    }) => {
+      setLoading(true);
+      setError(null);
+      requestJson<DocArticle>("/api/v1/docs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...fields, is_ai_created: false })
+      })
+        .then((created) => {
+          setSelectedArticle(created);
+          setView("detail");
+          loadArticles();
+        })
+        .catch((err: Error) => {
+          setError(err.message || "Failed to create article.");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    },
+    [loadArticles]
+  );
+
   const filteredArticles = articles.filter((a) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -88,6 +129,16 @@ const DocsApp = () => {
       a.summary.toLowerCase().includes(q)
     );
   });
+
+  if (view === "create") {
+    return (
+      <DocsCreateForm
+        onSave={handleCreate}
+        onCancel={() => setView("list")}
+        saving={loading}
+      />
+    );
+  }
 
   if (view === "edit" && selectedArticle) {
     return (

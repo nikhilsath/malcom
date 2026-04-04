@@ -184,6 +184,11 @@
         "/docs",
         "/docs/"
       ]
+    },
+    {
+      "routePath": "/docs/library.html",
+      "sourceHtmlPath": "docs/library.html",
+      "serveMode": "served"
     }
   ]
 }
