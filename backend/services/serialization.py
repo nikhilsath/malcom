@@ -1,7 +1,8 @@
 """Row-to-response serializers for API, automation, and worker payloads.
 
-Primary identifiers: ``row_to_*`` mappers, ``worker_to_response``, and
-``claim_job_response`` used by route handlers and automation services.
+Primary identifiers: ``row_to_*`` mappers, ``worker_to_response``,
+``claim_job_response``, and outgoing delivery history helpers used by route
+handlers and automation services.
 """
 
 from __future__ import annotations
@@ -9,12 +10,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from backend.database import fetch_all
 from backend.runtime import RegisteredWorker, RuntimeTriggerJob
-from backend.schemas.apis import OutgoingApiDetailResponse, OutgoingAuthConfig
+from backend.schemas.apis import (
+    OutgoingApiDetailResponse,
+    OutgoingAuthConfig,
+    OutgoingDeliveryHistoryEntry,
+    OutgoingWebhookSigningConfig,
+)
 from backend.schemas.automation import AutomationStepConfig, AutomationStepDefinition
 from backend.schemas.workers import WorkerClaimResponse, WorkerClaimedJobResponse, WorkerResponse
 
 DatabaseRow = dict[str, Any]
+DatabaseConnection = Any
 
 
 def row_to_api_summary(row: DatabaseRow) -> dict[str, Any]:
@@ -146,7 +154,19 @@ def claim_job_response(job: RuntimeTriggerJob) -> WorkerClaimResponse:
     )
 
 
-def row_to_simple_api_resource(row: DatabaseRow, *, api_type: str, endpoint_path: str | None = None) -> dict[str, Any]:
+def row_to_simple_api_resource(
+    row: DatabaseRow,
+    *,
+    api_type: str,
+    endpoint_path: str | None = None,
+) -> dict[str, Any]:
+    webhook_signing_payload: dict[str, Any] = {}
+    if "webhook_signing_json" in row.keys():
+        try:
+            webhook_signing_payload = json.loads(row["webhook_signing_json"] or "{}")
+        except json.JSONDecodeError:
+            webhook_signing_payload = {}
+
     return {
         "id": row["id"],
         "type": api_type,
@@ -164,26 +184,124 @@ def row_to_simple_api_resource(row: DatabaseRow, *, api_type: str, endpoint_path
         "repeat_enabled": bool(row["repeat_enabled"]) if "repeat_enabled" in row.keys() else None,
         "repeat_interval_minutes": row["repeat_interval_minutes"] if "repeat_interval_minutes" in row.keys() else None,
         "payload_template": row["payload_template"] if "payload_template" in row.keys() else None,
+        "webhook_signing": OutgoingWebhookSigningConfig(**webhook_signing_payload) if webhook_signing_payload else None,
         "scheduled_time": row["scheduled_time"] if "scheduled_time" in row.keys() else None,
         "schedule_expression": row["schedule_expression"] if "schedule_expression" in row.keys() else None,
         "stream_mode": row["stream_mode"] if "stream_mode" in row.keys() else None,
+        "last_run_at": row["last_run_at"] if "last_run_at" in row.keys() else None,
+        "next_run_at": row["next_run_at"] if "next_run_at" in row.keys() else None,
+        "last_error": row["last_error"] if "last_error" in row.keys() else None,
         "callback_path": row["callback_path"] if "callback_path" in row.keys() else None,
         "signature_header": row["signature_header"] if "signature_header" in row.keys() else None,
         "event_filter": row["event_filter"] if "event_filter" in row.keys() else None,
         "has_verification_token": bool(row["verification_token"]) if "verification_token" in row.keys() else None,
         "has_signing_secret": bool(row["signing_secret"]) if "signing_secret" in row.keys() else None,
+        "last_received_at": row["last_received_at"] if "last_received_at" in row.keys() else None,
+        "last_delivery_status": row["last_delivery_status"] if "last_delivery_status" in row.keys() else None,
+        "events_count": int(row["events_count"]) if "events_count" in row.keys() and row["events_count"] is not None else None,
     }
 
 
-def row_to_outgoing_detail_response(row: DatabaseRow, *, api_type: str, endpoint_path: str) -> OutgoingApiDetailResponse:
+def list_outgoing_delivery_history(
+    connection: DatabaseConnection | None,
+    *,
+    resource_id: str,
+    resource_type: str,
+    limit: int = 10,
+) -> list[OutgoingDeliveryHistoryEntry]:
+    if connection is None:
+        return []
+
+    rows = fetch_all(
+        connection,
+        """
+        SELECT delivery_id, resource_type, resource_id, status, http_status_code, request_summary,
+               response_summary, error_summary, started_at, finished_at
+        FROM outgoing_delivery_history
+        WHERE resource_id = ? AND resource_type = ?
+        ORDER BY started_at DESC
+        LIMIT ?
+        """,
+        (resource_id, resource_type, limit),
+    )
+    return [OutgoingDeliveryHistoryEntry(**dict(row)) for row in rows]
+
+
+def record_outgoing_delivery_history(
+    connection: DatabaseConnection,
+    *,
+    delivery_id: str,
+    resource_type: str,
+    resource_id: str,
+    status_value: str,
+    http_status_code: int | None,
+    request_summary: str | None,
+    response_summary: str | None,
+    error_summary: str | None,
+    started_at: str,
+    finished_at: str | None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO outgoing_delivery_history (
+            delivery_id,
+            resource_type,
+            resource_id,
+            status,
+            http_status_code,
+            request_summary,
+            response_summary,
+            error_summary,
+            started_at,
+            finished_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            delivery_id,
+            resource_type,
+            resource_id,
+            status_value,
+            http_status_code,
+            request_summary,
+            response_summary,
+            error_summary,
+            started_at,
+            finished_at,
+        ),
+    )
+
+
+def row_to_outgoing_detail_response(
+    row: DatabaseRow,
+    *,
+    api_type: str,
+    endpoint_path: str,
+    connection: DatabaseConnection | None = None,
+) -> OutgoingApiDetailResponse:
     resource = row_to_simple_api_resource(row, api_type=api_type, endpoint_path=endpoint_path)
     auth_config_json = row["auth_config_json"] if "auth_config_json" in row.keys() else "{}"
+
     try:
         auth_config_payload = json.loads(auth_config_json or "{}")
     except json.JSONDecodeError:
         auth_config_payload = {}
+
     resource["auth_config"] = OutgoingAuthConfig(**auth_config_payload)
+    resource["recent_deliveries"] = (
+        list_outgoing_delivery_history(connection, resource_id=row["id"], resource_type=api_type)
+        if connection is not None
+        else []
+    )
     return OutgoingApiDetailResponse(**resource)
 
 
-__all__ = [name for name in globals() if name.startswith("row_to_") or name in {"worker_to_response", "claim_job_response"}]
+__all__ = [
+    name for name in globals()
+    if name.startswith("row_to_")
+    or name in {
+        "claim_job_response",
+        "list_outgoing_delivery_history",
+        "record_outgoing_delivery_history",
+        "worker_to_response",
+    }
+]
