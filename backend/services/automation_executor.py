@@ -42,7 +42,7 @@ from backend.services.automation_execution import (
     write_application_log,
     log_event,
 )
-from backend.services.workflow_storage import execute_file_write
+from backend.services.workflow_storage import execute_workflow_write
 from backend.services.automation_runs import (
     assign_automation_run_worker,
     calculate_duration_ms,
@@ -74,6 +74,10 @@ from backend.services.runtime_workers import (
     run_local_worker_loop,
     run_remote_worker_loop,
 )
+
+_DEFAULT_WORKFLOW_STORAGE_PATH = "backend/data/workflows"
+_DEFAULT_STORAGE_TYPE = "json"
+_DEFAULT_STORAGE_TARGET = "output"
 
 
 def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
@@ -219,17 +223,27 @@ def _execute_automation_step_impl(
         if getattr(step.config, "storage_type", None) or getattr(step.config, "storage_target", None):
             try:
                 settings_payload = get_settings_payload(connection)
-                configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path")
+                configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or _DEFAULT_WORKFLOW_STORAGE_PATH
             except Exception:
-                configured_path = None
-            return execute_file_write(
-                logger,
-                automation_id=automation_id,
-                step=step,
-                context=context,
-                root_dir=root_dir,
-                configured_path=configured_path,
+                configured_path = _DEFAULT_WORKFLOW_STORAGE_PATH
+            storage_type = getattr(step.config, "storage_type", None) or _DEFAULT_STORAGE_TYPE
+            storage_target = getattr(step.config, "storage_target", None) or _DEFAULT_STORAGE_TARGET
+            new_file = getattr(step.config, "storage_new_file", True)
+            raw_payload = render_template_string(step.config.message or "{}", context)
+            try:
+                payload: Any = json.loads(raw_payload)
+            except (ValueError, TypeError):
+                payload = raw_payload
+            result = execute_workflow_write(
+                root_dir,
+                configured_path,
+                storage_type,
+                storage_target,
+                payload,
+                new_file=new_file,
             )
+            summary = f"Wrote {storage_type} to {result.get('file', storage_target)}"
+            return RuntimeExecutionResult(status="completed", response_summary=summary, detail=result, output=result)
         message = render_template_string(step.config.message, context)
         write_application_log(
             logger,

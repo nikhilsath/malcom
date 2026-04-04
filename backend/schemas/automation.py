@@ -198,6 +198,14 @@ class RuntimeStatusResponse(BaseModel):
     job_count: int
 
 
+class AutomationBuilderMetadataResponse(BaseModel):
+    trigger_types: list[dict[str, Any]]
+    step_types: list[dict[str, Any]]
+    http_methods: list[dict[str, Any]]
+    storage_types: list[dict[str, Any]]
+    log_column_types: list[dict[str, Any]]
+
+
 # ── Log / Write-to-DB table management models ────────────────────────────────
 
 _ALLOWED_COLUMN_TYPES = {"text", "integer", "real", "boolean", "timestamp"}
@@ -268,6 +276,7 @@ class LogDbRowsResponse(BaseModel):
 
 
 __all__ = [
+    "AutomationBuilderMetadataResponse",
     "AutomationCreate",
     "AutomationDetailResponse",
     "AutomationRunDetailResponse",

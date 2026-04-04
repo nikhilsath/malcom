@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 
@@ -542,3 +543,15 @@ def fetch_one(connection: Any, query: str, params: Sequence[Any] = ()) -> Mappin
 
 def fetch_all(connection: Any, query: str, params: Sequence[Any] = ()) -> list[Mapping[str, Any]]:
     return connection.execute(query, tuple(params)).fetchall()
+
+
+def run_migrations(*, database_url: str) -> None:
+    """Run Alembic migrations to head against the given database URL."""
+    from alembic import command
+    from alembic.config import Config
+
+    project_root = Path(__file__).parent.parent
+    cfg = Config(str(project_root / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", database_url)
+    cfg.set_main_option("script_location", str(project_root / "backend" / "migrations"))
+    command.upgrade(cfg, "head")

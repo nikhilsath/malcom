@@ -161,6 +161,12 @@ class ConnectorActionResponse(BaseModel):
     connector: ConnectorRecordResponse
 
 
+class ConnectorDeleteResponse(BaseModel):
+    ok: bool
+    message: str
+    connector_id: str
+
+
 class ConnectorOAuthStartRequest(BaseModel):
     connector_id: str = Field(min_length=1, max_length=120)
     name: str = Field(min_length=1, max_length=120)
@@ -185,6 +191,34 @@ class ConnectorOAuthCallbackResponse(BaseModel):
     connector: ConnectorRecordResponse
 
 
+class SettingsBackupMetadata(BaseModel):
+    filename: str
+    path: str
+    created_at: str
+    size_bytes: int
+
+
+class SettingsCreateBackupResponse(BaseModel):
+    ok: bool
+    message: str
+    backup: SettingsBackupMetadata | None = None
+
+
+class SettingsListBackupsResponse(BaseModel):
+    directory: str
+    backups: list[SettingsBackupMetadata]
+
+
+class SettingsBackupRestoreRequest(BaseModel):
+    filename: str
+
+
+class SettingsBackupRestoreResponse(BaseModel):
+    ok: bool
+    message: str
+    restored_at: str | None = None
+
+
 __all__ = [
     "AutomationSettings",
     "AppSettingsResponse",
@@ -193,6 +227,7 @@ __all__ = [
     "ConnectorAuthConfigResponse",
     "ConnectorAuthConfigUpdate",
     "ConnectorAuthPolicy",
+    "ConnectorDeleteResponse",
     "ConnectorOAuthCallbackResponse",
     "ConnectorOAuthStartRequest",
     "ConnectorOAuthStartResponse",
@@ -206,4 +241,9 @@ __all__ = [
     "LoggingSettings",
     "NotificationSettings",
     "SecuritySettings",
+    "SettingsBackupMetadata",
+    "SettingsBackupRestoreRequest",
+    "SettingsBackupRestoreResponse",
+    "SettingsCreateBackupResponse",
+    "SettingsListBackupsResponse",
 ]
