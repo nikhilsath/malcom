@@ -35,10 +35,8 @@ const PROVIDER_PANEL_ELEMENTS = {
     lastChecked: connectorElements.githubLastChecked,
     nameInput: connectorElements.githubNameInput,
     providerInput: connectorElements.githubProviderInput,
-    clientIdInput: connectorElements.githubClientIdInput,
-    clientSecretInput: connectorElements.githubClientSecretInput,
+    accessTokenInput: connectorElements.githubAccessTokenInput,
     scopesInput: connectorElements.githubScopesInput,
-    redirectUriInput: connectorElements.githubRedirectUriInput
   },
   notion: {
     panel: connectorElements.notionSetupPanel,
@@ -60,8 +58,9 @@ const PROVIDER_PANEL_ELEMENTS = {
     lastChecked: connectorElements.trelloLastChecked,
     nameInput: connectorElements.trelloNameInput,
     providerInput: connectorElements.trelloProviderInput,
-    apiKeyInput: connectorElements.trelloApiKeyInput,
-    accessTokenInput: connectorElements.trelloAccessTokenInput
+    clientIdInput: connectorElements.trelloClientIdInput,
+    clientSecretInput: connectorElements.trelloClientSecretInput,
+    redirectUriInput: connectorElements.trelloRedirectUriInput
   }
 };
 
@@ -161,6 +160,9 @@ const clearProviderPanelInputs = () => {
     Object.values(elements).forEach((element) => {
       if (element instanceof HTMLInputElement) {
         element.value = "";
+      }
+      if (element instanceof HTMLSelectElement) {
+        element.innerHTML = "";
       }
     });
   });
@@ -470,9 +472,22 @@ export const renderDetail = () => {
       const scopes = providerMetadata?.scopes_locked
         ? getDefaultScopesForProvider(record.provider, preset)
         : (record.scopes || []);
-      panelElements.scopesInput.value = scopes.join(", ");
-      panelElements.scopesInput.readOnly = Boolean(providerMetadata?.scopes_locked);
-      panelElements.scopesInput.classList.toggle("api-form-input--locked", Boolean(providerMetadata?.scopes_locked));
+      const scopeOptions = (preset?.recommended_scopes?.length ? preset.recommended_scopes : preset?.default_scopes || []);
+      if (panelElements.scopesInput instanceof HTMLSelectElement) {
+        const optionValues = Array.from(new Set([...scopeOptions, ...scopes]));
+        panelElements.scopesInput.innerHTML = optionValues
+          .map((scope) => `<option value="${scope}">${scope}</option>`)
+          .join("");
+        Array.from(panelElements.scopesInput.options).forEach((option) => {
+          option.selected = scopes.includes(option.value);
+        });
+        panelElements.scopesInput.disabled = Boolean(providerMetadata?.scopes_locked);
+        panelElements.scopesInput.classList.toggle("api-form-input--locked", Boolean(providerMetadata?.scopes_locked));
+      } else {
+        panelElements.scopesInput.value = scopes.join(", ");
+        panelElements.scopesInput.readOnly = Boolean(providerMetadata?.scopes_locked);
+        panelElements.scopesInput.classList.toggle("api-form-input--locked", Boolean(providerMetadata?.scopes_locked));
+      }
     }
     if (panelElements.redirectUriInput) {
       const redirectUri = record.auth_config?.redirect_uri

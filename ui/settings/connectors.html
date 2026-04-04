@@ -239,7 +239,7 @@
                                 <p id="settings-connectors-github-setup-eyebrow" class="section-header__eyebrow">GitHub status</p>
                                 <span id="settings-connectors-github-status-badge" class="status-badge status-badge--muted">Draft</span>
                             </div>
-                            <p id="settings-connectors-github-status-message" class="settings-connectors-provider-status-message">Add your GitHub OAuth app details to begin.</p>
+                            <p id="settings-connectors-github-status-message" class="settings-connectors-provider-status-message">Add a GitHub personal access token to begin.</p>
                             <p id="settings-connectors-github-last-checked" class="settings-connectors-provider-last-checked">GitHub connection has not been checked yet.</p>
                         </section>
                         <section id="settings-connectors-github-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
@@ -251,21 +251,13 @@
                                 <span id="settings-connectors-github-provider-label" class="api-form-label">Provider</span>
                                 <input id="settings-connectors-github-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
                             </label>
-                            <label id="settings-connectors-github-client-id-field" class="api-form-field">
-                                <span id="settings-connectors-github-client-id-label" class="api-form-label">Client ID</span>
-                                <input id="settings-connectors-github-client-id-input" class="api-form-input" type="text" maxlength="255">
-                            </label>
-                            <label id="settings-connectors-github-client-secret-field" class="api-form-field">
-                                <span id="settings-connectors-github-client-secret-label" class="api-form-label">Client secret</span>
-                                <input id="settings-connectors-github-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            <label id="settings-connectors-github-access-token-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-github-access-token-label" class="api-form-label">Personal access token</span>
+                                <input id="settings-connectors-github-access-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
                             </label>
                             <label id="settings-connectors-github-scopes-field" class="api-form-field api-form-field--full">
                                 <span id="settings-connectors-github-scopes-label" class="api-form-label">Scopes</span>
-                                <input id="settings-connectors-github-scopes-input" class="api-form-input" type="text" maxlength="1000" placeholder="repo, read:user">
-                            </label>
-                            <label id="settings-connectors-github-redirect-uri-field" class="api-form-field api-form-field--full">
-                                <span id="settings-connectors-github-redirect-uri-label" class="api-form-label">Redirect URI</span>
-                                <input id="settings-connectors-github-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
+                                <select id="settings-connectors-github-scopes-input" class="api-form-input" multiple size="8"></select>
                             </label>
                         </section>
                         <section id="settings-connectors-notion-setup-panel" class="card settings-connectors-provider-setup-panel" hidden>
@@ -303,7 +295,7 @@
                                 <p id="settings-connectors-trello-setup-eyebrow" class="section-header__eyebrow">Trello status</p>
                                 <span id="settings-connectors-trello-status-badge" class="status-badge status-badge--muted">Draft</span>
                             </div>
-                            <p id="settings-connectors-trello-status-message" class="settings-connectors-provider-status-message">Add your Trello API key and token to begin.</p>
+                            <p id="settings-connectors-trello-status-message" class="settings-connectors-provider-status-message">Add your Trello OAuth app details to begin.</p>
                             <p id="settings-connectors-trello-last-checked" class="settings-connectors-provider-last-checked">Trello connection has not been checked yet.</p>
                         </section>
                         <section id="settings-connectors-trello-form-grid" class="api-form-grid settings-connectors-provider-form-grid" hidden>
@@ -315,13 +307,17 @@
                                 <span id="settings-connectors-trello-provider-label" class="api-form-label">Provider</span>
                                 <input id="settings-connectors-trello-provider-input" class="api-form-input api-form-input--locked" type="text" readonly>
                             </label>
-                            <label id="settings-connectors-trello-api-key-field" class="api-form-field api-form-field--full">
-                                <span id="settings-connectors-trello-api-key-label" class="api-form-label">API key</span>
-                                <input id="settings-connectors-trello-api-key-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            <label id="settings-connectors-trello-client-id-field" class="api-form-field">
+                                <span id="settings-connectors-trello-client-id-label" class="api-form-label">Client ID</span>
+                                <input id="settings-connectors-trello-client-id-input" class="api-form-input" type="text" maxlength="255">
                             </label>
-                            <label id="settings-connectors-trello-access-token-field" class="api-form-field api-form-field--full">
-                                <span id="settings-connectors-trello-access-token-label" class="api-form-label">Token</span>
-                                <input id="settings-connectors-trello-access-token-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            <label id="settings-connectors-trello-client-secret-field" class="api-form-field">
+                                <span id="settings-connectors-trello-client-secret-label" class="api-form-label">Client secret</span>
+                                <input id="settings-connectors-trello-client-secret-input" class="api-form-input" type="password" maxlength="500" autocomplete="off">
+                            </label>
+                            <label id="settings-connectors-trello-redirect-uri-field" class="api-form-field api-form-field--full">
+                                <span id="settings-connectors-trello-redirect-uri-label" class="api-form-label">Redirect URI</span>
+                                <input id="settings-connectors-trello-redirect-uri-input" class="api-form-input api-form-input--locked" type="url" maxlength="2000" readonly>
                             </label>
                         </section>
                         <div id="settings-connectors-form-grid" class="api-form-grid">

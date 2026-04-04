@@ -32,12 +32,18 @@ class SecuritySettings(BaseModel):
 
 class DataSettings(BaseModel):
     payload_redaction: bool
-    export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
     workflow_storage_path: str = Field(default="backend/data/workflows")
 
 
 class AutomationSettings(BaseModel):
     default_tool_retries: int = Field(ge=0, le=10)
+
+
+class ProxySettings(BaseModel):
+    domain: str = Field(default="", max_length=253)
+    http_port: int = Field(default=80, ge=1, le=65535)
+    https_port: int = Field(default=443, ge=1, le=65535)
+    enabled: bool = False
 
 
 class ConnectorProviderPresetResponse(BaseModel):
@@ -55,7 +61,7 @@ class ConnectorProviderPresetResponse(BaseModel):
 class ConnectorProviderSetupFieldResponse(BaseModel):
     key: str
     label: str
-    input_type: Literal["text", "password", "url"]
+    input_type: Literal["text", "password", "url", "multiselect"]
     required: bool = False
     secret: bool = False
     readonly: bool = False
@@ -223,13 +229,14 @@ class AppSettingsResponse(BaseModel):
     security: SecuritySettings
     data: DataSettings
     automation: AutomationSettings
+    proxy: ProxySettings
     options: "AppSettingsOptionsResponse"
 
 
 class AppSettingsOptionsResponse(BaseModel):
     notification_channels: list[SettingsOptionValueResponse]
     notification_digests: list[SettingsOptionValueResponse]
-    data_export_windows: list[SettingsOptionValueResponse]
+    # `data_export_windows` removed — export scheduling not supported
 
 
 class AppSettingsUpdate(BaseModel):
@@ -239,6 +246,7 @@ class AppSettingsUpdate(BaseModel):
     security: SecuritySettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
+    proxy: ProxySettings | None = None
 
 
 class ConnectorActionResponse(BaseModel):
@@ -335,6 +343,7 @@ __all__ = [
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
+    "ProxySettings",
     "SecuritySettings",
     "SettingsOptionValueResponse",
 ]

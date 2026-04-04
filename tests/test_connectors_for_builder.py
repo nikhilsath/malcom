@@ -83,7 +83,7 @@ class ConnectorsForBuilderTestCase(unittest.TestCase):
                 "provider": "github",
                 "status": "draft",
                 "name": "Draft",
-                "auth_type": "oauth2",
+                "auth_type": "bearer",
                 "scopes": [],
             }
         )

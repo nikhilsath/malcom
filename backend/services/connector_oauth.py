@@ -17,9 +17,8 @@ from backend.services.connector_google_oauth_client import (
     refresh_google_access_token,
 )
 from backend.services.connector_oauth_provider_clients import (
-    exchange_github_oauth_code_for_tokens,
     exchange_notion_oauth_code_for_tokens,
-    refresh_github_access_token,
+    exchange_trello_oauth_code_for_tokens,
     refresh_notion_access_token,
 )
 from backend.runtime import parse_iso_datetime
@@ -70,10 +69,10 @@ def _require_valid_redirect_uri(redirect_uri: str, *, provider_name: str) -> str
 def _get_provider_oauth_handlers(provider: str) -> tuple[Any, Any]:
     """Get provider-specific OAuth code exchange and refresh handlers."""
     canonical = canonicalize_connector_provider(provider)
-    if canonical == "github":
-        return exchange_github_oauth_code_for_tokens, refresh_github_access_token
     if canonical == "notion":
         return exchange_notion_oauth_code_for_tokens, refresh_notion_access_token
+    if canonical == "trello":
+        return exchange_trello_oauth_code_for_tokens, None
     return None, None
 
 
@@ -133,21 +132,38 @@ def start_connector_oauth(
                 env_secret = (os.getenv("MALCOM_GOOGLE_OAUTH_CLIENT_SECRET") or "").strip()
                 if env_secret:
                     resolved_client_secret_input = env_secret
-    elif canonical_provider == "github":
+    elif canonical_provider == "notion":
         if not resolved_client_id:
-            resolved_client_id = (os.getenv("MALCOM_GITHUB_OAUTH_CLIENT_ID") or "").strip()
+            resolved_client_id = (os.getenv("MALCOM_NOTION_OAUTH_CLIENT_ID") or "").strip()
         if not resolved_client_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
-                    "GitHub OAuth client_id is required. Configure connector client_id, "
-                    "or set MALCOM_GITHUB_OAUTH_CLIENT_ID."
+                    "Notion OAuth client_id is required. Configure connector client_id, "
+                    "or set MALCOM_NOTION_OAUTH_CLIENT_ID."
                 ),
             )
         if not (resolved_client_secret_input or "").strip():
             has_stored_secret = bool((existing_secret_map.get("client_secret") or "").strip())
             if not has_stored_secret:
-                env_secret = (os.getenv("MALCOM_GITHUB_OAUTH_CLIENT_SECRET") or "").strip()
+                env_secret = (os.getenv("MALCOM_NOTION_OAUTH_CLIENT_SECRET") or "").strip()
+                if env_secret:
+                    resolved_client_secret_input = env_secret
+    elif canonical_provider == "trello":
+        if not resolved_client_id:
+            resolved_client_id = (os.getenv("MALCOM_TRELLO_OAUTH_CLIENT_ID") or "").strip()
+        if not resolved_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(
+                    "Trello OAuth client_id is required. Configure connector client_id, "
+                    "or set MALCOM_TRELLO_OAUTH_CLIENT_ID."
+                ),
+            )
+        if not (resolved_client_secret_input or "").strip():
+            has_stored_secret = bool((existing_secret_map.get("client_secret") or "").strip())
+            if not has_stored_secret:
+                env_secret = (os.getenv("MALCOM_TRELLO_OAUTH_CLIENT_SECRET") or "").strip()
                 if env_secret:
                     resolved_client_secret_input = env_secret
     elif not resolved_client_id:
@@ -156,14 +172,14 @@ def start_connector_oauth(
             detail=f"{provider_name} OAuth client_id is required.",
         )
 
-    if canonical_provider in {"github", "notion"}:
+    if canonical_provider == "notion":
         has_client_secret = bool((resolved_client_secret_input or "").strip()) or bool((existing_secret_map.get("client_secret") or "").strip())
         if not has_client_secret:
             detail = f"{provider_name} OAuth client_secret is required."
-            if canonical_provider == "github":
+            if canonical_provider == "notion":
                 detail = (
-                    "GitHub OAuth client_secret is required. Configure connector client_secret, "
-                    "or set MALCOM_GITHUB_OAUTH_CLIENT_SECRET."
+                    "Notion OAuth client_secret is required. Configure connector client_secret, "
+                    "or set MALCOM_NOTION_OAUTH_CLIENT_SECRET."
                 )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -312,11 +328,17 @@ def complete_connector_oauth(
             client_id=client_id,
             client_secret=secret_map.get("client_secret"),
         )
-    elif canonical_provider == "github":
+    elif canonical_provider == "notion":
         client_secret = secret_map.get("client_secret")
         if not client_secret:
             oauth_states_dict.pop(state, None)
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub OAuth configuration is incomplete: client_secret is required.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Notion OAuth configuration is incomplete: client_secret is required. "
+                    "Configure connector client_secret or MALCOM_NOTION_OAUTH_CLIENT_SECRET, then restart OAuth."
+                ),
+            )
         exchange_fn, _ = _get_provider_oauth_handlers(canonical_provider)
         if not exchange_fn:
             oauth_states_dict.pop(state, None)
@@ -328,11 +350,7 @@ def complete_connector_oauth(
             client_id=client_id,
             client_secret=client_secret,
         )
-    elif canonical_provider == "notion":
-        client_secret = secret_map.get("client_secret")
-        if not client_secret:
-            oauth_states_dict.pop(state, None)
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion OAuth configuration is incomplete: client_secret is required.")
+    elif canonical_provider == "trello":
         exchange_fn, _ = _get_provider_oauth_handlers(canonical_provider)
         if not exchange_fn:
             oauth_states_dict.pop(state, None)
@@ -342,7 +360,7 @@ def complete_connector_oauth(
             code_verifier=code_verifier,
             redirect_uri=redirect_uri,
             client_id=client_id,
-            client_secret=client_secret,
+            client_secret=secret_map.get("client_secret"),
         )
     else:
         oauth_states_dict.pop(state, None)
@@ -356,7 +374,7 @@ def complete_connector_oauth(
     incoming_scopes = [item for item in re.split(r"[\s,]+", resolved_scope or "") if item]
     if incoming_scopes:
         record["scopes"] = incoming_scopes
-    expires_at_str = _resolve_token_expiry(token_payload, default_seconds=3600 if canonical_provider in {"google", "github"} else None)
+    expires_at_str = _resolve_token_expiry(token_payload, default_seconds=3600 if canonical_provider == "google" else None)
     refresh_token = token_payload.get("refresh_token") if isinstance(token_payload.get("refresh_token"), str) else None
     access_token = token_payload.get("access_token") if isinstance(token_payload.get("access_token"), str) else None
     record["auth_config"] = normalize_connector_auth_config_for_storage(
@@ -425,24 +443,17 @@ def refresh_oauth_token(
             client_id=client_id,
             client_secret=secret_map.get("client_secret"),
         )
-    elif provider == "github":
-        client_id = auth_config.get("client_id")
-        client_secret = secret_map.get("client_secret")
-        if not client_id or not client_secret:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="GitHub refresh requires both client_id and client_secret.")
-        _, refresh_fn = _get_provider_oauth_handlers(provider)
-        if not refresh_fn:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{provider_name} does not support token refresh.")
-        token_payload = refresh_fn(
-            refresh_token=secret_map["refresh_token"],
-            client_id=client_id,
-            client_secret=client_secret,
-        )
     elif provider == "notion":
         client_id = auth_config.get("client_id")
         client_secret = secret_map.get("client_secret")
         if not client_id or not client_secret:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Notion refresh requires both client_id and client_secret.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Notion refresh requires both client_id and client_secret. "
+                    "Configure connector client_secret or MALCOM_NOTION_OAUTH_CLIENT_SECRET and reconnect if needed."
+                ),
+            )
         _, refresh_fn = _get_provider_oauth_handlers(provider)
         if not refresh_fn:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{provider_name} does not support token refresh.")
@@ -456,7 +467,7 @@ def refresh_oauth_token(
 
     access_token = token_payload.get("access_token") if isinstance(token_payload.get("access_token"), str) else None
     refresh_token = token_payload.get("refresh_token") if isinstance(token_payload.get("refresh_token"), str) else None
-    expires_at_str = _resolve_token_expiry(token_payload, default_seconds=3600 if provider in {"google", "github"} else None)
+    expires_at_str = _resolve_token_expiry(token_payload, default_seconds=3600 if provider == "google" else None)
 
     now = utc_now_iso()
     record["status"] = "connected"

@@ -43,7 +43,7 @@ class ConnectorsForBuilderExtraTestCase(unittest.TestCase):
                 "provider": "github",
                 "name": "Repo Connector",
                 "status": "connected",
-                "auth_type": "oauth2",
+                "auth_type": "bearer",
                 "scopes": ["repo"],
                 "owner": "workspace_42",
             }

@@ -724,10 +724,9 @@ Rule of thumb:
 Connector onboarding behavior:
 
 - Start first-party connector setup from the provider's `Connect` control on the Connectors page.
-- Google, GitHub, Notion, and Trello use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
-- GitHub OAuth can read `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET` when the setup form omits them; the GitHub OAuth app redirect URI should point to `/api/v1/connectors/github/oauth/callback`.
+- Google, Notion, and Trello use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
+- GitHub uses PAT-based onboarding. Save a personal access token directly from the Connectors page, select the required scopes from the multi-select list, then run Check connection.
 - Notion OAuth requires a client secret for exchange, refresh, and revoke. It can read `MALCOM_NOTION_OAUTH_CLIENT_ID` and `MALCOM_NOTION_OAUTH_CLIENT_SECRET` when the setup form omits them; the Notion integration redirect URI should point to `/api/v1/connectors/notion/oauth/callback`.
-- Trello OAuth can read `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` when the setup form omits them; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
 - Trello OAuth can read `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` when the setup form omits them; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
   Trello does not provide long-lived refresh tokens in the current connector contract; refresh attempts will return `409` and must be handled by reconnecting the provider.
 - Google and GitHub both expose deeper workflow-builder catalogs with provider-aware connector actions and reusable HTTP presets across their major service areas.

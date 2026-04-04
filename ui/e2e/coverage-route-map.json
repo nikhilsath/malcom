@@ -58,18 +58,6 @@
       ]
     },
     {
-      "routePath": "/settings/access.html",
-      "workflowContract": "Saves access control values for session timeout, dual approval, and token rotation, then restores defaults.",
-      "owners": [
-        {
-          "spec": "ui/e2e/settings.spec.ts",
-          "testIds": [
-            "saves access controls and restores the defaults"
-          ]
-        }
-      ]
-    },
-    {
       "routePath": "/settings/connectors.html",
       "workflowContract": "Exercises guided connector onboarding, lifecycle actions, OAuth callback handling, and connector list hydration.",
       "owners": [
@@ -77,9 +65,9 @@
           "spec": "ui/e2e/connectors.spec.ts",
           "testIds": [
             "google OAuth draft can be created and returned through the callback UX",
-            "github OAuth setup supports guided authorization and lifecycle actions",
+            "github PAT setup supports save, test, and revoke actions",
             "notion OAuth setup uses the provider-specific guided flow",
-            "trello credential setup uses provider-specific save, test, and revoke actions",
+            "trello OAuth setup uses provider-specific guided authorization and lifecycle actions",
             "invalid OAuth return surfaces an error without mutating the registry",
             "populates connectors from the API-backed harness payload"
           ]

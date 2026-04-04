@@ -97,20 +97,13 @@ class ConnectorOAuthServiceTestCase(unittest.TestCase):
             self.assertEqual(ctx.exception.status_code, 422)
             self.assertIn("client_id is required", ctx.exception.detail)
 
-    def test_start_connector_oauth_uses_github_environment_client_credentials(self) -> None:
+    def test_start_connector_oauth_rejects_github_for_pat_contract(self) -> None:
         oauth_states_dict = {}
         from backend.services.support import get_connector_protection_secret
         protection_secret = get_connector_protection_secret(root_dir=self.root_dir, db_path=":memory:")
 
-        with patch.dict(
-            "os.environ",
-            {
-                "MALCOM_GITHUB_OAUTH_CLIENT_ID": "github-env-client-id",
-                "MALCOM_GITHUB_OAUTH_CLIENT_SECRET": "github-env-client-secret",
-            },
-            clear=False,
-        ):
-            response = start_connector_oauth(
+        with self.assertRaises(HTTPException) as ctx:
+            start_connector_oauth(
                 provider="github",
                 connector_id="github-env-test",
                 name="Test GitHub",
@@ -125,33 +118,39 @@ class ConnectorOAuthServiceTestCase(unittest.TestCase):
                 oauth_states_dict=oauth_states_dict,
             )
 
-        self.assertEqual(response.connector.status, "pending_oauth")
-        self.assertIn("client_id=github-env-client-id", response.authorization_url)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(
+            ctx.exception.detail,
+            "GitHub uses saved credentials and does not support OAuth browser setup.",
+        )
 
-    def test_complete_and_refresh_github_oauth_with_demo_code(self) -> None:
+    def test_complete_trello_oauth_with_demo_code_and_no_refresh(self) -> None:
         oauth_states_dict = {}
         from backend.services.support import get_connector_protection_secret
         protection_secret = get_connector_protection_secret(root_dir=self.root_dir, db_path=":memory:")
 
         start_response = start_connector_oauth(
-            provider="github",
-            connector_id="github-test",
-            name="Test GitHub",
+            provider="trello",
+            connector_id="trello-test",
+            name="Test Trello",
             owner="TestUser",
-            client_id="github-client-id",
-            client_secret_input="github-client-secret",
+            client_id="trello-client-id",
+            client_secret_input="",
             redirect_uri="http://localhost/callback",
-            scopes=["repo", "read:user"],
+            scopes=["read", "write"],
             connection=self.connection,
             root_dir=self.root_dir,
             protection_secret=protection_secret,
             oauth_states_dict=oauth_states_dict,
         )
 
+        self.assertEqual(start_response.connector.status, "pending_oauth")
+        self.assertIn("trello.com/1/authorize", start_response.authorization_url)
+
         callback_response = complete_connector_oauth(
-            provider="github",
+            provider="trello",
             state=start_response.state,
-            code="demo-github",
+            code="demo-trello",
             error=None,
             scope=None,
             connection=self.connection,
@@ -162,19 +161,18 @@ class ConnectorOAuthServiceTestCase(unittest.TestCase):
 
         self.assertTrue(callback_response.ok)
         self.assertEqual(callback_response.connector.status, "connected")
-        self.assertTrue(callback_response.connector.auth_config.has_refresh_token)
+        self.assertFalse(callback_response.connector.auth_config.has_refresh_token)
 
-        success, message, sanitized = refresh_oauth_token(
-            connector_id="github-test",
-            connection=self.connection,
-            root_dir=self.root_dir,
-            protection_secret=protection_secret,
-        )
+        with self.assertRaises(HTTPException) as ctx:
+            refresh_oauth_token(
+                connector_id="trello-test",
+                connection=self.connection,
+                root_dir=self.root_dir,
+                protection_secret=protection_secret,
+            )
 
-        self.assertTrue(success)
-        self.assertEqual(message, "GitHub token refreshed.")
-        self.assertEqual(sanitized["status"], "connected")
-        self.assertTrue(sanitized["auth_config"]["has_refresh_token"])
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.detail, "Trello does not support token refresh.")
 
     def test_complete_connector_oauth_with_code_exchange(self) -> None:
         """Test completing OAuth flow with demo code exchange."""

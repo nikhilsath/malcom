@@ -76,6 +76,43 @@ GOOGLE_RECOMMENDED_SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/drive.file",
 ]
+GITHUB_AVAILABLE_SCOPES = [
+    "repo",
+    "repo:status",
+    "repo_deployment",
+    "public_repo",
+    "repo:invite",
+    "security_events",
+    "admin:repo_hook",
+    "write:repo_hook",
+    "read:repo_hook",
+    "admin:org",
+    "write:org",
+    "read:org",
+    "admin:public_key",
+    "write:public_key",
+    "read:public_key",
+    "admin:org_hook",
+    "gist",
+    "notifications",
+    "user",
+    "read:user",
+    "user:email",
+    "user:follow",
+    "delete_repo",
+    "write:discussion",
+    "read:discussion",
+    "write:packages",
+    "read:packages",
+    "delete:packages",
+    "workflow",
+    "admin:gpg_key",
+    "write:gpg_key",
+    "read:gpg_key",
+    "admin:ssh_signing_key",
+    "write:ssh_signing_key",
+    "read:ssh_signing_key",
+]
 CONNECTOR_REQUEST_AUTH_TYPE_MAP = {
     "oauth2": "bearer",
     "bearer": "bearer",
@@ -117,11 +154,11 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
     {
         "id": "github",
         "name": "GitHub",
-        "description": "Use repository, issue, and workflow APIs.",
+        "description": "Use repository, issue, and workflow APIs with a GitHub personal access token.",
         "category": "developer",
-        "auth_types": ["oauth2", "bearer"],
+        "auth_types": ["bearer"],
         "default_scopes": ["repo", "read:user"],
-        "recommended_scopes": ["repo", "read:user"],
+        "recommended_scopes": list(GITHUB_AVAILABLE_SCOPES),
         "docs_url": "https://docs.github.com/en/rest/about-the-rest-api/about-the-rest-api",
         "base_url": "https://api.github.com",
     },
@@ -141,9 +178,9 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "name": "Trello",
         "description": "Create and update boards, lists, and cards.",
         "category": "project_management",
-        "auth_types": ["api_key", "header"],
-        "default_scopes": [],
-        "recommended_scopes": [],
+        "auth_types": ["oauth2", "header"],
+        "default_scopes": ["read", "write"],
+        "recommended_scopes": ["read", "write"],
         "docs_url": "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
         "base_url": "https://api.trello.com/1",
     },
@@ -195,44 +232,48 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
     {
         "id": "github",
         "name": "GitHub",
-        "onboarding_mode": "oauth",
-        "oauth_supported": True,
-        "callback_supported": True,
-        "refresh_supported": True,
+        "onboarding_mode": "credentials",
+        "oauth_supported": False,
+        "callback_supported": False,
+        "refresh_supported": False,
         "revoke_supported": True,
-        "redirect_uri_required": True,
-        "redirect_uri_readonly": True,
+        "redirect_uri_required": False,
+        "redirect_uri_readonly": False,
         "scopes_locked": False,
-        "default_redirect_path": "/api/v1/connectors/github/oauth/callback",
-        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
+        "default_redirect_path": None,
+        "required_fields": ["name", "access_token_input"],
         "setup_fields": [
             {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
-            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
-            {"key": "scopes", "label": "Scopes", "input_type": "text"},
-            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
+            {
+                "key": "access_token_input",
+                "label": "Personal access token",
+                "input_type": "password",
+                "required": True,
+                "secret": True,
+            },
+            {"key": "scopes", "label": "Scopes", "input_type": "multiselect"},
         ],
         "ui_copy": {
             "eyebrow": "GitHub",
-            "title": "GitHub OAuth setup",
-            "description": "Add your GitHub OAuth app details, then continue with GitHub to authorize this workspace.",
+            "title": "GitHub PAT setup",
+            "description": "Add a GitHub personal access token to authorize this workspace.",
             "last_checked_empty": "GitHub connection has not been checked yet.",
         },
         "action_labels": {
             "save": "Save connector",
             "test": "Check connection",
-            "connect": "Continue with GitHub",
-            "reconnect": "Reconnect GitHub",
-            "refresh": "Refresh GitHub token",
+            "connect": "Save token",
+            "reconnect": "Replace token",
+            "refresh": "Rotate token",
             "revoke": "Revoke GitHub connector",
         },
         "status_messages": {
-            "draft": "Add your GitHub OAuth app details to begin, then continue with GitHub.",
-            "pending_oauth": "Complete the GitHub authorization flow in the browser to finish setup.",
-            "connected": "GitHub OAuth is complete. Use Check connection to verify the saved token before using this connector in workflow actions or API resources.",
-            "needs_attention": "GitHub needs attention. Check the connection or reconnect to repair the saved credentials.",
-            "expired": "The saved GitHub token has expired. Refresh it or reconnect GitHub to continue.",
-            "revoked": "GitHub access has been revoked. Reconnect GitHub to restore this integration.",
+            "draft": "Add a GitHub personal access token to begin.",
+            "pending_oauth": "GitHub does not use browser OAuth setup in this workspace.",
+            "connected": "GitHub token is saved. Use Check connection to verify access before using this connector in workflow actions or API resources.",
+            "needs_attention": "GitHub needs attention. Check the connection or replace the saved token.",
+            "expired": "The saved GitHub token has expired. Replace it to continue.",
+            "revoked": "GitHub credentials were cleared. Save a new token to restore this integration.",
         },
     },
     {
@@ -280,42 +321,43 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
     {
         "id": "trello",
         "name": "Trello",
-        "onboarding_mode": "credentials",
-        "oauth_supported": False,
-        "callback_supported": False,
+        "onboarding_mode": "oauth",
+        "oauth_supported": True,
+        "callback_supported": True,
         "refresh_supported": False,
         "revoke_supported": True,
-        "redirect_uri_required": False,
+        "redirect_uri_required": True,
         "redirect_uri_readonly": True,
         "scopes_locked": True,
-        "default_redirect_path": None,
-        "required_fields": ["name", "api_key", "access_token"],
+        "default_redirect_path": "/api/v1/connectors/trello/oauth/callback",
+        "required_fields": ["name", "client_id", "redirect_uri"],
         "setup_fields": [
             {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {"key": "api_key", "label": "API key", "input_type": "password", "required": True, "secret": True},
-            {"key": "access_token", "label": "Token", "input_type": "password", "required": True, "secret": True},
+            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
+            {"key": "client_secret", "label": "Client secret", "input_type": "password", "secret": True},
+            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
         ],
         "ui_copy": {
             "eyebrow": "Trello",
-            "title": "Trello credential setup",
-            "description": "Enter a Trello API key and token to save this connector for workspace use.",
+            "title": "Trello OAuth setup",
+            "description": "Add your Trello app client details, then continue with Trello to authorize this workspace.",
             "last_checked_empty": "Trello connection has not been checked yet.",
         },
         "action_labels": {
-            "save": "Save Trello connector",
-            "test": "Test connector",
-            "connect": "Save Trello credentials",
-            "reconnect": "Replace Trello credentials",
-            "refresh": "Refresh token",
+            "save": "Save connector",
+            "test": "Check connection",
+            "connect": "Continue with Trello",
+            "reconnect": "Reconnect Trello",
+            "refresh": "Refresh Trello token",
             "revoke": "Revoke Trello connector",
         },
         "status_messages": {
-            "draft": "Add your Trello API key and token, then save the connector.",
-            "pending_oauth": "Trello uses saved API credentials instead of an OAuth browser callback.",
-            "connected": "Trello credentials are saved. Use Test connector to verify the API key and token before using this integration.",
-            "needs_attention": "Trello needs attention. Save a complete API key and token, then test the connector again.",
-            "expired": "The saved Trello token is no longer valid. Replace it and test the connector again.",
-            "revoked": "Trello credentials have been cleared. Save a new API key and token to restore this integration.",
+            "draft": "Add your Trello app details to begin, then continue with Trello.",
+            "pending_oauth": "Complete the Trello authorization flow in the browser to finish setup.",
+            "connected": "Trello OAuth is complete. Use Check connection to verify the saved token before using this integration.",
+            "needs_attention": "Trello needs attention. Check the connection or reconnect to repair the saved credentials.",
+            "expired": "The saved Trello token is no longer valid. Reconnect Trello and try again.",
+            "revoked": "Trello access has been revoked. Reconnect Trello to restore this integration.",
         },
     },
 )
@@ -630,6 +672,15 @@ def normalize_connector_auth_config_for_storage(
     protected_secrets: dict[str, str] = {}
 
     clear_credentials = bool(incoming_auth_config.get("clear_credentials"))
+
+    if clear_credentials:
+        next_auth_config = {}
+        next_auth_config["protected_secrets"] = {}
+        for field_name in ("client_id", "username", "header_name", "scope_preset", "redirect_uri", "expires_at"):
+            if field_name in incoming_auth_config:
+                next_auth_config[field_name] = incoming_auth_config.get(field_name)
+        next_auth_config["has_refresh_token"] = False
+        return next_auth_config
 
     for field_name, input_key in CONNECTOR_SECRET_FIELD_INPUTS.items():
         next_value = None if clear_credentials else incoming_auth_config.get(input_key)
@@ -1329,6 +1380,21 @@ def build_connector_oauth_authorization_url(
             "state": state,
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
+        }
+    elif provider == "trello":
+        parsed_redirect = urllib.parse.urlparse(redirect_uri)
+        redirect_query = dict(urllib.parse.parse_qsl(parsed_redirect.query, keep_blank_values=True))
+        redirect_query["state"] = state
+        base_url = "https://trello.com/1/authorize"
+        query = {
+            "key": client_id,
+            "name": "Malcom",
+            "scope": ",".join(scopes or ["read", "write"]),
+            "expiration": "never",
+            "response_type": "token",
+            "return_url": urllib.parse.urlunparse(
+                parsed_redirect._replace(query=urllib.parse.urlencode(redirect_query))
+            ),
         }
     else:
         base_url = "https://example.invalid/oauth/authorize"

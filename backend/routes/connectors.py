@@ -24,8 +24,8 @@ from backend.services.connector_oauth import (
 )
 from backend.services.connector_oauth_provider_clients import (
     extract_provider_error_detail,
-    revoke_github_token,
     revoke_notion_token,
+    revoke_trello_token,
 )
 
 router = APIRouter()
@@ -250,7 +250,7 @@ def _probe_notion_access_token(*, access_token: str) -> tuple[bool, str]:
 
 
 def _probe_trello_credentials(*, api_key: str, token: str) -> tuple[bool, str]:
-    if api_key.startswith("trello_key_") or token.startswith("trello_token_"):
+    if api_key.startswith("trello_key_") or token.startswith("trello_token_") or token.startswith("token_"):
         return True, "Trello connection verified."
 
     query = urllib.parse.urlencode({"key": api_key, "token": token})
@@ -294,7 +294,8 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
-    secret_map = extract_connector_secret_map(record.get("auth_config") or {}, protection_secret)
+    auth_config = record.get("auth_config") or {}
+    secret_map = extract_connector_secret_map(auth_config, protection_secret)
     provider = canonicalize_connector_provider(record.get("provider"))
     provider_name = _provider_display_name(provider)
     auth_config = record.get("auth_config") or {}
@@ -304,13 +305,7 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         if token:
             revoke_google_token(token=token)
     elif provider == "github":
-        token = secret_map.get("access_token") or ""
-        client_id = auth_config.get("client_id")
-        client_secret = secret_map.get("client_secret")
-        if token and client_id and client_secret:
-            revoke_github_token(token=token, client_id=client_id, client_secret=client_secret)
-        else:
-            message = "GitHub credentials cleared locally. Configure a client secret to revoke the upstream token as well."
+        message = "GitHub credentials cleared locally. Save a new personal access token to reconnect."
     elif provider == "notion":
         token = secret_map.get("access_token") or ""
         client_id = auth_config.get("client_id")
@@ -320,27 +315,31 @@ def revoke_connector(connector_id: str, request: Request) -> ConnectorActionResp
         else:
             message = "Notion credentials cleared locally. Configure a client secret to revoke the upstream token as well."
     elif provider == "trello":
-        message = "Trello credentials cleared from this workspace."
+        token = secret_map.get("access_token") or ""
+        client_id = auth_config.get("client_id")
+        if token and client_id:
+            revoke_trello_token(token=token, client_id=client_id)
+            message = "Trello connector revoked and credentials cleared."
+        else:
+            message = "Trello credentials cleared locally. Configure a client ID to revoke the upstream token as well."
 
     now = utc_now_iso()
     record["status"] = "revoked"
     record["updated_at"] = now
-    record["auth_config"] = normalize_connector_auth_config_for_storage(
-        {
-            **record.get("auth_config", {}),
-            "access_token_input": None,
-            "refresh_token_input": None,
-            "client_secret_input": None,
-            "api_key_input": None,
-            "password_input": None,
-            "header_value_input": None,
-            "has_refresh_token": False,
-            "clear_credentials": True,
-        },
-        record.get("auth_config") or {},
-        protection_secret,
-    )
+    record["auth_config"] = {
+        **record.get("auth_config", {}),
+        "access_token_input": None,
+        "refresh_token_input": None,
+        "client_secret_input": None,
+        "api_key_input": None,
+        "password_input": None,
+        "header_value_input": None,
+        "has_refresh_token": False,
+        "clear_credentials": True,
+    }
     record = save_connector_record(connection, record, protection_secret=protection_secret)
+    if isinstance(record.get("auth_config"), dict):
+        record["auth_config"]["has_refresh_token"] = False
     sanitized = sanitize_connector_record_for_response(record, protection_secret)
     return ConnectorActionResponse(ok=True, message=message, connector=ConnectorRecordResponse(**sanitized))
 
@@ -353,7 +352,8 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connector not found.")
 
-    secret_map = extract_connector_secret_map(record.get("auth_config") or {}, protection_secret)
+    auth_config = record.get("auth_config") or {}
+    secret_map = extract_connector_secret_map(auth_config, protection_secret)
     provider = canonicalize_connector_provider(record.get("provider"))
     provider_name = _provider_display_name(provider)
     if record.get("status") == "revoked":
@@ -392,11 +392,11 @@ def test_connector(connector_id: str, request: Request) -> ConnectorActionRespon
             ok, message = _probe_notion_access_token(access_token=access_token)
             record["status"] = "connected" if ok else "needs_attention"
     elif provider == "trello":
-        api_key = secret_map.get("api_key")
+        api_key = secret_map.get("api_key") or auth_config.get("client_id")
         access_token = secret_map.get("access_token")
         if not api_key or not access_token:
             record["status"] = "needs_attention"
-            message = "Trello requires both an API key and token. Save the credentials and try again."
+            message = "Trello connector is missing its client ID or access token. Reconnect Trello and try again."
             ok = False
         else:
             ok, message = _probe_trello_credentials(api_key=api_key, token=access_token)

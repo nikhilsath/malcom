@@ -47,54 +47,71 @@ export const buildDefaultConnectorRecord = (preset) => {
   };
 };
 
+const resolveInput = (cachedElement, fallbackId) => cachedElement || document.getElementById(fallbackId);
+const getLiveProviderInput = (provider, fieldKey, fallbackElement = null) => (
+  resolveInput(fallbackElement, `settings-connectors-${provider}-${fieldKey}-input`)
+);
+
+const readScopeValues = (scopeInput) => {
+  if (scopeInput instanceof HTMLSelectElement) {
+    return Array.from(scopeInput.selectedOptions)
+      .map((option) => option.value.trim())
+      .filter(Boolean);
+  }
+  return (scopeInput?.value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 const getProviderInputSet = (record) => {
   const provider = record?.provider;
   if (provider === "google") {
     return {
-      nameInput: connectorElements.googleNameInput,
-      providerInput: connectorElements.googleProviderInput,
-      clientIdInput: connectorElements.googleClientIdInput,
-      clientSecretInput: connectorElements.googleClientSecretInput,
-      scopesInput: connectorElements.googleScopesInput,
-      redirectUriInput: connectorElements.googleRedirectUriInput,
+      nameInput: resolveInput(connectorElements.googleNameInput, "settings-connectors-google-name-input"),
+      providerInput: resolveInput(connectorElements.googleProviderInput, "settings-connectors-google-provider-input"),
+      clientIdInput: resolveInput(connectorElements.googleClientIdInput, "settings-connectors-google-client-id-input"),
+      clientSecretInput: resolveInput(connectorElements.googleClientSecretInput, "settings-connectors-google-client-secret-input"),
+      scopesInput: resolveInput(connectorElements.googleScopesInput, "settings-connectors-google-scopes-input"),
+      redirectUriInput: resolveInput(connectorElements.googleRedirectUriInput, "settings-connectors-google-redirect-uri-input"),
       apiKeyInput: null,
       accessTokenInput: null
     };
   }
   if (provider === "github") {
     return {
-      nameInput: connectorElements.githubNameInput,
-      providerInput: connectorElements.githubProviderInput,
-      clientIdInput: connectorElements.githubClientIdInput,
-      clientSecretInput: connectorElements.githubClientSecretInput,
-      scopesInput: connectorElements.githubScopesInput,
-      redirectUriInput: connectorElements.githubRedirectUriInput,
+      nameInput: resolveInput(connectorElements.githubNameInput, "settings-connectors-github-name-input"),
+      providerInput: resolveInput(connectorElements.githubProviderInput, "settings-connectors-github-provider-input"),
+      clientIdInput: null,
+      clientSecretInput: null,
+      scopesInput: resolveInput(connectorElements.githubScopesInput, "settings-connectors-github-scopes-input"),
+      redirectUriInput: null,
       apiKeyInput: null,
-      accessTokenInput: null
+      accessTokenInput: resolveInput(connectorElements.githubAccessTokenInput, "settings-connectors-github-access-token-input")
     };
   }
   if (provider === "notion") {
     return {
-      nameInput: connectorElements.notionNameInput,
-      providerInput: connectorElements.notionProviderInput,
-      clientIdInput: connectorElements.notionClientIdInput,
-      clientSecretInput: connectorElements.notionClientSecretInput,
+      nameInput: resolveInput(connectorElements.notionNameInput, "settings-connectors-notion-name-input"),
+      providerInput: resolveInput(connectorElements.notionProviderInput, "settings-connectors-notion-provider-input"),
+      clientIdInput: resolveInput(connectorElements.notionClientIdInput, "settings-connectors-notion-client-id-input"),
+      clientSecretInput: resolveInput(connectorElements.notionClientSecretInput, "settings-connectors-notion-client-secret-input"),
       scopesInput: null,
-      redirectUriInput: connectorElements.notionRedirectUriInput,
+      redirectUriInput: resolveInput(connectorElements.notionRedirectUriInput, "settings-connectors-notion-redirect-uri-input"),
       apiKeyInput: null,
       accessTokenInput: null
     };
   }
   if (provider === "trello") {
     return {
-      nameInput: connectorElements.trelloNameInput,
-      providerInput: connectorElements.trelloProviderInput,
-      clientIdInput: null,
-      clientSecretInput: null,
+      nameInput: resolveInput(connectorElements.trelloNameInput, "settings-connectors-trello-name-input"),
+      providerInput: resolveInput(connectorElements.trelloProviderInput, "settings-connectors-trello-provider-input"),
+      clientIdInput: resolveInput(connectorElements.trelloClientIdInput, "settings-connectors-trello-client-id-input"),
+      clientSecretInput: resolveInput(connectorElements.trelloClientSecretInput, "settings-connectors-trello-client-secret-input"),
       scopesInput: null,
-      redirectUriInput: null,
-      apiKeyInput: connectorElements.trelloApiKeyInput,
-      accessTokenInput: connectorElements.trelloAccessTokenInput
+      redirectUriInput: resolveInput(connectorElements.trelloRedirectUriInput, "settings-connectors-trello-redirect-uri-input"),
+      apiKeyInput: null,
+      accessTokenInput: null
     };
   }
   return {
@@ -116,12 +133,11 @@ const buildConnectorUpdatePayload = (record) => {
   const inputSet = getProviderInputSet(record);
   const providerPanel = usesProviderSetupPanel(record);
   const oauthProvider = providerSupportsOauth(provider);
-  const name = (inputSet.nameInput?.value || "").trim();
-  const clientId = (inputSet.clientIdInput?.value || "").trim();
-  const clientSecretInput = inputSet.clientSecretInput?.value || "";
-  const scopesText = inputSet.scopesInput?.value || "";
-  const redirectUri = inputSet.redirectUriInput?.value || "";
-  const apiKeyInput = inputSet.apiKeyInput?.value || "";
+  const name = (getLiveProviderInput(provider, "name", inputSet.nameInput)?.value || "").trim();
+  const clientId = (getLiveProviderInput(provider, "client-id", inputSet.clientIdInput)?.value || "").trim();
+  const clientSecretInput = getLiveProviderInput(provider, "client-secret", inputSet.clientSecretInput)?.value || "";
+  const selectedScopes = readScopeValues(inputSet.scopesInput);
+  const redirectUri = getLiveProviderInput(provider, "redirect-uri", inputSet.redirectUriInput)?.value || "";
   const providerAccessTokenInput = inputSet.accessTokenInput?.value || "";
 
   return {
@@ -129,20 +145,16 @@ const buildConnectorUpdatePayload = (record) => {
     status: providerPanel ? record.status : connectorElements.statusInput.value,
     auth_type: oauthProvider
       ? "oauth2"
-      : (provider === "trello" ? "api_key" : connectorElements.authTypeInput.value),
+      : connectorElements.authTypeInput.value,
     owner: providerPanel ? (record.owner || "Workspace") : (connectorElements.ownerInput.value.trim() || "Workspace"),
     base_url: providerPanel ? (record.base_url || preset?.base_url || "") : connectorElements.baseUrlInput.value.trim(),
     scopes: oauthProvider
       ? (
         providerMetadata?.scopes_locked
           ? getDefaultScopesForProvider(record.provider, preset)
-          : scopesText.split(",").map((item) => item.trim()).filter(Boolean)
+          : selectedScopes
       )
-      : (
-        provider === "trello"
-          ? getDefaultScopesForProvider(record.provider, preset)
-          : scopesText.split(",").map((item) => item.trim()).filter(Boolean)
-      ),
+      : selectedScopes,
     auth_config: {
       client_id: clientId,
       username: providerPanel ? (record.auth_config?.username || "") : connectorElements.usernameInput.value.trim(),
@@ -157,9 +169,9 @@ const buildConnectorUpdatePayload = (record) => {
       expires_at: record.auth_config?.expires_at || null,
       has_refresh_token: Boolean(record.auth_config?.has_refresh_token),
       client_secret_input: clientSecretInput,
-      access_token_input: provider === "trello" ? providerAccessTokenInput : (providerPanel ? "" : connectorElements.accessTokenInput.value),
+      access_token_input: provider === "github" ? providerAccessTokenInput : (providerPanel ? "" : connectorElements.accessTokenInput.value),
       refresh_token_input: providerPanel ? "" : connectorElements.refreshTokenInput.value,
-      api_key_input: provider === "trello" ? apiKeyInput : (providerPanel ? "" : connectorElements.apiKeyInput.value),
+      api_key_input: providerPanel ? "" : connectorElements.apiKeyInput.value,
       password_input: providerPanel ? "" : connectorElements.passwordInput.value,
       header_value_input: providerPanel ? "" : connectorElements.headerValueInput.value
     }
@@ -258,8 +270,8 @@ export const bindFormEvents = ({ renderAll, startConnectorOauth }) => {
     }
 
     const inputSet = getProviderInputSet(selected);
-    const clientSecretInput = inputSet.clientSecretInput?.value || "";
-    const clientId = inputSet.clientIdInput?.value.trim() || "";
+    const clientSecretInput = getLiveProviderInput(selected.provider, "client-secret", inputSet.clientSecretInput)?.value || "";
+    const clientId = getLiveProviderInput(selected.provider, "client-id", inputSet.clientIdInput)?.value.trim() || "";
     const providerMetadata = getProviderMetadata(selected.provider);
     const requiresClientSecret = Boolean(providerMetadata?.required_fields?.includes("client_secret"));
 
@@ -282,8 +294,20 @@ export const bindFormEvents = ({ renderAll, startConnectorOauth }) => {
         return;
       }
 
+      const oauthRecord = {
+        ...saved,
+        auth_config: {
+          ...(saved.auth_config || {}),
+          client_id: (saved.auth_config?.client_id || clientId).trim(),
+          redirect_uri: (
+            (saved.auth_config?.redirect_uri || "")
+            || (getLiveProviderInput(saved.provider, "redirect-uri", inputSet.redirectUriInput)?.value || "")
+          ).trim()
+        }
+      };
+
       renderAll();
-      await startConnectorOauth(saved, {
+      await startConnectorOauth(oauthRecord, {
         clientSecretInput,
         closeDetailOnRedirect: true,
         renderAll
