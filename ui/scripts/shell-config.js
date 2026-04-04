@@ -255,6 +255,34 @@ export const shellSections = {
       className: "sidenav__footer-note",
       text: "Settings on this screen apply to the current browser workspace unless noted otherwise."
     }
+  },
+  docs: {
+    id: "docs",
+    items: [
+      {
+        id: "sidenav-docs-home",
+        label: "Home",
+        href: "docs/index.html",
+        pageTitle: "Documentation",
+        description: "Documentation home and overview."
+      },
+      {
+        id: "sidenav-docs-library",
+        label: "Library",
+        href: "docs/library.html",
+        pageTitle: "Documentation Library",
+        description: "Browse and edit documentation articles."
+      }
+    ],
+    footer: {
+      kind: "button",
+      id: "docs-create-button",
+      label: "Create +",
+      className: "button button--success sidenav__action-button",
+      attributes: {
+        type: "button"
+      }
+    }
   }
 };
 

@@ -12,9 +12,10 @@ interface DocEditorProps {
   initialContent: string;
   onSave: (content: string) => void;
   onCancel: () => void;
+  saveLabel?: string;
 }
 
-export const DocEditor = ({ initialContent, onSave, onCancel }: DocEditorProps) => {
+export const DocEditor = ({ initialContent, onSave, onCancel, saveLabel = "Save" }: DocEditorProps) => {
   const editorHostRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const [preview, setPreview] = useState(initialContent);
@@ -91,7 +92,7 @@ export const DocEditor = ({ initialContent, onSave, onCancel }: DocEditorProps) 
       </div>
       <div className="docs-editor-actions">
         <button type="button" className="btn btn--primary" onClick={handleSave}>
-          Save
+          {saveLabel}
         </button>
         <button type="button" className="btn btn--secondary" onClick={onCancel}>
           Cancel
