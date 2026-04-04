@@ -24,6 +24,11 @@ const malcomDefaultAppSettings = {
   automation: {
     default_tool_retries: 2
   },
+  security: {
+    session_timeout_minutes: 60,
+    dual_approval_required: false,
+    token_rotation_days: 90
+  },
   connectors: {
     catalog: [],
     records: [],

@@ -699,6 +699,11 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "export_window_utc": "02:00",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
+    "security": {
+        "session_timeout_minutes": 60,
+        "dual_approval_required": False,
+        "token_rotation_days": 90,
+    },
     "connectors": get_default_connector_settings(),
 }
 def get_default_settings() -> dict[str, Any]:
@@ -1167,6 +1172,7 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
         "notifications": NotificationSettings,
         "data": DataSettings,
         "automation": AutomationSettings,
+        "security": SecuritySettings,
         "connectors": ConnectorSettingsResponse,
     }
     schema = schema_map[section_key]

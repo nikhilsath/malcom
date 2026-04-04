@@ -165,3 +165,31 @@ test("renders connector-backed storage and clears log table rows", async ({ page
 
   await expect(page.locator("#settings-log-table-count-log-table-1")).toHaveText("0 rows");
 });
+
+test("saves and resets access security settings", async ({ page }) => {
+  await installDashboardSettingsFixtures(page);
+
+  await page.goto("/settings/access.html");
+
+  await expect(page.locator("#page-title")).toHaveText("Settings Access");
+  await expect(page.locator("#settings-access-session-select")).toHaveValue("60");
+  await expect(page.locator("#settings-access-approval-checkbox")).not.toBeChecked();
+  await expect(page.locator("#settings-access-token-select")).toHaveValue("90");
+
+  await page.locator("#settings-access-session-select").selectOption("120");
+  await page.locator("#settings-access-approval-checkbox").check();
+  await page.locator("#settings-access-token-select").selectOption("30");
+  await page.locator("#settings-save-button").click();
+
+  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
+  await expect(page.locator("#settings-access-session-select")).toHaveValue("120");
+  await expect(page.locator("#settings-access-approval-checkbox")).toBeChecked();
+  await expect(page.locator("#settings-access-token-select")).toHaveValue("30");
+
+  await page.locator("#settings-reset-button").click();
+
+  await expect(page.locator("#settings-feedback")).toHaveText("Default settings restored from the database.");
+  await expect(page.locator("#settings-access-session-select")).toHaveValue("60");
+  await expect(page.locator("#settings-access-approval-checkbox")).not.toBeChecked();
+  await expect(page.locator("#settings-access-token-select")).toHaveValue("90");
+});
