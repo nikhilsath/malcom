@@ -287,6 +287,30 @@ CREATE INDEX IF NOT EXISTS outgoing_continuous_apis_enabled_repeat_enabled_next_
 CREATE INDEX IF NOT EXISTS automation_runs_automation_id_started_at_idx
     ON automation_runs (automation_id, started_at);
 
+CREATE TABLE IF NOT EXISTS docs_articles (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    source_path TEXT NOT NULL DEFAULT '',
+    is_ai_created INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS docs_tags (
+    id TEXT PRIMARY KEY,
+    tag TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL DEFAULT 'freeform',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS docs_article_tags (
+    article_id TEXT NOT NULL REFERENCES docs_articles(id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES docs_tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (article_id, tag_id)
+);
+
 CREATE INDEX IF NOT EXISTS connectors_provider_status_idx
     ON connectors (provider, status);
 

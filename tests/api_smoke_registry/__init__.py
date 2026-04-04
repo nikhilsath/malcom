@@ -9,6 +9,7 @@ from .core import (
     get_internal_api_route_signatures,
     invoke_smoke_case,
 )
+from .docs_cases import DOCS_CASES
 from .inbound_outgoing_cases import INBOUND_OUTGOING_CASES
 from .runtime_workers_cases import RUNTIME_WORKERS_CASES
 from .scripts_cases import SCRIPTS_CASES
@@ -17,6 +18,7 @@ from .tools_cases import TOOLS_CASES
 
 SMOKE_CASE_GROUPS: dict[str, tuple[RouteSmokeCase, ...]] = {
     "runtime/workers": RUNTIME_WORKERS_CASES,
+    "docs": DOCS_CASES,
     "scripts": SCRIPTS_CASES,
     "settings/connectors": SETTINGS_CONNECTORS_CASES,
     "tools": TOOLS_CASES,
