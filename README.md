@@ -944,7 +944,7 @@ Frontend fallback state should keep only shape-safe empty values and must not be
 | **Frontend component** | `ui/src/automation/tool-step-fields.tsx` |
 | **API endpoint** | `GET /api/v1/tools` |
 | **Backend route handler** | `backend/routes/tools.py:serve_tools()` (line 58) |
-| **Backend service** | `backend/services/automation_execution.py:build_tool_directory_response()` (line 2070) |
+| **Backend service** | `backend/services/tool_runtime.py:build_tool_directory_response()` (line 537) |
 | **Database table** | `tools` (id, source_name, source_description, enabled, input/output schemas) |
 | **Initialization** | `backend/tool_registry.py:sync_tools_to_database()` (line 291) seeds `DEFAULT_TOOL_CATALOG` at app startup |
 

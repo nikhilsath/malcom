@@ -54,3 +54,18 @@ def test_tool_runtime_module_avoids_helpers_dependency() -> None:
 def test_api_resources_module_avoids_helpers_dependency() -> None:
     modules = _imported_modules(Path("backend/services/api_resources.py"))
     assert "backend.services.helpers" not in modules
+
+
+def test_tool_configs_module_does_not_import_automation_execution() -> None:
+    modules = _imported_modules(Path("backend/services/tool_configs.py"))
+    assert "backend.services.automation_execution" not in modules
+
+
+def test_tool_execution_module_does_not_import_automation_execution() -> None:
+    modules = _imported_modules(Path("backend/services/tool_execution.py"))
+    assert "backend.services.automation_execution" not in modules
+
+
+def test_tool_integration_module_does_not_import_automation_execution() -> None:
+    modules = _imported_modules(Path("backend/services/tool_integration.py"))
+    assert "backend.services.automation_execution" not in modules
