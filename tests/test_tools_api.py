@@ -8,7 +8,8 @@ import httpx
 from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_one
-from backend.main import LocalLlmChatResponse, app
+from backend.main import app
+from backend.schemas import LocalLlmChatResponse
 from backend.services.support import build_local_llm_native_chat_body, build_local_llm_stream, execute_local_llm_chat_request
 from tests.postgres_test_utils import setup_postgres_test_app
 

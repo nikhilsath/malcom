@@ -126,23 +126,10 @@ CONNECTOR_PROTECTION_VERSION = "enc_v1"
 CONNECTOR_NONCE_BYTES = 16
 CONNECTOR_SIGNATURE_BYTES = 32
 CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
-LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS = {
-    "google_calendar",
-    "google_gmail",
-    "google_sheets",
-}
 CONNECTOR_PROVIDER_CANONICAL_MAP = {
     "google_calendar": "google",
     "google_gmail": "google",
     "google_sheets": "google",
-}
-SUPPORTED_CONNECTOR_PROVIDERS = {
-    "google",
-    *LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS,
-    "github",
-    "notion",
-    "trello",
-    "generic_http",
 }
 SUPPORTED_CONNECTOR_AUTH_TYPES = {"oauth2", "bearer", "api_key", "basic", "header"}
 SUPPORTED_CONNECTOR_STATUSES = {"draft", "pending_oauth", "connected", "needs_attention", "expired", "revoked"}

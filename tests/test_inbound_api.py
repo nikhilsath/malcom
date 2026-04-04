@@ -7,7 +7,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from backend.main import INBOUND_SECRET_BYTES, INBOUND_SECRET_PREFIX, app, generate_secret
+from backend.main import app
+from backend.services.support import INBOUND_SECRET_BYTES, INBOUND_SECRET_PREFIX, generate_secret
 from backend.runtime import runtime_event_bus
 from tests.postgres_test_utils import setup_postgres_test_app
 
