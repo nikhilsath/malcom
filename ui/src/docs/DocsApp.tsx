@@ -56,13 +56,12 @@ const DocsApp = () => {
       }
       setLoading(true);
       setError(null);
-      const nextIsAiCreated = selectedArticle.is_ai_created ? false : selectedArticle.is_ai_created;
       requestJson<DocArticle>(`/api/v1/docs/${selectedArticle.slug}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content,
-          is_ai_created: nextIsAiCreated
+          is_ai_created: false
         })
       })
         .then((updated) => {

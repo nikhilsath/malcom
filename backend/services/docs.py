@@ -11,6 +11,15 @@ from uuid import uuid4
 from backend.services.utils import utc_now_iso
 
 
+def _safe_resolve_in_docs(root_dir: Path, source_path: str) -> Path:
+    """Resolve source_path and verify it stays within the docs/ subdirectory."""
+    resolved = (root_dir / source_path).resolve()
+    docs_dir = (root_dir / "docs").resolve()
+    if not str(resolved).startswith(str(docs_dir) + "/") and resolved != docs_dir:
+        raise ValueError(f"Resolved path escapes docs directory: {source_path}")
+    return resolved
+
+
 def _slug_from_filename(filename: str) -> str:
     stem = Path(filename).stem
     return re.sub(r"[^a-z0-9\-]", "-", stem.lower()).strip("-")
@@ -124,8 +133,11 @@ def get_docs_article(connection: Any, slug: str, root_dir: Path) -> dict[str, An
     tags = _get_article_tags(connection, row["id"])
     content = ""
     if row["source_path"]:
-        source_file = root_dir / row["source_path"]
-        if source_file.is_file():
+        try:
+            source_file = _safe_resolve_in_docs(root_dir, row["source_path"])
+        except ValueError:
+            source_file = None
+        if source_file is not None and source_file.is_file():
             content = source_file.read_text(encoding="utf-8")
     return row_to_article_response(row, tags, content)
 
@@ -157,9 +169,13 @@ def update_docs_article(
     now = utc_now_iso()
 
     if content is not None and row["source_path"]:
-        source_file = root_dir / row["source_path"]
-        source_file.parent.mkdir(parents=True, exist_ok=True)
-        source_file.write_text(content, encoding="utf-8")
+        try:
+            source_file = _safe_resolve_in_docs(root_dir, row["source_path"])
+        except ValueError:
+            source_file = None
+        if source_file is not None:
+            source_file.parent.mkdir(parents=True, exist_ok=True)
+            source_file.write_text(content, encoding="utf-8")
 
     connection.execute(
         """
@@ -182,11 +198,16 @@ def update_docs_article(
         (row["id"],),
     ).fetchone()
     updated_tags = _get_article_tags(connection, row["id"])
-    saved_content = content if content is not None else (
-        (root_dir / row["source_path"]).read_text(encoding="utf-8")
-        if row["source_path"] and (root_dir / row["source_path"]).is_file()
-        else ""
-    )
+    if content is not None:
+        saved_content = content
+    elif row["source_path"]:
+        try:
+            fallback_file = _safe_resolve_in_docs(root_dir, row["source_path"])
+            saved_content = fallback_file.read_text(encoding="utf-8") if fallback_file.is_file() else ""
+        except ValueError:
+            saved_content = ""
+    else:
+        saved_content = ""
     return row_to_article_response(updated_row, updated_tags, saved_content)
 
 
@@ -203,7 +224,7 @@ def create_docs_article(
     article_id = f"doc_{uuid4().hex[:12]}"
     now = utc_now_iso()
     source_path = f"docs/{slug}.md"
-    source_file = root_dir / source_path
+    source_file = _safe_resolve_in_docs(root_dir, source_path)
     source_file.parent.mkdir(parents=True, exist_ok=True)
     source_file.write_text(content, encoding="utf-8")
 
@@ -253,7 +274,7 @@ def sync_docs_from_repo(connection: Any, root_dir: Path) -> int:
                 INSERT INTO docs_articles (id, slug, title, summary, source_path, is_ai_created, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, 0, ?, ?)
                 """,
-                (article_id, slug, title, source_path, now, now),
+                (article_id, slug, title, "", source_path, now, now),
             )
         else:
             connection.execute(
