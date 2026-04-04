@@ -157,6 +157,18 @@ Backend rules:
 
 ---
 
+### Connector OAuth Notes
+
+Trello now supports guided OAuth onboarding in the connector flow. You can configure Trello client credentials in the setup form or provide the following environment variables to avoid entering them interactively:
+
+- `MALCOM_TRELLO_OAUTH_CLIENT_ID` — Trello app API key / client id.
+- `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` — Trello app client secret (optional depending on Trello app configuration).
+
+Default Trello OAuth callback path: `/api/v1/connectors/trello/oauth/callback`.
+
+Note: Trello's current onboarding contract does not provide long-lived refresh tokens; the connector flow treats Trello as an access-token-only provider and refresh attempts will return `409` with a suitable message.
+
+
 ## Tool Input/Output Contract
 
 Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:

@@ -635,6 +635,7 @@ Runs:
 
 - PostgreSQL test DB preflight and schema initialization
 - backend pytest suite excluding smoke marker (`-m "not smoke"`)
+  - includes UI registry/source file contract coverage in `tests/test_ui_html_routes.py` (every served `ui/page-registry.json` page must map to an existing `ui/*.html` source file)
 - UI entry wiring check (`node scripts/check-ui-page-entry-modules.mjs`)
 - Playwright served-route coverage map validation (`npm --prefix ui run test:e2e:coverage`)
 - frontend unit tests (`npm test` in `ui/`)
@@ -723,10 +724,13 @@ Rule of thumb:
 Connector onboarding behavior:
 
 - Start first-party connector setup from the provider's `Connect` control on the Connectors page.
-- Google, GitHub, and Notion use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
+- Google, GitHub, Notion, and Trello use guided OAuth setup with provider-specific client credentials, redirect handling, status copy, and callback completion.
 - GitHub OAuth can read `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET` when the setup form omits them; the GitHub OAuth app redirect URI should point to `/api/v1/connectors/github/oauth/callback`.
+- Notion OAuth requires a client secret for exchange, refresh, and revoke. It can read `MALCOM_NOTION_OAUTH_CLIENT_ID` and `MALCOM_NOTION_OAUTH_CLIENT_SECRET` when the setup form omits them; the Notion integration redirect URI should point to `/api/v1/connectors/notion/oauth/callback`.
+- Trello OAuth can read `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` when the setup form omits them; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
+- Trello OAuth can read `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` when the setup form omits them; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
+  Trello does not provide long-lived refresh tokens in the current connector contract; refresh attempts will return `409` and must be handled by reconnecting the provider.
 - Google and GitHub both expose deeper workflow-builder catalogs with provider-aware connector actions and reusable HTTP presets across their major service areas.
-- Trello uses a guided non-OAuth credential flow with provider-specific API key and token fields plus connector lifecycle actions for test and revoke.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.
 
 ### Workflow builder connector option source of truth
