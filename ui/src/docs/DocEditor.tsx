@@ -68,12 +68,14 @@ export const DocEditor = ({ initialContent, onSave, onCancel }: DocEditorProps) 
       view.destroy();
       editorViewRef.current = null;
     };
-  }, []);
+  }, [initialContent]);
 
   const handleSave = useCallback(() => {
-    const content = editorViewRef.current?.state.doc.toString() ?? preview;
-    onSave(content);
-  }, [onSave, preview]);
+    if (!editorViewRef.current) {
+      return;
+    }
+    onSave(editorViewRef.current.state.doc.toString());
+  }, [onSave]);
 
   return (
     <div className="docs-editor-split">

@@ -29,7 +29,7 @@ class DocArticleUpdate(BaseModel):
 
 
 class DocArticleCreate(BaseModel):
-    slug: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
+    slug: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$")
     title: str = Field(min_length=1, max_length=300)
     summary: str = Field(default="", max_length=1000)
     content: str = Field(default="", max_length=500000)

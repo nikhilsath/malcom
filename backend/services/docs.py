@@ -15,7 +15,7 @@ def _safe_resolve_in_docs(root_dir: Path, source_path: str) -> Path:
     """Resolve source_path and verify it stays within the docs/ subdirectory."""
     resolved = (root_dir / source_path).resolve()
     docs_dir = (root_dir / "docs").resolve()
-    if not str(resolved).startswith(str(docs_dir) + "/") and resolved != docs_dir:
+    if not resolved.is_relative_to(docs_dir):
         raise ValueError(f"Resolved path escapes docs directory: {source_path}")
     return resolved
 
