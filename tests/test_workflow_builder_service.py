@@ -108,8 +108,9 @@ class TestListWorkflowBuilderConnectors:
         assert result[0]["name"] == "conn-xyz"
 
     def test_missing_status_defaults_to_draft(self):
-        # Records with no explicit status pass the inactive filter (treated as "")
-        # and the output field falls back to "draft".
+        # Records with no explicit status are not filtered (empty string is not in
+        # INACTIVE_WORKFLOW_CONNECTOR_STATUSES). The output "status" field then
+        # falls back to "draft" because no value was stored.
         record = {"id": "conn-1", "provider": "slack"}
         lr, build_c, canon = _patch_builder(records=[record])
         with lr, build_c, canon:

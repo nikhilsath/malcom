@@ -75,6 +75,10 @@ from backend.services.runtime_workers import (
     run_remote_worker_loop,
 )
 
+_DEFAULT_WORKFLOW_STORAGE_PATH = "backend/data/workflows"
+_DEFAULT_STORAGE_TYPE = "json"
+_DEFAULT_STORAGE_TARGET = "output"
+
 
 def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
     rendered = render_template_string(template or "{}", context)
@@ -219,11 +223,11 @@ def _execute_automation_step_impl(
         if getattr(step.config, "storage_type", None) or getattr(step.config, "storage_target", None):
             try:
                 settings_payload = get_settings_payload(connection)
-                configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or "backend/data/workflows"
+                configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or _DEFAULT_WORKFLOW_STORAGE_PATH
             except Exception:
-                configured_path = "backend/data/workflows"
-            storage_type = getattr(step.config, "storage_type", None) or "json"
-            storage_target = getattr(step.config, "storage_target", None) or "output"
+                configured_path = _DEFAULT_WORKFLOW_STORAGE_PATH
+            storage_type = getattr(step.config, "storage_type", None) or _DEFAULT_STORAGE_TYPE
+            storage_target = getattr(step.config, "storage_target", None) or _DEFAULT_STORAGE_TARGET
             new_file = getattr(step.config, "storage_new_file", True)
             raw_payload = render_template_string(step.config.message or "{}", context)
             try:
