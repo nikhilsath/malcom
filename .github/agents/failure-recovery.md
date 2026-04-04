@@ -10,6 +10,7 @@ triggers:
 	- "[AREA: test]"
 	- "[AREA: api]"
 	- "[AREA: ui]"
+  - "[AREA: audit]"
 applyTo: "*"
 ---
 

@@ -521,6 +521,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
             inputs={
                 "owner": "openai",
                 "repo": "malcom",
+                "download_location": "workflow_storage",
                 "ref": "main",
                 "archive_format": "zipball",
                 "output_prefix": "malcom-main",
@@ -539,6 +540,7 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertTrue(archive_path.exists())
         self.assertEqual(output["archive_format"], "zipball")
         self.assertEqual(output["repository"], "openai/malcom")
+        self.assertEqual(output["download_location"], "workflow_storage")
         self.assertEqual(output["content_type"], "application/zip")
         self.assertEqual(output["bytes_written"], archive_path.stat().st_size)
 

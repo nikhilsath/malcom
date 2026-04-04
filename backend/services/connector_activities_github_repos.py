@@ -68,6 +68,15 @@ GITHUB_REPO_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
         input_schema=(
             _field("owner", "Repository owner", "string", required=True),
             _field("repo", "Repository name", "string", required=True),
+            _field(
+                "download_location",
+                "Download location",
+                "select",
+                required=True,
+                default="",
+                options=("", "workflow_storage", "workspace_media", "app_logs"),
+                help_text="Choose where this archive should be stored.",
+            ),
             _field("ref", "Branch, tag, or commit (optional)", "string", required=False, default=""),
             _field("archive_format", "Archive format", "string", required=False, default="zipball"),
             _field("output_prefix", "Output file prefix", "string", required=False, default=""),
@@ -76,6 +85,7 @@ GITHUB_REPO_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
             _output("provider", "Provider", "string"),
             _output("activity", "Activity", "string"),
             _output("repository", "Repository", "string"),
+            _output("download_location", "Download location", "string"),
             _output("ref", "Resolved ref", "string"),
             _output("archive_format", "Archive format", "string"),
             _output("content_type", "Content type", "string"),
@@ -96,11 +106,18 @@ def _safe_segment(value: str) -> str:
     return normalized or "value"
 
 
-def _workflow_storage_dir(context: dict[str, Any] | None) -> Path:
+def _download_location_dir(context: dict[str, Any] | None, download_location: str) -> Path:
     root_dir = Path(str((context or {}).get("_root_dir") or Path.cwd()))
-    storage_dir = root_dir / "backend" / "data" / "workflows"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-    return storage_dir
+    if download_location == "workflow_storage":
+        path = root_dir / "backend" / "data" / "workflows"
+    elif download_location == "workspace_media":
+        path = root_dir / "media"
+    elif download_location == "app_logs":
+        path = root_dir / "backend" / "data" / "logs"
+    else:
+        raise RuntimeError("Download location is required for repository archive downloads.")
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _raise_for_status(status_code: int) -> None:
@@ -177,6 +194,7 @@ def _github_download_repo_archive(
 ) -> dict[str, Any]:
     owner = str(resolved_inputs.get("owner") or "")
     repo = str(resolved_inputs.get("repo") or "")
+    download_location = str(resolved_inputs.get("download_location") or "").strip()
     ref = str(resolved_inputs.get("ref") or "").strip()
     requested_format = str(resolved_inputs.get("archive_format") or "zipball").strip().lower()
     archive_format = "tarball" if requested_format == "tarball" else "zipball"
@@ -198,13 +216,14 @@ def _github_download_repo_archive(
     output_prefix = _safe_segment(output_prefix_raw) if output_prefix_raw else f"{_safe_segment(owner)}-{_safe_segment(repo)}"
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     file_name = f"{output_prefix}-{archive_format}-{timestamp}{suffix}"
-    archive_path = _workflow_storage_dir(context) / file_name
+    archive_path = _download_location_dir(context, download_location) / file_name
     archive_path.write_bytes(archive_bytes)
 
     return {
         "provider": provider_id,
         "activity": activity_id,
         "repository": f"{owner}/{repo}",
+        "download_location": download_location,
         "ref": ref,
         "archive_format": archive_format,
         "content_type": (payload.get("_raw_content_type") if isinstance(payload, dict) else "") or "application/octet-stream",

@@ -44,7 +44,7 @@ The current product UI is organized into these areas:
 
 - Dashboard: a shared dashboard app with home, devices, logs, and queue views
 - Automations: overview, library, builder, and log data
-- APIs: registry, incoming, outgoing, webhooks, and connector setup
+- APIs: registry, incoming, outgoing, and webhooks
 - Tools: catalog plus configuration pages for the current runtime-managed tools
 - Scripts: reusable script library
 - Settings: workspace, logging, notifications, access, connectors, and data
@@ -730,6 +730,7 @@ Connector onboarding behavior:
 - Trello OAuth can read `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET` when the setup form omits them; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
   Trello does not provide long-lived refresh tokens in the current connector contract; refresh attempts will return `409` and must be handled by reconnecting the provider.
 - Google and GitHub both expose deeper workflow-builder catalogs with provider-aware connector actions and reusable HTTP presets across their major service areas.
+- Notion and Trello onboarding currently stops at saved connector setup and generic API usage. They do not yet ship provider-specific connector activities or HTTP presets in the workflow builder.
 - Do not collect OAuth credentials via browser `prompt()` dialogs.
 
 ### Workflow builder connector option source of truth
@@ -844,6 +845,8 @@ The frontend must render these backend-owned builder option sets from metadata a
 
 **Source of truth**: persisted rows in `connector_endpoint_definitions` with `endpoint_kind = activity`. Code catalogs provide seed/default content only.
 
+Current seeded provider coverage: Google and GitHub. Notion and Trello connectors can be saved in Settings, but they do not yet expose provider-specific builder activities.
+
 ---
 
 #### HTTP Presets
@@ -858,6 +861,8 @@ The frontend must render these backend-owned builder option sets from metadata a
 | **Database tables** | `connector_endpoint_definitions` |
 
 **Source of truth**: persisted rows in `connector_endpoint_definitions` with `endpoint_kind = http_preset`. `DEFAULT_HTTP_PRESET_CATALOG` remains seed/default content.
+
+Current seeded provider coverage: Google and GitHub. Notion and Trello automation usage currently falls back to generic HTTP steps rather than provider-specific presets.
 
 ---
 

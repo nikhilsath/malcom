@@ -41,9 +41,12 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | ui/e2e/fixtures/connectors/success.json | reviewed | 2026-04-03 | mapping-layer audit | connector fixture reviewed against workflow-connectors response shape |
 | ui/e2e/support/automations-scripts.ts | reviewed | 2026-04-03 | mapping-layer audit | builder Playwright route harness reviewed for synthetic metadata and connector payload shaping |
 | ui/e2e/support/connectors-apis-routes.ts | reviewed | 2026-04-03 | mapping-layer audit | connectors Playwright route harness reviewed for settings/connectors response shaping |
-| backend/services/connector_activities_catalog.py | pending | - | mapping-layer audit | next batch: code-defined connector activity catalog ownership |
-| backend/services/http_presets.py | pending | - | mapping-layer audit | next batch: hardcoded HTTP preset catalog ownership |
-| tests/test_connector_activities_api.py | pending | - | mapping-layer audit | next batch: connector activity API contract coverage |
-| tests/test_http_presets.py | pending | - | mapping-layer audit | next batch: HTTP preset contract coverage |
-| ui/src/automation/step-modals/connector-activity-step-form.tsx | pending | - | mapping-layer audit | next batch: frontend consumer of connector activity catalog |
-| ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx | pending | - | mapping-layer audit | next batch: fixture fidelity for connector activity dropdown |
+| backend/services/connector_activities_catalog.py | reviewed | 2026-04-04 | connector-catalog/readme audit | confirmed seeded builder activity coverage is limited to Google and GitHub; DB rows remain canonical when present |
+| backend/services/http_presets.py | reviewed | 2026-04-04 | connector-catalog/readme audit | confirmed seeded HTTP preset coverage is limited to Google and GitHub; Notion/Trello have no preset definitions here |
+| tests/test_connector_activities_api.py | reviewed | 2026-04-04 | connector-catalog/readme audit | activity API coverage asserts Google and GitHub actions but no Notion/Trello builder actions |
+| tests/test_http_presets.py | reviewed | 2026-04-04 | connector-catalog/readme audit | preset coverage asserts Google and GitHub catalogs only |
+| ui/src/automation/step-modals/connector-activity-step-form.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | UI disables providers with no compatible activity catalog and surfaces "No connector actions available for this provider yet." |
+| ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | dropdown test remains minimal; current fixture use does not exercise unavailable-provider messaging |
+| README.md | reviewed | 2026-04-04 | connector-catalog/readme audit | updated UI surface wording and documented current builder support boundary for Google/GitHub vs Notion/Trello |
+| ui/page-registry.json | reviewed | 2026-04-04 | connector-catalog/readme audit | verified connectors page is served under Settings, not the APIs section |
+| ui/scripts/shell-config.js | reviewed | 2026-04-04 | connector-catalog/readme audit | verified shell nav places Connectors under Settings and APIs includes only registry/incoming/outgoing/webhooks |

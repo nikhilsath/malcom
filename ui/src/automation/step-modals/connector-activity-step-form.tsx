@@ -65,8 +65,11 @@ const renderFieldInput = (
   setFieldValue: (nextValue: string | boolean) => void,
 ) => {
   if (field.type === "select") {
+    const selectedValue = resolveInputValue(value ?? field.default);
+    const shouldShowPlaceholder = field.required && !selectedValue;
     return (
-      <select id={fieldId} className="automation-native-select" value={resolveInputValue(value ?? field.default)} onChange={(event) => setFieldValue(event.target.value)}>
+      <select id={fieldId} className="automation-native-select" value={selectedValue} onChange={(event) => setFieldValue(event.target.value)}>
+        {shouldShowPlaceholder ? <option value="">Choose an option</option> : null}
         {(field.options || []).map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     );
