@@ -9,7 +9,55 @@ from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_all
 from backend.main import app
+from backend.schemas.settings import SecuritySettings, AppSettingsResponse, AppSettingsUpdate
+from backend.services.helpers import get_default_settings
 from tests.postgres_test_utils import setup_postgres_test_app
+
+
+class SecuritySettingsSchemaTestCase(unittest.TestCase):
+    def test_security_settings_schema_accepts_valid_values(self) -> None:
+        s = SecuritySettings(
+            session_timeout_minutes=60,
+            dual_approval_required=False,
+            token_rotation_days=90,
+        )
+        self.assertEqual(s.session_timeout_minutes, 60)
+        self.assertFalse(s.dual_approval_required)
+        self.assertEqual(s.token_rotation_days, 90)
+
+    def test_security_settings_rejects_invalid_session_timeout(self) -> None:
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            SecuritySettings(
+                session_timeout_minutes=999,
+                dual_approval_required=False,
+                token_rotation_days=30,
+            )
+
+    def test_security_settings_rejects_invalid_token_rotation(self) -> None:
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            SecuritySettings(
+                session_timeout_minutes=30,
+                dual_approval_required=False,
+                token_rotation_days=45,
+            )
+
+    def test_default_settings_include_security_section(self) -> None:
+        defaults = get_default_settings()
+        self.assertIn("security", defaults)
+        self.assertEqual(defaults["security"]["session_timeout_minutes"], 60)
+        self.assertFalse(defaults["security"]["dual_approval_required"])
+        self.assertEqual(defaults["security"]["token_rotation_days"], 90)
+
+    def test_app_settings_response_includes_security_field(self) -> None:
+        fields = AppSettingsResponse.model_fields
+        self.assertIn("security", fields)
+
+    def test_app_settings_update_includes_security_field(self) -> None:
+        fields = AppSettingsUpdate.model_fields
+        self.assertIn("security", fields)
+
 
 
 class SettingsApiTestCase(unittest.TestCase):
@@ -42,6 +90,9 @@ class SettingsApiTestCase(unittest.TestCase):
         provider_ids = {item["id"] for item in body["connectors"]["catalog"]}
         self.assertIn("google", provider_ids)
         self.assertIn("github", provider_ids)
+        self.assertEqual(body["security"]["session_timeout_minutes"], 60)
+        self.assertFalse(body["security"]["dual_approval_required"])
+        self.assertEqual(body["security"]["token_rotation_days"], 90)
 
     def test_get_settings_reads_connector_catalog_from_integration_presets_table(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -405,6 +456,31 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["general"]["timezone"], "local")
         self.assertEqual(body["notifications"]["channel"], "email")
         self.assertEqual(body["notifications"]["digest"], "hourly")
+
+    def test_patch_security_settings_persists_and_returns_updated_values(self) -> None:
+        response = self.client.patch(
+            "/api/v1/settings",
+            json={
+                "security": {
+                    "session_timeout_minutes": 120,
+                    "dual_approval_required": True,
+                    "token_rotation_days": 30,
+                }
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["security"]["session_timeout_minutes"], 120)
+        self.assertTrue(body["security"]["dual_approval_required"])
+        self.assertEqual(body["security"]["token_rotation_days"], 30)
+
+        get_response = self.client.get("/api/v1/settings")
+        self.assertEqual(get_response.status_code, 200)
+        get_body = get_response.json()
+        self.assertEqual(get_body["security"]["session_timeout_minutes"], 120)
+        self.assertTrue(get_body["security"]["dual_approval_required"])
+        self.assertEqual(get_body["security"]["token_rotation_days"], 30)
 
 
 if __name__ == "__main__":

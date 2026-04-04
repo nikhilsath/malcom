@@ -17,7 +17,11 @@ const settingsElements = {
 
   dataRedactionCheckbox: document.getElementById("settings-data-redaction-checkbox"),
   dataExportSelect: document.getElementById("settings-data-export-select"),
-  storageMaxMbInput: document.getElementById("settings-storage-max-mb-input")
+  storageMaxMbInput: document.getElementById("settings-storage-max-mb-input"),
+
+  accessSessionSelect: document.getElementById("settings-access-session-select"),
+  accessApprovalCheckbox: document.getElementById("settings-access-approval-checkbox"),
+  accessTokenSelect: document.getElementById("settings-access-token-select")
 };
 
 const currentSettingsSection = document.body?.dataset.settingsSection || null;
@@ -141,6 +145,16 @@ const buildSectionPatch = (section, fallbackSettings) => {
         max_file_size_mb: Number.isFinite(maxStorageMb)
           ? Math.min(100, Math.max(1, maxStorageMb))
           : fallbackSettings.logging.max_file_size_mb
+      }
+    };
+  }
+
+  if (section === "access") {
+    return {
+      security: {
+        session_timeout_minutes: Number.parseInt(settingsElements.accessSessionSelect?.value || "", 10) || fallbackSettings.security.session_timeout_minutes,
+        dual_approval_required: settingsElements.accessApprovalCheckbox?.checked ?? fallbackSettings.security.dual_approval_required,
+        token_rotation_days: Number.parseInt(settingsElements.accessTokenSelect?.value || "", 10) || fallbackSettings.security.token_rotation_days
       }
     };
   }

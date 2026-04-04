@@ -33,6 +33,12 @@ class AutomationSettings(BaseModel):
     default_tool_retries: int = Field(ge=0, le=10)
 
 
+class SecuritySettings(BaseModel):
+    session_timeout_minutes: Literal[30, 60, 120, 480]
+    dual_approval_required: bool
+    token_rotation_days: Literal[30, 60, 90]
+
+
 class ConnectorProviderPresetResponse(BaseModel):
     id: str
     name: str
@@ -134,6 +140,7 @@ class AppSettingsResponse(BaseModel):
     notifications: NotificationSettings
     data: DataSettings
     automation: AutomationSettings
+    security: SecuritySettings
     connectors: ConnectorSettingsResponse
 
 
@@ -143,6 +150,7 @@ class AppSettingsUpdate(BaseModel):
     notifications: NotificationSettings | None = None
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
+    security: SecuritySettings | None = None
     connectors: ConnectorSettingsUpdate | None = None
 
 
@@ -196,4 +204,5 @@ __all__ = [
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
+    "SecuritySettings",
 ]

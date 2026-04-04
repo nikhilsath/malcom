@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Malcom</title>
+    <title>Malcom - Settings Access</title>
     <link rel="stylesheet" href="../styles/styles.css">
 </head>
 <body class="app-shell" data-section="settings" data-settings-section="access" data-sidenav-item="sidenav-settings-access" data-shell-path-prefix="../">
@@ -15,10 +15,10 @@
         <div class="content-shell">
             <div class="page-header section-header--page" id="settings-header">
                 <div class="title-row">
-                    <h2 class="page-title section-header__title--page" id="page-title"></h2>
+                    <h2 class="page-title section-header__title--page" id="page-title">Settings Access</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden></p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage security and access approval controls.</p>
             </div>
 
             <section id="settings-access-section" class="card settings-section">
@@ -28,10 +28,55 @@
                         <h3 id="settings-access-title" class="settings-card__title">Access and approval controls</h3>
                         <button type="button" id="settings-access-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-description">i</button>
                     </div>
-                    <p id="settings-access-description" class="settings-card__description" hidden>Placeholder controls modeled after common middleware security settings.</p>
+                    <p id="settings-access-description" class="settings-card__description" hidden>Security controls modeled after common middleware access settings.</p>
                 </div>
                 <form id="settings-form" class="api-form">
                     <div id="settings-access-grid" class="settings-option-grid">
+                        <article id="settings-access-session-card" class="stat-card settings-option-card">
+                            <div id="settings-access-session-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-access-session-title" class="settings-option-card__title">Session timeout</h4>
+                                    <button type="button" id="settings-access-session-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-session-description">i</button>
+                                </div>
+                                <p id="settings-access-session-description" class="settings-option-card__description" hidden>Maximum idle time before an operator session is invalidated.</p>
+                            </div>
+                            <select id="settings-access-session-select" class="api-form-input">
+                                <option id="settings-access-session-option-30" value="30">30 minutes</option>
+                                <option id="settings-access-session-option-60" value="60" selected>60 minutes</option>
+                                <option id="settings-access-session-option-120" value="120">2 hours</option>
+                                <option id="settings-access-session-option-480" value="480">8 hours</option>
+                            </select>
+                        </article>
+                        <article id="settings-access-approval-card" class="stat-card settings-option-card">
+                            <div id="settings-access-approval-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-access-approval-title" class="settings-option-card__title">Dual approval</h4>
+                                    <button type="button" id="settings-access-approval-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-approval-description">i</button>
+                                </div>
+                                <p id="settings-access-approval-description" class="settings-option-card__description" hidden>Require a second operator to approve sensitive automation actions before they execute.</p>
+                            </div>
+                            <label id="settings-access-approval-toggle" class="toggle settings-option-card__toggle">
+                                <input type="checkbox" class="sr-only" id="settings-access-approval-checkbox">
+                                <div class="toggle__slider" id="settings-access-approval-slider" aria-hidden="true">
+                                    <div class="toggle__knob" id="settings-access-approval-knob" aria-hidden="true"></div>
+                                </div>
+                                <span id="settings-access-approval-label" class="toggle__label">Optional</span>
+                            </label>
+                        </article>
+                        <article id="settings-access-token-card" class="stat-card settings-option-card">
+                            <div id="settings-access-token-copy" class="settings-option-card__copy">
+                                <div class="title-row">
+                                    <h4 id="settings-access-token-title" class="settings-option-card__title">Token rotation</h4>
+                                    <button type="button" id="settings-access-token-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="settings-access-token-description">i</button>
+                                </div>
+                                <p id="settings-access-token-description" class="settings-option-card__description" hidden>How frequently operator access tokens should be rotated.</p>
+                            </div>
+                            <select id="settings-access-token-select" class="api-form-input">
+                                <option id="settings-access-token-option-30" value="30">Every 30 days</option>
+                                <option id="settings-access-token-option-60" value="60">Every 60 days</option>
+                                <option id="settings-access-token-option-90" value="90" selected>Every 90 days</option>
+                            </select>
+                        </article>
                     </div>
                     <div id="settings-feedback" class="api-form-feedback" aria-live="polite"></div>
                     <div id="settings-actions" class="api-form-actions">
