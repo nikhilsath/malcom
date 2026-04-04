@@ -159,6 +159,8 @@ Backend rules:
 
 ### Connector OAuth Notes
 
+The canonical owner for connector OAuth token lifecycle (token exchange, refresh, revoke, and state TTL) is `backend/services/connector_oauth.py`. The constant `CONNECTOR_OAUTH_STATE_TTL_SECONDS` is defined there only; do not add duplicate copies in `connectors.py` or `helpers.py`. Route handlers in `backend/routes/connectors.py` delegate OAuth lifecycle to `connector_oauth.py` service functions rather than implementing token logic inline.
+
 Trello now supports guided OAuth onboarding in the connector flow. You can configure Trello client credentials in the setup form or provide the following environment variables to avoid entering them interactively:
 
 - `MALCOM_TRELLO_OAUTH_CLIENT_ID` — Trello app API key / client id.
@@ -167,6 +169,16 @@ Trello now supports guided OAuth onboarding in the connector flow. You can confi
 Default Trello OAuth callback path: `/api/v1/connectors/trello/oauth/callback`.
 
 Note: Trello's current onboarding contract does not provide long-lived refresh tokens; the connector flow treats Trello as an access-token-only provider and refresh attempts will return `409` with a suitable message.
+
+---
+
+### RuntimeEventBus
+
+`RuntimeEventBus` (`backend/runtime.py`) is an in-process job queue backed by a `collections.deque`. It holds `RuntimeTriggerJob` entries for trigger-dispatch work claimed by local or remote workers. Key design notes:
+
+- **Expired-claim requeue**: `_requeue_expired_claims_locked` scans only claimed jobs via the `_iterate_claimed_jobs` helper rather than all jobs, keeping per-call complexity proportional to the number of currently claimed jobs.
+- **Lock discipline**: all reads and mutations are protected by `self._lock`; callers must not hold the lock before entering public methods.
+- **Thread pool for background HTTP steps**: non-blocking HTTP automation steps dispatch to `BACKGROUND_DELIVERY_EXECUTOR` (a `ThreadPoolExecutor` in `backend/services/automation_executor.py`) instead of spawning per-request threads.
 
 
 ## Tool Input/Output Contract

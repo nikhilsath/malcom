@@ -12,11 +12,14 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+WORKFLOW_STORAGE_LOCK = threading.Lock()
 
 
 def _resolve_storage_dir(root_dir: Path, storage_path_setting: str) -> Path:
@@ -53,12 +56,13 @@ def write_csv_row(
 ) -> Path:
     """Append *row* to <storage_dir>/<target>.csv, writing headers on first write."""
     dest = storage_dir / f"{target}.csv"
-    write_headers = not dest.exists() and headers is not None
-    with dest.open("a", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        if write_headers:
-            writer.writerow(headers)
-        writer.writerow(row)
+    with WORKFLOW_STORAGE_LOCK:
+        write_headers = not dest.exists() and headers is not None
+        with dest.open("a", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            if write_headers:
+                writer.writerow(headers)
+            writer.writerow(row)
     return dest
 
 
@@ -81,8 +85,9 @@ def write_json_file(
         _atomic_write(dest, (json.dumps(payload, ensure_ascii=False) + "\n").encode())
     else:
         dest = storage_dir / f"{target}.json"
-        with dest.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        with WORKFLOW_STORAGE_LOCK:
+            with dest.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
     return dest
 
 

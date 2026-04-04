@@ -35,7 +35,6 @@ DatabaseRow = dict[str, Any]
 CONNECTOR_PROTECTION_VERSION = "enc_v1"
 CONNECTOR_NONCE_BYTES = 16
 CONNECTOR_SIGNATURE_BYTES = 32
-CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
 LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS = {
     "google_calendar",
     "google_gmail",
@@ -1421,7 +1420,6 @@ def _resolve_token_expiry(token_payload: dict[str, Any], *, default_seconds: int
 
 
 __all__ = [
-    "CONNECTOR_OAUTH_STATE_TTL_SECONDS",
     "CONNECTOR_PROTECTION_VERSION",
     "CONNECTOR_SECRET_FIELD_INPUTS",
     "DEFAULT_CONNECTOR_CATALOG",
