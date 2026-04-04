@@ -9,7 +9,8 @@ from unittest import mock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend.main import app, get_local_worker_id
+from backend.main import app
+from backend.services.support import get_local_worker_id
 from tests.postgres_test_utils import setup_postgres_test_app
 
 

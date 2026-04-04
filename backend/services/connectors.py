@@ -12,7 +12,6 @@ from backend.services.helpers import (
     CONNECTOR_SECRET_FIELD_INPUTS,
     DEFAULT_CONNECTOR_CATALOG,
     SUPPORTED_CONNECTOR_AUTH_TYPES,
-    SUPPORTED_CONNECTOR_PROVIDERS,
     SUPPORTED_CONNECTOR_STATUSES,
     build_connector_catalog,
     build_connector_keystream,
