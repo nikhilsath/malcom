@@ -1,3 +1,17 @@
+---
+name: task-executor
+description: "Execute one concrete step from an existing task file in .agents/tasks/open/, update step state in place, and stop after the active step. Use when requests ask to execute, continue, progress, or run the next step of an open task."
+keywords: ["task-executor", "execute task", "run task step", "continue task", "progress task", "next task step"]
+triggers:
+  - "execute task"
+  - "run next task step"
+  - "continue open task"
+  - "progress open tasks"
+  - "work the next incomplete step"
+  - "resume blocked task step"
+applyTo: "*"
+---
+
 # Task Executor Instructions
 
 Purpose:

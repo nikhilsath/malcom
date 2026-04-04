@@ -1,3 +1,17 @@
+---
+name: task-builder
+description: "Create or update executor-ready task files for any repository area by doing discovery up front and producing concrete, bounded steps in .agents/tasks/open/. Use when requests include creating, rewriting, planning, or repairing task files."
+keywords: ["task-builder", "task file", "create task", "rewrite task", "plan task", "task planning"]
+triggers:
+  - "build task"
+  - "create task file"
+  - "rewrite task"
+  - "repair task file"
+  - "plan implementation task"
+  - "draft execution steps"
+applyTo: "*"
+---
+
 # Task Builder Instructions
 
 Purpose:
