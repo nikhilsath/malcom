@@ -340,6 +340,10 @@ const renderTopNav = () => {
       item.label
     );
 
+    if (item.align === "right") {
+      link.style.marginLeft = "auto";
+    }
+
     if (item.id === activeItemId) {
       link.setAttribute("aria-current", "page");
     }
