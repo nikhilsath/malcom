@@ -1,0 +1,172 @@
+"""Unit tests for backend.services.workflow_builder."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+from backend.services.workflow_builder import list_workflow_builder_connectors
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _mock_connection():
+    return MagicMock()
+
+
+def _patch_builder(connectors_settings=None, catalog=None):
+    """Return a context-manager triple that patches the three helpers used by
+    list_workflow_builder_connectors."""
+    settings = {"records": connectors_settings or []}
+    catalog_list = catalog or []
+
+    get_settings = patch(
+        "backend.services.workflow_builder.get_stored_connector_settings",
+        return_value=settings,
+    )
+    build_catalog = patch(
+        "backend.services.workflow_builder.build_connector_catalog",
+        return_value=catalog_list,
+    )
+    canonicalize = patch(
+        "backend.services.workflow_builder.canonicalize_connector_provider",
+        side_effect=lambda p: (p or "").lower(),
+    )
+    return get_settings, build_catalog, canonicalize
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+class TestListWorkflowBuilderConnectors:
+    def test_empty_records_returns_empty_list(self):
+        get_s, build_c, canon = _patch_builder()
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result == []
+
+    def test_non_dict_records_are_skipped(self):
+        get_s, build_c, canon = _patch_builder(connectors_settings=["not-a-dict", 42, None])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result == []
+
+    def test_records_without_id_are_skipped(self):
+        record = {"name": "No ID Connector", "provider": "github"}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result == []
+
+    def test_records_with_blank_id_are_skipped(self):
+        record = {"id": "   ", "name": "Blank ID", "provider": "github"}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result == []
+
+    def test_valid_record_produces_normalized_option(self):
+        record = {
+            "id": "conn-abc",
+            "name": "My GitHub",
+            "provider": "github",
+            "status": "active",
+            "auth_type": "oauth2",
+            "scopes": ["repo", "read:user"],
+            "owner": "org",
+            "base_url": "https://api.github.com",
+            "docs_url": "https://docs.github.com",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z",
+            "last_tested_at": "2024-01-03T00:00:00Z",
+        }
+        catalog = [{"id": "github", "name": "GitHub"}]
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record], catalog=catalog)
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert len(result) == 1
+        opt = result[0]
+        assert opt["id"] == "conn-abc"
+        assert opt["name"] == "My GitHub"
+        assert opt["provider"] == "github"
+        assert opt["provider_name"] == "GitHub"
+        assert opt["status"] == "active"
+        assert opt["auth_type"] == "oauth2"
+        assert opt["scopes"] == ["repo", "read:user"]
+        assert opt["owner"] == "org"
+        assert opt["base_url"] == "https://api.github.com"
+        assert opt["docs_url"] == "https://docs.github.com"
+        assert opt["source_path"] == "settings.connectors.records"
+
+    def test_missing_name_falls_back_to_id(self):
+        record = {"id": "conn-xyz", "provider": "slack"}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result[0]["name"] == "conn-xyz"
+
+    def test_missing_status_defaults_to_draft(self):
+        record = {"id": "conn-1", "provider": "slack"}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result[0]["status"] == "draft"
+
+    def test_non_string_scopes_are_filtered_out(self):
+        record = {"id": "conn-1", "provider": "github", "scopes": ["valid", 42, None, "also-valid"]}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result[0]["scopes"] == ["valid", "also-valid"]
+
+    def test_unknown_provider_uses_canonical_as_provider_name(self):
+        record = {"id": "conn-1", "provider": "UnknownProvider"}
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record], catalog=[])
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        # canonicalize_connector_provider lowercases in the mock, catalog has no entry
+        assert result[0]["provider_name"] == "unknownprovider"
+
+    def test_results_sorted_by_name_then_id(self):
+        records = [
+            {"id": "c3", "name": "Zebra", "provider": "p"},
+            {"id": "c1", "name": "Apple", "provider": "p"},
+            {"id": "c2", "name": "apple", "provider": "p"},
+        ]
+        get_s, build_c, canon = _patch_builder(connectors_settings=records)
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        names = [r["name"] for r in result]
+        # Case-insensitive sort: "Apple"/"apple" before "Zebra"
+        assert names.index("Zebra") > names.index("Apple")
+
+    def test_results_secondary_sort_by_id(self):
+        records = [
+            {"id": "c2", "name": "Same Name", "provider": "p"},
+            {"id": "c1", "name": "Same Name", "provider": "p"},
+        ]
+        get_s, build_c, canon = _patch_builder(connectors_settings=records)
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result[0]["id"] == "c1"
+        assert result[1]["id"] == "c2"
+
+    def test_multiple_valid_records_all_returned(self):
+        records = [
+            {"id": "c1", "name": "First", "provider": "github"},
+            {"id": "c2", "name": "Second", "provider": "slack"},
+        ]
+        get_s, build_c, canon = _patch_builder(connectors_settings=records)
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert len(result) == 2
+
+    def test_provider_catalog_lookup_used_for_provider_name(self):
+        record = {"id": "c1", "name": "My Slack", "provider": "slack"}
+        catalog = [{"id": "slack", "name": "Slack"}]
+        get_s, build_c, canon = _patch_builder(connectors_settings=[record], catalog=catalog)
+        with get_s, build_c, canon:
+            result = list_workflow_builder_connectors(_mock_connection())
+        assert result[0]["provider_name"] == "Slack"
