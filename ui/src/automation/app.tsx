@@ -1,14 +1,12 @@
+import { lazy, Suspense } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Switch } from "@base-ui/react/switch";
 import { Background, Controls, ReactFlow } from "@xyflow/react";
-import { AddStepModal } from "./add-step-modal";
 import { AutomationSettingsFields } from "./automation-settings-fields";
 import { nodeTypes, STEP_GAP, STEP_Y } from "./builder-flow";
 import { appendToken, formatDateTime, formatDuration, getNodeMenuLabel, getRunStatusTone, getTriggerTypeLabel, reorderSteps } from "./builder-utils";
 import { useAutomationBuilderController } from "./useAutomationBuilderController";
-import StorageStepForm from "./step-modals/storage-step-form";
 import { HttpStepForm } from "./step-modals/http-step-form";
-import { ConnectorActivityStepForm } from "./step-modals/connector-activity-step-form";
 import { ScriptStepForm } from "./step-modals/script-step-form";
 import { TokenPicker } from "./token-picker";
 import { ToolStepFields } from "./tool-step-fields";
@@ -16,6 +14,12 @@ import { TriggerSettingsForm } from "./trigger-settings-form";
 import { CollapsibleSection } from "../lib/collapsible-section";
 import type { AutomationStep } from "./types";
 import { getDefaultStepName } from "./types";
+
+const AddStepModal = lazy(() => import("./add-step-modal").then((m) => ({ default: m.AddStepModal })));
+const StorageStepForm = lazy(() => import("./step-modals/storage-step-form"));
+const ConnectorActivityStepForm = lazy(() =>
+  import("./step-modals/connector-activity-step-form").then((m) => ({ default: m.ConnectorActivityStepForm }))
+);
 
 export const AutomationApp = () => {
   const controller = useAutomationBuilderController();
@@ -96,12 +100,14 @@ export const AutomationApp = () => {
     return (
       <div id="automations-step-modal-form" className="automation-form">
         {step.type === "log" ? (
-          <StorageStepForm
-            draft={step}
-            storageTypeOptions={builderMetadata.storage_types}
-            logColumnTypeOptions={builderMetadata.log_column_types}
-            onChange={(updated) => updateDrawerStep(() => updated)}
-          />
+          <Suspense fallback={null}>
+            <StorageStepForm
+              draft={step}
+              storageTypeOptions={builderMetadata.storage_types}
+              logColumnTypeOptions={builderMetadata.log_column_types}
+              onChange={(updated) => updateDrawerStep(() => updated)}
+            />
+          </Suspense>
         ) : null}
 
         {usesCustomHttpMode ? (
@@ -117,16 +123,18 @@ export const AutomationApp = () => {
         ) : null}
 
         {usesConnectorActivityMode ? (
-          <ConnectorActivityStepForm
-            draft={step}
-            connectors={connectors}
-            connectorsLoading={supportDataLoading}
-            connectorsError={supportDataError}
-            onRetryConnectors={reloadSupportData}
-            activityCatalog={activityCatalog}
-            onChange={(updated) => updateDrawerStep(() => updated)}
-            idPrefix="automations-step-connector-activity"
-          />
+          <Suspense fallback={null}>
+            <ConnectorActivityStepForm
+              draft={step}
+              connectors={connectors}
+              connectorsLoading={supportDataLoading}
+              connectorsError={supportDataError}
+              onRetryConnectors={reloadSupportData}
+              activityCatalog={activityCatalog}
+              onChange={(updated) => updateDrawerStep(() => updated)}
+              idPrefix="automations-step-connector-activity"
+            />
+          </Suspense>
         ) : null}
 
         {step.type === "script" ? (
@@ -829,26 +837,28 @@ export const AutomationApp = () => {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <AddStepModal
-        open={addStepModalOpen}
-        onClose={() => setAddStepModalOpen(false)}
-        stepTypeOptions={builderMetadata.step_types}
-        onAdd={(step) => {
-          insertStep(step, pendingInsertIndex);
-          setAddStepModalOpen(false);
-        }}
-        connectors={connectors}
-        connectorsLoading={supportDataLoading}
-        connectorsError={supportDataError}
-        onRetryConnectors={reloadSupportData}
-        httpPresets={httpPresets}
-        activityCatalog={activityCatalog}
-        toolsManifest={toolsManifest}
-        scripts={scripts}
-        scriptLanguages={scriptLanguages}
-        builderMetadata={builderMetadata}
-        dataFlowTokens={addStepDataFlowTokens}
-      />
+      <Suspense fallback={null}>
+        <AddStepModal
+          open={addStepModalOpen}
+          onClose={() => setAddStepModalOpen(false)}
+          stepTypeOptions={builderMetadata.step_types}
+          onAdd={(step) => {
+            insertStep(step, pendingInsertIndex);
+            setAddStepModalOpen(false);
+          }}
+          connectors={connectors}
+          connectorsLoading={supportDataLoading}
+          connectorsError={supportDataError}
+          onRetryConnectors={reloadSupportData}
+          httpPresets={httpPresets}
+          activityCatalog={activityCatalog}
+          toolsManifest={toolsManifest}
+          scripts={scripts}
+          scriptLanguages={scriptLanguages}
+          builderMetadata={builderMetadata}
+          dataFlowTokens={addStepDataFlowTokens}
+        />
+      </Suspense>
 
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <Dialog.Portal>

@@ -126,7 +126,6 @@ DatabaseRow = dict[str, Any]
 CONNECTOR_PROTECTION_VERSION = "enc_v1"
 CONNECTOR_NONCE_BYTES = 16
 CONNECTOR_SIGNATURE_BYTES = 32
-CONNECTOR_OAUTH_STATE_TTL_SECONDS = 600
 CONNECTOR_PROVIDER_CANONICAL_MAP = {
     "google_calendar": "google",
     "google_gmail": "google",

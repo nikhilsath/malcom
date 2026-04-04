@@ -158,11 +158,15 @@ class RuntimeEventBus:
 
             return None
 
+    def _iterate_claimed_jobs(self) -> list[tuple[int, RuntimeTriggerJob]]:
+        """Return (index, job) pairs for jobs with status 'claimed'."""
+        return [(i, job) for i, job in enumerate(self._jobs) if job.status == "claimed"]
+
     def _requeue_expired_claims_locked(self, *, reference_time: datetime) -> None:
         reclaim_before = reference_time - timedelta(seconds=RUNTIME_TRIGGER_CLAIM_LEASE_SECONDS)
 
-        for index, job in enumerate(self._jobs):
-            if job.status != "claimed" or not job.claimed_at:
+        for index, job in self._iterate_claimed_jobs():
+            if not job.claimed_at:
                 continue
 
             claimed_at = parse_iso_datetime(job.claimed_at)

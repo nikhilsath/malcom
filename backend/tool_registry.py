@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -198,7 +199,7 @@ def sync_tools_to_database(root_dir: Path, connection: Any) -> list[dict[str, st
 
 def load_tools_manifest(root_dir: Path, connection: Any | None = None) -> list[dict[str, str]]:
     managed_connection = connection is None
-    if managed_connection:
+    if managed_connection and not os.getenv("SKIP_MIGRATIONS"):
         run_migrations(database_url=get_database_url())
     db = connection or connect(database_url=get_database_url())
 
@@ -342,7 +343,7 @@ def set_tool_enabled(
 
 def load_tool_directory(root_dir: Path, connection: Any | None = None) -> list[dict[str, object]]:
     managed_connection = connection is None
-    if managed_connection:
+    if managed_connection and not os.getenv("SKIP_MIGRATIONS"):
         run_migrations(database_url=get_database_url())
     db = connection or connect(database_url=get_database_url())
 

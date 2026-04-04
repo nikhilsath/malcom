@@ -5,6 +5,7 @@ import json
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -78,6 +79,8 @@ from backend.services.runtime_workers import (
 _DEFAULT_WORKFLOW_STORAGE_PATH = "backend/data/workflows"
 _DEFAULT_STORAGE_TYPE = "json"
 _DEFAULT_STORAGE_TARGET = "output"
+
+BACKGROUND_DELIVERY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="malcom-bg-delivery")
 
 
 def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
@@ -265,21 +268,17 @@ def _execute_automation_step_impl(
         if not step.config.wait_for_response:
             if not run_step_id:
                 raise RuntimeError("Non-blocking HTTP steps require a runtime step identifier.")
-            thread = threading.Thread(
-                target=finalize_non_blocking_http_step,
-                kwargs={
-                    "database_url": database_url or get_database_url(),
-                    "logger_name": logger.name,
-                    "run_step_id": run_step_id,
-                    "automation_id": automation_id,
-                    "step": step.model_copy(deep=True),
-                    "context": json.loads(json.dumps(context)),
-                    "root_dir": root_dir,
-                    "delivery_executor": execute_outgoing_test_delivery,
-                },
-                daemon=True,
+            BACKGROUND_DELIVERY_EXECUTOR.submit(
+                finalize_non_blocking_http_step,
+                database_url=database_url or get_database_url(),
+                logger_name=logger.name,
+                run_step_id=run_step_id,
+                automation_id=automation_id,
+                step=step.model_copy(deep=True),
+                context=json.loads(json.dumps(context)),
+                root_dir=root_dir,
+                delivery_executor=execute_outgoing_test_delivery,
             )
-            thread.start()
             return RuntimeExecutionResult(
                 status="completed",
                 response_summary="Request sent in background mode.",

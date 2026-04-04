@@ -312,6 +312,12 @@ CREATE TABLE IF NOT EXISTS docs_article_tags (
     PRIMARY KEY (article_id, tag_id)
 );
 
+CREATE INDEX IF NOT EXISTS automation_run_steps_run_id_idx
+    ON automation_run_steps (run_id);
+
+CREATE INDEX IF NOT EXISTS automation_runs_next_run_at_idx
+    ON automation_runs (automation_id, status);
+
 CREATE INDEX IF NOT EXISTS connectors_provider_status_idx
     ON connectors (provider, status);
 
