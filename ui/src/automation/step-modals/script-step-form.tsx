@@ -4,13 +4,14 @@ import { requestJson } from "../../lib/request";
 import type { DataFlowToken } from "../data-flow";
 import { TokenPicker } from "../token-picker";
 import { SCRIPT_LANGUAGE_LABELS, SCRIPT_LANGUAGE_TEMPLATES } from "../constants";
-import type { AutomationStep, ScriptLanguageOption, ScriptLibraryItem } from "../types";
+import type { AutomationStep, RepoCheckoutOption, ScriptLanguageOption, ScriptLibraryItem } from "../types";
 
 type Props = {
   draft: AutomationStep;
   scripts?: ScriptLibraryItem[];
   scriptLanguages?: ScriptLanguageOption[];
   dataFlowTokens?: DataFlowToken[];
+  repoCheckoutOptions?: RepoCheckoutOption[];
   onChange: (step: AutomationStep) => void;
   idPrefix?: string;
   allowCreate?: boolean;
@@ -33,6 +34,7 @@ export const ScriptStepForm = ({
   scripts,
   scriptLanguages = [],
   dataFlowTokens = [],
+  repoCheckoutOptions = [],
   onChange,
   idPrefix = "add-step",
   allowCreate = true
@@ -269,6 +271,41 @@ export const ScriptStepForm = ({
           onInsert={insertTokenIntoScriptInput}
         />
       ) : null}
+
+      {/* Repo checkout picker (shown when repo checkouts are available) */}
+      {repoCheckoutOptions.length > 0 && (
+        <>
+          <label id={`${idPrefix}-script-repo-checkout-field`} className="automation-field automation-field--full">
+            <span id={`${idPrefix}-script-repo-checkout-label`} className="automation-field__label">Repo checkout (optional)</span>
+            <select
+              id={`${idPrefix}-script-repo-checkout-input`}
+              className="automation-native-select"
+              value={String(draft.config.repo_checkout_id || "")}
+              onChange={(e) => onChange({ ...draft, config: { ...draft.config, repo_checkout_id: e.target.value || undefined } })}
+            >
+              <option value="">— use default working directory —</option>
+              {repoCheckoutOptions.map((checkout) => (
+                <option key={checkout.id} value={checkout.id}>
+                  {checkout.repo_url} ({checkout.branch})
+                </option>
+              ))}
+            </select>
+          </label>
+          {draft.config.repo_checkout_id && (
+            <label id={`${idPrefix}-script-working-dir-field`} className="automation-field automation-field--full">
+              <span id={`${idPrefix}-script-working-dir-label`} className="automation-field__label">Working directory (optional)</span>
+              <input
+                id={`${idPrefix}-script-working-dir-input`}
+                type="text"
+                className="automation-input"
+                placeholder="Subdirectory within the repo (e.g. src/scripts)"
+                value={String(draft.config.working_directory || "")}
+                onChange={(e) => onChange({ ...draft, config: { ...draft.config, working_directory: e.target.value || undefined } })}
+              />
+            </label>
+          )}
+        </>
+      )}
 
       <Dialog.Root open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <Dialog.Portal>

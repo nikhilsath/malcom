@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { AutomationBuilderOption, AutomationStep, LogDbColumnDef, LogDbTableOption } from "../types";
+import type { AutomationBuilderOption, AutomationStep, LogDbColumnDef, LogDbTableOption, StorageLocationOption } from "../types";
 
 type Props = {
   draft: AutomationStep;
   storageTypeOptions: AutomationBuilderOption[];
   logColumnTypeOptions: AutomationBuilderOption[];
+  storageLocationOptions?: StorageLocationOption[];
   onChange: (step: AutomationStep) => void;
 };
 
@@ -20,7 +21,7 @@ const toIdToken = (value: string, fallback: string): string => {
   return token || fallback;
 };
 
-export const StorageStepForm = ({ draft, storageTypeOptions, logColumnTypeOptions, onChange }: Props) => {
+export const StorageStepForm = ({ draft, storageTypeOptions, logColumnTypeOptions, storageLocationOptions = [], onChange }: Props) => {
   const [mode, setMode] = useState<"existing" | "new">(
     draft.config.log_table_id ? "existing" : "new"
   );
@@ -158,6 +159,52 @@ export const StorageStepForm = ({ draft, storageTypeOptions, logColumnTypeOption
 
   return (
     <div id="log-step-form-root" className="log-step-form">
+      {/* Storage location picker */}
+      {storageLocationOptions.length > 0 && (
+        <label id="log-step-storage-location-field" className="automation-field automation-field--full">
+          <span id="log-step-storage-location-label" className="automation-field__label">Storage location (optional)</span>
+          <select
+            id="log-step-storage-location-input"
+            className="automation-native-select"
+            value={String(draft.config.storage_location_id || "")}
+            onChange={(e) => onChange({ ...draft, config: { ...draft.config, storage_location_id: e.target.value || undefined } })}
+          >
+            <option value="">— use default path —</option>
+            {storageLocationOptions.map((loc) => (
+              <option key={loc.id} value={loc.id}>{loc.name} ({loc.location_type})</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {/* Folder + file name template fields (shown when a location is selected) */}
+      {draft.config.storage_location_id && (
+        <>
+          <label id="log-step-folder-tmpl-field" className="automation-field automation-field--full">
+            <span id="log-step-folder-tmpl-label" className="automation-field__label">Folder template (optional)</span>
+            <input
+              id="log-step-folder-tmpl-input"
+              type="text"
+              className="automation-input"
+              placeholder="e.g. {data_type}/{year}-{month}"
+              value={String(draft.config.folder_template || "")}
+              onChange={(e) => onChange({ ...draft, config: { ...draft.config, folder_template: e.target.value || undefined } })}
+            />
+          </label>
+          <label id="log-step-file-tmpl-field" className="automation-field automation-field--full">
+            <span id="log-step-file-tmpl-label" className="automation-field__label">File name template (optional)</span>
+            <input
+              id="log-step-file-tmpl-input"
+              type="text"
+              className="automation-input"
+              placeholder="e.g. {target}-{timestamp}"
+              value={String(draft.config.file_name_template || "")}
+              onChange={(e) => onChange({ ...draft, config: { ...draft.config, file_name_template: e.target.value || undefined } })}
+            />
+          </label>
+        </>
+      )}
+
       {/* Storage type selector */}
       <label id="log-step-storage-type-field" className="automation-field automation-field--full">
         <span id="log-step-storage-type-label" className="automation-field__label">Storage type</span>

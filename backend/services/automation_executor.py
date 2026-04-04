@@ -44,6 +44,15 @@ from backend.services.automation_execution import (
     log_event,
 )
 from backend.services.workflow_storage import execute_workflow_write
+from backend.services.storage_locations import (
+    check_location_quota,
+    resolve_storage_location,
+)
+from backend.services.repo_checkout_service import (
+    clone_or_pull_repo,
+    get_checkout_path,
+    record_checkout_size,
+)
 from backend.services.automation_runs import (
     assign_automation_run_worker,
     calculate_duration_ms,
@@ -224,11 +233,6 @@ def _execute_automation_step_impl(
             return _execute_log_db_write(connection, logger, automation_id=automation_id, step=step, context=context)
         # File-backed write support: use storage fields when provided on the step
         if getattr(step.config, "storage_type", None) or getattr(step.config, "storage_target", None):
-            try:
-                settings_payload = get_settings_payload(connection)
-                configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or _DEFAULT_WORKFLOW_STORAGE_PATH
-            except Exception:
-                configured_path = _DEFAULT_WORKFLOW_STORAGE_PATH
             storage_type = getattr(step.config, "storage_type", None) or _DEFAULT_STORAGE_TYPE
             storage_target = getattr(step.config, "storage_target", None) or _DEFAULT_STORAGE_TARGET
             new_file = getattr(step.config, "storage_new_file", True)
@@ -237,6 +241,84 @@ def _execute_automation_step_impl(
                 payload: Any = json.loads(raw_payload)
             except (ValueError, TypeError):
                 payload = raw_payload
+
+            location_id = getattr(step.config, "storage_location_id", None)
+            if location_id:
+                # Resolve the named storage location
+                try:
+                    resolved = resolve_storage_location(connection, location_id, root_dir=root_dir)
+                except ValueError as exc:
+                    return RuntimeExecutionResult(status="failed", response_summary=str(exc), detail={"error": str(exc)}, output={})
+                location_type = resolved["location_type"]
+
+                # Apply folder/file name templates when provided
+                folder_tmpl = getattr(step.config, "folder_template", None) or resolved.get("folder_template")
+                file_tmpl = getattr(step.config, "file_name_template", None) or resolved.get("file_name_template")
+                if folder_tmpl:
+                    rendered_folder = render_template_string(folder_tmpl, context)
+                    if rendered_folder:
+                        if resolved["path"]:
+                            resolved["path"] = str(Path(resolved["path"]) / rendered_folder)
+                        else:
+                            resolved["path"] = rendered_folder
+                if file_tmpl:
+                    storage_target = render_template_string(file_tmpl, context) or storage_target
+
+                if location_type == "google_drive":
+                    # Delegate to Drive connector activity
+                    connector_id = resolved.get("connector_id")
+                    if not connector_id:
+                        return RuntimeExecutionResult(
+                            status="failed",
+                            response_summary="Google Drive location has no connector_id",
+                            detail={"error": "connector_id missing on storage location"},
+                            output={},
+                        )
+                    import json as _json
+                    content = _json.dumps(payload, ensure_ascii=False) if not isinstance(payload, str) else payload
+                    from backend.services.connector_activities import execute_connector_activity
+                    try:
+                        drive_result = execute_connector_activity(
+                            connection,
+                            connector_id=connector_id,
+                            activity_id="drive_create_file",
+                            inputs={
+                                "parent_folder_id": resolved["path"] or "root",
+                                "name": f"{storage_target}.json",
+                                "content": content,
+                                "mime_type": "application/json",
+                            },
+                            root_dir=root_dir,
+                            context=context,
+                        )
+                    except Exception as exc:
+                        return RuntimeExecutionResult(
+                            status="failed",
+                            response_summary=f"Google Drive write failed: {exc}",
+                            detail={"error": str(exc)},
+                            output={},
+                        )
+                    result = {"file": f"drive://{resolved['path']}/{storage_target}.json", "storage_type": "google_drive", "target": storage_target, "drive_result": drive_result}
+                    return RuntimeExecutionResult(status="completed", response_summary=f"Wrote to Google Drive: {storage_target}", detail=result, output=result)
+
+                # Local or repo location — enforce quota then write
+                try:
+                    import json as _json_size
+                    estimated_bytes = len(_json_size.dumps(payload, ensure_ascii=False).encode())
+                    check_location_quota(connection, location_id, estimated_bytes, root_dir=root_dir)
+                except RuntimeError as exc:
+                    return RuntimeExecutionResult(status="failed", response_summary=str(exc), detail={"error": str(exc)}, output={})
+
+                configured_path = resolved["path"] or _DEFAULT_WORKFLOW_STORAGE_PATH
+
+            else:
+                # Fall back to global workflow_storage_path setting
+                try:
+                    settings_payload = get_settings_payload(connection)
+                    configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or _DEFAULT_WORKFLOW_STORAGE_PATH
+                except Exception:
+                    configured_path = _DEFAULT_WORKFLOW_STORAGE_PATH
+
             result = execute_workflow_write(
                 root_dir,
                 configured_path,
@@ -248,6 +330,29 @@ def _execute_automation_step_impl(
             summary = f"Wrote {storage_type} to {result.get('file', storage_target)}"
             return RuntimeExecutionResult(status="completed", response_summary=summary, detail=result, output=result)
         message = render_template_string(step.config.message, context)
+        # Check for a default-logs storage location and route there if present
+        try:
+            default_log_row = connection.execute(
+                "SELECT * FROM storage_locations WHERE is_default_logs = 1 LIMIT 1"
+            ).fetchone()
+        except Exception:
+            default_log_row = None
+
+        if default_log_row is not None:
+            default_log_row = dict(default_log_row)
+            log_location_id = default_log_row["id"]
+            log_path = default_log_row.get("path") or _DEFAULT_WORKFLOW_STORAGE_PATH
+            log_payload = {"message": message, "automation_id": automation_id, "step_name": step.name}
+            try:
+                estimated = len(json.dumps(log_payload, ensure_ascii=False).encode())
+                check_location_quota(connection, log_location_id, estimated, root_dir=root_dir)
+                log_result = execute_workflow_write(root_dir, log_path, "json", "automation_logs", log_payload, new_file=True)
+                log_detail = {"message": message, "log_file": log_result.get("file")}
+            except Exception:
+                log_detail = {"message": message}
+        else:
+            log_detail = {"message": message}
+
         write_application_log(
             logger,
             logging.INFO,
@@ -256,7 +361,7 @@ def _execute_automation_step_impl(
             step_name=step.name,
             message=message,
         )
-        return RuntimeExecutionResult(status="completed", response_summary=message, detail={"message": message}, output=message)
+        return RuntimeExecutionResult(status="completed", response_summary=message, detail=log_detail, output=message)
 
     if step.type == "outbound_request":
         if step.config.http_preset_id:
@@ -330,12 +435,48 @@ def _execute_automation_step_impl(
         script_row = fetch_one(connection, "SELECT * FROM scripts WHERE id = ?", (step.config.script_id,))
         if script_row is None:
             raise RuntimeError(f"Script '{step.config.script_id}' was not found.")
-        return execute_script_step(
+
+        # Determine working directory: repo checkout root + optional subdirectory
+        effective_root_dir = root_dir
+        repo_checkout_id = getattr(step.config, "repo_checkout_id", None)
+        if repo_checkout_id:
+            try:
+                clone_or_pull_repo(connection, repo_checkout_id)
+            except (ValueError, RuntimeError) as exc:
+                write_application_log(
+                    logger,
+                    logging.WARNING,
+                    "repo_checkout_sync_failed",
+                    automation_id=automation_id,
+                    step_name=step.name,
+                    checkout_id=repo_checkout_id,
+                    error=str(exc),
+                )
+            try:
+                checkout_path = get_checkout_path(connection, repo_checkout_id)
+                working_dir = getattr(step.config, "working_directory", None)
+                if working_dir:
+                    effective_root_dir = checkout_path / working_dir.lstrip("/")
+                else:
+                    effective_root_dir = checkout_path
+            except ValueError:
+                pass  # Checkout path not found – use default root_dir
+
+        result = execute_script_step(
             script_row,
             context,
-            root_dir=root_dir,
+            root_dir=effective_root_dir,
             script_input_template=step.config.script_input_template,
         )
+
+        # Update size after execution if a checkout was used
+        if repo_checkout_id:
+            try:
+                record_checkout_size(connection, repo_checkout_id)
+            except (ValueError, RuntimeError):
+                pass
+
+        return result
 
     if step.type == "llm_chat":
         messages: list[dict[str, str]] = []

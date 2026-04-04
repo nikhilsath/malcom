@@ -198,176 +198,210 @@ document.addEventListener("DOMContentLoaded", () => {
     loadBackups();
 });
 
-const LOCAL_STORAGE_SPOTS = [
-    {
-        id: "settings-storage-local-database",
-        title: "Runtime database",
-        location: "MALCOM_DATABASE_URL (workspace database)",
-        type: "local"
-    },
-    {
-        id: "settings-storage-local-logs",
-        title: "Application logs",
-        location: "backend/data/logs/",
-        type: "local"
-    },
-    {
-        id: "settings-storage-local-media",
-        title: "Workspace media",
-        location: "media/",
-        type: "local"
-    }
-];
+// ── Storage locations management ─────────────────────────────────────────────
 
-const toTitleCase = (value) => value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
+function escapeHtml(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
-const normalizeProvider = (provider) => {
-    return (provider || "").toString().trim().toLowerCase();
-};
+function formatDate(isoStr) {
+    if (!isoStr) return "—";
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
 
-const getEnabledConnectorStorageOptions = (connectors) => {
-    const records = connectors?.records || [];
-    const activeStatuses = new Set(connectors?.metadata?.active_storage_statuses || []);
-    const providerCatalog = new Map((connectors?.catalog || []).map((preset) => [preset.id, preset.name]));
-    const enabledRecords = records.filter((record) => activeStatuses.has((record.status || "").toLowerCase()));
-    const seenProviders = new Set();
-    const options = [];
+const TYPE_LABELS = { local: "Local folder", google_drive: "Google Drive", repo: "Git repo" };
 
-    for (const record of enabledRecords) {
-        const provider = normalizeProvider(record.provider);
-        if (!provider || seenProviders.has(provider)) {
-            continue;
-        }
-
-        seenProviders.add(provider);
-
-        if (provider === "google") {
-            options.push({
-                id: "settings-storage-connector-google-drive",
-                title: providerCatalog.get(provider) || "Google",
-                location: `Enabled via connector: ${record.name || "Google"}`,
-                type: "connector"
-            });
-            continue;
-        }
-
-        options.push({
-            id: `settings-storage-connector-${provider}`,
-            title: providerCatalog.get(provider) || `${toTitleCase(provider)} storage`,
-            location: `Enabled via connector: ${record.name || toTitleCase(provider)}`,
-            type: "connector"
-        });
-    }
-
-    return options;
-};
-
-const renderStorageLocationList = (containerId, items, maxStorageMb, emptyMessage) => {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        return;
-    }
-
-    if (!items.length) {
-        container.innerHTML = `<p id="${containerId}-empty" class="automation-empty-state">${emptyMessage}</p>`;
-        return;
-    }
-
-    container.innerHTML = items.map((item) => `
-        <article id="${item.id}" class="settings-storage-location-item">
-            <div id="${item.id}-copy" class="settings-storage-location-item__copy">
-                <p id="${item.id}-title" class="settings-storage-location-item__title">${escapeHtml(item.title)}</p>
-                <p id="${item.id}-path" class="settings-storage-location-item__path">${escapeHtml(item.location)}</p>
+function renderStorageLocationItem(loc) {
+    const typeLabel = TYPE_LABELS[loc.location_type] || loc.location_type;
+    const limitText = loc.max_size_mb ? `Max ${loc.max_size_mb} MB` : "No limit";
+    const defaultLogsTag = loc.is_default_logs ? ` <span id="storage-loc-${loc.id}-default-logs-tag" class="settings-storage-default-logs-tag">Default logs</span>` : "";
+    return `
+        <article id="storage-loc-${loc.id}" class="settings-storage-location-item">
+            <div id="storage-loc-${loc.id}-copy" class="settings-storage-location-item__copy">
+                <p id="storage-loc-${loc.id}-title" class="settings-storage-location-item__title">${escapeHtml(loc.name)}${defaultLogsTag}</p>
+                <p id="storage-loc-${loc.id}-meta" class="settings-storage-location-item__path">${escapeHtml(typeLabel)}${loc.path ? ` — ${escapeHtml(loc.path)}` : ""}</p>
             </div>
-            <p id="${item.id}-limit" class="settings-storage-location-item__limit">Max ${maxStorageMb} MB</p>
+            <p id="storage-loc-${loc.id}-limit" class="settings-storage-location-item__limit">${limitText}</p>
+            <div id="storage-loc-${loc.id}-actions" class="settings-storage-location-item__actions">
+                <button type="button" id="storage-loc-${loc.id}-edit-btn" class="button button--secondary settings-storage-edit-btn" data-id="${loc.id}">Edit</button>
+                <button type="button" id="storage-loc-${loc.id}-delete-btn" class="button button--secondary settings-storage-delete-btn" data-id="${loc.id}">Delete</button>
+            </div>
         </article>
-    `).join("");
-};
+    `;
+}
 
-const getMaxStorageMbValue = (settings) => {
-    const input = document.getElementById("settings-storage-max-mb-input");
-    const fallback = settings?.logging?.max_file_size_mb || 5;
-    const parsed = Number.parseInt(input?.value || "", 10);
-    if (!Number.isFinite(parsed)) {
-        return fallback;
+async function loadStorageLocations() {
+    const container = document.getElementById("settings-storage-locations-list");
+    if (!container) return;
+    container.innerHTML = '<p id="settings-storage-locations-loading" class="automation-empty-state">Loading…</p>';
+    try {
+        const res = await fetch("/api/v1/storage/locations");
+        if (!res.ok) throw new Error(res.statusText);
+        const locations = await res.json();
+        if (!Array.isArray(locations) || locations.length === 0) {
+            container.innerHTML = '<p id="settings-storage-locations-empty" class="automation-empty-state">No storage locations configured yet.</p>';
+        } else {
+            container.innerHTML = locations.map(renderStorageLocationItem).join("");
+            container.querySelectorAll(".settings-storage-edit-btn").forEach((btn) => {
+                btn.addEventListener("click", () => openStorageModal(btn.dataset.id));
+            });
+            container.querySelectorAll(".settings-storage-delete-btn").forEach((btn) => {
+                btn.addEventListener("click", () => deleteStorageLocation(btn.dataset.id));
+            });
+        }
+    } catch (err) {
+        container.innerHTML = `<p id="settings-storage-locations-error" class="automation-empty-state">Failed to load: ${escapeHtml(String(err.message || err))}</p>`;
     }
-    return Math.min(100, Math.max(1, parsed));
-};
+}
 
-const renderStorageLocations = () => {
-    const settings = window.MalcomLogStore?.getAppSettings?.() || null;
-    const connectors = window.MalcomLogStore?.getConnectors?.() || null;
-    if (!settings) {
+async function deleteStorageLocation(id) {
+    if (!confirm("Delete this storage location? This cannot be undone.")) return;
+    try {
+        const res = await fetch(`/api/v1/storage/locations/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+        await loadStorageLocations();
+    } catch (err) {
+        alert(`Delete failed: ${err.message || err}`);
+    }
+}
+
+function openStorageModal(editId = null) {
+    const modal = document.getElementById("settings-storage-modal");
+    const idInput = document.getElementById("settings-storage-modal-id");
+    const nameInput = document.getElementById("settings-storage-modal-name");
+    const typeInput = document.getElementById("settings-storage-modal-type");
+    const pathInput = document.getElementById("settings-storage-modal-path");
+    const maxMbInput = document.getElementById("settings-storage-modal-max-mb");
+    const folderTmplInput = document.getElementById("settings-storage-modal-folder-tmpl");
+    const fileTmplInput = document.getElementById("settings-storage-modal-file-tmpl");
+    const defaultLogsInput = document.getElementById("settings-storage-modal-default-logs");
+    const errorEl = document.getElementById("settings-storage-modal-error");
+    if (!modal) return;
+
+    // Reset form
+    idInput.value = editId || "";
+    nameInput.value = "";
+    typeInput.value = "local";
+    pathInput.value = "";
+    maxMbInput.value = "";
+    folderTmplInput.value = "";
+    fileTmplInput.value = "";
+    defaultLogsInput.checked = false;
+    if (errorEl) { errorEl.textContent = ""; errorEl.hidden = true; }
+
+    if (editId) {
+        // Populate from existing data
+        const existing = document.getElementById(`storage-loc-${editId}`);
+        if (existing) {
+            // Best effort populate from rendered data; real data comes from API in production
+        }
+        fetch(`/api/v1/storage/locations`)
+            .then((r) => r.json())
+            .then((locs) => {
+                const loc = Array.isArray(locs) ? locs.find((l) => l.id === editId) : null;
+                if (!loc) return;
+                nameInput.value = loc.name || "";
+                typeInput.value = loc.location_type || "local";
+                pathInput.value = loc.path || "";
+                maxMbInput.value = loc.max_size_mb || "";
+                folderTmplInput.value = loc.folder_template || "";
+                fileTmplInput.value = loc.file_name_template || "";
+                defaultLogsInput.checked = Boolean(loc.is_default_logs);
+            })
+            .catch(() => {});
+    }
+
+    if (typeof modal.showModal === "function") {
+        modal.showModal();
+    } else {
+        modal.setAttribute("open", "");
+    }
+}
+
+async function saveStorageLocation(e) {
+    e.preventDefault();
+    const idInput = document.getElementById("settings-storage-modal-id");
+    const nameInput = document.getElementById("settings-storage-modal-name");
+    const typeInput = document.getElementById("settings-storage-modal-type");
+    const pathInput = document.getElementById("settings-storage-modal-path");
+    const maxMbInput = document.getElementById("settings-storage-modal-max-mb");
+    const folderTmplInput = document.getElementById("settings-storage-modal-folder-tmpl");
+    const fileTmplInput = document.getElementById("settings-storage-modal-file-tmpl");
+    const defaultLogsInput = document.getElementById("settings-storage-modal-default-logs");
+    const errorEl = document.getElementById("settings-storage-modal-error");
+    const saveBtn = document.getElementById("settings-storage-modal-save");
+
+    const id = idInput.value;
+    const body = {
+        name: nameInput.value.trim(),
+        location_type: typeInput.value,
+        path: pathInput.value.trim() || null,
+        max_size_mb: maxMbInput.value ? parseInt(maxMbInput.value, 10) : null,
+        folder_template: folderTmplInput.value.trim() || null,
+        file_name_template: fileTmplInput.value.trim() || null,
+        is_default_logs: defaultLogsInput.checked,
+    };
+
+    if (!body.name) {
+        if (errorEl) { errorEl.textContent = "Name is required."; errorEl.hidden = false; }
         return;
     }
 
-    const input = document.getElementById("settings-storage-max-mb-input");
-    if (input && !input.value) {
-        input.value = String(settings.logging?.max_file_size_mb || 5);
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        let res;
+        if (id) {
+            res = await fetch(`/api/v1/storage/locations/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+        } else {
+            res = await fetch("/api/v1/storage/locations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+        }
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            const msg = errData.detail || res.statusText || "Save failed";
+            if (errorEl) { errorEl.textContent = msg; errorEl.hidden = false; }
+            return;
+        }
+        const modal = document.getElementById("settings-storage-modal");
+        if (modal && typeof modal.close === "function") modal.close();
+        await loadStorageLocations();
+    } catch (err) {
+        if (errorEl) { errorEl.textContent = String(err.message || err); errorEl.hidden = false; }
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
+}
 
-    const maxStorageMb = getMaxStorageMbValue(settings);
-    if (input && input.value !== String(maxStorageMb)) {
-        input.value = String(maxStorageMb);
-    }
+function bindStorageLocations() {
+    const addBtn = document.getElementById("settings-storage-add-btn");
+    if (addBtn) addBtn.addEventListener("click", () => openStorageModal(null));
 
-    renderStorageLocationList(
-        "settings-storage-local-list",
-        LOCAL_STORAGE_SPOTS,
-        maxStorageMb,
-        "No local storage spots configured."
-    );
+    const modalForm = document.getElementById("settings-storage-modal-form");
+    if (modalForm) modalForm.addEventListener("submit", saveStorageLocation);
 
-    const connectorOptions = getEnabledConnectorStorageOptions(connectors);
-    renderStorageLocationList(
-        "settings-storage-connectors-list",
-        connectorOptions,
-        maxStorageMb,
-        "No connector-backed storage locations available."
-    );
-};
-
-const bindStorageLocations = () => {
-    const maxStorageInput = document.getElementById("settings-storage-max-mb-input");
-    if (maxStorageInput instanceof HTMLInputElement) {
-        maxStorageInput.addEventListener("input", () => {
-            renderStorageLocations();
-        });
-    }
-
-    window.addEventListener("malcom:app-settings-updated", () => {
-        renderStorageLocations();
+    const cancelBtn = document.getElementById("settings-storage-modal-cancel");
+    const modal = document.getElementById("settings-storage-modal");
+    if (cancelBtn && modal) cancelBtn.addEventListener("click", () => {
+        if (typeof modal.close === "function") modal.close();
+        else modal.removeAttribute("open");
     });
 
-    window.addEventListener("malcom:connectors-updated", () => {
-        renderStorageLocations();
-    });
+    loadStorageLocations();
+}
 
-    Promise.allSettled([
-        window.MalcomLogStore?.ready?.(),
-        window.MalcomLogStore?.loadConnectors?.()
-    ]).then(() => {
-        renderStorageLocations();
-    }).catch(() => {
-        renderStorageLocations();
-    });
-};
+bindStorageLocations();
 
 // ── Log table storage management ─────────────────────────────────────────────
-
-bindCollapsibleSection({
-    toggleId: "settings-log-storage-collapse-toggle",
-    bodyId: "settings-log-storage-body",
-    symbolId: "settings-log-storage-collapse-symbol",
-    srLabelId: "settings-log-storage-collapse-label",
-    expandedLabel: "Collapse log table storage management",
-    collapsedLabel: "Expand log table storage management",
-    onExpand: () => {
-        loadLogTableStats();
-    }
-});
 
 function renderLogTableStats(tables) {
     const container = document.getElementById("settings-log-tables-stats");
@@ -418,17 +452,6 @@ function renderLogTableStats(tables) {
     });
 }
 
-function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-function formatDate(isoStr) {
-    if (!isoStr) return "—";
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return isoStr;
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d);
-}
-
 async function loadLogTableStats() {
     const container = document.getElementById("settings-log-tables-stats");
     if (!container) return;
@@ -444,4 +467,14 @@ async function loadLogTableStats() {
     }
 }
 
-bindStorageLocations();
+bindCollapsibleSection({
+    toggleId: "settings-log-storage-collapse-toggle",
+    bodyId: "settings-log-storage-body",
+    symbolId: "settings-log-storage-collapse-symbol",
+    srLabelId: "settings-log-storage-collapse-label",
+    expandedLabel: "Collapse log table storage management",
+    collapsedLabel: "Expand log table storage management",
+    onExpand: () => {
+        loadLogTableStats();
+    }
+});

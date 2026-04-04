@@ -42,7 +42,9 @@ export const useAutomationBuilderController = () => {
     step_types: [],
     http_methods: [],
     storage_types: [],
-    log_column_types: []
+    log_column_types: [],
+    storage_locations: [],
+    repo_checkouts: []
   });
   const [connectors, setConnectors] = useState<ConnectorRecord[]>([]);
   const [supportDataLoading, setSupportDataLoading] = useState(false);

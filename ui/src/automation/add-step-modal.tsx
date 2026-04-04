@@ -95,6 +95,7 @@ export const AddStepModal = ({
             draft={draft}
             storageTypeOptions={builderMetadata.storage_types}
             logColumnTypeOptions={builderMetadata.log_column_types}
+            storageLocationOptions={builderMetadata.storage_locations}
             onChange={setDraft}
           />
         );

@@ -49,8 +49,8 @@ def list_workflow_builder_connectors_endpoint(request: Request) -> list[Workflow
 
 
 @router.get("/api/v1/automations/builder-metadata", response_model=AutomationBuilderMetadataResponse)
-def get_automation_builder_metadata_endpoint() -> AutomationBuilderMetadataResponse:
-    return AutomationBuilderMetadataResponse(**get_automation_builder_metadata())
+def get_automation_builder_metadata_endpoint(request: Request) -> AutomationBuilderMetadataResponse:
+    return AutomationBuilderMetadataResponse(**get_automation_builder_metadata(get_connection(request)))
 
 
 @router.post("/api/v1/automations", response_model=AutomationDetailResponse, status_code=status.HTTP_201_CREATED)

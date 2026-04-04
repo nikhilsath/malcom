@@ -95,6 +95,13 @@ class AutomationStepConfig(BaseModel):
     storage_type: str | None = Field(default=None, pattern=r"^(csv|table|json|other)$")
     storage_target: str | None = Field(default=None, max_length=255)
     storage_new_file: bool = True
+    # Multi-location storage fields
+    storage_location_id: str | None = Field(default=None, max_length=120)
+    folder_template: str | None = Field(default=None, max_length=500)
+    file_name_template: str | None = Field(default=None, max_length=500)
+    # Repo-backed script step fields
+    repo_checkout_id: str | None = Field(default=None, max_length=120)
+    working_directory: str | None = Field(default=None, max_length=1000)
 
 
 class AutomationStepDefinition(BaseModel):
@@ -204,6 +211,8 @@ class AutomationBuilderMetadataResponse(BaseModel):
     http_methods: list[dict[str, Any]]
     storage_types: list[dict[str, Any]]
     log_column_types: list[dict[str, Any]]
+    storage_locations: list[dict[str, Any]] = Field(default_factory=list)
+    repo_checkouts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ── Log / Write-to-DB table management models ────────────────────────────────

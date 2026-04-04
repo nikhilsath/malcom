@@ -513,6 +513,40 @@ Managed metadata for columns belonging to a `log_db_tables` definition.
 | `position` | `integer` | Stable display/creation order for the column within the table definition. |
 | `created_at` | `text` | Creation timestamp stored as ISO text. |
 
+#### `storage_locations`
+
+Persisted storage destination rows. These are the runtime source of truth for local folders, Google Drive folders, and repo storage roots used by automation write steps.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the storage location. |
+| `name` | `text` | Human-readable label for the location. |
+| `location_type` | `text` | One of `local`, `google_drive`, or `repo`. |
+| `path` | `text` | Local filesystem path (for `local`/`repo`) or Google Drive folder ID (for `google_drive`). |
+| `connector_id` | `text` | Foreign key to `connectors.id`; required for `google_drive` type. |
+| `folder_template` | `text` | Optional Jinja template for sub-folder naming, e.g. `{data_type}/{year}-{month}`. |
+| `file_name_template` | `text` | Optional Jinja template for file naming, e.g. `{target}-{timestamp}`. |
+| `max_size_mb` | `integer` | Per-location quota in megabytes. `NULL` means unlimited. |
+| `is_default_logs` | `integer` | `0`/`1` flag: when `1` this location receives API event log output. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
+#### `repo_checkouts`
+
+Managed GitHub repo clones linked to a `storage_locations` row of type `repo`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | `text` | Primary key for the checkout record. |
+| `storage_location_id` | `text` | Foreign key to [`storage_locations`](#storage_locations)`.`id`. |
+| `repo_url` | `text` | Remote repository URL used for clone/pull. |
+| `local_path` | `text` | Absolute local path where the repo is checked out. |
+| `branch` | `text` | Branch name to track (default `main`). |
+| `last_synced_at` | `text` | Timestamp of the most recent successful clone/pull. |
+| `size_bytes` | `integer` | Measured size of the checkout on disk in bytes after last sync. |
+| `created_at` | `text` | Creation timestamp stored as ISO text. |
+| `updated_at` | `text` | Last update timestamp stored as ISO text. |
+
 ### Schema Health Notes
 
 The current schema is serviceable for a single-environment local-first app, but it is not fully aligned with stricter relational database best practices yet.

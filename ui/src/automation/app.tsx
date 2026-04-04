@@ -105,6 +105,7 @@ export const AutomationApp = () => {
               draft={step}
               storageTypeOptions={builderMetadata.storage_types}
               logColumnTypeOptions={builderMetadata.log_column_types}
+              storageLocationOptions={builderMetadata.storage_locations}
               onChange={(updated) => updateDrawerStep(() => updated)}
             />
           </Suspense>
@@ -142,6 +143,7 @@ export const AutomationApp = () => {
             draft={step}
             scripts={scripts}
             scriptLanguages={scriptLanguages}
+            repoCheckoutOptions={builderMetadata.repo_checkouts}
             dataFlowTokens={drawerDataFlowTokens}
             onChange={(updated) => updateDrawerStep(() => updated)}
             idPrefix="automations-step"
