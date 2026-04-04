@@ -212,7 +212,7 @@ export const StorageStepForm = ({ draft, storageTypeOptions, logColumnTypeOption
           id="log-step-storage-type-input"
           className="automation-native-select"
           value={storageType}
-          onChange={(e) => onChange({ ...draft, config: { ...draft.config, storage_type: e.target.value } })}
+          onChange={(e) => onChange({ ...draft, config: { ...draft.config, storage_type: e.target.value as "csv" | "table" | "json" | "other" } })}
         >
           {storageTypeOptions.map((storageTypeOption) => (
             <option key={storageTypeOption.value} value={storageTypeOption.value}>{storageTypeOption.label}</option>

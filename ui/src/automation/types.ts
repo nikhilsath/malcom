@@ -161,6 +161,12 @@ export type InboundApiOption = {
   name: string;
 };
 
+export type ScriptLanguageOption = {
+  value: "python" | "javascript";
+  label: string;
+  description?: string | null;
+};
+
 export type ScriptLibraryItem = {
   id: string;
   name: string;
@@ -210,6 +216,9 @@ export type AutomationStep = {
     storage_type?: "csv" | "table" | "json" | "other";
     storage_target?: string;
     storage_new_file?: boolean;
+    // Legacy aliases used in storage-step-form
+    target?: string;
+    new_file?: boolean;
     // Multi-location storage fields
     storage_location_id?: string;
     folder_template?: string;

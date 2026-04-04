@@ -14,6 +14,7 @@ from .inbound_outgoing_cases import INBOUND_OUTGOING_CASES
 from .runtime_workers_cases import RUNTIME_WORKERS_CASES
 from .scripts_cases import SCRIPTS_CASES
 from .settings_connectors_cases import SETTINGS_CONNECTORS_CASES
+from .storage_cases import STORAGE_CASES
 from .tools_cases import TOOLS_CASES
 
 SMOKE_CASE_GROUPS: dict[str, tuple[RouteSmokeCase, ...]] = {
@@ -24,6 +25,7 @@ SMOKE_CASE_GROUPS: dict[str, tuple[RouteSmokeCase, ...]] = {
     "tools": TOOLS_CASES,
     "inbound/outgoing APIs": INBOUND_OUTGOING_CASES,
     "automations/log tables/runs": AUTOMATION_LOG_CASES,
+    "storage": STORAGE_CASES,
 }
 
 SMOKE_CASES: tuple[RouteSmokeCase, ...] = tuple(
