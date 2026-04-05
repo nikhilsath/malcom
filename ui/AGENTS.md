@@ -79,6 +79,8 @@ Agents must not hardcode new topnav or sidenav markup into page HTML when the sh
 
 ## Connector Boundary Requirements
 
+> **(R-CONN-004)** Workflow-builder connector options must come from `GET /api/v1/automations/workflow-connectors` via the backend resolver; no duplicate UI-owned catalog. **(R-SOT-001)** Activity and HTTP-preset catalogs must come from persisted DB rows via canonical endpoints.
+
 Connector entity lifecycle and auth-policy writes are connector-domain operations, not app settings writes.
 
 Rules:
@@ -94,6 +96,8 @@ Rules:
 ---
 
 ## Selection-Driven Detail View Policy
+
+> **(R-UI-005)** Selection-driven list/detail pages keep record details hidden until explicit selection, use shared modal detail flows by default, and allow inline detail panes only for documented operational exceptions.
 
 When a page presents a directory, list, or table of selectable records, keep record details hidden in the default state and reveal them on demand in a shared modal after explicit selection, unless a documented operational reason requires an inline detail pane.
 
@@ -127,6 +131,8 @@ For UI-facing work:
 
 ## Collapsible Element Pattern
 
+> **(R-UI-004)** Collapsible sections use a compact full-width top-strip collapse control with `+`/`-` indicator, persistent visibility, `aria-expanded` + `aria-controls` wiring, and true layout collapse (`display: none`) for hidden content.
+
 Use a compact top-strip collapse control instead of a prominent action button.
 
 Rules:
@@ -142,6 +148,8 @@ Rules:
 ---
 
 ## UI Text Density Policy
+
+> **(R-UI-003)** Default UI state must keep helper copy minimal; non-essential guidance lives behind info badges. **(R-UI-002)** Explanatory UI descriptions use the info-badge pattern.
 
 Use minimal visible copy first, then progressive disclosure.
 

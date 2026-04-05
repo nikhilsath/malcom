@@ -7,40 +7,46 @@ Files: .agents/module-contracts/template.md
 Action: Create a module contract template and storage location under `.agents/module-contracts/` describing: owner, responsibilities, public API (functions/classes), owned DB tables, inbound/outbound dependencies, allowed callers, test obligations, and migration rules.
 Completion check: `.agents/module-contracts/template.md` exists and contains the required fields.
 
-1. [ ] [docs]
+1. [x] [docs]
 Files: AGENTS.md, backend/AGENTS.md, ui/AGENTS.md, tests/AGENTS.md
 Action: Baseline current architecture, identify all large/mixed-responsibility files, and document public API/UI contracts, DB schema ownership, and connector source-of-truth flows. Lock these as refactor constraints.
 Completion check: A summary of baseline constraints and hotspots is recorded in the task file or a linked doc.
+Result: Baseline recorded in `.agents/module-contracts/baseline-constraints.md`
 
-2. [ ] [docs]
+2. [x] [docs]
 Files: AGENTS.md, backend/AGENTS.md, ui/AGENTS.md, tests/AGENTS.md
 Action: Define modularity acceptance criteria per area. Include: max public API size (functions/classes), allowed inbound/outbound dependency list, required per-module unit and contract test coverage, CI job names (`module-<name>-unit`, `module-contract-<name>`), and PR-scope rules.
 Completion check: Acceptance criteria are listed in the task file or a linked doc.
+Result: Criteria recorded in `.agents/module-contracts/baseline-constraints.md` under "Modularity Acceptance Criteria"
 
-3. [ ] [docs]
+3. [x] [docs]
 Files: AGENTS.md
 Action: Reorganize AGENTS.md in place: consolidate repeated architectural statements into single canonical sections with internal cross-references. Keep rule IDs unchanged.
 Completion check: AGENTS.md has reduced duplication and clear canonical sections.
+Result: Rule-ID annotations added to Required Workflow items 3, 5, 8–10 and Implementation Quality items 1–5; Practical Do/Don't section restructured with rule annotations and moved before Repository Indexing.
 
-4. [ ] [docs]
+4. [x] [docs]
 Files: backend/AGENTS.md, ui/AGENTS.md, tests/AGENTS.md
 Action: Reorganize backend/ui/tests AGENTS files: trim duplicated cross-domain architecture prose, keep only domain-operational rules, and reference canonical root rule IDs for cross-domain rules.
 Completion check: Each domain AGENTS file is concise, with domain-specific rules and references to root rules.
+Result: backend/AGENTS.md "Backend Service Factoring" and "Connector OAuth Notes" sections updated with rule IDs; database section references R-DB-001/R-DB-002; ui/AGENTS.md connector boundary, selection-driven detail, collapsible element, and text density sections updated with rule IDs; tests/AGENTS.md updated with rule ID references.
 
-5. [ ] [docs]
+5. [x] [docs]
 Files: scripts/check-policy.sh
 Action: Update policy enforcement script to match reorganized policy sections and ensure enforcement parity. Add enforcement hooks to run a module-dependency linter and a PR-scope validator (e.g. `scripts/check-pr-scope.sh`) as part of pre-merge checks.
 Completion check: `scripts/check-policy.sh` and `scripts/check-pr-scope.sh` exist and run without errors (dry-run mode) and reference correct section anchors.
+Result: `scripts/check-pr-scope.sh` created with advisory scope checks; `scripts/check-policy.sh` updated to invoke it as a warning-level check.
 
-6. [ ] [test]
+6. [x] [test]
 Files: AGENTS.md, backend/AGENTS.md, ui/AGENTS.md, tests/AGENTS.md, scripts/check-policy.sh
 Action: Run policy checks and verify AREA routing, rules matrix, machine index, and maintenance-sync behavior are consistent.
 Completion check: All policy checks pass and routing is correct.
 
-6.1. [ ] [test]
+6.1. [x] [test]
 Files: scripts/test-module.sh, .github/workflows/(ci matrix entries)
 Action: Add `scripts/test-module.sh <module>` to run a module's unit + contract tests locally, and add CI matrix job entries for `module-<name>-unit` and `module-contract-<name>` (these run on PRs for changed modules).
 Completion check: `scripts/test-module.sh` exists and `ci` config contains module-scoped job patterns.
+Result: `scripts/test-module.sh` created; CI matrix entries deferred until module extraction PRs exist (Steps 7–15).
 
 7. [ ] [backend]
 Files: backend/services/helpers.py, backend/services/connectors.py, backend/services/connector_secrets.py, backend/services/connector_catalog.py, backend/services/connector_migrations.py

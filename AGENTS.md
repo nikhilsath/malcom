@@ -61,22 +61,24 @@ Primary objective: deterministic routing, file targeting, and enforcement rules 
 
 1. Execute work in small, testable steps.
 2. Validate each step before moving to the next.
-3. Build or update the smallest relevant automated tests in the same change as behavior changes.
+3. Build or update the smallest relevant automated tests in the same change as behavior changes. (→ R-TEST-008)
 4. Log intermediate outcomes when a task has multiple stages.
-5. Include expected behavior whenever code or behavior changes.
+5. Include expected behavior whenever code or behavior changes. (→ R-TEST-001)
 6. Match existing repo structure before introducing a new pattern.
 7. Prefer extending the current source of truth over creating a second one.
-8. Keep files narrowly responsible; factor new concerns into adjacent modules or helpers instead of growing catch-all files.
-9. Fix the canonical path instead of layering fallbacks, duplicate reads, or shadow writes when the root cause can be corrected directly.
-10. When runtime-managed entities already live in the database, persisted rows plus their canonical resolvers are the runtime source of truth.
+8. Keep files narrowly responsible; factor new concerns into adjacent modules or helpers instead of growing catch-all files. (→ R-CODE-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
+9. Fix the canonical path instead of layering fallbacks, duplicate reads, or shadow writes when the root cause can be corrected directly. (→ R-FIX-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
+10. When runtime-managed entities already live in the database, persisted rows plus their canonical resolvers are the runtime source of truth. (→ R-SOT-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
 
 ### Implementation Quality And Source Of Truth {#implementation-quality-and-source-of-truth}
 
-1. Keep files narrowly responsible; when a task adds a new concern to an already-large file, extract or extend a neighboring module or service instead of appending another responsibility to the largest file in the area.
-2. Do not resolve architectural drift by adding fallback branches, shadow settings, compatibility reads, or duplicate write paths when the canonical path can be fixed directly.
-3. Temporary fallbacks are allowed only when a staged migration or external compatibility contract requires them, and the same change must document the canonical owner plus an explicit removal follow-up.
-4. When entities, catalogs, presets, enablement, or provider state already live in the database, DB-backed resolvers and persisted rows are the runtime source of truth.
-5. Seed constants may bootstrap DB state, but they must not become a parallel runtime registry once persisted data and resolvers exist.
+Canonical detail for the source-of-truth and factoring rules referenced in Required Workflow items 8–10. Rule IDs are enforced in the [Rules Matrix](#rules-matrix).
+
+1. **(R-CODE-001)** Keep files narrowly responsible; when a task adds a new concern to an already-large file, extract or extend a neighboring module or service instead of appending another responsibility to the largest file in the area.
+2. **(R-FIX-001)** Do not resolve architectural drift by adding fallback branches, shadow settings, compatibility reads, or duplicate write paths when the canonical path can be fixed directly.
+3. **(R-FIX-001 note)** Temporary fallbacks are allowed only when a staged migration or external compatibility contract requires them, and the same change must document the canonical owner plus an explicit removal follow-up.
+4. **(R-SOT-001)** When entities, catalogs, presets, enablement, or provider state already live in the database, DB-backed resolvers and persisted rows are the runtime source of truth.
+5. **(R-SOT-001 note)** Seed constants may bootstrap DB state, but they must not become a parallel runtime registry once persisted data and resolvers exist.
 
 ### GitHub Update Workflow {#github-update-workflow}
 
@@ -381,6 +383,33 @@ MACHINE_INDEX_END -->
 
 ## Practical Do And Do Not Rules {#practical-do-and-do-not-rules}
 
+Do:
+
+- follow the existing DB-backed tool flow (→ R-SOT-001, R-TOOL-001)
+- keep page entrypoints matched to page paths (→ R-UI-001)
+- keep shared shell config centralized
+- keep schema documentation in `AGENTS.md` and `README.md` aligned with `backend/database.py` (→ R-DB-002)
+- keep `scripts/check-policy.sh` in sync with `AGENTS.md` policy requirements (→ R-POLICY-001)
+- place tests beside the backend feature area they cover or under the React feature they cover
+- add or update relevant automated tests in the same change when behavior changes (→ R-TEST-008)
+- prefer additive schema evolution over one-off DB edits
+- factor new responsibilities into adjacent modules/services before extending already-large files (→ R-CODE-001)
+- fix canonical data flow directly when possible (→ R-FIX-001)
+- keep DB-backed entities, catalogs, and availability lists resolved from persisted rows (→ R-SOT-001)
+
+Do not:
+
+- create a second source of truth for tools, routes, or settings (→ R-SOT-001, R-FIX-001)
+- grow large files with unrelated new responsibilities when a scoped module fits better (→ R-CODE-001)
+- solve bugs by adding shadow fallback paths when the canonical path can be repaired (→ R-FIX-001)
+- keep runtime availability or configuration duplicated in code after it exists in the database (→ R-SOT-001)
+- put new page-entry logic into random root-level script files (→ R-UI-001)
+- hardcode navigation that belongs to the shell
+- edit `ui/dist/` directly (→ R-GEN-001)
+- assume `backend/main.py` is the place for new HTML routes (→ R-UI-001)
+
+---
+
 ## Repository Indexing {#repository-indexing}
 
 Purpose: make the repo easier for automated agents and humans to navigate by providing reproducible, machine-readable indexes and small generator scripts.
@@ -409,29 +438,3 @@ Minimal scripts to include (examples):
 Location: keep indexes under `.indices/` at the repo root and reference them from `AGENTS.md` and `.agents/repo-scan-index.md` when relevant.
 
 When to update: regenerate indexes after structural changes (routes, schema, major refactors) and during periodic CI runs to keep them fresh.
-
-
-Do:
-
-- follow the existing DB-backed tool flow
-- keep page entrypoints matched to page paths
-- keep shared shell config centralized
-- keep schema documentation in `AGENTS.md` and `README.md` aligned with `backend/database.py`
-- keep `scripts/check-policy.sh` in sync with `AGENTS.md` policy requirements
-- place tests beside the backend feature area they cover or under the React feature they cover
-- add or update relevant automated tests in the same change when behavior changes
-- prefer additive schema evolution over one-off DB edits
-- factor new responsibilities into adjacent modules/services before extending already-large files
-- fix canonical data flow directly when possible
-- keep DB-backed entities, catalogs, and availability lists resolved from persisted rows
-
-Do not:
-
-- create a second source of truth for tools, routes, or settings
-- grow large files with unrelated new responsibilities when a scoped module fits better
-- solve bugs by adding shadow fallback paths when the canonical path can be repaired
-- keep runtime availability or configuration duplicated in code after it exists in the database
-- put new page-entry logic into random root-level script files
-- hardcode navigation that belongs to the shell
-- edit `ui/dist/` directly
-- assume `backend/main.py` is the place for new HTML routes

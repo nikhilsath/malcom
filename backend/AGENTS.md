@@ -39,6 +39,8 @@ Applies to backend implementation, schema, API route behavior, connector/tool ba
 
 ## Database Structure
 
+> **(R-DB-001)** Schema source of truth is `backend/database.py`. **(R-DB-002)** Documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change.
+
 ### Source Of Truth
 
 The repo-facing schema structure source of truth is `backend/database.py`.
@@ -128,10 +130,12 @@ Agents must not:
 
 ## Backend Service Factoring And Canonical Fixes
 
-1. Keep provider-specific, connector-specific, or integration-specific behavior in scoped service modules (for example `backend/services/connector_<provider>*.py`) instead of growing generic route or service files with more branches.
-2. When a backend file is already carrying multiple responsibilities, extract the new concern into an adjacent helper or service before adding more conditionals to the largest file in the area.
-3. Fix the canonical backend resolver or write path rather than adding fallback reads from settings payloads, duplicated constants, or second-chance route logic.
-4. For DB-backed connector, activity, preset, and catalog state, persist and resolve through DB-backed services and routes; code constants may seed defaults but must not become a second runtime registry.
+These rules enforce root policy R-CODE-001, R-FIX-001, R-SOT-001, and R-CONN-005 at the backend level.
+
+1. Keep provider-specific, connector-specific, or integration-specific behavior in scoped service modules (for example `backend/services/connector_<provider>*.py`) instead of growing generic route or service files with more branches. (→ R-CODE-001)
+2. When a backend file is already carrying multiple responsibilities, extract the new concern into an adjacent helper or service before adding more conditionals to the largest file in the area. (→ R-CODE-001)
+3. Fix the canonical backend resolver or write path rather than adding fallback reads from settings payloads, duplicated constants, or second-chance route logic. (→ R-FIX-001)
+4. For DB-backed connector, activity, preset, and catalog state, persist and resolve through DB-backed services and routes; code constants may seed defaults but must not become a second runtime registry. (→ R-SOT-001)
 
 ---
 
@@ -159,7 +163,7 @@ Backend rules:
 
 ### Connector OAuth Notes
 
-The canonical owner for connector OAuth token lifecycle (token exchange, refresh, revoke, and state TTL) is `backend/services/connector_oauth.py`. The constant `CONNECTOR_OAUTH_STATE_TTL_SECONDS` is defined there only; do not add duplicate copies in `connectors.py` or `helpers.py`. Route handlers in `backend/routes/connectors.py` delegate OAuth lifecycle to `connector_oauth.py` service functions rather than implementing token logic inline.
+**(R-CONN-005)** The canonical owner for connector OAuth token lifecycle (token exchange, refresh, revoke, and state TTL) is `backend/services/connector_oauth.py`. The constant `CONNECTOR_OAUTH_STATE_TTL_SECONDS` is defined there only; do not add duplicate copies in `connectors.py` or `helpers.py`. Route handlers in `backend/routes/connectors.py` delegate OAuth lifecycle to `connector_oauth.py` service functions rather than implementing token logic inline.
 
 Trello now supports guided OAuth onboarding in the connector flow. You can configure Trello client credentials in the setup form or provide the following environment variables to avoid entering them interactively:
 
