@@ -147,7 +147,6 @@ from backend.services.connectors import (
     sanitize_connector_record_for_response,
     sanitize_connector_settings_for_response,
     unprotect_connector_secret_value,
-    _xor_bytes,
 )
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
