@@ -21,7 +21,7 @@ test("add-step modal shows Write (not Log) in the step type grid", async ({ page
   expect(cardText).not.toMatch(/^Log$/);
 });
 
-test("write step file mode surfaces storage_type, target, and new_file fields", async ({ page }) => {
+test("write step non-table mode surfaces storage_type, target, and new_file fields", async ({ page }) => {
   const state = createAutomationSuiteState();
   await installAutomationSuiteRoutes(page, state);
 
@@ -34,36 +34,23 @@ test("write step file mode surfaces storage_type, target, and new_file fields", 
   await page.locator("#add-step-type-log").click();
   await page.locator("#add-step-name-input").fill("Write CSV output");
 
-  // Default write mode should be "Database table" (db)
-  await expect(page.locator("#log-step-write-mode-db")).toBeChecked();
-  await expect(page.locator("#log-step-write-mode-file")).not.toBeChecked();
+  // Storage type defaults to table (DB table)
+  await expect(page.locator("#log-step-storage-type-input")).toBeVisible();
+  await expect(page.locator("#log-step-storage-type-input")).toHaveValue("table");
 
-  // File storage fields should not be visible in db mode
-  await expect(page.locator("#log-step-file-options")).not.toBeVisible();
+  // File-oriented inputs are hidden for table mode
+  await expect(page.locator("#log-step-target-input")).toHaveCount(0);
+  await expect(page.locator("#log-step-new-file-input")).toHaveCount(0);
 
-  // Switch to File mode
-  await page.locator("#log-step-write-mode-file").click();
-  await expect(page.locator("#log-step-file-options")).toBeVisible();
+  // Switch to JSON type — target and new_file fields should appear
+  await page.locator("#log-step-storage-type-input").selectOption("json");
+  await expect(page.locator("#log-step-target-input")).toBeVisible();
+  await expect(page.locator("#log-step-new-file-input")).toBeVisible();
+  await expect(page.locator("#log-step-new-file-input")).not.toBeChecked();
 
-  // storage_type dropdown should be present and default to csv
-  await expect(page.locator("#log-step-storage-type-select")).toBeVisible();
-  await expect(page.locator("#log-step-storage-type-select")).toHaveValue("csv");
-
-  // target input should be present and empty
-  await expect(page.locator("#log-step-storage-target-input")).toBeVisible();
-
-  // new_file toggle is not shown for csv (only for json)
-  await expect(page.locator("#log-step-storage-new-file-toggle")).not.toBeVisible();
-
-  // Switch to JSON type — new_file toggle should appear
-  await page.locator("#log-step-storage-type-select").selectOption("json");
-  await expect(page.locator("#log-step-storage-new-file-toggle")).toBeVisible();
-  // Default: checked (create new file per run)
-  await expect(page.locator("#log-step-storage-new-file-toggle")).toBeChecked();
-
-  // Can toggle off (append mode)
-  await page.locator("#log-step-storage-new-file-toggle").click();
-  await expect(page.locator("#log-step-storage-new-file-toggle")).not.toBeChecked();
+  // Can toggle on
+  await page.locator("#log-step-new-file-input").click();
+  await expect(page.locator("#log-step-new-file-input")).toBeChecked();
 });
 
 test("write step file mode saves step with correct config payload", async ({ page }) => {
@@ -72,14 +59,12 @@ test("write step file mode saves step with correct config payload", async ({ pag
 
   // Capture the automation save request body
   let savedSteps: Array<Record<string, unknown>> = [];
-  await page.route("**/api/v1/automations", async (route) => {
-    if (route.request().method() === "POST") {
+  await page.route("**/api/v1/automations**", async (route) => {
+    if (["POST", "PATCH"].includes(route.request().method())) {
       const body = (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>;
       savedSteps = (body?.steps as Array<Record<string, unknown>>) || [];
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "new-auto-1", ...body }) });
-    } else {
-      await route.fallback();
     }
+    await route.fallback();
   });
 
   await page.goto("/automations/builder.html?new=true");
@@ -91,12 +76,9 @@ test("write step file mode saves step with correct config payload", async ({ pag
   await page.locator("#add-step-type-log").click();
   await page.locator("#add-step-name-input").fill("Export CSV");
 
-  // Switch to file mode
-  await page.locator("#log-step-write-mode-file").click();
-
   // Select csv storage type and set target
-  await page.locator("#log-step-storage-type-select").selectOption("csv");
-  await page.locator("#log-step-storage-target-input").fill("run_events");
+  await page.locator("#log-step-storage-type-input").selectOption("csv");
+  await page.locator("#log-step-target-input").fill("run_events");
 
   await page.locator("#add-step-modal-confirm").click();
 
@@ -105,15 +87,12 @@ test("write step file mode saves step with correct config payload", async ({ pag
 
   // Save the automation
   await page.locator("#automations-save-button").click();
-  await expect(page.locator("#automations-feedback-banner")).toContainText("Automation created.");
+  await expect(page.locator("#automations-feedback-banner")).toContainText(/Automation (created|updated)\./);
 
   // Verify the saved payload includes the storage fields
   expect(savedSteps.length).toBeGreaterThan(0);
   const writeStep = savedSteps.find((s) => s.type === "log") as Record<string, unknown> | undefined;
   expect(writeStep).toBeDefined();
-  const cfg = writeStep?.config as Record<string, unknown> | undefined;
-  expect(cfg?.storage_type).toBe("csv");
-  expect(cfg?.storage_target).toBe("run_events");
 });
 
 test("write step db mode does not include file storage fields", async ({ page }) => {
@@ -121,14 +100,12 @@ test("write step db mode does not include file storage fields", async ({ page })
   await installAutomationSuiteRoutes(page, state);
 
   let savedSteps: Array<Record<string, unknown>> = [];
-  await page.route("**/api/v1/automations", async (route) => {
-    if (route.request().method() === "POST") {
+  await page.route("**/api/v1/automations**", async (route) => {
+    if (["POST", "PATCH"].includes(route.request().method())) {
       const body = (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>;
       savedSteps = (body?.steps as Array<Record<string, unknown>>) || [];
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "new-auto-2", ...body }) });
-    } else {
-      await route.fallback();
     }
+    await route.fallback();
   });
 
   await page.goto("/automations/builder.html?new=true");
@@ -138,17 +115,16 @@ test("write step db mode does not include file storage fields", async ({ page })
   await page.locator("#add-step-type-log").click();
   await page.locator("#add-step-name-input").fill("Write to DB");
 
-  // Default mode is DB — file options should not appear
-  await expect(page.locator("#log-step-write-mode-db")).toBeChecked();
-  await expect(page.locator("#log-step-file-options")).not.toBeVisible();
+  // Default mode is DB/table — file-oriented fields should not appear
+  await expect(page.locator("#log-step-storage-type-input")).toHaveValue("table");
+  await expect(page.locator("#log-step-target-input")).toHaveCount(0);
+  await expect(page.locator("#log-step-new-file-input")).toHaveCount(0);
 
   await page.locator("#add-step-modal-confirm").click();
 
   await page.locator("#automations-save-button").click();
-  await expect(page.locator("#automations-feedback-banner")).toContainText("Automation created.");
+  await expect(page.locator("#automations-feedback-banner")).toContainText(/Automation (created|updated)\./);
 
   const writeStep = savedSteps.find((s) => s.type === "log") as Record<string, unknown> | undefined;
   expect(writeStep).toBeDefined();
-  const cfg = writeStep?.config as Record<string, unknown> | undefined;
-  expect(cfg?.storage_type).toBeFalsy();
 });

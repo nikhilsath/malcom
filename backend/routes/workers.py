@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from backend.schemas import *
 from backend.services.support import *
+from backend.services.tool_runtime import assert_worker_rpc_authorized
 
 router = APIRouter()
 

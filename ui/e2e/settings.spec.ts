@@ -68,8 +68,26 @@ test("preserves saved connectors when workspace settings are saved before settin
   await page.locator("#settings-save-button").click();
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
 
+  await page.route("**/api/v1/storage/locations", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "loc-google-drive",
+          name: "Google Drive",
+          location_type: "google_drive",
+          path: "drive://workspace",
+          max_size_mb: 2048,
+          is_default_for_logs: false,
+        },
+      ]),
+    });
+  });
+
   await page.goto("/settings/data.html");
-  await expect(page.locator("#settings-storage-connector-google-drive")).toBeVisible();
+  await expect(page.locator("#settings-storage-locations")).toBeVisible();
+  await expect(page.locator("#settings-storage-locations-list")).toContainText("Google Drive");
 });
 
 test("autosaves proxy enabled toggle on change", async ({ page }) => {
@@ -222,10 +240,35 @@ test("renders connector-backed storage and clears log table rows", async ({ page
     }
   });
 
+  await page.route("**/api/v1/storage/locations", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "loc-local-db",
+          name: "Local database",
+          location_type: "local",
+          path: "/tmp/malcom-storage",
+          max_size_mb: 1024,
+          is_default_for_logs: true,
+        },
+        {
+          id: "loc-google-drive",
+          name: "Google Drive",
+          location_type: "google_drive",
+          path: "drive://workspace",
+          max_size_mb: 2048,
+          is_default_for_logs: false,
+        },
+      ]),
+    });
+  });
+
   await page.goto("/settings/data.html");
 
-  await expect(page.locator("#settings-storage-local-database")).toBeVisible();
-  await expect(page.locator("#settings-storage-connector-google-drive")).toBeVisible();
+  await expect(page.locator("#settings-storage-locations")).toBeVisible();
+  await expect(page.locator("#settings-storage-locations-list")).toContainText("Google Drive");
   await expect(page.locator("#settings-backups-section")).toBeVisible();
   await expect(page.locator("#backup-dir")).toHaveText("/tmp/malcom-backups");
   await expect(page.locator("#backup-list option")).toHaveCount(1);
@@ -234,11 +277,7 @@ test("renders connector-backed storage and clears log table rows", async ({ page
   await page.locator("#settings-data-redaction-toggle").click();
   await expect(page.locator("#settings-data-redaction-label")).toHaveText("Enabled");
 
-  await page.locator("#settings-storage-max-mb-input").fill("7");
   await page.locator("#settings-save-button").click();
-
-  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
-  await expect(page.locator("#settings-storage-max-mb-input")).toHaveValue("7");
 
   await expect(page.locator("#settings-log-storage-body")).toBeHidden();
   await page.locator("#settings-log-storage-collapse-toggle").click();

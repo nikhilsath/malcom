@@ -58,10 +58,18 @@ def invoke_worker_smtp_send_mock(case, context, state):
 def invoke_worker_image_magic_mock(case, context, state):
     del state
     with mock.patch(
-        "backend.routes.workers.execute_image_magic_conversion_request",
-        return_value={"output_file_path": "/tmp/smoke-output.jpg"},
+        "backend.routes.workers.get_image_magic_tool_config",
+        return_value={"enabled": True, "command": "magick"},
     ):
-        return default_invoke(case, context, {})
+        with mock.patch(
+            "backend.routes.workers.normalize_image_magic_tool_config",
+            return_value={"enabled": True, "command": "magick"},
+        ):
+            with mock.patch(
+                "backend.routes.workers.execute_image_magic_conversion_request",
+                return_value={"output_file_path": "/tmp/smoke-output.jpg"},
+            ):
+                return default_invoke(case, context, {})
 
 
 def invoke_webhook_callback(case, context, state):
