@@ -110,6 +110,11 @@ CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "admin_only", "label": "Admin only"},
 )
 ACTIVE_STORAGE_CONNECTOR_STATUSES = {"connected", "pending_oauth", "needs_attention"}
+_DEFAULT_AUTH_POLICY: dict[str, Any] = {
+    "rotation_interval_days": 90,
+    "reconnect_requires_approval": True,
+    "credential_visibility": "masked",
+}
 DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
     {
         "id": "google",
@@ -338,27 +343,18 @@ def get_default_connector_settings(connection: DatabaseConnection | None = None)
     return {
         "catalog": build_connector_catalog(connection),
         "records": [],
-        "auth_policy": {
-            "rotation_interval_days": 90,
-            "reconnect_requires_approval": True,
-            "credential_visibility": "masked",
-        },
+        "auth_policy": dict(_DEFAULT_AUTH_POLICY),
         "metadata": build_connector_response_metadata(),
     }
 
 
 def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, Any]:
-    defaults = {
-        "rotation_interval_days": 90,
-        "reconnect_requires_approval": True,
-        "credential_visibility": "masked",
-    }
-    payload = defaults | (value or {})
+    payload = dict(_DEFAULT_AUTH_POLICY) | (value or {})
     if payload.get("rotation_interval_days") not in {30, 60, 90}:
-        payload["rotation_interval_days"] = defaults["rotation_interval_days"]
+        payload["rotation_interval_days"] = _DEFAULT_AUTH_POLICY["rotation_interval_days"]
     if payload.get("credential_visibility") not in {"masked", "admin_only"}:
-        payload["credential_visibility"] = defaults["credential_visibility"]
-    payload["reconnect_requires_approval"] = bool(payload.get("reconnect_requires_approval", defaults["reconnect_requires_approval"]))
+        payload["credential_visibility"] = _DEFAULT_AUTH_POLICY["credential_visibility"]
+    payload["reconnect_requires_approval"] = bool(payload.get("reconnect_requires_approval", _DEFAULT_AUTH_POLICY["reconnect_requires_approval"]))
     return payload
 
 

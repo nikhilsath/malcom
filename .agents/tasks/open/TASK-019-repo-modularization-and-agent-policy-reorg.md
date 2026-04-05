@@ -48,7 +48,7 @@ Action: Add `scripts/test-module.sh <module>` to run a module's unit + contract 
 Completion check: `scripts/test-module.sh` exists and `ci` config contains module-scoped job patterns.
 Result: `scripts/test-module.sh` created; CI matrix entries deferred until module extraction PRs exist (Steps 7–15).
 
-7. [ ] [backend]
+7. [-] [backend]
 Files: backend/services/helpers.py, backend/services/connectors.py, backend/services/connector_secrets.py, backend/services/connector_catalog.py, backend/services/connector_migrations.py
 Action: Split `helpers.py` and `connectors.py` by extracting connector secret/protection logic and connector migration/catalog logic into adjacent service modules. For each extracted module, update or add a module contract file under `.agents/module-contracts/` and include unit + contract tests. Use thin forwarding wrappers as needed during transition.
 Completion check: helpers.py and connectors.py are reduced in scope, new modules exist with correct logic, and each extracted module has a contract file plus unit and contract tests.
