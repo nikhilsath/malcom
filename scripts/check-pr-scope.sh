@@ -6,7 +6,7 @@
 # Wire this into check-policy.sh or pre-merge CI as needed.
 #
 # Exit codes: 0 = pass (clean or advisory warnings only), 1 = hard failure
-set -uo pipefail
+set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"

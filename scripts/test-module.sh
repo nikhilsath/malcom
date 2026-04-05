@@ -17,7 +17,7 @@
 #
 # Exit codes: 0 = all selected tiers pass, 1 = at least one tier failed.
 
-set -uo pipefail
+set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
