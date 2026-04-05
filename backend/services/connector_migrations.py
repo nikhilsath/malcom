@@ -88,6 +88,8 @@ def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[
 
 
 def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> None:
+    # Lazy import to break the circular dependency: connectors imports connector_migrations
+    # at module level, so we cannot import back from connectors at module level here.
     from backend.services.connectors import replace_stored_connector_records, write_connector_auth_policy
 
     legacy_value = read_stored_settings_section(connection, "connectors")

@@ -35,6 +35,12 @@ def test_no_database_imports():
     src = inspect.getsource(mod)
     assert "from backend.database" not in src
     assert "import backend.database" not in src
+    # Also verify at runtime: backend.database must not have been pulled in as a
+    # side effect of importing connector_secrets alone.
+    fresh_import_check = importlib.import_module("backend.services.connector_secrets")
+    assert "backend.database" not in fresh_import_check.__dict__, (
+        "backend.database was imported into connector_secrets namespace"
+    )
 
 
 def test_protect_unprotect_contract():
