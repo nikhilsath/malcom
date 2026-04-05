@@ -2,7 +2,7 @@
 
 ## Execution steps
 
-0. [ ] [docs]
+0. [x] [docs]
 Files: .agents/module-contracts/template.md
 Action: Create a module contract template and storage location under `.agents/module-contracts/` describing: owner, responsibilities, public API (functions/classes), owned DB tables, inbound/outbound dependencies, allowed callers, test obligations, and migration rules.
 Completion check: `.agents/module-contracts/template.md` exists and contains the required fields.
