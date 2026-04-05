@@ -111,9 +111,9 @@ Completion note: Updated `ui/e2e/automations-builder.spec.ts` and `ui/e2e/suppor
 10.1 [x] [Route: test]
 Action: Verify the updated Playwright connector scenarios by running the targeted specs (`ui/e2e/connectors.spec.ts` and any connector-related e2e files) with Playwright tracing and screenshots enabled. Resolve any failures by fixing the harness, fixtures, or test expectations so the scenarios reflect the verified connector flow.
 Execution: parallel_ok
-Completion check: `playwright test ui/e2e/connectors.spec.ts` passes locally and trace artifacts (trace.zip/screenshots) are saved under `test-artifacts/TASK-003/`. Mark this step complete before preparing the git commit.
+Completion check: `playwright test ui/e2e/connectors.spec.ts` passes locally and trace artifacts (trace.zip/screenshots) are saved under `tests/test-artifacts/TASK-003/`. Mark this step complete before preparing the git commit.
 
-Completion note: Ran `cd /Users/nikhilsathyanarayana/Documents/malcom/ui && npx playwright test e2e/connectors.spec.ts --trace on --output ../test-artifacts/TASK-003`; result `12 passed`. Trace artifacts are available under `test-artifacts/TASK-003/`.
+Completion note: Ran `cd /Users/nikhilsathyanarayana/Documents/malcom/ui && npx playwright test e2e/connectors.spec.ts --trace on --output ../tests/test-artifacts/TASK-003`; result `12 passed`. Trace artifacts are available under `tests/test-artifacts/TASK-003/`.
 
 
 11. [x] [Route: ui]

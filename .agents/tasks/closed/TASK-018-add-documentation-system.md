@@ -72,7 +72,7 @@ Completion check: commands exit 0.
 Files: ui/
 Action: Build UI and run e2e for docs:
 - `cd ui && npm run build && npm --prefix . run test:e2e -- e2e/docs.spec.ts`
-Completion check: Playwright spec passes and artefacts written to `ui/test-results`.
+Completion check: Playwright spec passes and artefacts written to `tests/test-results`.
 
 
 Documentation review
