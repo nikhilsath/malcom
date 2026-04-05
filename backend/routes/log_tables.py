@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
-import re
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from backend.schemas import (
-    LogDbColumnDefinition,
-    LogDbColumnResponse,
     LogDbRowsResponse,
     LogDbTableCreate,
     LogDbTableDetail,
@@ -21,88 +18,24 @@ from backend.services.support import (
     get_application_logger,
     get_connection,
     utc_now_iso,
-    write_application_exception_log,
-    write_application_log,
 )
-from uuid import uuid4
+from backend.services.log_table_schema import (
+    assert_safe_identifier,
+    create_log_table_ddl,
+    data_table_name,
+    get_log_table_row_or_404,
+    persist_log_table_metadata,
+)
+from backend.services.log_table_queries import (
+    build_column_response,
+    build_table_summary,
+    fetch_log_table_columns,
+    fetch_log_table_rows,
+    fetch_log_table_total,
+)
+from backend.services.log_table_import import insert_log_table_rows
 
 router = APIRouter()
-
-_SAFE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
-_PG_TYPE_MAP = {
-    "text": "TEXT",
-    "integer": "INTEGER",
-    "real": "DOUBLE PRECISION",
-    "boolean": "BOOLEAN",
-    "timestamp": "TIMESTAMPTZ",
-}
-
-
-def _assert_safe_identifier(name: str) -> str:
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Invalid identifier '{name}': must start with a lowercase letter and contain only lowercase letters, digits, and underscores.",
-        )
-    return name
-
-
-def _data_table_name(table_name: str) -> str:
-    return f"log_data_{table_name}"
-
-
-def _serialize_import_value(value):
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float, str)):
-        return value
-    return str(value)
-
-
-def _list_data_table_columns(connection, data_table: str) -> list[str]:
-    rows = fetch_all(
-        connection,
-        """
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = ?
-        ORDER BY ordinal_position
-        """,
-        (data_table,),
-    )
-    return [r["column_name"] for r in rows]
-
-
-def _build_table_summary(row: dict, connection) -> LogDbTableSummary:
-    data_table = _data_table_name(row["name"])
-    try:
-        count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
-        row_count = count_row["cnt"] if count_row else 0
-    except Exception:
-        row_count = 0
-    return LogDbTableSummary(
-        id=row["id"],
-        name=row["name"],
-        description=row["description"],
-        row_count=row_count,
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
-
-
-def _build_column_response(row: dict) -> LogDbColumnResponse:
-    return LogDbColumnResponse(
-        id=row["id"],
-        table_id=row["table_id"],
-        column_name=row["column_name"],
-        data_type=row["data_type"],
-        nullable=bool(row["nullable"]),
-        default_value=row.get("default_value"),
-        position=row["position"],
-        created_at=row["created_at"],
-    )
 
 
 # ── List managed log tables ───────────────────────────────────────────────────
@@ -110,11 +43,8 @@ def _build_column_response(row: dict) -> LogDbColumnResponse:
 @router.get("/api/v1/log-tables", response_model=list[LogDbTableSummary])
 def list_log_tables(request: Request) -> list[LogDbTableSummary]:
     connection = get_connection(request)
-    rows = fetch_all(
-        connection,
-        "SELECT * FROM log_db_tables ORDER BY created_at DESC",
-    )
-    return [_build_table_summary(dict(row), connection) for row in rows]
+    rows = fetch_all(connection, "SELECT * FROM log_db_tables ORDER BY created_at DESC")
+    return [build_table_summary(dict(row), connection) for row in rows]
 
 
 # ── Create a new managed log table ───────────────────────────────────────────
@@ -122,7 +52,7 @@ def list_log_tables(request: Request) -> list[LogDbTableSummary]:
 @router.post("/api/v1/log-tables", response_model=LogDbTableDetail, status_code=status.HTTP_201_CREATED)
 def create_log_table(payload: LogDbTableCreate, request: Request) -> LogDbTableDetail:
     connection = get_connection(request)
-    _assert_safe_identifier(payload.name)
+    assert_safe_identifier(payload.name)
 
     existing = fetch_one(connection, "SELECT id FROM log_db_tables WHERE name = ?", (payload.name,))
     if existing:
@@ -133,92 +63,25 @@ def create_log_table(payload: LogDbTableCreate, request: Request) -> LogDbTableD
 
     now = utc_now_iso()
     table_id = f"logtbl_{uuid4().hex[:10]}"
-    data_table = _data_table_name(payload.name)
+    physical_table = data_table_name(payload.name)
 
-    # Build CREATE TABLE SQL for the actual data table
-    col_defs: list[str] = [
-        "seq_id BIGINT GENERATED BY DEFAULT AS IDENTITY UNIQUE",
-        "row_id TEXT PRIMARY KEY",
-        "automation_id TEXT NOT NULL",
-        "inserted_at TIMESTAMPTZ NOT NULL",
-    ]
-    for col in payload.columns:
-        _assert_safe_identifier(col.column_name)
-        pg_type = _PG_TYPE_MAP.get(col.data_type, "TEXT")
-        null_clause = "" if col.nullable else " NOT NULL"
-        default_clause = ""
-        if col.default_value is not None:
-            # Only allow simple literal defaults - no arbitrary SQL expressions
-            safe_default = col.default_value.replace("'", "''")
-            default_clause = f" DEFAULT '{safe_default}'"
-        col_defs.append(f"{col.column_name} {pg_type}{null_clause}{default_clause}")
-
-    create_sql = f"CREATE TABLE IF NOT EXISTS {data_table} ({', '.join(col_defs)})"
-    connection.execute(create_sql)
-
-    # Persist the metadata
-    connection.execute(
-        "INSERT INTO log_db_tables (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-        (table_id, payload.name, payload.description, now, now),
+    create_log_table_ddl(connection, physical_table, payload.columns)
+    col_responses = persist_log_table_metadata(
+        connection,
+        table_id=table_id,
+        name=payload.name,
+        description=payload.description,
+        columns=payload.columns,
+        now=now,
     )
 
-    col_responses: list[LogDbColumnResponse] = []
-    for position, col in enumerate(payload.columns):
-        col_id = f"logcol_{uuid4().hex[:10]}"
-        connection.execute(
-            """
-            INSERT INTO log_db_columns
-                (id, table_id, column_name, data_type, nullable, default_value, position, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                col_id,
-                table_id,
-                col.column_name,
-                col.data_type,
-                int(col.nullable),
-                col.default_value,
-                position,
-                now,
-            ),
-        )
-        col_responses.append(
-            LogDbColumnResponse(
-                id=col_id,
-                table_id=table_id,
-                column_name=col.column_name,
-                data_type=col.data_type,
-                nullable=col.nullable,
-                default_value=col.default_value,
-                position=position,
-                created_at=now,
-            )
-        )
-
-    defined_column_names = {col.column_name for col in payload.columns}
-    imported_row_count = 0
-    for row in payload.rows:
-        unexpected_columns = [column_name for column_name in row if column_name not in defined_column_names]
-        if unexpected_columns:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=(
-                    "Imported rows contain unknown columns: "
-                    + ", ".join(sorted(unexpected_columns))
-                    + "."
-                ),
-            )
-
-        row_id = f"logrow_{uuid4().hex[:12]}"
-        inserted_at = utc_now_iso()
-        row_column_names = ["row_id", "automation_id", "inserted_at", *row.keys()]
-        row_values = [row_id, "dataset_import", inserted_at, *(_serialize_import_value(value) for value in row.values())]
-        placeholders = ", ".join(["?"] * len(row_values))
-        connection.execute(
-            f"INSERT INTO {data_table} ({', '.join(row_column_names)}) VALUES ({placeholders})",
-            row_values,
-        )
-        imported_row_count += 1
+    column_names = [c.column_name for c in payload.columns]
+    imported_row_count = insert_log_table_rows(
+        connection,
+        physical_table=physical_table,
+        column_names=column_names,
+        rows=payload.rows,
+    )
 
     connection.commit()
 
@@ -238,19 +101,16 @@ def create_log_table(payload: LogDbTableCreate, request: Request) -> LogDbTableD
 @router.get("/api/v1/log-tables/{table_id}", response_model=LogDbTableDetail)
 def get_log_table(table_id: str, request: Request) -> LogDbTableDetail:
     connection = get_connection(request)
-    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
-
+    row = get_log_table_row_or_404(connection, table_id)
     col_rows = fetch_all(
         connection,
         "SELECT * FROM log_db_columns WHERE table_id = ? ORDER BY position",
         (table_id,),
     )
-    summary = _build_table_summary(dict(row), connection)
+    summary = build_table_summary(row, connection)
     return LogDbTableDetail(
         **summary.model_dump(),
-        columns=[_build_column_response(dict(c)) for c in col_rows],
+        columns=[build_column_response(dict(c)) for c in col_rows],
     )
 
 
@@ -259,13 +119,10 @@ def get_log_table(table_id: str, request: Request) -> LogDbTableDetail:
 @router.delete("/api/v1/log-tables/{table_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_log_table(table_id: str, request: Request) -> Response:
     connection = get_connection(request)
-    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
-
-    data_table = _data_table_name(row["name"])
-    _assert_safe_identifier(row["name"])
-    connection.execute(f"DROP TABLE IF EXISTS {data_table}")
+    row = get_log_table_row_or_404(connection, table_id)
+    physical_table = data_table_name(row["name"])
+    assert_safe_identifier(row["name"])
+    connection.execute(f"DROP TABLE IF EXISTS {physical_table}")
     connection.execute("DELETE FROM log_db_tables WHERE id = ?", (table_id,))
     connection.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -278,73 +135,20 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
     if limit < 1 or limit > 1000:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="limit must be between 1 and 1000.")
     connection = get_connection(request)
-    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
-
-    data_table = _data_table_name(row["name"])
-    _assert_safe_identifier(row["name"])
+    row = get_log_table_row_or_404(connection, table_id)
+    physical_table = data_table_name(row["name"])
+    assert_safe_identifier(row["name"])
     logger = get_application_logger(request)
 
-    try:
-        col_names = _list_data_table_columns(connection, data_table)
-    except Exception as error:
-        # Fallback for environments where information_schema lookups fail.
-        write_application_exception_log(
-            logger,
-            logging.WARNING,
-            "log_table_columns_fallback",
-            error=error,
-            table_id=table_id,
-            table_name=row["name"],
-            data_table=data_table,
-        )
-        col_rows = fetch_all(
-            connection,
-            "SELECT column_name FROM log_db_columns WHERE table_id = ? ORDER BY position",
-            (table_id,),
-        )
-        col_names = ["row_id", "automation_id", "inserted_at"] + [c["column_name"] for c in col_rows]
-
-    try:
-        data_rows = fetch_all(
-            connection,
-            f"SELECT * FROM {data_table} ORDER BY inserted_at DESC LIMIT ?",
-            (limit,),
-        )
-    except Exception as error:
-        write_application_exception_log(
-            logger,
-            logging.WARNING,
-            "log_table_rows_query_failed",
-            error=error,
-            table_id=table_id,
-            table_name=row["name"],
-            data_table=data_table,
-            limit=limit,
-        )
-        data_rows = []
-
-    try:
-        count_row = fetch_one(connection, f"SELECT COUNT(*) AS cnt FROM {data_table}", ())
-        total = count_row["cnt"] if count_row else 0
-    except Exception as error:
-        write_application_exception_log(
-            logger,
-            logging.WARNING,
-            "log_table_total_count_failed",
-            error=error,
-            table_id=table_id,
-            table_name=row["name"],
-            data_table=data_table,
-        )
-        total = 0
+    col_names = fetch_log_table_columns(connection, table_id, physical_table=physical_table, logger=logger)
+    data_rows = fetch_log_table_rows(connection, table_id=table_id, physical_table=physical_table, limit=limit, logger=logger)
+    total = fetch_log_table_total(connection, table_id=table_id, physical_table=physical_table, logger=logger)
 
     return LogDbRowsResponse(
         table_id=table_id,
         table_name=row["name"],
         columns=col_names,
-        rows=[dict(r) for r in data_rows],
+        rows=data_rows,
         total=total,
     )
 
@@ -354,12 +158,10 @@ def list_log_table_rows(table_id: str, request: Request, limit: int = 100) -> Lo
 @router.post("/api/v1/log-tables/{table_id}/rows/clear", status_code=status.HTTP_200_OK)
 def clear_log_table_rows(table_id: str, request: Request) -> dict:
     connection = get_connection(request)
-    row = fetch_one(connection, "SELECT * FROM log_db_tables WHERE id = ?", (table_id,))
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log table not found.")
-
-    data_table = _data_table_name(row["name"])
-    _assert_safe_identifier(row["name"])
-    connection.execute(f"DELETE FROM {data_table}")
+    row = get_log_table_row_or_404(connection, table_id)
+    physical_table = data_table_name(row["name"])
+    assert_safe_identifier(row["name"])
+    connection.execute(f"DELETE FROM {physical_table}")
     connection.commit()
     return {"cleared": True, "table": row["name"]}
+

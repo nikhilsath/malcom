@@ -3171,8 +3171,9 @@ def _execute_log_db_write(
 
 
 from . import automation_executor as _automation_executor
-
-finalize_non_blocking_http_step = _automation_executor.finalize_non_blocking_http_step
+from .automation_step_executors.outbound_request import (
+    finalize_non_blocking_http_step,
+)
 execute_automation_step = _automation_executor.execute_automation_step
 fetch_run_detail = _automation_executor.fetch_run_detail
 execute_automation_definition = _automation_executor.execute_automation_definition

@@ -50,10 +50,10 @@ Use this order when gathering facts:
 
 1. Runtime behavior and executable flows in this repository.
 2. Source code, API routes, schema definitions, and tests.
-3. Existing project documentation only as a cross-check.
+3. Existing project documentation only as a cross-check (DO NOT cite README.md).
 4. External sources only for third-party integrations and tools.
 
-README is not the primary fact source.
+IMPORTANT: Do not use README.md as an evidence source. README may be consulted for context only; all substantive claims must be grounded in runtime behavior, source code, or tests.
 
 Evidence handling requirements:
 
@@ -80,8 +80,9 @@ All articles must include sections in this order unless the article type explici
 3. Prerequisites.
 4. Procedure or reference content.
 5. Expected result.
-6. Troubleshooting (only when there are known operational failure modes).
-7. Sources (required for external claims; optional for internal-only docs).
+6. Sources (required for external claims; optional for internal-only docs).
+
+When documenting code behavior, API flows, or runtime actions, include a `Related tests` section that lists the repository tests which validate the behavior described.
 
 Section requirements:
 
@@ -225,7 +226,7 @@ Callout requirements:
 
 Before finalizing an article:
 
-1. Compare article content with README sections related to the same topic.
+1. Compare article content with existing docs (excluding README.md) related to the same topic.
 2. Remove repeated high-overlap prose.
 3. Keep only unique, fact-backed statements tied to code/runtime evidence.
 
@@ -255,7 +256,7 @@ Before finishing, verify all items:
 
 - Markdown-only diff under `docs/**/*.md`.
 - Article is short and factual with no speculative language.
-- README duplicate prose removed.
+  - Duplicate prose from other docs removed.
 - Required article structure is present (Scope, Prerequisites, Expected result).
 - TOC included when length/heading threshold is met.
 - Incomplete feature callouts included where relevant.

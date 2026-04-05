@@ -11,12 +11,24 @@ tags:
 created_by_agent: fact-doc-writer
 updated_by_agent: fact-doc-writer
 created_at: 2026-04-04T20:50:00Z
-updated_at: 2026-04-04T21:18:00Z
+updated_at: 2026-04-05T12:30:00Z
 ---
 
 # Link a Custom Domain
 
 This guide documents the operational steps to configure workspace proxy settings for a custom public hostname.
+
+<details>
+<summary>Article metadata</summary>
+
+- **title:** Link a Custom Domain
+- **slug:** link-custom-domain
+- **summary:** How to publish a workspace under a custom public hostname using the proxy domain settings.
+- **tags:** article-type/how-to, area/workspace-settings, workflow/domain-setup, audience/admin
+- **created_at:** 2026-04-04T20:50:00Z
+- **updated_at:** 2026-04-05T12:30:00Z
+
+</details>
 
 ## Scope
 
@@ -43,11 +55,6 @@ If you prefer the API, submit a `PATCH /api/v1/settings` payload containing the 
 ## Expected result
 
 After saving with `proxy.enabled` set to `true`, the workspace persists the `proxy` values and the runtime proxy sync can use `proxy.domain`, `proxy.http_port`, and `proxy.https_port` for generated runtime state.
-
-## Troubleshooting
-
-- If the hostname does not resolve, confirm your DNS records have propagated and were created in the correct zone.
-- If requests reach your edge proxy but the workspace is not reachable, confirm proxy forwarding and inbound port mapping match `proxy.http_port` and `proxy.https_port`.
 
 ## Verification
 

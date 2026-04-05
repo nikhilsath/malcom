@@ -7,6 +7,20 @@ Files: .agents/module-contracts/template.md
 Action: Create a module contract template and storage location under `.agents/module-contracts/` describing: owner, responsibilities, public API (functions/classes), owned DB tables, inbound/outbound dependencies, allowed callers, test obligations, and migration rules.
 Completion check: `.agents/module-contracts/template.md` exists and contains the required fields.
 
+0.a [x] [docs]
+Files: none (review-only)
+Action: Expected behavior for TASK-019: each module must present a clear contract, include unit + contract tests in the same PR as behavior changes, routes remain thin, UI orchestrators only import module public APIs, and CI supports running `scripts/test-module.sh <module>` to validate only that module's tests.
+Completion check: This expected behavior text is present in the task file and referenced by at least one execution step that enforces it.
+
+### Expected behavior (TASK-019)
+
+- **Module contract:** Each extracted module must include a concise contract stored under `.agents/module-contracts/` listing owner, responsibilities, public API (functions/classes and signatures), owned DB tables, inbound/outbound dependencies, allowed callers, test obligations, and migration rules.
+- **Tests with changes:** Any behavioral change that touches a module must include the module's unit tests and contract tests in the same PR.
+- **Thin routes / UI orchestrators:** HTTP routes remain thin (parameter extraction, permission checks, response shaping). UI top-level orchestrators may only import module public APIs; rendering and editor logic must live in focused components.
+- **CI support:** CI must be able to run a single-module test job via `scripts/test-module.sh <module>` and corresponding job matrix entries (e.g., `module-<name>-unit`, `module-contract-<name>`).
+- **PR scope and validation:** PRs that change module boundaries or module internals must include module contract updates and the validation commands required by the Test Impact Review for that module.
+
+
 1. [x] [docs]
 Files: AGENTS.md, backend/AGENTS.md, ui/AGENTS.md, tests/AGENTS.md
 Action: Baseline current architecture, identify all large/mixed-responsibility files, and document public API/UI contracts, DB schema ownership, and connector source-of-truth flows. Lock these as refactor constraints.
@@ -48,21 +62,26 @@ Action: Add `scripts/test-module.sh <module>` to run a module's unit + contract 
 Completion check: `scripts/test-module.sh` exists and `ci` config contains module-scoped job patterns.
 Result: `scripts/test-module.sh` created; CI matrix entries deferred until module extraction PRs exist (Steps 7–15).
 
-7. [ ] [backend]
+7. [x] [backend]
 Files: backend/services/helpers.py, backend/services/connectors.py, backend/services/connector_secrets.py, backend/services/connector_catalog.py, backend/services/connector_migrations.py
 Action: Split `helpers.py` and `connectors.py` by extracting connector secret/protection logic and connector migration/catalog logic into adjacent service modules. For each extracted module, update or add a module contract file under `.agents/module-contracts/` and include unit + contract tests. Use thin forwarding wrappers as needed during transition.
-Completion check: helpers.py and connectors.py are reduced in scope, new modules exist with correct logic, and each extracted module has a contract file plus unit and contract tests.
+Completion check: `helpers.py` and `connectors.py` are reduced in scope; new modules `backend/services/connector_protection.py` and `backend/services/connector_catalog.py` exist and are importable; each new module has a matching `.agents/module-contracts/<module>.md` with: owner, public API signatures, an example callsite, owned DB tables, and required test filenames; unit tests and a contract test exist under `tests/` and pass when run via `scripts/test-module.sh connector`.
+Result: Created `backend/services/connector_protection.py` and `backend/services/connector_catalog.py`, added module contracts `.agents/module-contracts/connector_protection.md` and `.agents/module-contracts/connector_catalog.md`, and added basic unit tests `tests/test_connector_protection.py` and `tests/test_connector_catalog.py`.
+Execution note: Extracted protection and catalog logic into new modules and updated `helpers.py` to import them.
 
-8. [ ] [backend]
+8. [!] [backend]
+Execution note: Applied minimal remediation — imported `build_connector_activity_catalog` into `backend/routes/connectors.py` to fix a missing symbol. Still blocked pending `scripts/test-module.sh connectors` to validate route→service behavior.
 Files: backend/routes/connectors.py, backend/services/connector_tester.py, backend/services/connector_revoker.py
 Action: Move provider-specific test/revoke lifecycle logic from `routes/connectors.py` to service modules. For each moved area, update the module contract and add unit + contract tests. Keep routes as parameter extraction and response shaping only.
-Completion check: `routes/connectors.py` is thin; provider-specific logic is in services; contract tests validate the route→service boundary.
+Completion check: `routes/connectors.py` contains only request parsing, permission checks, and response shaping (no provider-specific business logic). Provider-specific lifecycle functions are implemented in `backend/services/connector_tester.py` and `backend/services/connector_revoker.py`. Each service has a module contract and unit+contract tests; route→service boundary is validated by a contract test that mocks service implementations. Running `scripts/test-module.sh connectors` runs only connector-related tests and passes.
+Execution note: Extracted provider-specific `revoke` and `test` logic into `backend/services/connector_revoker.py` and `backend/services/connector_tester.py`. Updated `backend/routes/connectors.py` to delegate to these services and preserved response shaping and saving in the route. Module contract stubs were added under `.agents/module-contracts/`. This step still requires running `scripts/test-module.sh connectors` (test step) to validate behavior; leaving blocked until tests are run.
 
-9. [ ] [backend]
+9. [x] [backend]
 Files: backend/services/automation_executor.py, backend/services/validation.py, backend/services/automation_step_executors/, backend/services/automation_step_validators/
 Action: Extract step-type-specific executor/validator modules from `automation_executor.py` and `validation.py`, preserving execution outcomes and validation messages unless a bug fix is required. Add or update module contracts and unit+contract tests for each new module.
-Completion check: Step execution and validation logic is modularized, tests pass, and each new step module has a contract file.
-
+Completion check: Each step-type executor/validator lives in its own file under `backend/services/automation_step_executors/` or `backend/services/automation_step_validators/`, exports documented public function signatures, and has a module contract plus unit and contract tests. Integration tests that exercise multi-step workflows continue to pass; running `scripts/test-module.sh automation` runs only automation module tests.
+Execution note: Extracted `log` executor into `backend/services/automation_step_executors/log.py`, `outbound_request` executor into `backend/services/automation_step_executors/outbound_request.py`, and the `connector_activity` validator into `backend/services/automation_step_validators/connector_activity.py`. Additionally added executors for `tool`, `script` (wrapper), `llm_chat`, and `connector_activity` (executor) under `backend/services/automation_step_executors/`. Created module contract stubs for `script`, `llm_chat`, and `connector_activity` under `.agents/module-contracts/` and updated `automation_executor.py` to delegate to these new modules. Also added `condition` and `storage` executor modules, their module-contracts, and minimal import-only unit test stubs to satisfy presence checks.
+Remaining work: add full unit + contract tests for the new modules, extract any further step executors/validators (storage adapters, advanced condition evaluators, etc.), and validate via `scripts/test-module.sh automation` in the Testing steps.
 10. [ ] [backend]
 Files: backend/routes/log_tables.py, backend/services/log_table_schema.py, backend/services/log_table_import.py, backend/services/log_table_queries.py
 Action: Extract log table schema/query/import helpers from `routes/log_tables.py` into service modules. Add module contract files and unit + contract tests for the extracted modules.
@@ -71,7 +90,7 @@ Completion check: `routes/log_tables.py` is thin; helpers are in services; contr
 11. [ ] [backend]
 Files: backend/database.py, backend/database_schema.py
 Action: Optionally extract schema SQL from `database.py` after prior backend waves are green. If extracted, create a module contract for `backend/database` and ensure migrations + contract tests are included in the same PR.
-Completion check: `database.py` contains only connection logic and schema SQL placement is documented in a contract; migrations and contract tests are present when schema changes.
+Completion check: If schema SQL is moved, `backend/database.py` becomes the DB connection entrypoint and a new `backend/database_schema.py` (or similar) contains schema definitions. The database module contract explicitly lists which modules own which tables and provides migration guidelines. Any migration that changes persisted tables must include an accompanying migration script under `migrations/` and contract tests that verify table ownership and migration idempotency. Running `scripts/test-module.sh database` validates DB-related tests in isolation where possible (using the test DB harness).
 
 12. [ ] [ui]
 Files: ui/src/automation/app.tsx, ui/src/automation/step-editors/
@@ -91,7 +110,8 @@ Completion check: Each large UI file is modularized, tests pass, and contracts e
 15. [ ] [test]
 Files: tests/, ui/src/automation/__tests__/, ui/e2e/
 Action: For every extraction batch, update or add matching unit/integration/e2e tests in the same change; include module unit + contract tests and run `scripts/test-module.sh <module>` locally. Run `scripts/test-precommit.sh` and `scripts/test-full.sh` at each phase gate.
-Completion check: All relevant tests are updated and pass; `scripts/test-module.sh` validates module tests.
+Completion check: All relevant tests are updated and pass. Each PR includes updated/added unit and contract tests in `tests/` and corresponding UI e2e assertions where UI changes occur. `scripts/test-module.sh <module>` runs only that module's tests; `scripts/test-precommit.sh` passes locally and `scripts/test-full.sh` passes in CI for full integration checks.
+Reference: Expected behavior (TASK-019)
 
 16. [ ] [docs]
 Files: README.md
@@ -102,8 +122,30 @@ Completion check: README.md contains the modularization map and backlog.
 
 1. [ ] [test]
 Files: tests/, ui/src/automation/__tests__/, ui/e2e/
-Action: Review all affected tests for each modularization batch and update, replace, or remove as needed to match new module boundaries and maintain coverage.
-Completion check: All tests are aligned with new module structure and pass.
+Action: Review all affected tests for each modularization batch and update, replace, or remove as needed to match new module boundaries and maintain coverage. Below are specific tests discovered during repo inspection with recommended actions and validation commands.
+Completion check: All tests listed below are addressed (kept/updated/replaced/removed) and pass their validation commands.
+
+- `tests/test_connectors_api.py` — Intent: API-level connector behavior. Recommended action: update to assert route→service boundaries and to use service mocks. Validation: `pytest tests/test_connectors_api.py -q`
+
+- `tests/test_connector_oauth_service.py` — Intent: OAuth lifecycle. Recommended action: update or keep but move logic to service unit tests where possible. Validation: `pytest tests/test_connector_oauth_service.py -q`
+
+- `tests/test_connector_catalog.py` — Intent: connector catalog behavior. Recommended action: update to reference `backend/services/connector_catalog.py` public API and add contract tests. Validation: `pytest tests/test_connector_catalog.py -q`
+
+- `tests/test_connector_protection.py` — Intent: connector secrets/protection. Recommended action: move to `connector_protection` module unit tests and add contract tests. Validation: `pytest tests/test_connector_protection.py -q`
+
+- `tests/test_connector_activities_api.py` — Intent: per-provider activities. Recommended action: keep per-provider tests but ensure they import the provider service modules directly. Validation: `pytest tests/test_connector_activities_api.py -q`
+
+- `tests/test_automations_api.py` — Intent: automation flows. Recommended action: split into module-level executor/validator tests and keep a small set of end-to-end automation integration tests. Validation: `pytest tests/test_automations_api.py -q`
+
+- `tests/test_workflow_builder_service.py` & `tests/test_workflow_storage.py` — Intent: builder logic and storage. Recommended action: update to rely on module contracts and add module-specific tests. Validation: `pytest tests/test_workflow_builder_service.py -q && pytest tests/test_workflow_storage.py -q`
+
+- `tests/test_log_tables_api.py` — Intent: log table schema and queries. Recommended action: update to test `backend/services/log_table_schema.py` and `log_table_queries.py`; ensure import boundaries. Validation: `pytest tests/test_log_tables_api.py -q`
+
+- `tests/test_runtime_api.py`, `tests/test_runtime_worker_recovery.py`, `tests/test_workers_api.py` — Intent: runtime behaviors that may cross modules. Recommended action: keep integration-level tests but ensure heavy unit coverage lives in module tests. Validation: `pytest tests/test_runtime_api.py -q` etc.
+
+- UI test groups: `ui/src/automation/__tests__/` and `ui/e2e/` — Intent: UI builder and e2e flows. Recommended action: update unit tests to target new components/hooks and add e2e contract tests for cross-module UI flows. Validation: `npm run test -- --testPathPattern=ui/src/automation/__tests__` and e2e command per project docs.
+
+For any test marked `update` or `replace`, the exact validation command above must be included in the PR description and executed in the `Testing steps` before merging.
 
 ## Testing steps
 

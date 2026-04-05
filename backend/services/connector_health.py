@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from starlette import status
 
 from backend.services.connector_oauth_provider_clients import extract_provider_error_detail
+from backend.services.connector_postgres import probe_postgres_connection
 
 
 def _google_probe_failure_message(detail: str) -> str:
@@ -215,3 +216,25 @@ def _probe_trello_credentials(*, api_key: str, token: str) -> tuple[bool, str]:
         return False, "Trello validation did not return the expected member details. Save new credentials and try again."
 
     return True, "Trello connection verified."
+
+
+def _probe_cpanel_postgres_credentials(*, host: str, port: int | str, database: str, username: str, password: str, sslmode: str | None = None) -> tuple[bool, str]:
+    auth_config = {
+        "host": host,
+        "port": int(port) if port is not None and str(port).strip() else 5432,
+        "database": database,
+        "username": username,
+        "password": password,
+    }
+    if sslmode:
+        auth_config["sslmode"] = sslmode
+
+    try:
+        ok, message = probe_postgres_connection(auth_config)
+    except HTTPException:
+        # Allow saving while offline; callers may surface network errors as 502.
+        raise
+    except Exception as error:
+        return False, f"{str(error)} Reconnect or verify settings and try again."
+
+    return ok, message

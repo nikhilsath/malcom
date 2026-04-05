@@ -30,6 +30,7 @@ from backend.services.automation_execution import (
     _materialize_http_preset_config,
     execute_script_step,
     extract_response_fields,
+    parse_template_json,
     record_outgoing_delivery_history,
     refresh_automation_schedule,
     refresh_outgoing_schedule,
@@ -84,137 +85,9 @@ from backend.services.runtime_workers import (
     run_local_worker_loop,
     run_remote_worker_loop,
 )
-
-_DEFAULT_WORKFLOW_STORAGE_PATH = "backend/data/workflows"
-_DEFAULT_STORAGE_TYPE = "json"
-_DEFAULT_STORAGE_TARGET = "output"
-
-BACKGROUND_DELIVERY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="malcom-bg-delivery")
-
-
-def parse_template_json(template: str | None, context: dict[str, Any]) -> str:
-    rendered = render_template_string(template or "{}", context)
-    parsed = json.loads(rendered)
-    return json.dumps(parsed)
-
-
-def _execute_outbound_request_delivery(
-    connection: Any,
-    *,
-    step: AutomationStepDefinition,
-    context: dict[str, Any],
-    root_dir: Path,
-    history_resource_id: str | None = None,
-    delivery_executor: Callable[[OutgoingApiTestRequest], OutgoingApiTestResponse] | None = None,
-) -> tuple[OutgoingApiTestResponse, Any | None, dict[str, Any]]:
-    protection_secret = get_connector_protection_secret(root_dir=root_dir)
-    destination_url, auth_type, auth_config = hydrate_outgoing_configuration_from_connector(
-        connection,
-        connector_id=step.config.connector_id,
-        destination_url=render_template_string(step.config.destination_url, context),
-        auth_type=step.config.auth_type or "none",
-        auth_config=step.config.auth_config,
-        protection_secret=protection_secret,
-    )
-    executor = delivery_executor or execute_outgoing_test_delivery
-    started_at = utc_now_iso()
-    delivery = executor(
-        OutgoingApiTestRequest(
-            type="outgoing_scheduled",
-            destination_url=destination_url,
-            http_method=step.config.http_method or "POST",
-            auth_type=auth_type,
-            auth_config=auth_config,
-            webhook_signing=step.config.webhook_signing,
-            payload_template=parse_template_json(step.config.payload_template, context),
-            connector_id=step.config.connector_id,
-        )
-    )
-    finished_at = utc_now_iso()
-    if history_resource_id:
-        record_outgoing_delivery_history(
-            connection,
-            delivery_id=f"delivery_{uuid4().hex}",
-            resource_type="automation_http_step",
-            resource_id=history_resource_id,
-            status_value="completed" if delivery.ok else "failed",
-            http_status_code=delivery.status_code,
-            request_summary=f"{step.config.http_method or 'POST'} {destination_url}",
-            response_summary=(delivery.response_body or "")[:500] or f"{delivery.status_code} {delivery.destination_url}",
-            error_summary=None if delivery.ok else (delivery.response_body or "")[:500],
-            started_at=started_at,
-            finished_at=finished_at,
-        )
-        connection.commit()
-    response_body_json = try_parse_json_response_body(delivery.response_body)
-    extracted_fields = extract_response_fields(response_body_json, step.config.response_mappings)
-    return delivery, response_body_json, extracted_fields
-
-
-def finalize_non_blocking_http_step(
-    *,
-    database_url: str,
-    logger_name: str,
-    run_step_id: str,
-    automation_id: str,
-    step: AutomationStepDefinition,
-    context: dict[str, Any],
-    root_dir: Path,
-    delivery_executor: Callable[[OutgoingApiTestRequest], OutgoingApiTestResponse] | None = None,
-) -> None:
-    connection = connect(database_url=database_url)
-    logger = logging.getLogger(logger_name)
-    try:
-        delivery, response_body_json, extracted_fields = _execute_outbound_request_delivery(
-            connection,
-            step=step,
-            context=context,
-            root_dir=root_dir,
-            history_resource_id=run_step_id,
-            delivery_executor=delivery_executor,
-        )
-        detail = delivery.model_dump()
-        detail["response_mode"] = "background"
-        detail["response_mappings"] = step.config.response_mappings or []
-        finalize_automation_run_step(
-            connection,
-            step_id=run_step_id,
-            status_value="completed" if delivery.ok else "failed",
-            response_summary=f"{delivery.status_code} {delivery.destination_url}",
-            detail=detail,
-            response_body_json=response_body_json,
-            extracted_fields_json=extracted_fields,
-            finished_at=utc_now_iso(),
-        )
-        write_application_log(
-            logger,
-            logging.INFO if delivery.ok else logging.WARNING,
-            "automation_http_step_background_completed",
-            automation_id=automation_id,
-            step_name=step.name,
-            run_step_id=run_step_id,
-            status_code=delivery.status_code,
-        )
-    except Exception as error:
-        finalize_automation_run_step(
-            connection,
-            step_id=run_step_id,
-            status_value="failed",
-            response_summary=str(error),
-            detail={"error": str(error), "response_mode": "background"},
-            finished_at=utc_now_iso(),
-        )
-        write_application_log(
-            logger,
-            logging.WARNING,
-            "automation_http_step_background_failed",
-            automation_id=automation_id,
-            step_name=step.name,
-            run_step_id=run_step_id,
-            error=str(error),
-        )
-    finally:
-        connection.close()
+from backend.services.automation_step_executors.outbound_request import (
+    finalize_non_blocking_http_step,
+)
 
 
 def _execute_automation_step_impl(
@@ -229,160 +102,42 @@ def _execute_automation_step_impl(
     database_url: str | None = None,
 ) -> RuntimeExecutionResult:
     if step.type == "log":
-        if step.config.log_table_id:
-            return _execute_log_db_write(connection, logger, automation_id=automation_id, step=step, context=context)
-        # File-backed write support: use storage fields when provided on the step
-        if getattr(step.config, "storage_type", None) or getattr(step.config, "storage_target", None):
-            storage_type = getattr(step.config, "storage_type", None) or _DEFAULT_STORAGE_TYPE
-            storage_target = getattr(step.config, "storage_target", None) or _DEFAULT_STORAGE_TARGET
-            new_file = getattr(step.config, "storage_new_file", True)
-            raw_payload = render_template_string(step.config.message or "{}", context)
-            try:
-                payload: Any = json.loads(raw_payload)
-            except (ValueError, TypeError):
-                payload = raw_payload
+        from backend.services.automation_step_executors.log import execute_log_step
 
-            location_id = getattr(step.config, "storage_location_id", None)
-            if location_id:
-                # Resolve the named storage location
-                try:
-                    resolved = resolve_storage_location(connection, location_id, root_dir=root_dir)
-                except ValueError as exc:
-                    return RuntimeExecutionResult(status="failed", response_summary=str(exc), detail={"error": str(exc)}, output={})
-                location_type = resolved["location_type"]
-
-                # Apply folder/file name templates when provided
-                folder_tmpl = getattr(step.config, "folder_template", None) or resolved.get("folder_template")
-                file_tmpl = getattr(step.config, "file_name_template", None) or resolved.get("file_name_template")
-                if folder_tmpl:
-                    rendered_folder = render_template_string(folder_tmpl, context)
-                    if rendered_folder:
-                        if resolved["path"]:
-                            resolved["path"] = str(Path(resolved["path"]) / rendered_folder)
-                        else:
-                            resolved["path"] = rendered_folder
-                if file_tmpl:
-                    storage_target = render_template_string(file_tmpl, context) or storage_target
-
-                if location_type == "google_drive":
-                    # Delegate to Drive connector activity
-                    connector_id = resolved.get("connector_id")
-                    if not connector_id:
-                        return RuntimeExecutionResult(
-                            status="failed",
-                            response_summary="Google Drive location has no connector_id",
-                            detail={"error": "connector_id missing on storage location"},
-                            output={},
-                        )
-                    import json as _json
-                    content = _json.dumps(payload, ensure_ascii=False) if not isinstance(payload, str) else payload
-                    from backend.services.connector_activities import execute_connector_activity
-                    try:
-                        drive_result = execute_connector_activity(
-                            connection,
-                            connector_id=connector_id,
-                            activity_id="drive_create_file",
-                            inputs={
-                                "parent_folder_id": resolved["path"] or "root",
-                                "name": f"{storage_target}.json",
-                                "content": content,
-                                "mime_type": "application/json",
-                            },
-                            root_dir=root_dir,
-                            context=context,
-                        )
-                    except Exception as exc:
-                        return RuntimeExecutionResult(
-                            status="failed",
-                            response_summary=f"Google Drive write failed: {exc}",
-                            detail={"error": str(exc)},
-                            output={},
-                        )
-                    result = {"file": f"drive://{resolved['path']}/{storage_target}.json", "storage_type": "google_drive", "target": storage_target, "drive_result": drive_result}
-                    return RuntimeExecutionResult(status="completed", response_summary=f"Wrote to Google Drive: {storage_target}", detail=result, output=result)
-
-                # Local or repo location — enforce quota then write
-                try:
-                    import json as _json_size
-                    estimated_bytes = len(_json_size.dumps(payload, ensure_ascii=False).encode())
-                    check_location_quota(connection, location_id, estimated_bytes, root_dir=root_dir)
-                except RuntimeError as exc:
-                    return RuntimeExecutionResult(status="failed", response_summary=str(exc), detail={"error": str(exc)}, output={})
-
-                configured_path = resolved["path"] or _DEFAULT_WORKFLOW_STORAGE_PATH
-
-            else:
-                # Fall back to global workflow_storage_path setting
-                try:
-                    settings_payload = get_settings_payload(connection)
-                    configured_path = (settings_payload.get("data") or {}).get("workflow_storage_path") or _DEFAULT_WORKFLOW_STORAGE_PATH
-                except Exception:
-                    configured_path = _DEFAULT_WORKFLOW_STORAGE_PATH
-
-            result = execute_workflow_write(
-                root_dir,
-                configured_path,
-                storage_type,
-                storage_target,
-                payload,
-                new_file=new_file,
-            )
-            summary = f"Wrote {storage_type} to {result.get('file', storage_target)}"
-            return RuntimeExecutionResult(status="completed", response_summary=summary, detail=result, output=result)
-        message = render_template_string(step.config.message, context)
-        # Check for a default-logs storage location and route there if present
-        try:
-            default_log_row = connection.execute(
-                "SELECT * FROM storage_locations WHERE is_default_logs = 1 LIMIT 1"
-            ).fetchone()
-        except Exception:
-            default_log_row = None
-
-        if default_log_row is not None:
-            default_log_row = dict(default_log_row)
-            log_location_id = default_log_row["id"]
-            log_path = default_log_row.get("path") or _DEFAULT_WORKFLOW_STORAGE_PATH
-            log_payload = {"message": message, "automation_id": automation_id, "step_name": step.name}
-            try:
-                estimated = len(json.dumps(log_payload, ensure_ascii=False).encode())
-                check_location_quota(connection, log_location_id, estimated, root_dir=root_dir)
-                log_result = execute_workflow_write(root_dir, log_path, "json", "automation_logs", log_payload, new_file=True)
-                log_detail = {"message": message, "log_file": log_result.get("file")}
-            except Exception:
-                log_detail = {"message": message}
-        else:
-            log_detail = {"message": message}
-
-        write_application_log(
-            logger,
-            logging.INFO,
-            "automation_log_step",
-            automation_id=automation_id,
-            step_name=step.name,
-            message=message,
-        )
-        return RuntimeExecutionResult(status="completed", response_summary=message, detail=log_detail, output=message)
+        result = execute_log_step(connection, logger, automation_id=automation_id, step=step, context=context, root_dir=root_dir)
+        # Translate executor result into RuntimeExecutionResult minimal wrapper
+        if isinstance(result, dict) and result.get("error"):
+            return RuntimeExecutionResult(status="failed", response_summary=result.get("error"), detail={"error": result.get("error")}, output={})
+        if isinstance(result, dict) and result.get("result"):
+            detail = result.get("result")
+            summary = detail.get("summary") if isinstance(detail, dict) else str(detail)
+            return RuntimeExecutionResult(status="completed", response_summary=summary or "completed", detail=detail, output=detail)
+        return RuntimeExecutionResult(status="completed", response_summary=str(result), detail={"result": result}, output=result)
 
     if step.type == "outbound_request":
-        if step.config.http_preset_id:
-            try:
-                step = _materialize_http_preset_config(connection, step=step, context=context)
-            except RuntimeError as error:
-                return RuntimeExecutionResult(status="failed", response_summary=str(error), detail={"error": str(error)}, output={})
+        from backend.services.automation_step_executors.outbound_request import execute_outbound_request_step
 
-        if not step.config.wait_for_response:
-            if not run_step_id:
-                raise RuntimeError("Non-blocking HTTP steps require a runtime step identifier.")
+        exec_result = execute_outbound_request_step(
+            connection, logger, automation_id=automation_id, run_step_id=run_step_id, step=step, context=context, root_dir=root_dir, database_url=database_url
+        )
+        if exec_result.get("error"):
+            return RuntimeExecutionResult(status="failed", response_summary=exec_result.get("error"), detail={"error": exec_result.get("error")}, output={})
+        if exec_result.get("background"):
+            # Submit background finalizer similar to previous behavior
+            payload = exec_result["background"]
+            from concurrent.futures import ThreadPoolExecutor
+            from backend.services.automation_step_executors.outbound_request import finalize_non_blocking_http_step
+
+            # Use a short-lived executor to submit background task; the global BACKGROUND_DELIVERY_EXECUTOR remains available for production.
             BACKGROUND_DELIVERY_EXECUTOR.submit(
                 finalize_non_blocking_http_step,
-                database_url=database_url or get_database_url(),
-                logger_name=logger.name,
-                run_step_id=run_step_id,
-                automation_id=automation_id,
-                step=step.model_copy(deep=True),
-                context=json.loads(json.dumps(context)),
-                root_dir=root_dir,
-                delivery_executor=execute_outgoing_test_delivery,
+                database_url=payload.get("database_url"),
+                logger_name=payload.get("logger_name"),
+                run_step_id=payload.get("run_step_id"),
+                automation_id=payload.get("automation_id"),
+                step=payload.get("step"),
+                context=payload.get("context"),
+                root_dir=Path(payload.get("root_dir")),
             )
             return RuntimeExecutionResult(
                 status="completed",
@@ -390,46 +145,26 @@ def _execute_automation_step_impl(
                 detail={"response_mode": "background", "response_mappings": step.config.response_mappings or []},
                 output={},
             )
-
-        delivery, response_body_json, extracted_fields = _execute_outbound_request_delivery(
-            connection,
-            step=step,
-            context=context,
-            root_dir=root_dir,
-            history_resource_id=run_step_id,
-        )
-        output_payload = delivery.model_dump()
-        output_payload.update(extracted_fields)
-        output_payload["extracted_fields"] = extracted_fields
-        output_payload["response_body_json"] = response_body_json
-        detail = dict(output_payload)
-        detail["response_mode"] = "blocking"
-        return RuntimeExecutionResult(
-            status="completed" if delivery.ok else "failed",
-            response_summary=f"{delivery.status_code} {delivery.destination_url}",
-            detail=detail,
-            output=output_payload,
-        )
+        if exec_result.get("result"):
+            r = exec_result["result"]
+            detail = r.get("detail") if isinstance(r, dict) else r
+            ok = r.get("ok") if isinstance(r, dict) else True
+            status_code = r.get("status_code") if isinstance(r, dict) else None
+            dest = r.get("destination_url") if isinstance(r, dict) else None
+            return RuntimeExecutionResult(
+                status="completed" if ok else "failed",
+                response_summary=f"{status_code} {dest}",
+                detail=detail,
+                output=detail,
+            )
 
     if step.type == "connector_activity":
-        activity_output = execute_connector_activity(
-            connection,
-            connector_id=step.config.connector_id or "",
-            activity_id=step.config.activity_id or "",
-            inputs=step.config.activity_inputs,
-            root_dir=root_dir,
-            context=context,
-        )
-        return RuntimeExecutionResult(
-            status="completed",
-            response_summary=f"Connector activity {step.config.activity_id} completed.",
-            detail={
-                "connector_id": step.config.connector_id,
-                "activity_id": step.config.activity_id,
-                "activity_output": activity_output,
-            },
-            output=activity_output,
-        )
+        from backend.services.automation_step_executors.connector_activity import execute_connector_activity_step
+
+        exec_result = execute_connector_activity_step(connection, logger, step=step, context=context, root_dir=root_dir)
+        if exec_result.get("runtime_result"):
+            return exec_result.get("runtime_result")
+        return RuntimeExecutionResult(status="failed", response_summary=exec_result.get("error") or "Connector activity executor error", detail={"error": exec_result.get("error")}, output={})
 
     if step.type == "script":
         script_row = fetch_one(connection, "SELECT * FROM scripts WHERE id = ?", (step.config.script_id,))
@@ -508,31 +243,15 @@ def _execute_automation_step_impl(
         )
 
     if step.type == "tool":
-        tool_row = fetch_one(
-            connection,
-            """
-            SELECT id, COALESCE(name_override, source_name) AS name,
-                   COALESCE(description_override, source_description) AS description,
-                   inputs_schema_json
-            FROM tools
-            WHERE id = ?
-            """,
-            (step.config.tool_id,),
-        )
-        if tool_row is None:
-            raise RuntimeError(f"Tool '{step.config.tool_id}' was not found.")
+        from backend.services.automation_step_executors.tool import execute_tool_step
 
-        if tool_row["id"] == "coqui-tts":
-            return execute_coqui_tts_tool_step(connection, step, context, root_dir=root_dir)
-        if tool_row["id"] == "llm-deepl":
-            return execute_llm_deepl_tool_step(connection, step, context)
-        if tool_row["id"] == "smtp":
-            return execute_smtp_tool_step(step, context)
-        if tool_row["id"] == "image-magic":
-            return execute_image_magic_tool_step(connection, step, context, root_dir=root_dir)
-
-        detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
-        return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)
+        exec_result = execute_tool_step(connection, logger, step=step, context=context, root_dir=root_dir)
+        if exec_result.get("error"):
+            return RuntimeExecutionResult(status="failed", response_summary=exec_result.get("error"), detail={"error": exec_result.get("error")}, output={})
+        result = exec_result.get("result")
+        if isinstance(result, dict) and result.get("status"):
+            return RuntimeExecutionResult(status=result.get("status"), response_summary=result.get("response_summary") or "", detail=result.get("detail"), output=result.get("detail"))
+        return RuntimeExecutionResult(status="completed", response_summary="Tool executed.", detail=result, output=result)
 
     compiled = ast.parse(step.config.expression or "", mode="eval")
     result = bool(

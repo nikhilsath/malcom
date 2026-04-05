@@ -28,6 +28,7 @@ Task files must be written to interoperate with `.github/agents/task-executor.md
 - Builder owns repo discovery.
 - Executor owns bounded execution.
 - Completion checks must remain in every actionable step.
+# Completion checks must not require running tests. If a verification requires running tests or other broad validation commands, put that verification into the `Testing steps` section instead. Execution steps are for implementation-only observable outcomes (files changed, imports added/removed, grepable symbols).
 - Implementation steps must be concrete enough for a low-powered executor to complete without planning, auditing, or guessing.
 
 If you cannot verify the implementation path yourself, stop and report that gap to the user instead of pushing that discovery into the task file.

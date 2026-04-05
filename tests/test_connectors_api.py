@@ -375,7 +375,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         metadata = response.json()["metadata"]["providers"]
         providers = {item["id"]: item for item in metadata}
 
-        self.assertEqual(set(providers), {"google", "github", "notion", "trello"})
+        self.assertEqual(set(providers), {"google", "github", "notion", "trello", "cpanel_postgres"})
         self.assertFalse(providers["github"]["oauth_supported"])
         self.assertTrue(providers["notion"]["oauth_supported"])
         self.assertTrue(providers["trello"]["oauth_supported"])
@@ -552,7 +552,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertTrue(refresh_body["connector"]["auth_config"]["has_refresh_token"])
         self.assertTrue(refresh_body["connector"]["auth_config"]["refresh_token_masked"])
 
-        with patch("backend.routes.connectors.revoke_notion_token") as revoke_notion_token:
+        with patch("backend.services.connector_revoker.revoke_notion_token") as revoke_notion_token:
             revoke_response = self.client.post("/api/v1/connectors/notion-primary/revoke")
 
         self.assertEqual(revoke_response.status_code, 200)

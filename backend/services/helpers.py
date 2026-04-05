@@ -225,6 +225,8 @@ def get_local_worker_address() -> str:
     return get_runtime_hostname()
 def configure_application_logger(app: FastAPI, *, root_dir: Path, max_file_size_mb: int) -> logging.Logger:
     return configure_application_logger_core(app, root_dir=root_dir, max_file_size_mb=max_file_size_mb)
+
+
 def get_application_logger(request: Request) -> logging.Logger:
     logger = getattr(request.app.state, "logger", None)
     if logger is None:
@@ -235,8 +237,12 @@ def get_application_logger(request: Request) -> logging.Logger:
         )
         request.app.state.logger = logger
     return logger
+
+
 def write_application_log(logger: logging.Logger, level: int, event: str, **fields: Any) -> None:
     write_application_log_core(logger, level, event, **fields)
+
+
 def write_application_exception_log(
     logger: logging.Logger,
     level: int,
@@ -244,125 +250,45 @@ def write_application_exception_log(
     *,
     error: Exception,
     **fields: Any,
-) -> None:
+ ) -> None:
     write_application_exception_log_core(logger, level, event, error=error, **fields)
+
+
 def get_built_ui_file(root_dir: Path, relative_path: str) -> Path:
     return get_ui_dist_dir(root_dir) / relative_path
+
+
 def hash_secret(secret: str) -> str:
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+
 def generate_secret() -> str:
     encoded_secret = base64.urlsafe_b64encode(secrets.token_bytes(INBOUND_SECRET_BYTES)).decode("ascii").rstrip("=")
     return f"{INBOUND_SECRET_PREFIX}{encoded_secret}"
-def get_connector_protection_secret(*, root_dir: Path | None = None, db_path: str | None = None) -> str:
-    configured = os.environ.get("MALCOM_CONNECTOR_SECRET")
-    if configured:
-        return configured
 
-    seed_parts = [
-        str(root_dir or ""),
-        str(db_path or ""),
-        "malcom-connectors",
-    ]
-    return "|".join(seed_parts)
+# Connector protection and catalog helpers were moved into dedicated modules to reduce helpers.py scope.
+from backend.services.connector_protection import (
+    get_connector_protection_secret,
+    derive_connector_protection_key,
+    protect_connector_secret_value,
+    unprotect_connector_secret_value,
+    mask_connector_secret,
+)
 
-
-def get_cluster_shared_secret() -> str:
-    configured = os.environ.get("MALCOM_CLUSTER_SECRET", "").strip()
-    return configured or "malcom-lan-shared-secret"
-
-
-def build_worker_rpc_headers() -> dict[str, str]:
-    return {"X-Malcom-Cluster-Secret": get_cluster_shared_secret()}
-
-
-def assert_worker_rpc_authorized(request: Request) -> None:
-    provided_secret = str(request.headers.get("x-malcom-cluster-secret") or "").strip()
-    if not provided_secret or not hmac.compare_digest(provided_secret, get_cluster_shared_secret()):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cluster secret.")
-
-
-def derive_connector_protection_key(protection_secret: str) -> bytes:
-    return hashlib.sha256(protection_secret.encode("utf-8")).digest()
-
-
-def _xor_bytes(left: bytes, right: bytes) -> bytes:
-    return bytes(left_byte ^ right_byte for left_byte, right_byte in zip(left, right))
-
-
-def build_connector_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
-    output = bytearray()
-    counter = 0
-
-    while len(output) < length:
-        block = hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
-        output.extend(block)
-        counter += 1
-
-    return bytes(output[:length])
-
-
-def _encode_protected_connector_value(nonce: bytes, signature: bytes, ciphertext: bytes) -> str:
-    token = base64.urlsafe_b64encode(nonce + signature + ciphertext).decode("ascii")
-    return f"{CONNECTOR_PROTECTION_VERSION}:{token}"
-
-
-def _decode_protected_connector_value(value: str | None) -> tuple[bytes, bytes, bytes] | None:
-    if not value or not value.startswith(f"{CONNECTOR_PROTECTION_VERSION}:"):
-        return None
-
-    encoded = value.split(":", 1)[1]
-    try:
-        raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
-    except (ValueError, binascii.Error):
-        return None
-
-    minimum_size = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
-    if len(raw) < minimum_size:
-        return None
-
-    nonce = raw[:CONNECTOR_NONCE_BYTES]
-    signature_end = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
-    signature = raw[CONNECTOR_NONCE_BYTES:signature_end]
-    ciphertext = raw[signature_end:]
-    return nonce, signature, ciphertext
-
-
-def protect_connector_secret_value(value: str, protection_secret: str) -> str:
-    key = derive_connector_protection_key(protection_secret)
-    nonce = secrets.token_bytes(CONNECTOR_NONCE_BYTES)
-    payload = value.encode("utf-8")
-    keystream = build_connector_keystream(key, nonce, len(payload))
-    ciphertext = _xor_bytes(payload, keystream)
-    signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
-    return _encode_protected_connector_value(nonce, signature, ciphertext)
-
-
-def unprotect_connector_secret_value(value: str | None, protection_secret: str) -> str | None:
-    decoded = _decode_protected_connector_value(value)
-    if decoded is None:
-        return None
-
-    nonce, signature, ciphertext = decoded
-    key = derive_connector_protection_key(protection_secret)
-    expected_signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
-
-    if not hmac.compare_digest(signature, expected_signature):
-        return None
-
-    keystream = build_connector_keystream(key, nonce, len(ciphertext))
-    try:
-        plaintext = _xor_bytes(ciphertext, keystream)
-        return plaintext.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-def mask_connector_secret(value: str | None) -> str | None:
-    if not value:
-        return None
-
-    if len(value) <= 8:
-        return "••••"
-
-    return f"{value[:4]}••••{value[-4:]}"
+from backend.services.connector_catalog import (
+    CONNECTOR_PROVIDER_CANONICAL_MAP,
+    SUPPORTED_CONNECTOR_AUTH_TYPES,
+    SUPPORTED_CONNECTOR_STATUSES,
+    CONNECTOR_SECRET_FIELD_INPUTS,
+    DEFAULT_CONNECTOR_CATALOG,
+    get_default_connector_settings,
+    _clone_connector_catalog_defaults,
+    canonicalize_connector_provider,
+    _get_default_connector_preset,
+    _row_to_connector_preset,
+    build_connector_catalog,
+    get_connector_preset,
+)
 DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
     {
         "id": "google",

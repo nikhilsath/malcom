@@ -11,12 +11,24 @@ tags:
 created_by_agent: fact-doc-writer
 updated_by_agent: fact-doc-writer
 created_at: 2026-04-04T20:19:33Z
-updated_at: 2026-04-04T21:18:00Z
+updated_at: 2026-04-05T12:30:00Z
 ---
 
 # Settings Reference
 
 This reference maps workspace settings behavior to the backend routes, schema validation, and UI settings workflows implemented in this repository.
+
+<details>
+<summary>Article metadata</summary>
+
+- **title:** Settings Reference
+- **slug:** settings-reference
+- **summary:** Section-by-section settings reference aligned to the workspace settings screens and API payload fields.
+- **tags:** article-type/reference, area/workspace-settings, workflow/settings-management, audience/admin
+- **created_at:** 2026-04-04T20:19:33Z
+- **updated_at:** 2026-04-05T12:30:00Z
+
+</details>
 
 ## Table of Contents
 
@@ -24,9 +36,7 @@ This reference maps workspace settings behavior to the backend routes, schema va
 - [Prerequisites](#prerequisites)
 - [Reference](#reference)
 - [Expected result](#expected-result)
-- [Troubleshooting](#troubleshooting)
 - [Sources](#sources)
-
 ## Scope
 
 This article covers:
@@ -91,11 +101,7 @@ Connector policy updates are served through `PATCH /api/v1/connectors/auth-polic
 
 Operators can map each settings control or API field to a validated section key, an update route, and the persisted settings behavior used by the workspace runtime.
 
-## Troubleshooting
-
-- If settings edits do not persist, verify PATCH requests to `/api/v1/settings` complete successfully and check validation constraints for the changed fields.
-- If settings pages show warning fallback state, the UI could not load current settings from the API and is using in-memory defaults.
-- If proxy runtime state does not update, verify that the workspace runtime can write `backend/data/caddy/public_proxy_runtime.json`.
+<!-- Troubleshooting removed per fact-doc-writer guidance; include operator workflows in Procedure sections where actionable steps are required. -->
 
 ## Sources
 
