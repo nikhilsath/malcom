@@ -7,6 +7,9 @@ set -uo pipefail
 # Note: updated to reflect factoring/fix-first/source-of-truth wording plus
 # startup-only connector legacy migration, workflow-builder service-only sync checks,
 # and Trello OAuth connector policy sync notes on 2026-04-04.
+# TASK-019 (2026-04-05): added PR-scope validator hook (scripts/check-pr-scope.sh);
+# rule-ID cross-references added to Required Workflow, Implementation Quality, and domain AGENTS files;
+# Practical Do And Do Not section restructured with rule annotations.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -326,6 +329,14 @@ check_large_changed_source_files() {
   print_warn "Oversized changed source files require a factoring sanity check."
 }
 
+check_pr_scope() {
+  if [[ ! -x "$ROOT_DIR/scripts/check-pr-scope.sh" ]]; then
+    printf 'scripts/check-pr-scope.sh not found or not executable; skipping PR scope check.\n'
+    return 0
+  fi
+  "$ROOT_DIR/scripts/check-pr-scope.sh"
+}
+
 check_test_precommit() {
   "$ROOT_DIR/scripts/test-precommit.sh"
 }
@@ -351,6 +362,7 @@ run_check "Tool manifest regeneration" check_tool_manifest_sync
 run_check "Workflow builder connector path sync" check_workflow_builder_connector_path_sync
 run_check "Connector route/service boundary" check_connector_route_service_boundary
 run_warning_check "Large changed source files" check_large_changed_source_files
+run_warning_check "PR scope validation" check_pr_scope
 run_check "scripts/test-precommit.sh" check_test_precommit
 run_check "scripts/test-full.sh" check_test_full
 

@@ -11,6 +11,8 @@ Applies to backend tests, frontend tests, Playwright workflow coverage, smoke ma
 
 ## Testing And Verification
 
+> Rule IDs from root policy: R-TEST-001 through R-TEST-008. See [Rules Matrix](../AGENTS.md#rules-matrix) for full definitions.
+
 Every meaningful code change should include the smallest relevant verification set.
 
 Build tests as implementation progresses rather than deferring all coverage to a follow-up task.
@@ -75,12 +77,14 @@ For code changes, agent responses must tell the user:
 
 ## Practical Do And Do Not Rules (Testing Relevant)
 
+> Cross-reference: root policy R-TEST-001 through R-TEST-008; [Rules Matrix](../AGENTS.md#rules-matrix).
+
 Do:
 
-- place tests beside the backend feature area they cover or under the React feature they cover
-- add or update relevant automated tests in the same change when behavior changes
+- place tests beside the backend feature area they cover or under the React feature they cover (→ R-TEST-008)
+- add or update relevant automated tests in the same change when behavior changes (→ R-TEST-008)
 
 Do not:
 
-- remove tests as a convenience workaround for failures
-- ship behavior changes without relevant automated test updates
+- remove tests as a convenience workaround for failures (→ R-TEST-004)
+- ship behavior changes without relevant automated test updates (→ R-TEST-008)
