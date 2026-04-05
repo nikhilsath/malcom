@@ -11,6 +11,7 @@ It combines a FastAPI backend, PostgreSQL persistence, and a Vite-built, registr
 - [Current Architecture](#current-architecture)
 - [Database Schema](#database-schema)
 - [Repository Map](#repository-map)
+- [Service Module Map](#service-module-map)
 - [Quick Start](#quick-start)
 - [Testing Workflow](#testing-workflow)
 - [UI and Route Wiring](#ui-and-route-wiring)
@@ -587,6 +588,51 @@ The current schema is serviceable for a single-environment local-first app, but 
 - `tests/` - backend tests, API coverage, and smoke registry/matrix support
 - `ui/src/**/__tests__/` - frontend unit tests for React/TypeScript features
 - `ui/e2e/` - Playwright workflow coverage
+
+## Service Module Map
+
+This section documents the backend and UI service modules extracted during repo modularization (TASK-019). Each row lists what a module owns, what it is allowed to call, and any callers that must not bypass it.
+
+### Backend service modules
+
+| Module | File | Responsibility | Owned Tables / State | Allowed Callers |
+|---|---|---|---|---|
+| `connector_protection` | `backend/services/connector_protection.py` | Connector credential encryption/decryption, protection-secret management | `connectors` (credential fields only) | `routes/connectors.py`, revoker, tester |
+| `connector_catalog` | `backend/services/connector_catalog.py` | Canonical connector provider list, metadata tables, capabilities | read-only registry | `routes/connectors.py`, workflow_builder |
+| `connector_revoker` | `backend/services/connector_revoker.py` | Provider-specific token revocation (Notion, Trello, GitHub, Google, cPanel) | `connectors` (status update) | `routes/connectors.py` |
+| `connector_tester` | `backend/services/connector_tester.py` | Provider-specific connection health checks | `connectors` (read) | `routes/connectors.py` |
+| `log_table_schema` | `backend/services/log_table_schema.py` | Identifier validation, DDL generation, metadata persistence, 404 helper | `log_db_tables`, `log_db_columns` (write) | `routes/log_tables.py` |
+| `log_table_queries` | `backend/services/log_table_queries.py` | Column listing, summary/column response builders, row fetching with fallback | `log_db_tables`, `log_db_columns`, `log_data_*` (read) | `routes/log_tables.py` |
+| `log_table_import` | `backend/services/log_table_import.py` | Value serialization + bulk row insertion into `log_data_*` tables | `log_data_*` (write) | `routes/log_tables.py` |
+| `automation_step_executors/*` | `backend/services/automation_step_executors/` | Per-step-type execution handlers (outbound request, LLM, script, connector activity, storage, tool, log, condition) | step-specific | `automation_executor.py` |
+| `automation_step_validators/*` | `backend/services/automation_step_validators/` | Per-step-type input validation | none | `automation_executor.py` |
+| `workflow_builder` | `backend/services/workflow_builder.py` | Workflow-builder connector option resolver (sourced from `connectors` table rows) | `connectors` (read) | `routes/automations.py` |
+
+### UI module map
+
+| Module | File(s) | Responsibility | Required props / events | Tests |
+|---|---|---|---|---|
+| Step editors | `ui/src/automation/step-editors/` | Per-step-type form editors rendered inside the step drawer | `step`, `onChange`, `connections` | `ui/src/automation/__tests__/step-editors.test.tsx` |
+| Step editor dispatcher | `ui/src/automation/StepEditorDispatcher.tsx` | Dispatch to correct per-type editor; unrecognized types render a fallback | `step`, `onChange`, `connections` | same test file |
+| Automation builder controller | `ui/src/automation/hooks/useAutomationBuilderController.ts` | Orchestration state — step CRUD, run initiation, poll loop, undo/redo | internal to `app.tsx` | `ui/src/automation/__tests__/` |
+
+### Accepted targeted bug fixes (TASK-019)
+
+The following bugs were corrected as part of modularization work and are intentionally included in the same changeset:
+
+- **`automation_executor.py` orphaned code blocks** — Step 9 extraction left two orphaned module-level code blocks (a `script` step handler and a broken `finalize_non_blocking_http_step` function fragment). Removed both; `finalize_non_blocking_http_step` is now imported from `outbound_request.py` at module level.
+- **`protection_secret = None` hardcoded in connector services** — `revoke_connector_record` and `test_connector_record` had a hardcoded `protection_secret = None` placeholder instead of a parameter. Lifted to an optional keyword argument with `None` default.
+- **Stale test assertions in `test_connectors_api.py`** — Mock patch target updated from `backend.routes.connectors.revoke_notion_token` to `backend.services.connector_revoker.revoke_notion_token`; provider list assertion updated to include `cpanel_postgres`.
+
+### Modularization follow-up backlog
+
+These items are non-blocking and tracked for future work:
+
+- **Step 11 (optional)**: Extract DB schema utility helpers from `backend/database.py` into a narrower service module.
+- **Step 13**: Decompose oversized UI form components inside `ui/src/automation/step-editors/`.
+- **Step 14**: Extract dashboard-specific logic from mixed-concern components into focused modules.
+
+---
 
 ## Quick Start
 

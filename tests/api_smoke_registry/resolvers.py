@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.services.helpers import build_worker_rpc_headers
+from backend.services.tool_runtime import build_worker_rpc_headers
 
 from .core import SmokeContext
 from .resources import create_automation, create_script, create_webhook_api, start_google_oauth
