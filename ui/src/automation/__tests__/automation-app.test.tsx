@@ -353,7 +353,12 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-outbound_request") as HTMLElement);
+    const outboundStepTypeButton = await waitFor(() => {
+      const element = document.querySelector("#add-step-type-outbound_request") as HTMLElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+    fireEvent.click(outboundStepTypeButton);
 
     await waitFor(() => {
       expect(document.querySelector("#add-step-http-connector-input")).toBeInTheDocument();
@@ -399,7 +404,12 @@ describe("AutomationApp", () => {
     });
 
     fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
-    fireEvent.click(document.querySelector("#add-step-type-connector_activity") as HTMLElement);
+    const connectorActivityTypeButton = await waitFor(() => {
+      const element = document.querySelector("#add-step-type-connector_activity") as HTMLElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+    fireEvent.click(connectorActivityTypeButton);
     const savedConnectorSelect = await waitFor(() => {
       const element = document.querySelector("#add-step-connector-activity-connector-input") as HTMLSelectElement | null;
       expect(element).not.toBeNull();

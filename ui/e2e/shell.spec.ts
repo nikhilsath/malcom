@@ -154,3 +154,11 @@ test("keeps the animated top-nav indicator aligned on narrow widths", async ({ p
   expect((metrics?.indicator.x ?? 0) + (metrics?.indicator.width ?? 0)).toBeLessThanOrEqual((metrics?.nav.x ?? 0) + (metrics?.nav.width ?? 0) + 2);
   expect((metrics?.indicator.y ?? 0) + (metrics?.indicator.height ?? 0)).toBeLessThanOrEqual((metrics?.nav.y ?? 0) + (metrics?.nav.height ?? 0) + 2);
 });
+
+test("loads docs index and library routes", async ({ page }) => {
+  await page.goto("/docs/index.html");
+  await expect(page).toHaveURL(/\/docs\/index\.html$/);
+
+  await page.goto("/docs/library.html");
+  await expect(page).toHaveURL(/\/docs\/library\.html$/);
+});

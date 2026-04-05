@@ -11,7 +11,10 @@ const settingsElements = {
   workspaceProxyDomainInput: document.getElementById("settings-workspace-proxy-domain-input"),
   workspaceProxyHttpPortInput: document.getElementById("settings-workspace-proxy-http-port-input"),
   workspaceProxyHttpsPortInput: document.getElementById("settings-workspace-proxy-https-port-input"),
+  workspaceProxyEnabledToggle: document.getElementById("settings-workspace-proxy-enabled-toggle"),
   workspaceProxyEnabledCheckbox: document.getElementById("settings-workspace-proxy-enabled-checkbox"),
+  workspaceProxyTestButton: document.getElementById("settings-workspace-proxy-test-button"),
+  workspaceProxyTestFeedback: document.getElementById("settings-workspace-proxy-test-feedback"),
   retentionInput: document.getElementById("settings-log-retention-input"),
   visibleInput: document.getElementById("settings-log-visible-input"),
   detailInput: document.getElementById("settings-log-detail-input"),
@@ -65,6 +68,96 @@ const setSettingsFeedback = (message, tone) => {
   settingsElements.feedback.className = tone
     ? `api-form-feedback api-form-feedback--${tone}`
     : "api-form-feedback";
+};
+
+const setWorkspaceProxyTestFeedback = (message, tone = "") => {
+  if (!settingsElements.workspaceProxyTestFeedback) {
+    return;
+  }
+
+  settingsElements.workspaceProxyTestFeedback.textContent = message;
+  if (tone) {
+    settingsElements.workspaceProxyTestFeedback.dataset.state = tone;
+    return;
+  }
+  delete settingsElements.workspaceProxyTestFeedback.dataset.state;
+};
+
+const formatProxyCheckSummary = (checks) => {
+  if (!Array.isArray(checks) || checks.length === 0) {
+    return "";
+  }
+
+  const endpointChecks = checks.filter((check) => check?.scheme === "http" || check?.scheme === "https");
+  if (endpointChecks.length === 0) {
+    return "";
+  }
+
+  return endpointChecks
+    .map((check) => {
+      const scheme = String(check.scheme || "").toUpperCase();
+      if (check.reachable) {
+        const statusCode = Number.isFinite(check.status_code) ? ` ${check.status_code}` : "";
+        return `${scheme}${statusCode}`;
+      }
+      const detail = check.detail ? ` (${check.detail})` : "";
+      return `${scheme} unreachable${detail}`;
+    })
+    .join(" | ");
+};
+
+const testWorkspaceProxyConnection = async () => {
+  if (!settingsElements.workspaceProxyTestButton) {
+    return;
+  }
+
+  const domain = (settingsElements.workspaceProxyDomainInput?.value || "").trim();
+  if (!domain) {
+    setWorkspaceProxyTestFeedback("Enter a domain before running the proxy test.", "error");
+    return;
+  }
+
+  const parsedHttpPort = Number.parseInt(
+    settingsElements.workspaceProxyHttpPortInput?.value || "",
+    10
+  );
+  const parsedHttpsPort = Number.parseInt(
+    settingsElements.workspaceProxyHttpsPortInput?.value || "",
+    10
+  );
+  const payload = {
+    domain,
+    http_port: Number.isFinite(parsedHttpPort) ? parsedHttpPort : 80,
+    https_port: Number.isFinite(parsedHttpsPort) ? parsedHttpsPort : 443,
+    enabled: Boolean(settingsElements.workspaceProxyEnabledCheckbox?.checked)
+  };
+
+  settingsElements.workspaceProxyTestButton.disabled = true;
+  setWorkspaceProxyTestFeedback("Testing connection...", "warning");
+
+  try {
+    const response = await window.Malcom?.requestJson?.("/api/v1/settings/proxy/test", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const summary = formatProxyCheckSummary(response?.checks);
+    if (response?.ok) {
+      setWorkspaceProxyTestFeedback(
+        summary ? `${response.message} ${summary}` : response.message,
+        "success"
+      );
+    } else {
+      setWorkspaceProxyTestFeedback(
+        summary ? `${response?.message || "Proxy test failed."} ${summary}` : (response?.message || "Proxy test failed."),
+        "error"
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to run proxy test.";
+    setWorkspaceProxyTestFeedback(message, "error");
+  } finally {
+    settingsElements.workspaceProxyTestButton.disabled = false;
+  }
 };
 
 const renderSettingsSummary = () => {
@@ -304,21 +397,44 @@ const logSettingsChange = (action, message, details) => {
   });
 };
 
+const saveCurrentSettings = async ({ action = "settings_saved", message = "Updated workspace settings." } = {}) => {
+  const settings = await getSettingsStore().updateAppSettings(buildSettingsPayload());
+  applySettingsToPage(settings);
+  setSettingsFeedback("Settings saved to the database.", "success");
+  logSettingsChange(action, message, {
+    section: currentSettingsSection
+  });
+};
+
 const bindSettingsEvents = () => {
   settingsElements.form?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     try {
-      const settings = await getSettingsStore().updateAppSettings(buildSettingsPayload());
-      applySettingsToPage(settings);
-      setSettingsFeedback("Settings saved to the database.", "success");
-      logSettingsChange("settings_saved", "Updated workspace settings.", {
-        section: currentSettingsSection
-      });
+      await saveCurrentSettings();
     } catch {
       setSettingsFeedback("Unable to save settings.", "danger");
     }
   });
+
+  if (currentSettingsSection === "workspace") {
+    settingsElements.workspaceProxyEnabledToggle?.addEventListener("click", async () => {
+      // Let the checkbox state update first, then persist the section patch.
+      await Promise.resolve();
+      try {
+        await saveCurrentSettings({
+          action: "settings_saved_auto_toggle",
+          message: "Updated workspace proxy toggle setting."
+        });
+      } catch {
+        setSettingsFeedback("Unable to save settings.", "danger");
+      }
+    });
+
+    settingsElements.workspaceProxyTestButton?.addEventListener("click", async () => {
+      await testWorkspaceProxyConnection();
+    });
+  }
 
   settingsElements.resetButton?.addEventListener("click", async () => {
     try {

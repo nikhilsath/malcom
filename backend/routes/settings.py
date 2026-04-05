@@ -6,6 +6,7 @@ import logging
 from backend.schemas import *
 from backend.services.support import *
 from backend.services import support
+from backend.services.domain_proxy import test_proxy_connection
 
 router = APIRouter()
 
@@ -66,7 +67,7 @@ def patch_app_settings(payload: AppSettingsUpdate, request: Request) -> AppSetti
 def create_settings_backup(request: Request) -> SettingsCreateBackupResponse:
     logger = get_application_logger(request)
     try:
-        result = support.create_backup()
+        result = support.create_backup(db_url=request.app.state.database_url)
         write_application_log(
             logger,
             logging.INFO,
@@ -117,9 +118,29 @@ def list_settings_backups(request: Request) -> SettingsListBackupsResponse:
 def restore_settings_backup(payload: SettingsBackupRestoreRequest, request: Request) -> SettingsBackupRestoreResponse:
     logger = get_application_logger(request)
     try:
-        res = support.restore_backup(payload.backup_id)
+        res = support.restore_backup(payload.backup_id, db_url=request.app.state.database_url)
         write_application_log(logger, logging.INFO, "settings_backup_restored", filename=payload.backup_id)
         return SettingsBackupRestoreResponse(ok=True, message="Restore started", restored_at=res.get("restored_at"))
     except RuntimeError as exc:
         write_application_log(logger, logging.ERROR, "settings_backup_restore_failed", error=str(exc))
         return SettingsBackupRestoreResponse(ok=False, message=str(exc), restored_at=None)
+
+
+@router.post("/api/v1/settings/proxy/test", response_model=SettingsProxyTestResponse)
+def test_settings_proxy(payload: SettingsProxyTestRequest, request: Request) -> SettingsProxyTestResponse:
+    logger = get_application_logger(request)
+    try:
+        result = test_proxy_connection(payload.model_dump())
+        level = logging.INFO if result.get("ok") else logging.WARNING
+        write_application_log(
+            logger,
+            level,
+            "settings_proxy_tested",
+            domain=payload.domain,
+            ok=result.get("ok"),
+            checks=result.get("checks"),
+        )
+        return SettingsProxyTestResponse(**result)
+    except RuntimeError as exc:
+        write_application_log(logger, logging.ERROR, "settings_proxy_test_failed", error=str(exc), domain=payload.domain)
+        return SettingsProxyTestResponse(ok=False, message=str(exc), checks=[])

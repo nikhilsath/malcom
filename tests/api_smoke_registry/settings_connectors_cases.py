@@ -219,4 +219,18 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         payload={"backup_id": "backup-2026-04-03.sql"},
         response_assert=assert_json_response,
     ),
+    action_case(
+        "settings-proxy-test",
+        "POST",
+        "/api/v1/settings/proxy/test",
+        200,
+        route_path="/api/v1/settings/proxy/test",
+        payload={
+            "domain": "tools.example.com",
+            "http_port": 80,
+            "https_port": 443,
+            "enabled": True,
+        },
+        response_assert=assert_json_response,
+    ),
 )

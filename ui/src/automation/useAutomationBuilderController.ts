@@ -213,13 +213,6 @@ export const useAutomationBuilderController = () => {
     closeNodeMenu();
   };
 
-  const { updateBuilderUrl, syncModeOnlyInUrl } = useUrlSync({ builderMode, setBuilderMode, applyNewAutomationDraft, loadSupportData, loadAutomations, setAutomations, setFeedback, setFeedbackTone });
-
-  const switchBuilderMode = (mode: BuilderMode) => {
-    setBuilderMode(mode);
-    syncModeOnlyInUrl(mode);
-  };
-
   const applyNewAutomationDraft = ({ updateUrl = true }: { updateUrl?: boolean } = {}) => {
     activeAutomationIdRef.current = "";
     resetRunCompletedFlash();
@@ -287,6 +280,22 @@ export const useAutomationBuilderController = () => {
     } finally {
       setSupportDataLoading(false);
     }
+  };
+
+  const { updateBuilderUrl, syncModeOnlyInUrl } = useUrlSync({
+    builderMode,
+    setBuilderMode,
+    applyNewAutomationDraft,
+    loadSupportData,
+    loadAutomations,
+    setAutomations,
+    setFeedback,
+    setFeedbackTone
+  });
+
+  const switchBuilderMode = (mode: BuilderMode) => {
+    setBuilderMode(mode);
+    syncModeOnlyInUrl(mode);
   };
 
   useEffect(() => {

@@ -21,9 +21,17 @@ def _timestamped_filename(prefix: str = "settings_backup", ext: str = ".dump") -
 
 
 def _get_database_url(db_url: Optional[str] = None) -> str:
-    resolved = db_url or os.environ.get("MALCOM_DATABASE_URL")
+    if db_url:
+        return db_url
+    try:
+        from backend.database import get_database_url
+
+        resolved = get_database_url()
+    except Exception:
+        resolved = os.environ.get("MALCOM_DATABASE_URL")
+
     if not resolved:
-        raise RuntimeError("No database URL provided and MALCOM_DATABASE_URL is not set in environment")
+        raise RuntimeError("No database URL provided and MALCOM_DATABASE_URL is not set in environment or database.get_database_url() failed")
     return resolved
 
 

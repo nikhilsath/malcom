@@ -217,7 +217,7 @@ export const LlmChatStepEditor = ({ step, drawerDataFlowTokens, updateDrawerStep
   </div>
 );
 
-const StepEditor = ({
+export const StepEditor = ({
   step,
   currentAutomation,
   builderMetadata,

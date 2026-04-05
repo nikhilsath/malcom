@@ -75,6 +75,18 @@
       ]
     },
     {
+      "routePath": "/settings/access.html",
+      "workflowContract": "Renders access and session security defaults, plus connector auth policy controls.",
+      "owners": [
+        {
+          "spec": "ui/e2e/settings.spec.ts",
+          "testIds": [
+            "saves and resets access security settings"
+          ]
+        }
+      ]
+    },
+    {
       "routePath": "/settings/data.html",
       "workflowContract": "Shows connector-backed storage, manages log-table cleanup, and creates plus restores local backups.",
       "owners": [
@@ -268,6 +280,30 @@
             "filters scripts, edits an existing script, validates, and saves changes",
             "creates a new script and switches the starter template language",
             "shows empty and validation error states for scripts"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/docs/index.html",
+      "workflowContract": "Serves the docs index page and links to in-app documentation sections.",
+      "owners": [
+        {
+          "spec": "ui/e2e/shell.spec.ts",
+          "testIds": [
+            "loads docs index and library routes"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/docs/library.html",
+      "workflowContract": "Serves the docs library page for internal documentation references.",
+      "owners": [
+        {
+          "spec": "ui/e2e/shell.spec.ts",
+          "testIds": [
+            "loads docs index and library routes"
           ]
         }
       ]

@@ -72,6 +72,55 @@ test("preserves saved connectors when workspace settings are saved before settin
   await expect(page.locator("#settings-storage-connector-google-drive")).toBeVisible();
 });
 
+test("autosaves proxy enabled toggle on change", async ({ page }) => {
+  await installDashboardSettingsFixtures(page, {
+    settings: {
+      proxy: {
+        enabled: false
+      }
+    }
+  });
+
+  await page.goto("/settings/workspace.html");
+  await expect(page.locator("#page-title")).toHaveText("Settings Workspace");
+
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).not.toBeChecked();
+  await page.locator("#settings-workspace-proxy-enabled-toggle").click();
+
+  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).toBeChecked();
+  await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Enabled");
+
+  await page.reload();
+
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).toBeChecked();
+  await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Enabled");
+});
+
+test("tests workspace proxy connection and shows feedback", async ({ page }) => {
+  await installDashboardSettingsFixtures(page, {
+    settings: {
+      proxy: {
+        domain: "malcom.artuin.io",
+        enabled: true,
+        http_port: 80,
+        https_port: 443,
+      },
+    },
+  });
+
+  await page.goto("/settings/workspace.html");
+
+  await page.locator("#settings-workspace-proxy-test-button").click();
+
+  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText(
+    "HTTP and HTTPS endpoints are reachable."
+  );
+  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText("HTTP 301");
+  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText("HTTPS 200");
+  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toHaveAttribute("data-state", "success");
+});
+
 test("saves logging thresholds and clears stored logs", async ({ page }) => {
   await installDashboardSettingsFixtures(page);
 

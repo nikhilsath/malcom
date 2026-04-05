@@ -11,6 +11,11 @@ from backend.schemas import *
 from backend.services.support import *
 from backend.runtime import parse_iso_datetime
 from backend.services.connectors import _provider_display_name
+from backend.services.connectors import (
+    write_connector_auth_policy as write_connector_auth_policy_core,
+    get_stored_connector_settings as get_stored_connector_settings_core,
+    sanitize_connector_settings_for_response as sanitize_connector_settings_for_response_core,
+)
 from backend.services.http_presets import list_http_preset_catalog
 from backend.services.connector_google_oauth_client import (
     revoke_google_token,
@@ -57,9 +62,9 @@ def list_connectors(request: Request) -> ConnectorSettingsResponse:
     # get_stored_connector_settings() and sanitized (secrets masked) before response.
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    raw_settings = get_stored_connector_settings(connection)
+    raw_settings = get_stored_connector_settings_core(connection)
     return ConnectorSettingsResponse(
-        **sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
+        **sanitize_connector_settings_for_response_core(raw_settings, protection_secret, connection=connection)
     )
 
 
@@ -88,10 +93,10 @@ def create_connector(payload: ConnectorCreateRequest, request: Request) -> Conne
 def patch_connector_auth_policy(payload: ConnectorAuthPolicyUpdateRequest, request: Request) -> ConnectorSettingsResponse:
     connection = get_connection(request)
     protection_secret = get_connector_protection_secret(root_dir=get_root_dir(request), db_path=request.app.state.db_path)
-    write_connector_auth_policy(connection, payload.auth_policy.model_dump())
-    raw_settings = get_stored_connector_settings(connection)
+    write_connector_auth_policy_core(connection, payload.auth_policy.model_dump())
+    raw_settings = get_stored_connector_settings_core(connection)
     return ConnectorSettingsResponse(
-        **sanitize_connector_settings_for_response(raw_settings, protection_secret, connection=connection)
+        **sanitize_connector_settings_for_response_core(raw_settings, protection_secret, connection=connection)
     )
 
 

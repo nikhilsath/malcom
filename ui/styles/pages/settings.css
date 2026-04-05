@@ -56,6 +56,29 @@
   width: fit-content;
 }
 
+.settings-workspace-proxy-test-actions {
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.settings-workspace-proxy-test-feedback {
+  min-height: 1.25rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.settings-workspace-proxy-test-feedback[data-state="success"] {
+  color: var(--success-dark);
+}
+
+.settings-workspace-proxy-test-feedback[data-state="warning"] {
+  color: var(--brand-primary);
+}
+
+.settings-workspace-proxy-test-feedback[data-state="error"] {
+  color: var(--danger-dark);
+}
+
 .settings-section--aside {
   max-width: 420px;
 }

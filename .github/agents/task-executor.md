@@ -29,7 +29,7 @@ These instructions take precedence over `AGENTS.md` if there is any conflict.
 - Completion checks decide whether a step is done.
 - Tests do not run outside `test` steps.
 
-If a task file violates this contract, do not improvise. Record the blocker and stop.
+If a task file violates this contract, record the blocker. Do not improvise beyond the step's stated `Files:` and `Completion check:`; however, when the blocker appears to be locally and safely resolvable within the step's scope, the executor SHOULD attempt a minimal, auditable fix and re-run the step's completion check (subject to the Testing Rules below). If the blocker cannot be resolved without expanding scope, stop and report the blocker.
 
 ## Core Rules
 
@@ -133,8 +133,8 @@ State handling:
 
 For a blocked step:
 
-- if the blocker is locally resolvable without changing scope, resume it by changing `[!]` to `[-]`
-- otherwise report the blocker and stop
+- if the blocker is locally and safely resolvable within the step's `Files:` and `Completion check:`, the executor SHOULD attempt a minimal remediation (see "Blocked Step Remediation" below), then re-run the stated completion check. If the completion check passes, mark the step `[x]` and continue per the task file.
+- if the blocker is not resolvable without expanding scope or performing discovery beyond the step's stated files, change the step to `[!]`, add a short blocker note immediately under the step, and stop.
 
 Do not skip ahead to a later step unless the task explicitly marks independent work with `Execution: parallel_ok`.
 
@@ -150,7 +150,7 @@ For the active step:
 
 If the completion check passes, mark the step `[x]`.
 
-If the step is blocked, mark it `[!]`, add a short blocker note directly under it, and stop.
+If the step becomes blocked, first determine whether the blocker is safely and narrowly resolvable within the step's `Files:` and `Completion check:`. If so, the executor SHOULD attempt a limited remediation as described in "Blocked Step Remediation". After remediation, re-run only the explicit completion check commands permitted by the step's route (see Testing Rules). If the completion check then passes, mark the step `[x]`. If remediation does not resolve the blocker or remediation would require expanding scope, mark the step `[!]`, add a short blocker note, and stop.
 
 Do not mark a step complete just because code changed.
 
@@ -164,6 +164,16 @@ While in `Execution steps`:
 - do not run tests here
 - do not broaden into repo-wide verification
 - do not rethink the plan
+
+Blocked Step Remediation (safe, minimal fixes):
+
+- Only attempt remediation when the blocker is clearly local to the files named in the step's `Files:` line and the remediation does not require discovery or edits outside that scope.
+- Limit edits to the minimal change that is likely to resolve the stated completion check. Avoid refactors or behavioral changes that affect other areas of the repo.
+- Before applying edits, change the step state to `[-]` and add a one-line note under the step describing the planned minimal fix.
+- Apply the edit(s) using the normal editing tools and update the task file to describe the change.
+- Re-run only the exact completion check command(s) that the step specifies. Tests may only be run if the active step's route is `test` (see Testing Rules). For non-test steps, prefer static verification (lint, type check, or model validation) if available in the completion check.
+- If remediation succeeds, mark the step `[x]` and include a short execution note describing the fix.
+- If remediation fails or cannot be attempted safely, revert any speculative partial changes (if applicable), mark the step `[!]` with a blocker note, and stop.
 
 If an implementation step’s completion check mentions `pytest`, Playwright, `npm run test`, `scripts/test-precommit.sh`, `scripts/test-full.sh`, or another validation-only test command, treat that as a builder bug, mark the step `[!]`, and stop.
 

@@ -5,6 +5,12 @@ from fastapi.responses import StreamingResponse
 
 from backend.schemas import *
 from backend.services.support import *
+from backend.services.tool_configs import (
+    get_image_magic_tool_config as get_image_magic_tool_config_core,
+    normalize_image_magic_tool_config as normalize_image_magic_tool_config_core,
+    save_image_magic_tool_config as save_image_magic_tool_config_core,
+)
+from backend.services.tool_runtime import build_image_magic_tool_response as build_image_magic_tool_response_core
 
 router = APIRouter()
 
@@ -26,7 +32,7 @@ def get_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
 
 @router.get("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse)
 def get_image_magic_tool(request: Request) -> ImageMagicToolResponse:
-    return build_image_magic_tool_response(get_connection(request))
+    return build_image_magic_tool_response_core(get_connection(request))
 
 
 @router.post("/api/v1/tools/llm-deepl/chat", response_model=LocalLlmChatResponse)
@@ -182,7 +188,7 @@ def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> I
 
         return ToolMetadataResponse(**updated)
 
-    current_config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    current_config = normalize_image_magic_tool_config_core(get_image_magic_tool_config_core(connection))
     next_config = dict(current_config)
     if "enabled" in changes:
         next_config["enabled"] = bool(changes["enabled"])
@@ -191,7 +197,7 @@ def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> I
     if "command" in changes:
         next_config["command"] = str(changes["command"] or "").strip()
 
-    normalized_config = normalize_image_magic_tool_config(next_config)
+    normalized_config = normalize_image_magic_tool_config_core(next_config)
 
     enabling_on_local_host = (
         normalized_config["enabled"]
@@ -211,15 +217,15 @@ def patch_image_magic_tool(payload: ImageMagicToolUpdate, request: Request) -> I
         except RuntimeError as error:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
-    save_image_magic_tool_config(connection, normalized_config)
+    save_image_magic_tool_config_core(connection, normalized_config)
     sync_managed_tool_enabled_state(request, "image-magic", normalized_config["enabled"])
-    return build_image_magic_tool_response(connection)
+    return build_image_magic_tool_response_core(connection)
 
 
 @router.post("/api/v1/tools/image-magic/execute", response_model=ImageMagicExecuteResponse)
 def execute_image_magic(payload: ImageMagicExecuteRequest, request: Request) -> ImageMagicExecuteResponse:
     connection = get_connection(request)
-    config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))
+    config = normalize_image_magic_tool_config_core(get_image_magic_tool_config_core(connection))
     if not config["enabled"]:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Image Magic tool is disabled.")
 

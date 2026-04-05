@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,6 +38,39 @@ class SecuritySettings(BaseModel):
     session_timeout_minutes: Literal[30, 60, 120, 480]
     dual_approval_required: bool
     token_rotation_days: Literal[30, 60, 90]
+
+
+class ProxySettings(BaseModel):
+    domain: str = Field(default="", max_length=255)
+    http_port: int = Field(ge=1, le=65535)
+    https_port: int = Field(ge=1, le=65535)
+    enabled: bool
+
+
+class SettingsProxyTestRequest(BaseModel):
+    domain: str = Field(default="", max_length=255)
+    http_port: int = Field(ge=1, le=65535)
+    https_port: int = Field(ge=1, le=65535)
+    enabled: bool
+
+
+class SettingsProxyTestCheck(BaseModel):
+    scheme: str
+    target: str
+    reachable: bool
+    status_code: int | None = None
+    detail: str | None = None
+
+
+class SettingsProxyTestResponse(BaseModel):
+    ok: bool
+    message: str
+    checks: list[SettingsProxyTestCheck] = Field(default_factory=list)
+
+
+class AppSettingsOptionsResponse(BaseModel):
+    notification_channels: list[dict[str, str]] = Field(default_factory=list)
+    notification_digests: list[dict[str, str]] = Field(default_factory=list)
 
 
 class ConnectorProviderPresetResponse(BaseModel):
@@ -94,6 +127,7 @@ class ConnectorSettingsResponse(BaseModel):
     catalog: list[ConnectorProviderPresetResponse]
     records: list[ConnectorRecordResponse] = Field(default_factory=list)
     auth_policy: ConnectorAuthPolicy
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConnectorAuthConfigUpdate(BaseModel):
@@ -130,9 +164,41 @@ class ConnectorRecordUpdate(BaseModel):
     auth_config: ConnectorAuthConfigUpdate = Field(default_factory=ConnectorAuthConfigUpdate)
 
 
+class ConnectorCreateRequest(BaseModel):
+    id: str | None = Field(default=None, min_length=1, max_length=120)
+    provider: str = Field(pattern=r"^[a-z0-9_]+$")
+    name: str = Field(min_length=1, max_length=120)
+    status: str = Field(default="draft", pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
+    auth_type: str = Field(default="bearer", pattern=r"^(oauth2|bearer|api_key|basic|header)$")
+    scopes: list[str] = Field(default_factory=list)
+    base_url: str | None = Field(default=None, max_length=2000)
+    owner: str | None = Field(default=None, max_length=120)
+    docs_url: str | None = Field(default=None, max_length=2000)
+    credential_ref: str | None = Field(default=None, max_length=255)
+    auth_config: ConnectorAuthConfigUpdate = Field(default_factory=ConnectorAuthConfigUpdate)
+
+
+class ConnectorUpdateRequest(BaseModel):
+    provider: str | None = Field(default=None, pattern=r"^[a-z0-9_]+$")
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    status: str | None = Field(default=None, pattern=r"^(draft|pending_oauth|connected|needs_attention|expired|revoked)$")
+    auth_type: str | None = Field(default=None, pattern=r"^(oauth2|bearer|api_key|basic|header)$")
+    scopes: list[str] | None = None
+    base_url: str | None = Field(default=None, max_length=2000)
+    owner: str | None = Field(default=None, max_length=120)
+    docs_url: str | None = Field(default=None, max_length=2000)
+    credential_ref: str | None = Field(default=None, max_length=255)
+    last_tested_at: str | None = None
+    auth_config: ConnectorAuthConfigUpdate | None = None
+
+
 class ConnectorSettingsUpdate(BaseModel):
     records: list[ConnectorRecordUpdate] | None = None
     auth_policy: ConnectorAuthPolicy | None = None
+
+
+class ConnectorAuthPolicyUpdateRequest(BaseModel):
+    auth_policy: ConnectorAuthPolicy
 
 
 class AppSettingsResponse(BaseModel):
@@ -142,7 +208,8 @@ class AppSettingsResponse(BaseModel):
     data: DataSettings
     automation: AutomationSettings
     security: SecuritySettings
-    connectors: ConnectorSettingsResponse
+    proxy: ProxySettings
+    options: AppSettingsOptionsResponse
 
 
 class AppSettingsUpdate(BaseModel):
@@ -152,7 +219,7 @@ class AppSettingsUpdate(BaseModel):
     data: DataSettings | None = None
     automation: AutomationSettings | None = None
     security: SecuritySettings | None = None
-    connectors: ConnectorSettingsUpdate | None = None
+    proxy: ProxySettings | None = None
 
 
 class ConnectorActionResponse(BaseModel):
@@ -210,7 +277,7 @@ class SettingsListBackupsResponse(BaseModel):
 
 
 class SettingsBackupRestoreRequest(BaseModel):
-    filename: str
+    backup_id: str
 
 
 class SettingsBackupRestoreResponse(BaseModel):
@@ -221,12 +288,15 @@ class SettingsBackupRestoreResponse(BaseModel):
 
 __all__ = [
     "AutomationSettings",
+    "AppSettingsOptionsResponse",
     "AppSettingsResponse",
     "AppSettingsUpdate",
     "ConnectorActionResponse",
     "ConnectorAuthConfigResponse",
     "ConnectorAuthConfigUpdate",
     "ConnectorAuthPolicy",
+    "ConnectorAuthPolicyUpdateRequest",
+    "ConnectorCreateRequest",
     "ConnectorDeleteResponse",
     "ConnectorOAuthCallbackResponse",
     "ConnectorOAuthStartRequest",
@@ -234,16 +304,21 @@ __all__ = [
     "ConnectorProviderPresetResponse",
     "ConnectorRecordResponse",
     "ConnectorRecordUpdate",
+    "ConnectorUpdateRequest",
     "ConnectorSettingsResponse",
     "ConnectorSettingsUpdate",
     "DataSettings",
     "GeneralSettings",
     "LoggingSettings",
     "NotificationSettings",
+    "ProxySettings",
     "SecuritySettings",
     "SettingsBackupMetadata",
     "SettingsBackupRestoreRequest",
     "SettingsBackupRestoreResponse",
     "SettingsCreateBackupResponse",
     "SettingsListBackupsResponse",
+    "SettingsProxyTestCheck",
+    "SettingsProxyTestRequest",
+    "SettingsProxyTestResponse",
 ]

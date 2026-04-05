@@ -1222,9 +1222,6 @@ def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[
 
 
 def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> None:
-    if list_stored_connector_records(connection):
-        return
-
     legacy_value = read_stored_settings_section(connection, "connectors")
     if not isinstance(legacy_value, dict):
         return

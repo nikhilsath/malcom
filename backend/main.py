@@ -12,8 +12,8 @@ from backend.services.support import (
     get_project_root,
     get_ui_dir,
     get_ui_dist_dir,
-    lifespan,
 )
+from backend.services.automation_execution import lifespan as automation_lifespan
 
 
 def create_app() -> FastAPI:
@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Malcom API",
         version="0.1.0",
-        lifespan=lifespan,
+        lifespan=automation_lifespan,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",

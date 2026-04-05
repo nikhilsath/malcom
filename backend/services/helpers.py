@@ -118,6 +118,12 @@ DEFAULT_LOG_BACKUP_COUNT = 5
 LOCAL_WORKER_POLL_INTERVAL_SECONDS = 0.25
 REMOTE_WORKER_POLL_INTERVAL_SECONDS = 1.0
 SMTP_TOOL_SETTINGS_KEY = "smtp_tool"
+DEFAULT_DASHBOARD_LOG_LEVEL_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "debug", "label": "Debug"},
+    {"value": "info", "label": "Info"},
+    {"value": "warning", "label": "Warning"},
+    {"value": "error", "label": "Error"},
+)
 LOCAL_LLM_TOOL_SETTINGS_KEY = "local_llm_tool"
 COQUI_TTS_TOOL_SETTINGS_KEY = "coqui_tts_tool"
 IMAGE_MAGIC_TOOL_SETTINGS_KEY = "image_magic_tool"
@@ -399,6 +405,15 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "base_url": "https://api.trello.com/1",
     },
 ]
+SETTINGS_NOTIFICATION_CHANNEL_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "email", "label": "Email"},
+    {"value": "pager", "label": "Pager"},
+)
+SETTINGS_NOTIFICATION_DIGEST_OPTIONS: tuple[dict[str, str], ...] = (
+    {"value": "realtime", "label": "Realtime"},
+    {"value": "hourly", "label": "Hourly"},
+    {"value": "daily", "label": "Daily"},
+)
 def get_default_connector_settings() -> dict[str, Any]:
     return {
         "catalog": json.loads(json.dumps(DEFAULT_CONNECTOR_CATALOG)),
@@ -431,12 +446,17 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
         "workflow_storage_path": "backend/data/workflows",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
+    "proxy": {
+        "domain": "",
+        "http_port": 80,
+        "https_port": 443,
+        "enabled": False,
+    },
     "security": {
         "session_timeout_minutes": 60,
         "dual_approval_required": False,
-        "token_rotation_days": 90,
+        "token_rotation_days": 30,
     },
-    "connectors": get_default_connector_settings(),
 }
 def get_default_settings() -> dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_APP_SETTINGS))
@@ -751,6 +771,8 @@ def sanitize_connector_settings_for_response(
     *,
     connection: DatabaseConnection | None = None,
 ) -> dict[str, Any]:
+    from backend.services.connectors import build_connector_response_metadata as build_connector_response_metadata_core
+
     defaults = get_default_connector_settings()
     current = value or defaults
     return {
@@ -761,24 +783,119 @@ def sanitize_connector_settings_for_response(
             if isinstance(item, dict)
         ],
         "auth_policy": normalize_connector_auth_policy(current.get("auth_policy")),
+        "metadata": build_connector_response_metadata_core(),
     }
 def get_stored_connector_settings(connection: DatabaseConnection) -> dict[str, Any]:
-    stored_value = read_stored_settings_section(connection, "connectors")
-    if not isinstance(stored_value, dict):
-        return {
-            "catalog": build_connector_catalog(connection),
-            "records": [],
-            "auth_policy": normalize_connector_auth_policy(None),
-        }
+    rows = fetch_all(
+        connection,
+        """
+        SELECT
+            id,
+            provider,
+            name,
+            status,
+            auth_type,
+            scopes_json,
+            base_url,
+            owner,
+            docs_url,
+            credential_ref,
+            created_at,
+            updated_at,
+            auth_config_json,
+            last_tested_at
+        FROM connectors
+        ORDER BY name ASC, id ASC
+        """,
+    )
+
+    records: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            scopes = json.loads(row.get("scopes_json") or "[]")
+        except json.JSONDecodeError:
+            scopes = []
+        try:
+            auth_config = json.loads(row.get("auth_config_json") or "{}")
+        except json.JSONDecodeError:
+            auth_config = {}
+
+        records.append(
+            {
+                "id": str(row.get("id") or "").strip(),
+                "provider": canonicalize_connector_provider(row.get("provider")) or "generic_http",
+                "name": row.get("name") or str(row.get("id") or ""),
+                "status": str(row.get("status") or "draft"),
+                "auth_type": str(row.get("auth_type") or "bearer"),
+                "scopes": [item for item in scopes if isinstance(item, str)],
+                "base_url": row.get("base_url"),
+                "owner": row.get("owner"),
+                "docs_url": row.get("docs_url"),
+                "credential_ref": row.get("credential_ref"),
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "last_tested_at": row.get("last_tested_at"),
+                "auth_config": auth_config if isinstance(auth_config, dict) else {},
+            }
+        )
 
     return {
         "catalog": build_connector_catalog(connection),
-        "records": [item for item in stored_value.get("records", []) if isinstance(item, dict)],
-        "auth_policy": normalize_connector_auth_policy(stored_value.get("auth_policy")),
+        "records": [item for item in records if item.get("id")],
+        "auth_policy": normalize_connector_auth_policy(None),
     }
 def find_stored_connector_record(connection: DatabaseConnection, connector_id: str) -> dict[str, Any] | None:
-    settings = get_stored_connector_settings(connection)
-    return next((item for item in settings["records"] if item.get("id") == connector_id), None)
+    row = fetch_one(
+        connection,
+        """
+        SELECT
+            id,
+            provider,
+            name,
+            status,
+            auth_type,
+            scopes_json,
+            base_url,
+            owner,
+            docs_url,
+            credential_ref,
+            created_at,
+            updated_at,
+            auth_config_json,
+            last_tested_at
+        FROM connectors
+        WHERE id = ?
+        """,
+        (connector_id,),
+    )
+    if row is None:
+        return None
+
+    try:
+        scopes = json.loads(row.get("scopes_json") or "[]")
+    except json.JSONDecodeError:
+        scopes = []
+    try:
+        auth_config = json.loads(row.get("auth_config_json") or "{}")
+    except json.JSONDecodeError:
+        auth_config = {}
+
+    return {
+        "id": str(row.get("id") or "").strip(),
+        "provider": canonicalize_connector_provider(row.get("provider")) or "generic_http",
+        "name": row.get("name") or str(row.get("id") or ""),
+        "status": str(row.get("status") or "draft"),
+        "auth_type": str(row.get("auth_type") or "bearer"),
+        "scopes": [item for item in scopes if isinstance(item, str)],
+        "base_url": row.get("base_url"),
+        "owner": row.get("owner"),
+        "docs_url": row.get("docs_url"),
+        "credential_ref": row.get("credential_ref"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "last_tested_at": row.get("last_tested_at"),
+        "auth_config": auth_config if isinstance(auth_config, dict) else {},
+    }
 def build_outgoing_auth_config_from_connector(record: dict[str, Any], protection_secret: str) -> OutgoingAuthConfig:
     auth_config = record.get("auth_config") or {}
     secrets_map = extract_connector_secret_map(auth_config, protection_secret)
@@ -884,6 +1001,21 @@ def build_connector_oauth_authorization_url(
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
         }
+    elif provider == "trello":
+        parsed_redirect = urllib.parse.urlparse(redirect_uri)
+        redirect_query = dict(urllib.parse.parse_qsl(parsed_redirect.query, keep_blank_values=True))
+        redirect_query["state"] = state
+        base_url = "https://trello.com/1/authorize"
+        query = {
+            "key": client_id,
+            "name": "Malcom",
+            "scope": ",".join(scopes or ["read", "write"]),
+            "expiration": "never",
+            "response_type": "token",
+            "return_url": urllib.parse.urlunparse(
+                parsed_redirect._replace(query=urllib.parse.urlencode(redirect_query))
+            ),
+        }
     else:
         base_url = "https://example.invalid/oauth/authorize"
         query = {
@@ -905,16 +1037,24 @@ def normalize_settings_response_section(section_key: str, value: Any) -> Any:
         "data": DataSettings,
         "automation": AutomationSettings,
         "security": SecuritySettings,
-        "connectors": ConnectorSettingsResponse,
+        "proxy": ProxySettings,
+        "options": AppSettingsOptionsResponse,
     }
     schema = schema_map[section_key]
     try:
         return schema.model_validate(value).model_dump()
     except ValidationError:
-        return schema.model_validate(get_default_settings()[section_key]).model_dump()
+        fallback_value = (
+            {
+                "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
+                "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
+            }
+            if section_key == "options"
+            else get_default_settings()[section_key]
+        )
+        return schema.model_validate(fallback_value).model_dump()
 def get_settings_payload(connection: DatabaseConnection, *, protection_secret: str | None = None) -> dict[str, Any]:
     settings = get_default_settings()
-    connector_secret = protection_secret or get_connector_protection_secret()
     rows = fetch_all(
         connection,
         """
@@ -930,24 +1070,15 @@ def get_settings_payload(connection: DatabaseConnection, *, protection_secret: s
             stored_value = json.loads(row["value_json"])
         except json.JSONDecodeError:
             continue
-        if row["key"] == "connectors":
-            settings[row["key"]] = sanitize_connector_settings_for_response(
-                stored_value,
-                connector_secret,
-                connection=connection,
-            )
-        else:
-            settings[row["key"]] = merge_settings_section(
-                settings[row["key"]],
-                stored_value,
-            )
-
-    if "connectors" not in {row["key"] for row in rows}:
-        settings["connectors"] = sanitize_connector_settings_for_response(
-            settings["connectors"],
-            connector_secret,
-            connection=connection,
+        settings[row["key"]] = merge_settings_section(
+            settings[row["key"]],
+            stored_value,
         )
+
+    settings["options"] = {
+        "notification_channels": [dict(item) for item in SETTINGS_NOTIFICATION_CHANNEL_OPTIONS],
+        "notification_digests": [dict(item) for item in SETTINGS_NOTIFICATION_DIGEST_OPTIONS],
+    }
 
     for section_key in tuple(settings.keys()):
         settings[section_key] = normalize_settings_response_section(section_key, settings[section_key])
@@ -2519,14 +2650,17 @@ def _normalize_dashboard_log_entry(
 def get_runtime_dashboard_logs_response(connection: DatabaseConnection, root_dir: Path) -> DashboardLogsApiResponse:
     settings = _get_dashboard_log_settings(connection)
     log_file_path = get_log_file_path_core(root_dir)
+    metadata = DashboardLogsMetadataResponse(
+        allowed_levels=[DashboardLogLevelOptionResponse(**item) for item in DEFAULT_DASHBOARD_LOG_LEVEL_OPTIONS]
+    )
 
     if not log_file_path.exists() or not log_file_path.is_file():
-        return DashboardLogsApiResponse(settings=settings, entries=[])
+        return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=[])
 
     try:
         raw_lines = log_file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
-        return DashboardLogsApiResponse(settings=settings, entries=[])
+        return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=[])
 
     pattern = re.compile(
         r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2},\d{3})\s+(?P<level>[A-Z]+)\s*(?P<message>.*)$"
@@ -2563,7 +2697,7 @@ def get_runtime_dashboard_logs_response(connection: DatabaseConnection, root_dir
         entries = entries[-settings.max_stored_entries:]
 
     entries.reverse()
-    return DashboardLogsApiResponse(settings=settings, entries=entries)
+    return DashboardLogsApiResponse(settings=settings, metadata=metadata, entries=entries)
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -2686,6 +2820,18 @@ def get_runtime_resource_history_response(
         total_snapshots=total_snapshots,
         entries=entries,
     )
+
+
+def get_runtime_resource_dashboard_response(
+    connection: DatabaseConnection,
+    *,
+    limit: int = RESOURCE_SNAPSHOT_DEFAULT_LIMIT,
+) -> DashboardResourceDashboardApiResponse:
+    from backend.services.automation_execution import (
+        get_runtime_resource_dashboard_response as get_runtime_resource_dashboard_response_core,
+    )
+
+    return get_runtime_resource_dashboard_response_core(connection, limit=limit)
 
 
 def get_runtime_devices_response() -> DashboardDevicesApiResponse:

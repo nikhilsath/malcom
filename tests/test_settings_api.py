@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -165,6 +166,14 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["proxy"]["https_port"], 8443)
         self.assertTrue(body["proxy"]["enabled"])
 
+        reloaded = self.client.get("/api/v1/settings")
+        self.assertEqual(reloaded.status_code, 200)
+        reloaded_body = reloaded.json()
+        self.assertEqual(reloaded_body["proxy"]["domain"], "tools.example.com")
+        self.assertEqual(reloaded_body["proxy"]["http_port"], 8080)
+        self.assertEqual(reloaded_body["proxy"]["https_port"], 8443)
+        self.assertTrue(reloaded_body["proxy"]["enabled"])
+
         mock_sync.assert_called_once_with(
             self.root_dir,
             {
@@ -276,39 +285,52 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["notifications"]["digest"], "hourly")
 
     def test_create_list_and_restore_backups_with_mocked_services(self) -> None:
-        with patch("backend.services.support.create_backup") as mock_create, patch(
-            "backend.services.support.list_backups"
-        ) as mock_list, patch("backend.services.support.restore_backup") as mock_restore, patch(
-            "backend.services.support.get_backup_dir"
-        ) as mock_backup_dir:
-            mock_create.return_value = {"filename": "backup-2026-04-03.sql", "size_bytes": 1024}
-            mock_list.return_value = [
-                {"filename": "backup-2026-04-03.sql", "size_bytes": 1024, "created_at": "2026-04-03T00:00:00+00:00"}
-            ]
-            mock_restore.return_value = {"restored_at": "2026-04-03T00:00:00+00:00"}
-            mock_backup_dir.return_value = Path("/tmp/malcom-backups")
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("MALCOM_DATABASE_URL", None)
+            with patch("backend.services.support.create_backup") as mock_create, patch(
+                "backend.services.support.list_backups"
+            ) as mock_list, patch("backend.services.support.restore_backup") as mock_restore, patch(
+                "backend.services.support.get_backup_dir"
+            ) as mock_backup_dir:
+                mock_create.return_value = {
+                    "filename": "backup-2026-04-03.sql",
+                    "size_bytes": 1024,
+                    "path": "/tmp/malcom-backups/backup-2026-04-03.sql",
+                }
+                mock_list.return_value = [
+                    {
+                        "filename": "backup-2026-04-03.sql",
+                        "size_bytes": 1024,
+                        "created_at": "2026-04-03T00:00:00+00:00",
+                        "path": "/tmp/malcom-backups/backup-2026-04-03.sql",
+                    }
+                ]
+                mock_restore.return_value = {"restored_at": "2026-04-03T00:00:00+00:00"}
+                mock_backup_dir.return_value = Path("/tmp/malcom-backups")
 
-            create_resp = self.client.post("/api/v1/settings/data/backups")
-            self.assertEqual(create_resp.status_code, 200)
-            create_body = create_resp.json()
-            self.assertTrue(create_body.get("ok"))
-            self.assertIsNotNone(create_body.get("backup"))
-            self.assertEqual(create_body["backup"]["filename"], "backup-2026-04-03.sql")
+                create_resp = self.client.post("/api/v1/settings/data/backups")
+                self.assertEqual(create_resp.status_code, 200)
+                create_body = create_resp.json()
+                self.assertTrue(create_body.get("ok"))
+                self.assertIsNotNone(create_body.get("backup"))
+                self.assertEqual(create_body["backup"]["filename"], "backup-2026-04-03.sql")
+                mock_create.assert_called_once_with(db_url=self.database_url)
 
-            list_resp = self.client.get("/api/v1/settings/data/backups")
-            self.assertEqual(list_resp.status_code, 200)
-            list_body = list_resp.json()
-            self.assertEqual(list_body["directory"], "/tmp/malcom-backups")
-            self.assertIsInstance(list_body.get("backups"), list)
-            self.assertEqual(list_body["backups"][0]["filename"], "backup-2026-04-03.sql")
+                list_resp = self.client.get("/api/v1/settings/data/backups")
+                self.assertEqual(list_resp.status_code, 200)
+                list_body = list_resp.json()
+                self.assertEqual(list_body["directory"], "/tmp/malcom-backups")
+                self.assertIsInstance(list_body.get("backups"), list)
+                self.assertEqual(list_body["backups"][0]["filename"], "backup-2026-04-03.sql")
 
-            restore_resp = self.client.post(
-                "/api/v1/settings/data/backups/restore", json={"backup_id": "backup-2026-04-03.sql"}
-            )
-            self.assertEqual(restore_resp.status_code, 200)
-            restore_body = restore_resp.json()
-            self.assertTrue(restore_body.get("ok"))
-            self.assertIsNotNone(restore_body.get("restored_at"))
+                restore_resp = self.client.post(
+                    "/api/v1/settings/data/backups/restore", json={"backup_id": "backup-2026-04-03.sql"}
+                )
+                self.assertEqual(restore_resp.status_code, 200)
+                restore_body = restore_resp.json()
+                self.assertTrue(restore_body.get("ok"))
+                self.assertIsNotNone(restore_body.get("restored_at"))
+                mock_restore.assert_called_once_with("backup-2026-04-03.sql", db_url=self.database_url)
 
     def test_backup_service_errors_propagate_gracefully(self) -> None:
         with patch("backend.services.support.create_backup") as mock_create:
@@ -328,6 +350,60 @@ class SettingsApiTestCase(unittest.TestCase):
             body = resp.json()
             self.assertFalse(body.get("ok"))
             self.assertIn("pg_restore failed", body.get("message", ""))
+
+    def test_proxy_test_endpoint_returns_service_result(self) -> None:
+        payload = {
+            "domain": "tools.example.com",
+            "http_port": 80,
+            "https_port": 443,
+            "enabled": True,
+        }
+        with patch("backend.routes.settings.test_proxy_connection") as mock_test:
+            mock_test.return_value = {
+                "ok": True,
+                "message": "HTTP and HTTPS endpoints are reachable.",
+                "checks": [
+                    {
+                        "scheme": "dns",
+                        "target": "tools.example.com",
+                        "reachable": True,
+                        "status_code": None,
+                        "detail": "Resolved to 203.0.113.10",
+                    },
+                    {
+                        "scheme": "https",
+                        "target": "tools.example.com:443",
+                        "reachable": True,
+                        "status_code": 200,
+                        "detail": None,
+                    },
+                ],
+            }
+            response = self.client.post("/api/v1/settings/proxy/test", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body.get("ok"))
+        self.assertIn("reachable", body.get("message", ""))
+        self.assertEqual(len(body.get("checks", [])), 2)
+        mock_test.assert_called_once_with(payload)
+
+    def test_proxy_test_endpoint_handles_runtime_error(self) -> None:
+        payload = {
+            "domain": "tools.example.com",
+            "http_port": 80,
+            "https_port": 443,
+            "enabled": True,
+        }
+        with patch("backend.routes.settings.test_proxy_connection") as mock_test:
+            mock_test.side_effect = RuntimeError("Proxy test failed")
+            response = self.client.post("/api/v1/settings/proxy/test", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertFalse(body.get("ok"))
+        self.assertEqual(body.get("message"), "Proxy test failed")
+        self.assertEqual(body.get("checks"), [])
 
 
 if __name__ == "__main__":

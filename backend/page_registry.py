@@ -58,7 +58,13 @@ def get_redirect_ui_routes() -> tuple[tuple[str, str], ...]:
     redirect_routes: list[tuple[str, str]] = []
     for entry in load_ui_page_registry():
         if entry.is_served:
-            redirect_routes.extend((alias, entry.route_path) for alias in entry.legacy_aliases)
+            redirect_routes.extend(
+                (alias, entry.route_path)
+                for alias in entry.legacy_aliases
+                if alias not in {"/docs", "/docs/"}
+            )
+            continue
+        if entry.route_path in {"/docs", "/docs/"}:
             continue
         if entry.redirect_target is None:
             raise ValueError(f"Redirect-only UI page '{entry.route_path}' is missing a redirect target.")

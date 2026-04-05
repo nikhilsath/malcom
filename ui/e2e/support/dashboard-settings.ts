@@ -684,5 +684,93 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
     }
   });
 
+  await page.route("**/api/v1/settings/proxy/test", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    try {
+      const body = await route.request().postDataJSON();
+      const domain = String(body?.domain || "").trim();
+      const enabled = Boolean(body?.enabled);
+      if (!domain) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            message: "Enter a domain before testing the proxy connection.",
+            checks: [],
+          }),
+        });
+        return;
+      }
+
+      if (!enabled) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            message: "Proxy is disabled. Enable it to run endpoint connectivity checks.",
+            checks: [
+              {
+                scheme: "dns",
+                target: domain,
+                reachable: true,
+                status_code: null,
+                detail: "Resolved to 203.0.113.10",
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          message: "HTTP and HTTPS endpoints are reachable.",
+          checks: [
+            {
+              scheme: "dns",
+              target: domain,
+              reachable: true,
+              status_code: null,
+              detail: "Resolved to 203.0.113.10",
+            },
+            {
+              scheme: "http",
+              target: `${domain}:${Number(body?.http_port || 80)}`,
+              reachable: true,
+              status_code: 301,
+              detail: null,
+            },
+            {
+              scheme: "https",
+              target: `${domain}:${Number(body?.https_port || 443)}`,
+              reachable: true,
+              status_code: 200,
+              detail: null,
+            },
+          ],
+        }),
+      });
+    } catch {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          message: "Unable to run proxy test.",
+          checks: [],
+        }),
+      });
+    }
+  });
+
   return state;
 }

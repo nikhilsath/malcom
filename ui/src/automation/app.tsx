@@ -6,7 +6,7 @@ import { AutomationSettingsFields } from "./automation-settings-fields";
 import { nodeTypes, STEP_GAP, STEP_Y } from "./builder-flow";
 import { formatDateTime, formatDuration, getNodeMenuLabel, getRunStatusTone, getTriggerTypeLabel, reorderSteps } from "./builder-utils";
 import { useAutomationBuilderController } from "./useAutomationBuilderController";
-import StepEditor from "./step-editors";
+import { StepEditorDispatcher as StepEditor } from "./step-editors";
 import { TriggerSettingsForm } from "./trigger-settings-form";
 import { CollapsibleSection } from "../lib/collapsible-section";
 import type { AutomationStep } from "./types";
@@ -476,12 +476,14 @@ export const AutomationApp = () => {
               ) : drawerStep ? (
                 <StepEditor
                   step={drawerStep}
-                  currentAutomation={currentAutomation}
-                  builderMetadata={builderMetadata}
+                  allSteps={currentAutomation.steps}
+                  storageTypeOptions={builderMetadata.storage_types}
+                  logColumnTypeOptions={builderMetadata.log_column_types}
                   connectors={connectors}
+                  httpMethodOptions={builderMetadata.http_methods}
                   supportDataLoading={supportDataLoading}
                   supportDataError={supportDataError}
-                  reloadSupportData={reloadSupportData}
+                  onRetryConnectors={reloadSupportData}
                   httpPresets={httpPresets}
                   scripts={scripts}
                   scriptLanguages={scriptLanguages}
