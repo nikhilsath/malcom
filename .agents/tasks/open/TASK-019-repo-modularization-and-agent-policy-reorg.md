@@ -48,17 +48,19 @@ Action: Add `scripts/test-module.sh <module>` to run a module's unit + contract 
 Completion check: `scripts/test-module.sh` exists and `ci` config contains module-scoped job patterns.
 Result: `scripts/test-module.sh` created; CI matrix entries deferred until module extraction PRs exist (Steps 7–15).
 
-7. [-] [backend]
+7. [x] [backend]
 Files: backend/services/helpers.py, backend/services/connectors.py, backend/services/connector_secrets.py, backend/services/connector_catalog.py, backend/services/connector_migrations.py
 Action: Split `helpers.py` and `connectors.py` by extracting connector secret/protection logic and connector migration/catalog logic into adjacent service modules. For each extracted module, update or add a module contract file under `.agents/module-contracts/` and include unit + contract tests. Use thin forwarding wrappers as needed during transition.
 Completion check: helpers.py and connectors.py are reduced in scope, new modules exist with correct logic, and each extracted module has a contract file plus unit and contract tests.
+Result: Created `connector_secrets.py` (crypto primitives), `connector_catalog.py` (provider catalog/metadata/normalization), `connector_migrations.py` (legacy settings→DB migration). `connectors.py` re-exports all three and keeps storage CRUD + outgoing auth + OAuth. `helpers.py` duplicate connector code (~632 lines) replaced with imports from connectors.py. Module contracts in `.agents/module-contracts/connector-{secrets,catalog,migrations}.md`. 51 new tests (unit + contract) all pass. `DEFAULT_CONNECTOR_AUTH_POLICY` renamed from `_DEFAULT_AUTH_POLICY` (was private, now public). 284 total tests pass.
 
-8. [ ] [backend]
+8. [x] [backend]
 Files: backend/routes/connectors.py, backend/services/connector_tester.py, backend/services/connector_revoker.py
 Action: Move provider-specific test/revoke lifecycle logic from `routes/connectors.py` to service modules. For each moved area, update the module contract and add unit + contract tests. Keep routes as parameter extraction and response shaping only.
 Completion check: `routes/connectors.py` is thin; provider-specific logic is in services; contract tests validate the route→service boundary.
+Result: Created `connector_tester.py` and `connector_revoker.py` services. Routes /test and /revoke now delegate entirely to services (1-3 lines each). Module contracts in `.agents/module-contracts/connector-tester.md` and `.agents/module-contracts/connector-revoker.md`. 30 unit tests + 11 contract tests (4 structural pass, 7 integration skip without Postgres). 314 total tests pass.
 
-9. [ ] [backend]
+9. [!] [backend]
 Files: backend/services/automation_executor.py, backend/services/validation.py, backend/services/automation_step_executors/, backend/services/automation_step_validators/
 Action: Extract step-type-specific executor/validator modules from `automation_executor.py` and `validation.py`, preserving execution outcomes and validation messages unless a bug fix is required. Add or update module contracts and unit+contract tests for each new module.
 Completion check: Step execution and validation logic is modularized, tests pass, and each new step module has a contract file.
