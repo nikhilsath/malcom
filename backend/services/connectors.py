@@ -7,15 +7,10 @@ secret masking/protection helpers, and connector storage/response normalization 
 from __future__ import annotations
 
 import base64
-import binascii
 import hashlib
-import hmac
 import json
-import os
-import secrets
 import urllib.parse
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -29,615 +24,63 @@ from backend.services.settings import (
 )
 from backend.services.utils import utc_now_iso
 
+from backend.services.connector_secrets import (
+    CONNECTOR_NONCE_BYTES,
+    CONNECTOR_PROTECTION_VERSION,
+    CONNECTOR_SECRET_FIELD_INPUTS,
+    CONNECTOR_SIGNATURE_BYTES,
+    _decode_protected_connector_value,
+    _encode_protected_connector_value,
+    _xor_bytes,
+    build_connector_keystream,
+    derive_connector_protection_key,
+    extract_connector_secret_map,
+    get_connector_protection_secret,
+    mask_connector_secret,
+    protect_connector_secret_value,
+    unprotect_connector_secret_value,
+)
+from backend.services.connector_catalog import (
+    ACTIVE_STORAGE_CONNECTOR_STATUSES,
+    CONNECTOR_AUTH_POLICY_ROW_ID,
+    CONNECTOR_AUTH_POLICY_SETTINGS_KEY,
+    CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS,
+    CONNECTOR_PROVIDER_CANONICAL_MAP,
+    CONNECTOR_REQUEST_AUTH_TYPE_MAP,
+    CONNECTOR_ROTATION_INTERVAL_OPTIONS,
+    CONNECTOR_STATUS_OPTIONS,
+    DEFAULT_CONNECTOR_CATALOG,
+    DEFAULT_CONNECTOR_PROVIDER_METADATA,
+    GITHUB_AVAILABLE_SCOPES,
+    GOOGLE_RECOMMENDED_SCOPES,
+    LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS,
+    SUPPORTED_CONNECTOR_AUTH_TYPES,
+    SUPPORTED_CONNECTOR_PROVIDERS,
+    SUPPORTED_CONNECTOR_STATUSES,
+    _clone_connector_catalog_defaults,
+    _get_default_connector_preset,
+    _provider_display_name,
+    _provider_metadata,
+    _row_to_connector_preset,
+    build_connector_catalog,
+    build_connector_response_metadata,
+    canonicalize_connector_provider,
+    get_connector_preset,
+    get_connector_provider_metadata,
+    get_default_connector_settings,
+    normalize_connector_auth_policy,
+    normalize_connector_request_auth_type,
+)
+from backend.services.connector_migrations import (
+    _migrate_legacy_connector_auth_policy_setting,
+    _migrate_legacy_connectors_from_settings,
+    _read_connector_auth_policy_row,
+    _read_connector_auth_policy_setting,
+    ensure_legacy_connector_storage_migrated,
+)
+
 DatabaseConnection = Any
 DatabaseRow = dict[str, Any]
-
-CONNECTOR_PROTECTION_VERSION = "enc_v1"
-CONNECTOR_NONCE_BYTES = 16
-CONNECTOR_SIGNATURE_BYTES = 32
-LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS = {
-    "google_calendar",
-    "google_gmail",
-    "google_sheets",
-}
-CONNECTOR_PROVIDER_CANONICAL_MAP = {
-    "google_calendar": "google",
-    "google_gmail": "google",
-    "google_sheets": "google",
-}
-SUPPORTED_CONNECTOR_PROVIDERS = {
-    "google",
-    *LEGACY_GOOGLE_CONNECTOR_PROVIDER_IDS,
-    "github",
-    "notion",
-    "trello",
-    "generic_http",
-}
-SUPPORTED_CONNECTOR_AUTH_TYPES = {"oauth2", "bearer", "api_key", "basic", "header"}
-SUPPORTED_CONNECTOR_STATUSES = {"draft", "pending_oauth", "connected", "needs_attention", "expired", "revoked"}
-CONNECTOR_AUTH_POLICY_SETTINGS_KEY = "connector_auth_policy"
-CONNECTOR_SECRET_FIELD_INPUTS = {
-    "client_secret": "client_secret_input",
-    "access_token": "access_token_input",
-    "refresh_token": "refresh_token_input",
-    "api_key": "api_key_input",
-    "password": "password_input",
-    "header_value": "header_value_input",
-}
-GOOGLE_RECOMMENDED_SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send",
-    "https://www.googleapis.com/auth/gmail.compose",
-    "https://www.googleapis.com/auth/gmail.modify",
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.metadata.readonly",
-    "https://www.googleapis.com/auth/drive.readonly",
-    "https://www.googleapis.com/auth/drive.file",
-]
-GITHUB_AVAILABLE_SCOPES = [
-    "repo",
-    "repo:status",
-    "repo_deployment",
-    "public_repo",
-    "repo:invite",
-    "security_events",
-    "admin:repo_hook",
-    "write:repo_hook",
-    "read:repo_hook",
-    "admin:org",
-    "write:org",
-    "read:org",
-    "admin:public_key",
-    "write:public_key",
-    "read:public_key",
-    "admin:org_hook",
-    "gist",
-    "notifications",
-    "user",
-    "read:user",
-    "user:email",
-    "user:follow",
-    "delete_repo",
-    "write:discussion",
-    "read:discussion",
-    "write:packages",
-    "read:packages",
-    "delete:packages",
-    "workflow",
-    "admin:gpg_key",
-    "write:gpg_key",
-    "read:gpg_key",
-    "admin:ssh_signing_key",
-    "write:ssh_signing_key",
-    "read:ssh_signing_key",
-]
-CONNECTOR_REQUEST_AUTH_TYPE_MAP = {
-    "oauth2": "bearer",
-    "bearer": "bearer",
-    "api_key": "header",
-    "basic": "basic",
-    "header": "header",
-}
-CONNECTOR_AUTH_POLICY_ROW_ID = "workspace"
-CONNECTOR_STATUS_OPTIONS: tuple[dict[str, str], ...] = (
-    {"value": "draft", "label": "Draft", "description": "Saved locally but not ready for runtime use."},
-    {"value": "pending_oauth", "label": "Pending OAuth", "description": "Waiting for OAuth authorization to complete."},
-    {"value": "connected", "label": "Connected", "description": "Ready for runtime requests and workflow actions."},
-    {"value": "needs_attention", "label": "Needs attention", "description": "Saved, but missing or failing credential material."},
-    {"value": "expired", "label": "Expired", "description": "Stored credential material is no longer valid."},
-    {"value": "revoked", "label": "Revoked", "description": "Access has been explicitly revoked and must be reconnected."},
-)
-CONNECTOR_ROTATION_INTERVAL_OPTIONS: tuple[dict[str, str], ...] = (
-    {"value": "30", "label": "30 days"},
-    {"value": "60", "label": "60 days"},
-    {"value": "90", "label": "90 days"},
-)
-CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS: tuple[dict[str, str], ...] = (
-    {"value": "masked", "label": "Masked"},
-    {"value": "admin_only", "label": "Admin only"},
-)
-ACTIVE_STORAGE_CONNECTOR_STATUSES = {"connected", "pending_oauth", "needs_attention"}
-DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
-    {
-        "id": "google",
-        "name": "Google",
-        "description": "Use one Google connector and choose the exact OAuth scopes needed for this workflow.",
-        "category": "suite",
-        "auth_types": ["oauth2"],
-        "default_scopes": list(GOOGLE_RECOMMENDED_SCOPES),
-        "recommended_scopes": list(GOOGLE_RECOMMENDED_SCOPES),
-        "docs_url": "https://developers.google.com/identity/protocols/oauth2/scopes",
-        "base_url": "https://www.googleapis.com",
-    },
-    {
-        "id": "github",
-        "name": "GitHub",
-        "description": "Use repository, issue, and workflow APIs with a GitHub personal access token.",
-        "category": "developer",
-        "auth_types": ["bearer"],
-        "default_scopes": [],
-        "recommended_scopes": list(GITHUB_AVAILABLE_SCOPES),
-        "docs_url": "https://docs.github.com/en/rest/about-the-rest-api/about-the-rest-api",
-        "base_url": "https://api.github.com",
-    },
-    {
-        "id": "notion",
-        "name": "Notion",
-        "description": "Access internal workspace pages and databases.",
-        "category": "documents",
-        "auth_types": ["oauth2", "bearer"],
-        "default_scopes": [],
-        "recommended_scopes": [],
-        "docs_url": "https://developers.notion.com/guides/get-started/authorization",
-        "base_url": "https://api.notion.com/v1",
-    },
-    {
-        "id": "trello",
-        "name": "Trello",
-        "description": "Create and update boards, lists, and cards.",
-        "category": "project_management",
-        "auth_types": ["oauth2", "header"],
-        "default_scopes": ["read", "write"],
-        "recommended_scopes": ["read", "write"],
-        "docs_url": "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
-        "base_url": "https://api.trello.com/1",
-    },
-]
-DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
-    {
-        "id": "google",
-        "name": "Google",
-        "onboarding_mode": "oauth",
-        "oauth_supported": True,
-        "callback_supported": True,
-        "refresh_supported": True,
-        "revoke_supported": True,
-        "redirect_uri_required": True,
-        "redirect_uri_readonly": True,
-        "scopes_locked": True,
-        "default_redirect_path": "/api/v1/connectors/google/oauth/callback",
-        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
-        "setup_fields": [
-            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
-            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
-            {"key": "scopes", "label": "Scopes", "input_type": "text", "readonly": True},
-            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
-        ],
-        "ui_copy": {
-            "eyebrow": "Google",
-            "title": "Google OAuth setup",
-            "description": "Add your Google OAuth client details, then continue with Google to authorize this workspace.",
-            "last_checked_empty": "Google connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Check connection",
-            "connect": "Continue with Google",
-            "reconnect": "Reconnect Google",
-            "refresh": "Refresh Google token",
-            "revoke": "Revoke Google connector",
-        },
-        "status_messages": {
-            "draft": "Add your Google OAuth client details to begin, then continue with Google.",
-            "pending_oauth": "Complete the Google sign-in flow in the browser to finish setup.",
-            "connected": "Google OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
-            "needs_attention": "Google needs attention. Check the connection or reconnect to repair the saved credentials.",
-            "expired": "The saved Google token has expired. Refresh it or reconnect Google to continue.",
-            "revoked": "Google access has been revoked. Reconnect Google to restore this integration.",
-        },
-    },
-    {
-        "id": "github",
-        "name": "GitHub",
-        "onboarding_mode": "credentials",
-        "oauth_supported": False,
-        "callback_supported": False,
-        "refresh_supported": False,
-        "revoke_supported": True,
-        "redirect_uri_required": False,
-        "redirect_uri_readonly": False,
-        "scopes_locked": True,
-        "default_redirect_path": None,
-        "required_fields": ["name", "access_token_input"],
-        "setup_fields": [
-            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {
-                "key": "access_token_input",
-                "label": "Personal access token",
-                "input_type": "password",
-                "required": True,
-                "secret": True,
-            },
-            {"key": "scopes", "label": "Detected scopes", "input_type": "multiselect", "readonly": True},
-        ],
-        "ui_copy": {
-            "eyebrow": "GitHub",
-            "title": "GitHub PAT setup",
-            "description": "Add a GitHub personal access token to authorize this workspace.",
-            "last_checked_empty": "GitHub connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Check connection",
-            "connect": "Save token",
-            "reconnect": "Replace token",
-            "refresh": "Rotate token",
-            "revoke": "Revoke GitHub connector",
-        },
-        "status_messages": {
-            "draft": "Add a GitHub personal access token to begin.",
-            "pending_oauth": "GitHub does not use browser OAuth setup in this workspace.",
-            "connected": "GitHub token is saved. Use Check connection to verify access before using this connector in workflow actions or API resources.",
-            "needs_attention": "GitHub needs attention. Check the connection or replace the saved token.",
-            "expired": "The saved GitHub token has expired. Replace it to continue.",
-            "revoked": "GitHub credentials were cleared. Save a new token to restore this integration.",
-        },
-    },
-    {
-        "id": "notion",
-        "name": "Notion",
-        "onboarding_mode": "oauth",
-        "oauth_supported": True,
-        "callback_supported": True,
-        "refresh_supported": True,
-        "revoke_supported": True,
-        "redirect_uri_required": True,
-        "redirect_uri_readonly": True,
-        "scopes_locked": False,
-        "default_redirect_path": "/api/v1/connectors/notion/oauth/callback",
-        "required_fields": ["name", "client_id", "client_secret", "redirect_uri"],
-        "setup_fields": [
-            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
-            {"key": "client_secret", "label": "Client secret", "input_type": "password", "required": True, "secret": True},
-            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
-        ],
-        "ui_copy": {
-            "eyebrow": "Notion",
-            "title": "Notion OAuth setup",
-            "description": "Add your Notion public integration details, then continue with Notion to authorize this workspace.",
-            "last_checked_empty": "Notion connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Check connection",
-            "connect": "Continue with Notion",
-            "reconnect": "Reconnect Notion",
-            "refresh": "Refresh Notion token",
-            "revoke": "Revoke Notion connector",
-        },
-        "status_messages": {
-            "draft": "Add your Notion integration details to begin, then continue with Notion.",
-            "pending_oauth": "Complete the Notion authorization flow in the browser to finish setup.",
-            "connected": "Notion OAuth is complete. Use Check connection to verify the saved token before using this integration in workflows or API resources.",
-            "needs_attention": "Notion needs attention. Check the connection or reconnect to repair the saved credentials.",
-            "expired": "The saved Notion token has expired. Refresh it or reconnect Notion to continue.",
-            "revoked": "Notion access has been revoked. Reconnect Notion to restore this integration.",
-        },
-    },
-    {
-        "id": "trello",
-        "name": "Trello",
-        "onboarding_mode": "oauth",
-        "oauth_supported": True,
-        "callback_supported": True,
-        "refresh_supported": False,
-        "revoke_supported": True,
-        "redirect_uri_required": True,
-        "redirect_uri_readonly": True,
-        "scopes_locked": True,
-        "default_redirect_path": "/api/v1/connectors/trello/oauth/callback",
-        "required_fields": ["name", "client_id", "redirect_uri"],
-        "setup_fields": [
-            {"key": "name", "label": "Integration name", "input_type": "text", "required": True},
-            {"key": "client_id", "label": "Client ID", "input_type": "text", "required": True},
-            {"key": "client_secret", "label": "Client secret", "input_type": "password", "secret": True},
-            {"key": "redirect_uri", "label": "Redirect URI", "input_type": "url", "required": True, "readonly": True},
-        ],
-        "ui_copy": {
-            "eyebrow": "Trello",
-            "title": "Trello OAuth setup",
-            "description": "Add your Trello app client details, then continue with Trello to authorize this workspace.",
-            "last_checked_empty": "Trello connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Check connection",
-            "connect": "Continue with Trello",
-            "reconnect": "Reconnect Trello",
-            "refresh": "Refresh Trello token",
-            "revoke": "Revoke Trello connector",
-        },
-        "status_messages": {
-            "draft": "Add your Trello app details to begin, then continue with Trello.",
-            "pending_oauth": "Complete the Trello authorization flow in the browser to finish setup.",
-            "connected": "Trello OAuth is complete. Use Check connection to verify the saved token before using this integration.",
-            "needs_attention": "Trello needs attention. Check the connection or reconnect to repair the saved credentials.",
-            "expired": "The saved Trello token is no longer valid. Reconnect Trello and try again.",
-            "revoked": "Trello access has been revoked. Reconnect Trello to restore this integration.",
-        },
-    },
-)
-
-
-def get_connector_protection_secret(*, root_dir: Path | None = None, db_path: str | None = None) -> str:
-    configured = os.environ.get("MALCOM_CONNECTOR_SECRET")
-    if configured:
-        return configured
-
-    seed_parts = [
-        str(root_dir or ""),
-        str(db_path or ""),
-        "malcom-connectors",
-    ]
-    return "|".join(seed_parts)
-
-
-def derive_connector_protection_key(protection_secret: str) -> bytes:
-    return hashlib.sha256(protection_secret.encode("utf-8")).digest()
-
-
-def _xor_bytes(left: bytes, right: bytes) -> bytes:
-    return bytes(left_byte ^ right_byte for left_byte, right_byte in zip(left, right))
-
-
-def build_connector_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
-    output = bytearray()
-    counter = 0
-
-    while len(output) < length:
-        block = hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
-        output.extend(block)
-        counter += 1
-
-    return bytes(output[:length])
-
-
-def _encode_protected_connector_value(nonce: bytes, signature: bytes, ciphertext: bytes) -> str:
-    token = base64.urlsafe_b64encode(nonce + signature + ciphertext).decode("ascii")
-    return f"{CONNECTOR_PROTECTION_VERSION}:{token}"
-
-
-def _decode_protected_connector_value(value: str | None) -> tuple[bytes, bytes, bytes] | None:
-    if not value or not value.startswith(f"{CONNECTOR_PROTECTION_VERSION}:"):
-        return None
-
-    encoded = value.split(":", 1)[1]
-    try:
-        raw = base64.urlsafe_b64decode(encoded.encode("ascii"))
-    except (ValueError, binascii.Error):
-        return None
-
-    minimum_size = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
-    if len(raw) < minimum_size:
-        return None
-
-    nonce = raw[:CONNECTOR_NONCE_BYTES]
-    signature_end = CONNECTOR_NONCE_BYTES + CONNECTOR_SIGNATURE_BYTES
-    signature = raw[CONNECTOR_NONCE_BYTES:signature_end]
-    ciphertext = raw[signature_end:]
-    return nonce, signature, ciphertext
-
-
-def protect_connector_secret_value(value: str, protection_secret: str) -> str:
-    key = derive_connector_protection_key(protection_secret)
-    nonce = secrets.token_bytes(CONNECTOR_NONCE_BYTES)
-    payload = value.encode("utf-8")
-    keystream = build_connector_keystream(key, nonce, len(payload))
-    ciphertext = _xor_bytes(payload, keystream)
-    signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
-    return _encode_protected_connector_value(nonce, signature, ciphertext)
-
-
-def unprotect_connector_secret_value(value: str | None, protection_secret: str) -> str | None:
-    decoded = _decode_protected_connector_value(value)
-    if decoded is None:
-        return None
-
-    nonce, signature, ciphertext = decoded
-    key = derive_connector_protection_key(protection_secret)
-    expected_signature = hmac.new(key, nonce + ciphertext, hashlib.sha256).digest()
-
-    if not hmac.compare_digest(signature, expected_signature):
-        return None
-
-    keystream = build_connector_keystream(key, nonce, len(ciphertext))
-    try:
-        plaintext = _xor_bytes(ciphertext, keystream)
-        return plaintext.decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-
-
-def mask_connector_secret(value: str | None) -> str | None:
-    if not value:
-        return None
-
-    if len(value) <= 8:
-        return "••••"
-
-    return f"{value[:4]}••••{value[-4:]}"
-
-
-def get_default_connector_settings(connection: DatabaseConnection | None = None) -> dict[str, Any]:
-    return {
-        "catalog": build_connector_catalog(connection),
-        "records": [],
-        "auth_policy": {
-            "rotation_interval_days": 90,
-            "reconnect_requires_approval": True,
-            "credential_visibility": "masked",
-        },
-        "metadata": build_connector_response_metadata(),
-    }
-
-
-def normalize_connector_auth_policy(value: dict[str, Any] | None) -> dict[str, Any]:
-    defaults = get_default_connector_settings()["auth_policy"]
-    payload = defaults | (value or {})
-    if payload.get("rotation_interval_days") not in {30, 60, 90}:
-        payload["rotation_interval_days"] = defaults["rotation_interval_days"]
-    if payload.get("credential_visibility") not in {"masked", "admin_only"}:
-        payload["credential_visibility"] = defaults["credential_visibility"]
-    payload["reconnect_requires_approval"] = bool(payload.get("reconnect_requires_approval", defaults["reconnect_requires_approval"]))
-    return payload
-
-
-def _clone_connector_catalog_defaults() -> list[dict[str, Any]]:
-    return json.loads(json.dumps(DEFAULT_CONNECTOR_CATALOG))
-
-
-def canonicalize_connector_provider(provider: str | None) -> str | None:
-    if not provider:
-        return provider
-    return CONNECTOR_PROVIDER_CANONICAL_MAP.get(provider, provider)
-
-
-def _get_default_connector_preset(provider: str) -> dict[str, Any] | None:
-    canonical_provider = canonicalize_connector_provider(provider)
-    return next((item for item in DEFAULT_CONNECTOR_CATALOG if item["id"] == canonical_provider), None)
-
-
-def _row_to_connector_preset(row: DatabaseRow) -> dict[str, Any]:
-    canonical_id = canonicalize_connector_provider(row.get("id"))
-    if canonical_id == "google":
-        google_preset = _get_default_connector_preset("google")
-        if google_preset is not None:
-            return dict(google_preset)
-
-    try:
-        auth_types = json.loads(row.get("auth_types_json") or "[]")
-    except json.JSONDecodeError:
-        auth_types = []
-
-    try:
-        default_scopes = json.loads(row.get("default_scopes_json") or "[]")
-    except json.JSONDecodeError:
-        default_scopes = []
-
-    return {
-        "id": canonical_id or row["id"],
-        "name": row["name"],
-        "description": row["description"],
-        "category": row["category"],
-        "auth_types": [item for item in auth_types if isinstance(item, str)],
-        "default_scopes": [item for item in default_scopes if isinstance(item, str)],
-        "recommended_scopes": [item for item in default_scopes if isinstance(item, str)],
-        "docs_url": row.get("docs_url") or "",
-        "base_url": row.get("base_url") or "",
-    }
-
-
-def build_connector_catalog(connection: DatabaseConnection | None = None) -> list[dict[str, Any]]:
-    if connection is None:
-        return _clone_connector_catalog_defaults()
-
-    rows = fetch_all(
-        connection,
-        """
-        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
-        FROM integration_presets
-        WHERE integration_type = 'connector_provider'
-        ORDER BY name ASC
-        """,
-    )
-    if not rows:
-        return _clone_connector_catalog_defaults()
-
-    deduped_catalog: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
-    for row in rows:
-        preset = _row_to_connector_preset(row)
-        preset_id = preset["id"]
-        if preset_id in seen_ids:
-            continue
-        seen_ids.add(preset_id)
-        deduped_catalog.append(preset)
-    return deduped_catalog
-
-
-def get_connector_preset(provider: str, *, connection: DatabaseConnection | None = None) -> dict[str, Any] | None:
-    canonical_provider = canonicalize_connector_provider(provider)
-    if connection is None:
-        return _get_default_connector_preset(canonical_provider or provider)
-
-    row = fetch_one(
-        connection,
-        """
-        SELECT id, name, description, category, auth_types_json, default_scopes_json, docs_url, base_url
-        FROM integration_presets
-        WHERE integration_type = 'connector_provider' AND id = ?
-        """,
-        (canonical_provider,),
-    )
-    if row is None:
-        return _get_default_connector_preset(canonical_provider or provider)
-    return _row_to_connector_preset(row)
-
-
-def get_connector_provider_metadata(provider: str | None) -> dict[str, Any] | None:
-    canonical_provider = canonicalize_connector_provider(provider)
-    if not canonical_provider:
-        return None
-    return next((json.loads(json.dumps(item)) for item in DEFAULT_CONNECTOR_PROVIDER_METADATA if item["id"] == canonical_provider), None)
-
-
-def _provider_display_name(provider: str | None) -> str:
-    metadata = get_connector_provider_metadata(provider)
-    if metadata:
-        return str(metadata.get("name") or provider or "Connector")
-    return str(provider or "Connector").replace("_", " ").title()
-
-
-def _provider_metadata(provider: str | None) -> dict[str, Any]:
-    metadata = get_connector_provider_metadata(provider)
-    if metadata is not None:
-        return metadata
-    display_name = _provider_display_name(provider)
-    return {
-        "id": canonicalize_connector_provider(provider) or "generic_http",
-        "name": display_name,
-        "onboarding_mode": "credentials",
-        "oauth_supported": False,
-        "callback_supported": False,
-        "refresh_supported": False,
-        "revoke_supported": True,
-        "redirect_uri_required": False,
-        "redirect_uri_readonly": False,
-        "scopes_locked": False,
-        "default_redirect_path": None,
-        "required_fields": [],
-        "setup_fields": [],
-        "ui_copy": {
-            "eyebrow": display_name,
-            "title": f"{display_name} setup",
-            "description": f"Enter the saved credentials needed for {display_name}.",
-            "last_checked_empty": f"{display_name} connection has not been checked yet.",
-        },
-        "action_labels": {
-            "save": "Save connector",
-            "test": "Test connector",
-            "connect": f"Save {display_name} credentials",
-            "reconnect": f"Reconnect {display_name}",
-            "refresh": "Refresh token",
-            "revoke": "Revoke connector",
-        },
-        "status_messages": {},
-    }
-
-
-def extract_connector_secret_map(auth_config: dict[str, Any], protection_secret: str) -> dict[str, str]:
-    protected_values = auth_config.get("protected_secrets") or {}
-    secret_map: dict[str, str] = {}
-
-    for field_name in CONNECTOR_SECRET_FIELD_INPUTS:
-        decrypted = unprotect_connector_secret_value(protected_values.get(field_name), protection_secret)
-        if decrypted:
-            secret_map[field_name] = decrypted
-
-    return secret_map
 
 
 def sanitize_connector_auth_config_response(auth_config: dict[str, Any], protection_secret: str) -> dict[str, Any]:
@@ -821,23 +264,6 @@ def sanitize_connector_settings_for_response(
         ],
         "auth_policy": normalize_connector_auth_policy(current.get("auth_policy")),
         "metadata": build_connector_response_metadata(),
-    }
-
-
-def normalize_connector_request_auth_type(auth_type: str | None) -> str:
-    normalized_auth_type = str(auth_type or "none").strip().lower()
-    return CONNECTOR_REQUEST_AUTH_TYPE_MAP.get(normalized_auth_type, "none")
-
-
-def build_connector_response_metadata() -> dict[str, Any]:
-    return {
-        "statuses": [dict(item) for item in CONNECTOR_STATUS_OPTIONS],
-        "active_storage_statuses": sorted(ACTIVE_STORAGE_CONNECTOR_STATUSES),
-        "auth_policy": {
-            "rotation_intervals": [dict(item) for item in CONNECTOR_ROTATION_INTERVAL_OPTIONS],
-            "credential_visibility_options": [dict(item) for item in CONNECTOR_CREDENTIAL_VISIBILITY_OPTIONS],
-        },
-        "providers": [json.loads(json.dumps(item)) for item in DEFAULT_CONNECTOR_PROVIDER_METADATA],
     }
 
 
@@ -1157,88 +583,6 @@ def write_connector_auth_policy(connection: DatabaseConnection, auth_policy: dic
     connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
     connection.commit()
     return normalized_policy
-
-
-def _read_connector_auth_policy_row(connection: DatabaseConnection) -> dict[str, Any] | None:
-    row = fetch_one(
-        connection,
-        """
-        SELECT auth_policy_json
-        FROM connector_auth_policies
-        WHERE policy_id = ?
-        """,
-        (CONNECTOR_AUTH_POLICY_ROW_ID,),
-    )
-    if row is None:
-        return None
-
-    try:
-        parsed_value = json.loads(row["auth_policy_json"])
-    except json.JSONDecodeError:
-        return {"auth_policy": normalize_connector_auth_policy(None)}
-    if not isinstance(parsed_value, dict):
-        return {"auth_policy": normalize_connector_auth_policy(None)}
-    return {"auth_policy": normalize_connector_auth_policy(parsed_value)}
-
-
-def _migrate_legacy_connector_auth_policy_setting(
-    connection: DatabaseConnection,
-    settings_value: dict[str, Any],
-    *,
-    delete_connectors_row: bool = False,
-) -> dict[str, Any]:
-    auth_policy = normalize_connector_auth_policy(settings_value.get("auth_policy"))
-    now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO connector_auth_policies (policy_id, auth_policy_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(policy_id) DO UPDATE SET
-            auth_policy_json = excluded.auth_policy_json,
-            updated_at = excluded.updated_at
-        """,
-        (CONNECTOR_AUTH_POLICY_ROW_ID, json.dumps(auth_policy), now, now),
-    )
-    connection.execute("DELETE FROM settings WHERE key = ?", (CONNECTOR_AUTH_POLICY_SETTINGS_KEY,))
-    if delete_connectors_row:
-        connection.execute("DELETE FROM settings WHERE key = ?", ("connectors",))
-    connection.commit()
-    return {"auth_policy": auth_policy}
-
-
-def _read_connector_auth_policy_setting(connection: DatabaseConnection) -> dict[str, Any] | None:
-    row_value = _read_connector_auth_policy_row(connection)
-    if isinstance(row_value, dict):
-        return row_value
-
-    row_value = read_stored_settings_section(connection, CONNECTOR_AUTH_POLICY_SETTINGS_KEY)
-    if isinstance(row_value, dict):
-        return _migrate_legacy_connector_auth_policy_setting(connection, row_value)
-
-    legacy_value = read_stored_settings_section(connection, "connectors")
-    if isinstance(legacy_value, dict) and isinstance(legacy_value.get("auth_policy"), dict):
-        return _migrate_legacy_connector_auth_policy_setting(connection, legacy_value, delete_connectors_row=False)
-    return None
-
-
-def _migrate_legacy_connectors_from_settings(connection: DatabaseConnection) -> None:
-    legacy_value = read_stored_settings_section(connection, "connectors")
-    if not isinstance(legacy_value, dict):
-        return
-
-    legacy_records = [item for item in legacy_value.get("records", []) if isinstance(item, dict)]
-    if legacy_records:
-        replace_stored_connector_records(connection, legacy_records)
-
-    auth_policy_value = legacy_value.get("auth_policy")
-    if isinstance(auth_policy_value, dict):
-        write_connector_auth_policy(connection, auth_policy_value)
-
-    delete_stored_settings_section(connection, "connectors")
-
-
-def ensure_legacy_connector_storage_migrated(connection: DatabaseConnection) -> None:
-    _migrate_legacy_connectors_from_settings(connection)
 
 
 def persist_connector_settings(connection: DatabaseConnection, settings_value: dict[str, Any]) -> None:
