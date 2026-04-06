@@ -86,6 +86,6 @@ Completion check: README.md contains a dedicated note for Settings Data local ba
 GitHub update
 
 1. [x] [github]
-Files: .agents/tasks/closed/TASK-006-local-backup-button-and-restore-flow.md, backend/routes/settings.py, backend/services/settings_backup_restore.py, backend/services/support.py, backend/schemas/settings.py, backend/schemas/__init__.py, tests/test_settings_api.py, tests/api_smoke_registry/settings_connectors_cases.py, ui/settings/data.html, ui/scripts/settings/data.js, ui/styles/pages/settings.css, ui/e2e/support/dashboard-settings.ts, ui/e2e/settings.spec.ts, README.md
+Files: .github/tasks/closed/TASK-006-local-backup-button-and-restore-flow.md, backend/routes/settings.py, backend/services/settings_backup_restore.py, backend/services/support.py, backend/schemas/settings.py, backend/schemas/__init__.py, tests/test_settings_api.py, tests/api_smoke_registry/settings_connectors_cases.py, ui/settings/data.html, ui/scripts/settings/data.js, ui/styles/pages/settings.css, ui/e2e/support/dashboard-settings.ts, ui/e2e/settings.spec.ts, README.md
 Action: Stage only files relevant to this backup/restore feature, commit with a focused message, push, and move this task file from open to closed in the same commit.
-Completion check: git status shows only task-relevant tracked changes included in one commit, the task file is moved to .agents/tasks/closed, and git push succeeds after commit.
+Completion check: git status shows only task-relevant tracked changes included in one commit, the task file is moved to .github/tasks/closed, and git push succeeds after commit.

@@ -174,5 +174,5 @@ Completion check: All documentation is current and accurate.
 
 1. [ ] [github]
 Files: All files changed by this task
-Action: Stage only task-relevant files, commit with a focused message such as "Repo modularization and agent policy reorganization (phase X)", move this task file to .agents/tasks/closed/ in the same commit, then push.
-Completion check: The commit includes only task-relevant files plus the task file move to .agents/tasks/closed/, and push succeeds.
+Action: Stage only task-relevant files, commit with a focused message such as "Repo modularization and agent policy reorganization (phase X)", move this task file to .github/tasks/closed/ in the same commit, then push.
+Completion check: The commit includes only task-relevant files plus the task file move to .github/tasks/closed/, and push succeeds.

@@ -81,6 +81,6 @@ Completion check: `AGENTS.md` documents the service-module connector logic bound
 ## GitHub update
 
 1. [ ] [github]
-Files: .agents/tasks/open/TASK-009-split-connector-oauth-logic-into-services.md, backend/routes/connectors.py, backend/services/connector_oauth.py, backend/services/connector_google_oauth_client.py, backend/services/support.py, tests/test_connectors_api.py, tests/test_connector_oauth_service.py, AGENTS.md, scripts/check-policy.sh
-Action: Stage only task-relevant files, commit with a focused message such as `Refactor connector OAuth logic into service modules`, move this task file to `.agents/tasks/closed/` in the same commit, then push.
-Completion check: The commit contains only relevant implementation/test/doc files plus the task file move to `.agents/tasks/closed/`, and push succeeds.
+Files: .github/tasks/open/TASK-009-split-connector-oauth-logic-into-services.md, backend/routes/connectors.py, backend/services/connector_oauth.py, backend/services/connector_google_oauth_client.py, backend/services/support.py, tests/test_connectors_api.py, tests/test_connector_oauth_service.py, AGENTS.md, scripts/check-policy.sh
+Action: Stage only task-relevant files, commit with a focused message such as `Refactor connector OAuth logic into service modules`, move this task file to `.github/tasks/closed/` in the same commit, then push.
+Completion check: The commit contains only relevant implementation/test/doc files plus the task file move to `.github/tasks/closed/`, and push succeeds.

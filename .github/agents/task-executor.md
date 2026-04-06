@@ -1,6 +1,6 @@
 ---
 name: task-executor
-description: "Execute one concrete step from an existing task file in .agents/tasks/open/, update step state in place, and stop after the active step. Use when requests ask to execute, continue, progress, or run the next step of an open task."
+description: "Execute one concrete step from an existing task file in .github/tasks/open/, update step state in place, and stop after the active step. Use when requests ask to execute, continue, progress, or run the next step of an open task."
 keywords: ["task-executor", "execute task", "run task step", "continue task", "progress task", "next task step"]
 triggers:
   - "execute task"
@@ -50,13 +50,13 @@ Single-step lock:
 
 ## Automatic Task Selection
 
-Tasks live in `.agents/tasks/open/`.
+Tasks live in `.github/tasks/open/`.
 
 If the user gives a specific task path or task ID, use that task.
 
 If the user says to continue, progress, or work through open tasks without naming one:
 
-1. scan `.agents/tasks/open/`
+1. scan `.github/tasks/open/`
 2. sort tasks by ascending task number
 3. pick the oldest task file that still contains at least one step not marked `[x]`
 4. work the first incomplete step in that file
@@ -227,7 +227,7 @@ Forbidden outside that scope:
 - `git add`
 - `git commit`
 - `git push`
-- moving the task file to `.agents/tasks/closed/`
+- moving the task file to `.github/tasks/closed/`
 
 If a step would require those actions before `GitHub update`, mark it `[!]`, record the section-order problem, and stop.
 
@@ -239,10 +239,10 @@ When in `GitHub update`:
 - stage only task-relevant files
 - use a focused commit message
 - push only after commit
-- move the completed task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit
+- move the completed task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit
 - record any requested commit or push outcome in the task file
 
-Do not leave a fully completed task file in `.agents/tasks/open/`.
+Do not leave a fully completed task file in `.github/tasks/open/`.
 
 ## Task File Update Rules
 

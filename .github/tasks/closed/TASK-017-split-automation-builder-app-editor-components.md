@@ -59,6 +59,6 @@ Completion check: README.md reflects the current ownership layout or the task re
 ## GitHub update
 
 1. [x] [github]
-Files: .agents/tasks/open/TASK-017-split-automation-builder-app-editor-components.md, ui/src/automation/app.tsx, ui/src/automation/step-editors/, ui/src/automation/hooks/, ui/src/automation/useAutomationBuilderController.ts, ui/src/automation/__tests__/automation-app.test.tsx, ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx, ui/e2e/automations-builder.spec.ts, README.md
-Action: Stage only task-relevant files, commit with a focused message such as `Split automation builder editor rendering into focused components and hooks`, move this task file to .agents/tasks/closed/ in the same commit, then push.
-Completion check: The commit includes only task-relevant files plus the task file move to .agents/tasks/closed/, and push succeeds.
+Files: .github/tasks/open/TASK-017-split-automation-builder-app-editor-components.md, ui/src/automation/app.tsx, ui/src/automation/step-editors/, ui/src/automation/hooks/, ui/src/automation/useAutomationBuilderController.ts, ui/src/automation/__tests__/automation-app.test.tsx, ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx, ui/e2e/automations-builder.spec.ts, README.md
+Action: Stage only task-relevant files, commit with a focused message such as `Split automation builder editor rendering into focused components and hooks`, move this task file to .github/tasks/closed/ in the same commit, then push.
+Completion check: The commit includes only task-relevant files plus the task file move to .github/tasks/closed/, and push succeeds.

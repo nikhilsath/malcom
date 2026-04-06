@@ -70,7 +70,7 @@ Note: README.md does not describe connector internal architecture in detail; no 
 ## GitHub update
 
 1. [!] [github]
-Files: .agents/tasks/open/TASK-015-thin-connectors-route-health-and-repo-services.md, backend/routes/connectors.py, backend/services/connector_health.py, backend/services/connector_repositories.py, tests/test_connectors_api.py, tests/test_connector_health_service.py, README.md
-Action: Stage only task-relevant files, commit with a focused message such as `Thin connector routes by moving health and repository logic into services`, move this task file to .agents/tasks/closed/ in the same commit, then push.
-Completion check: The commit includes only task-relevant files plus the task file move to .agents/tasks/closed/, and push succeeds.
+Files: .github/tasks/open/TASK-015-thin-connectors-route-health-and-repo-services.md, backend/routes/connectors.py, backend/services/connector_health.py, backend/services/connector_repositories.py, tests/test_connectors_api.py, tests/test_connector_health_service.py, README.md
+Action: Stage only task-relevant files, commit with a focused message such as `Thin connector routes by moving health and repository logic into services`, move this task file to .github/tasks/closed/ in the same commit, then push.
+Completion check: The commit includes only task-relevant files plus the task file move to .github/tasks/closed/, and push succeeds.
 Blocker: Commit created (764adaf) and task file moved to closed/ in the commit, but `git push` fails with HTTP 403 - GITHUB_TOKEN in environment is invalid/lacks write permission to nikhilsath/malcom.git.

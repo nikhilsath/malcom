@@ -64,5 +64,5 @@ GitHub update
 
 1. [ ] [github]
 Files: stage only the changed files from the steps above (provider client, connectors.py, connector_oauth.py, connector_oauth_provider_clients.py, tests/test_connectors_api.py, docs)
-Action: Commit with a focused message and push. Move this task file to `.agents/tasks/closed/TASK-012-implement-trello-oauth-workflow.md` in the same commit.
+Action: Commit with a focused message and push. Move this task file to `.github/tasks/closed/TASK-012-implement-trello-oauth-workflow.md` in the same commit.
 Completion check: `git add <changed-files> && git commit -m "Implement Trello OAuth onboarding and update tests" && git push` completes successfully.

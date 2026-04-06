@@ -75,6 +75,6 @@ Execution note: Reviewed wording; no documentation text change required for this
 GitHub update
 
 1. [ ] [github]
-Files: .agents/tasks/open/TASK-020-fix-settings-backup-db-url-resolution.md, backend/routes/settings.py, backend/services/settings_backup_restore.py, tests/test_settings_api.py, tests/api_smoke_registry/settings_connectors_cases.py, README.md, docs/settings-reference.md
-Action: Stage only task-relevant files, commit with a focused message, push, and move this task file to `.agents/tasks/closed/` in the same commit.
+Files: .github/tasks/open/TASK-020-fix-settings-backup-db-url-resolution.md, backend/routes/settings.py, backend/services/settings_backup_restore.py, tests/test_settings_api.py, tests/api_smoke_registry/settings_connectors_cases.py, README.md, docs/settings-reference.md
+Action: Stage only task-relevant files, commit with a focused message, push, and move this task file to `.github/tasks/closed/` in the same commit.
 Completion check: `git status` shows only intended files staged, commit and push succeed, and the task file is relocated from open to closed in the committed diff.

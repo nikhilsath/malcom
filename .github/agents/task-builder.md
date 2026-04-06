@@ -1,6 +1,6 @@
 ---
 name: task-builder
-description: "Create or update executor-ready task files for any repository area by doing discovery up front and producing concrete, bounded steps in .agents/tasks/open/. Use when requests include creating, rewriting, planning, or repairing task files."
+description: "Create or update executor-ready task files for any repository area by doing discovery up front and producing concrete, bounded steps in .github/tasks/open/. Use when requests include creating, rewriting, planning, or repairing task files."
 keywords: ["task-builder", "task file", "create task", "rewrite task", "plan task", "task planning"]
 triggers:
   - "build task"
@@ -35,9 +35,9 @@ If you cannot verify the implementation path yourself, stop and report that gap 
 
 ## Core Rules
 
-- Create or update task files only in `.agents/tasks/open/`
+- Create or update task files only in `.github/tasks/open/`
 - A task file is not an instruction file
-- Do not create task files in `.github/`, `.github/agents/`, `.github/instructions/`, repo root, or any folder outside `.agents/tasks/open/`
+- Do not create task files in `.github/`, `.github/agents/`, `.github/instructions/`, repo root, or any folder outside `.github/tasks/open/`
 - If the request clearly continues an existing task, update that task instead of creating a new one unless the user explicitly asks for a new task
 - Do not edit repo source code directly
 - Do not manage execution status after hand-off
@@ -81,11 +81,11 @@ Those are builder duties unless the user explicitly asked for an audit/report as
 
 Before creating a new task file:
 
-1. inspect `.agents/tasks/open/`
-2. inspect `.agents/tasks/closed/` if it exists
+1. inspect `.github/tasks/open/`
+2. inspect `.github/tasks/closed/` if it exists
 3. find the highest existing task number
 4. assign the next sequential number
-5. create the file as `.agents/tasks/open/TASK-###-short-human-name.md`
+5. create the file as `.github/tasks/open/TASK-###-short-human-name.md`
 
 Rules:
 
@@ -234,7 +234,7 @@ The final GitHub step must require:
 - staging only task-relevant files
 - using a focused commit message
 - pushing only after commit
-- moving the finished task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit
+- moving the finished task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit
 
 Do not restate long git tutorials in the task file.
 

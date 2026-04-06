@@ -69,6 +69,6 @@ Completion check: Updated README.md line 947: changed stale reference from `auto
 ## GitHub update
 
 1. [x] [github]
-Files: .agents/tasks/open/TASK-016-extract-tool-runtime-ownership-from-automation-execution.md, backend/services/tool_configs.py, backend/services/tool_runtime.py, backend/services/tool_execution.py, backend/services/tool_integration.py, backend/services/support.py, backend/services/automation_execution.py, backend/services/automation_executor.py, tests/test_tools_api.py, tests/test_smtp_tool_api.py, tests/test_startup_lifecycle.py, tests/test_service_dependency_directions.py, README.md
-Action: Stage only task-relevant files, commit with a focused message such as `Move tool config/runtime/execution ownership out of automation_execution`, move this task file to .agents/tasks/closed/ in the same commit, then push.
-Completion check: Committed and pushed. Task file moved to .agents/tasks/closed/.
+Files: .github/tasks/open/TASK-016-extract-tool-runtime-ownership-from-automation-execution.md, backend/services/tool_configs.py, backend/services/tool_runtime.py, backend/services/tool_execution.py, backend/services/tool_integration.py, backend/services/support.py, backend/services/automation_execution.py, backend/services/automation_executor.py, tests/test_tools_api.py, tests/test_smtp_tool_api.py, tests/test_startup_lifecycle.py, tests/test_service_dependency_directions.py, README.md
+Action: Stage only task-relevant files, commit with a focused message such as `Move tool config/runtime/execution ownership out of automation_execution`, move this task file to .github/tasks/closed/ in the same commit, then push.
+Completion check: Committed and pushed. Task file moved to .github/tasks/closed/.

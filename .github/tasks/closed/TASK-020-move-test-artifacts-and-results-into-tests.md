@@ -52,8 +52,8 @@ GitHub update
 
 1. [ ] 1 - route: github
 Files: tests/test-artifacts/, tests/test-results/, updated scripts and CI files, this task file
-Action: Stage only the moved directories and updated files, commit with message "Move test-artifacts and test-results into tests/ and update references", push the branch, and move this task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit.
-Completion check: Commit and push succeed and the task file resides in `.agents/tasks/closed/` in the pushed commit.
+Action: Stage only the moved directories and updated files, commit with message "Move test-artifacts and test-results into tests/ and update references", push the branch, and move this task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit.
+Completion check: Commit and push succeed and the task file resides in `.github/tasks/closed/` in the pushed commit.
 
 ---
 

@@ -53,6 +53,21 @@ Machine-only policy file.
 
 Primary objective: deterministic routing, file targeting, and enforcement rules for agent behavior in this repository.
 
+## Documentation Ownership Model {#documentation-ownership-model}
+
+Canonical documentation locations are limited to the following:
+
+1. `.github/tasks/open/` and `.github/tasks/closed/` for task execution tracking and implementation history
+2. `AGENTS.md` plus domain `AGENTS.md` files for AI policy, routing, and enforcement rules
+3. `README.md` for human-facing repository architecture, orientation, and contributor context
+4. `docs/**` for operator/user/contributor instructions and product usage guidance
+
+Rules:
+
+1. Do not create or require a parallel module-contract documentation process outside these locations.
+2. Preserve historical task records under `.github/tasks/closed/**`; do not rewrite closed history unless explicitly requested.
+3. Keep documentation intent aligned with `.github/agents/fact-doc-writer.md` when authoring or updating `docs/**`.
+
 ---
 
 ## Machine-Readable Policy
@@ -226,6 +241,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
 | Audit repo-wide file coverage or architecture in batches | `.agents/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
+| Update documentation ownership policy | `AGENTS.md`, `README.md`, `docs/**` | `.github/agents/fact-doc-writer.md`, `scripts/check-policy.sh` | parallel documentation systems outside tasks/AGENTS/README/docs |
 | Update agent response policy or instruction-following rules | `AGENTS.md`, `scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
@@ -258,6 +274,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
+| R-DOC-001 | Documentation must live only in task files, AGENTS policy files, README, and docs; do not create parallel module-contract systems | Documentation policy and repo workflow |
 | R-POLICY-001 | Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules | Policy maintenance and enforcement automation |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
 | R-TEST-003 | Keep internal API smoke coverage in `tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `tests/api_smoke_registry/` | Backend route additions and removals |
@@ -269,7 +286,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 25,
+  "version": 26,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -297,6 +314,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
+    "documentation_model": [".github/tasks/open/", ".github/tasks/closed/", "AGENTS.md", "README.md", "docs/**", ".github/agents/fact-doc-writer.md"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
     ,"workflow_builder_connectors": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx"]
   },
@@ -348,6 +366,11 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#maintenance-sync-rule", "#rules-matrix", "MACHINE_INDEX_START"],
       "verify": ["policy text, machine index, and scripts/check-policy.sh stay synchronized"]
     },
+    "documentation_policy_update": {
+      "read": ["AGENTS.md", "README.md", ".github/agents/fact-doc-writer.md"],
+      "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh", "docs/**"],
+      "verify": ["documentation ownership is explicit", "no parallel module-contract process remains", "policy enforcement remains synchronized"]
+    },
     "workflow_builder_connector_refactor": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx", "README.md"],
@@ -368,6 +391,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "implementation_tasks_only": [
       "expected_behavior"
     ],
+    "documentation_ownership": "Canonical documentation locations are tasks, AGENTS files, README, and docs only.",
     "test_creation_policy": "For behavior-changing implementation tasks, add or update relevant automated tests in the same change unless strictly non-behavioral.",
     "general_rule": "For non-implementation requests, respond with only the directly requested content unless the user asks for more detail."
   },

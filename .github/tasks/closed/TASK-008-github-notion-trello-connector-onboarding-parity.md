@@ -96,9 +96,9 @@ Verification notes:
 ## GitHub update
 
 1. [x] [github]
-Files: .agents/tasks/open/TASK-008-github-notion-trello-connector-onboarding-parity.md, backend/services/connectors.py, backend/routes/connectors.py, ui/settings/connectors.html, ui/scripts/settings/connectors/dom.js, ui/scripts/settings/connectors/state.js, ui/scripts/settings/connectors/render.js, ui/scripts/settings/connectors/form.js, ui/scripts/settings/connectors/oauth.js, ui/scripts/settings/connectors/page.js, ui/e2e/support/api-response-builders.ts, ui/e2e/support/connectors-apis-routes.ts, ui/e2e/connectors.spec.ts, tests/test_connectors_api.py, README.md
-Action: Stage only task-relevant files, commit with a focused message such as `Add GitHub Notion Trello connector onboarding parity`, move this task file to `.agents/tasks/closed/` in the same commit, then push.
-Completion check: The commit includes only relevant files plus the task-file move to `.agents/tasks/closed/`, and push succeeds.
+Files: .github/tasks/open/TASK-008-github-notion-trello-connector-onboarding-parity.md, backend/services/connectors.py, backend/routes/connectors.py, ui/settings/connectors.html, ui/scripts/settings/connectors/dom.js, ui/scripts/settings/connectors/state.js, ui/scripts/settings/connectors/render.js, ui/scripts/settings/connectors/form.js, ui/scripts/settings/connectors/oauth.js, ui/scripts/settings/connectors/page.js, ui/e2e/support/api-response-builders.ts, ui/e2e/support/connectors-apis-routes.ts, ui/e2e/connectors.spec.ts, tests/test_connectors_api.py, README.md
+Action: Stage only task-relevant files, commit with a focused message such as `Add GitHub Notion Trello connector onboarding parity`, move this task file to `.github/tasks/closed/` in the same commit, then push.
+Completion check: The commit includes only relevant files plus the task-file move to `.github/tasks/closed/`, and push succeeds.
 
 Completion note:
 

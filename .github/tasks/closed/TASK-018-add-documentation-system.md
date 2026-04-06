@@ -48,8 +48,8 @@ Completion check: `AGENTS.md` contains a short mention of the docs route mapping
 
 8. [ ] [github]
 Files: See files changed above (stage only relevant files)
-Action: Commit changes in a single focused commit when all steps are implemented. Commit message example: "Add documentation system: markdown storage + DB metadata, frontend docs SPA, and backend docs API". After commit, move this task file from `.agents/tasks/open/TASK-018-add-documentation-system.md` to `.agents/tasks/closed/TASK-018-add-documentation-system.md` in the same commit.
-Completion check: `git log -1` shows the commit message above and the moved task file is under `.agents/tasks/closed/` in the repo.
+Action: Commit changes in a single focused commit when all steps are implemented. Commit message example: "Add documentation system: markdown storage + DB metadata, frontend docs SPA, and backend docs API". After commit, move this task file from `.github/tasks/open/TASK-018-add-documentation-system.md` to `.github/tasks/closed/TASK-018-add-documentation-system.md` in the same commit.
+Completion check: `git log -1` shows the commit message above and the moved task file is under `.github/tasks/closed/` in the repo.
 
 
 Test impact review
@@ -90,10 +90,10 @@ Files: all files changed by the implementation (list only the edited/created fil
 Action: Stage only the implementation files and the moved task file, commit with a focused message, and push. Example command to run as the executor:
 
 ```bash
-git add backend/database.py backend/services/docs.py backend/routes/docs.py backend/routes/api.py ui/page-registry.json ui/docs/index.html ui/src/docs/* ui/scripts/shell-config.js ui/styles/styles.css docs/* AGENTS.md backend/AGENTS.md .agents/tasks/open/TASK-018-add-documentation-system.md && git commit -m "Add documentation system: markdown storage + DB metadata, frontend docs SPA, and backend docs API" && git mv .agents/tasks/open/TASK-018-add-documentation-system.md .agents/tasks/closed/TASK-018-add-documentation-system.md && git add .agents/tasks/closed/TASK-018-add-documentation-system.md && git commit --amend --no-edit && git push
+git add backend/database.py backend/services/docs.py backend/routes/docs.py backend/routes/api.py ui/page-registry.json ui/docs/index.html ui/src/docs/* ui/scripts/shell-config.js ui/styles/styles.css docs/* AGENTS.md backend/AGENTS.md .github/tasks/open/TASK-018-add-documentation-system.md && git commit -m "Add documentation system: markdown storage + DB metadata, frontend docs SPA, and backend docs API" && git mv .github/tasks/open/TASK-018-add-documentation-system.md .github/tasks/closed/TASK-018-add-documentation-system.md && git add .github/tasks/closed/TASK-018-add-documentation-system.md && git commit --amend --no-edit && git push
 ```
 
-Completion check: remote contains the commit and task file moved to `.agents/tasks/closed/`.
+Completion check: remote contains the commit and task file moved to `.github/tasks/closed/`.
 
 
 Notes / Rationale

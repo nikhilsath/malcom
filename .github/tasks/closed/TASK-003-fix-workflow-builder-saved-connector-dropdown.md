@@ -46,7 +46,7 @@ Completion check: Resolver and service functions identified below.
 
 4. [x] [Route: db]
 Action: Verify which DB table(s) and columns provide connector records (e.g., `connectors` table). For each identified table, list the columns used by the backend handler and note any fields that are present in DB but not surfaced to UI or vice versa.
-Completion check: A `/.agents/tasks/open/TASK-003-db-verification.md` file listing tables, columns, and any mismatches.
+Completion check: A `/.github/tasks/open/TASK-003-db-verification.md` file listing tables, columns, and any mismatches.
 
 5. [x] [Route: test]
 Action: Based on verification results, update the Test Impact report to include the concrete tests that must be modified or added. Mark Playwright tests that need mock updates before frontend changes.
@@ -118,9 +118,9 @@ Completion note: Ran `cd /Users/nikhilsathyanarayana/Documents/malcom/ui && npx 
 
 11. [x] [Route: ui]
 Action: Add UX improvements: accessible labels and `aria-*` for loading/empty/error states, and ensure disabled/incompatible options have tooltips explaining why.
-Completion check: Review checklist in `/.agents/tasks/closed/TASK-003-ux-checklist.md` completed.
+Completion check: Review checklist in `/.github/tasks/closed/TASK-003-ux-checklist.md` completed.
 
-Completion note: Enhanced `ui/src/automation/step-modals/connector-activity-step-form.tsx` with loading/error/empty announcements, `aria-*` wiring, retry action, disabled incompatible options, and tooltip/inline reason text. Checklist created at `/.agents/tasks/closed/TASK-003-ux-checklist.md`.
+Completion note: Enhanced `ui/src/automation/step-modals/connector-activity-step-form.tsx` with loading/error/empty announcements, `aria-*` wiring, retry action, disabled incompatible options, and tooltip/inline reason text. Checklist created at `/.github/tasks/closed/TASK-003-ux-checklist.md`.
 
 12. [x] [Route: docs]
 Action: After implementation and tests are complete, rewrite the README/data-lineage documentation to reflect the verified implementation. The rewrite must:
@@ -141,8 +141,8 @@ Completion check: A git add/commit command is prepared in the task output; do no
 Completion note: Prepared Task-003-only staging + commit commands (no push), limited to files tied to this task's scope:
 
 Files to stage:
-- `.agents/tasks/open/TASK-003-fix-workflow-builder-saved-connector-dropdown.md`
-- `.agents/tasks/closed/TASK-003-ux-checklist.md`
+- `.github/tasks/open/TASK-003-fix-workflow-builder-saved-connector-dropdown.md`
+- `.github/tasks/closed/TASK-003-ux-checklist.md`
 - `README.md`
 - `tests/impact/TASK-003-affected-tests.md`
 - `tests/test_connectors_for_builder.py`
@@ -158,7 +158,7 @@ Files to stage:
 
 Prepared commands:
 
-`git add .agents/tasks/open/TASK-003-fix-workflow-builder-saved-connector-dropdown.md .agents/tasks/closed/TASK-003-ux-checklist.md README.md tests/impact/TASK-003-affected-tests.md tests/test_connectors_for_builder.py tests/test_connectors_for_builder_extra.py ui/src/automation/step-modals/connector-activity-step-form.tsx ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx ui/src/automation/__tests__/automation-app.test.tsx ui/e2e/automations-builder.spec.ts ui/e2e/support/automations-scripts.ts ui/e2e/fixtures/connectors/empty.json ui/e2e/fixtures/connectors/error.json ui/e2e/fixtures/connectors/success.json`
+`git add .github/tasks/open/TASK-003-fix-workflow-builder-saved-connector-dropdown.md .github/tasks/closed/TASK-003-ux-checklist.md README.md tests/impact/TASK-003-affected-tests.md tests/test_connectors_for_builder.py tests/test_connectors_for_builder_extra.py ui/src/automation/step-modals/connector-activity-step-form.tsx ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx ui/src/automation/__tests__/automation-app.test.tsx ui/e2e/automations-builder.spec.ts ui/e2e/support/automations-scripts.ts ui/e2e/fixtures/connectors/empty.json ui/e2e/fixtures/connectors/error.json ui/e2e/fixtures/connectors/success.json`
 
 `git commit -m "TASK-003: Fix builder saved connector dropdown coverage and docs"`
 

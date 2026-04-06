@@ -42,7 +42,7 @@ Completion check: README.md or AGENTS.md contains the revised single-sentence st
 Completion note: Updated README.md "Schema Health Notes" section with TASK-005 note documenting the consolidated connector source-of-truth. The note states: "Runtime catalog is built from integration_presets via build_connector_catalog(); saved connector instances are read via get_stored_connector_settings()." Links to backend/services/connectors.py are included.
 
 7. [x] [github]
-Action: Commit the implementation and test changes with a focused message, then move this task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit.
+Action: Commit the implementation and test changes with a focused message, then move this task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit.
 Completion check: The commit contains only the relevant modified source/test/doc files and the task file move; push is successful.
 
 Completion note: Commit c83b2a8 "Consolidate connector catalog to integration_presets; replace runtime DEFAULT_CONNECTOR_CATALOG usages" created with 2 file changes (README.md, task file move from open to closed). Push successful to feature/resource-dashboard branch.
@@ -74,5 +74,5 @@ GitHub update
 
 - Stage only the modified source, test, and doc files (do not stage unrelated files).
 - Commit with a focused message, e.g. "Consolidate connector catalog to integration_presets; replace runtime DEFAULT_CONNECTOR_CATALOG usages".
-- In the same commit, move `.agents/tasks/open/TASK-005-resolve-duplicate-connector-catalog-settings.md` to `.agents/tasks/closed/TASK-005-resolve-duplicate-connector-catalog-settings.md` and include that change in the commit.
+- In the same commit, move `.github/tasks/open/TASK-005-resolve-duplicate-connector-catalog-settings.md` to `.github/tasks/closed/TASK-005-resolve-duplicate-connector-catalog-settings.md` and include that change in the commit.
 - Push the branch.

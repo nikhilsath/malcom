@@ -10,6 +10,8 @@ set -uo pipefail
 # TASK-019 (2026-04-05): added PR-scope validator hook (scripts/check-pr-scope.sh);
 # rule-ID cross-references added to Required Workflow, Implementation Quality, and domain AGENTS files;
 # Practical Do And Do Not section restructured with rule annotations.
+# TASK-023 (2026-04-06): module-contract process retired; canonical documentation model
+# is limited to tasks, AGENTS policy files, README, and docs (R-DOC-001).
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -136,6 +138,56 @@ check_agents_script_sync() {
   fi
 
   printf 'AGENTS.md and scripts/check-policy.sh are aligned for this change.\n'
+}
+
+check_documentation_ownership_model() {
+  local missing=()
+
+  if [[ ! -f "AGENTS.md" ]]; then
+    printf 'Missing AGENTS.md; cannot validate documentation ownership model.\n'
+    return 1
+  fi
+
+  if [[ ! -f "README.md" ]]; then
+    printf 'Missing README.md; cannot validate documentation ownership model.\n'
+    return 1
+  fi
+
+  if ! grep -q "## Documentation Ownership Model" AGENTS.md; then
+    missing+=("AGENTS.md: ## Documentation Ownership Model")
+  fi
+
+  if ! grep -q "R-DOC-001" AGENTS.md; then
+    missing+=("AGENTS.md: R-DOC-001 rules matrix entry")
+  fi
+
+  if ! grep -q "## Documentation Ownership" README.md; then
+    missing+=("README.md: ## Documentation Ownership")
+  fi
+
+  if [[ -d ".agents/module-contracts" ]]; then
+    missing+=(".agents/module-contracts directory must be retired")
+  fi
+
+  if [[ -d ".agents/tasks" ]]; then
+    missing+=(".agents/tasks directory must be retired after migration to .github/tasks")
+  fi
+
+  if [[ ! -d ".github/tasks/open" ]]; then
+    missing+=(".github/tasks/open directory is required for active task tracking")
+  fi
+
+  if [[ ! -d ".github/tasks/closed" ]]; then
+    missing+=(".github/tasks/closed directory is required for closed task history")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'Documentation ownership model checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Documentation ownership model is explicit and no module-contract system is active.\n'
 }
 
 check_db_schema_docs_sync() {
@@ -355,6 +407,7 @@ fi
 
 run_check "Forbidden path modifications" check_forbidden_path_modifications
 run_check "AGENTS/check-policy sync" check_agents_script_sync
+run_check "Documentation ownership model" check_documentation_ownership_model
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape

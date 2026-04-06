@@ -17,6 +17,7 @@ It combines a FastAPI backend, PostgreSQL persistence, and a Vite-built, registr
 - [UI and Route Wiring](#ui-and-route-wiring)
 - [Connectors vs Tools](#connectors-vs-tools)
 - [Data Lineage Reference](#data-lineage-reference)
+- [Documentation Ownership](#documentation-ownership)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 
@@ -70,6 +71,17 @@ The current product UI is organized into these areas:
 
 - Vite-built HTML entry pages and route metadata driven by `ui/page-registry.json`
 - Mixed stack: React/TypeScript pages for dashboard and automations, plus vanilla JavaScript pages for APIs, settings, tools, and shell wiring
+
+## Documentation Ownership
+
+Documentation is intentionally limited to these canonical locations:
+
+1. `.github/tasks/open/` and `.github/tasks/closed/` for task execution tracking and change history.
+2. `AGENTS.md` and domain `AGENTS.md` files for AI policy, routing, and enforcement rules.
+3. `README.md` for repository architecture and contributor orientation.
+4. `docs/**` for user/operator/contributor instruction content and usage guides.
+
+The module-contracts process is retired. New work should not introduce a parallel documentation system outside these locations.
 
 ## Database Schema
 

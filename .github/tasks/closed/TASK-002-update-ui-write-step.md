@@ -100,8 +100,8 @@ Action: Update documentation to reflect the UI rename and new options: update `u
 Completion check: Docs updated and include example screenshots or payload examples.
 
 8. [ ] [Route: github]
-Action: Stage only the changed UI, test, and doc files, commit with a focused message (`UI: rename Log->Write; expose write storage options; add e2e tests`), and push the branch. Move this task file to `.agents/tasks/closed/` as part of the GitHub update step.
-Completion check: Changes pushed and the task file moved to `.agents/tasks/closed/` in the same commit.
+Action: Stage only the changed UI, test, and doc files, commit with a focused message (`UI: rename Log->Write; expose write storage options; add e2e tests`), and push the branch. Move this task file to `.github/tasks/closed/` as part of the GitHub update step.
+Completion check: Changes pushed and the task file moved to `.github/tasks/closed/` in the same commit.
 
 Test impact review
 
@@ -138,7 +138,7 @@ GitHub update
 
 - Stage only changed UI, tests, and docs files.
 - Commit with message: `UI: rename Log->Write; expose write storage options; add e2e tests`.
-- Push branch and move this task file to `.agents/tasks/closed/`.
+- Push branch and move this task file to `.github/tasks/closed/`.
 
 Notes and hand-off
 

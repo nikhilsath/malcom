@@ -63,5 +63,5 @@ GitHub update
 
 1. [ ] [github]
 Files: stage only changed backend service files, e2e fixtures/tests, unit tests, docs
-Action: Commit with a focused message and push. Move this task file to `.agents/tasks/closed/TASK-013-implement-notion-oauth-workflow.md` in the same commit.
+Action: Commit with a focused message and push. Move this task file to `.github/tasks/closed/TASK-013-implement-notion-oauth-workflow.md` in the same commit.
 Completion check: `git add <changed-files> && git commit -m "Harden Notion OAuth flow and add e2e coverage" && git push` completes successfully.

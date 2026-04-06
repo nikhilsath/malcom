@@ -84,6 +84,6 @@ Completion check: Documentation describes how to maintain full served-route cove
 ## GitHub update
 
 1. [x] [github]
-Files: .agents/tasks/open/TASK-011-playwright-coverage-migration-gate.md, ui/e2e/coverage-route-map.json, scripts/check-playwright-route-coverage.mjs, scripts/test-precommit.sh, scripts/test-full.sh, ui/package.json, ui/e2e/settings.spec.ts, ui/e2e/support/dashboard-settings.ts, ui/e2e/README.md, tests/impact/TASK-011-affected-tests.md, README.md
-Action: Skipped per user instruction for this run (no staging, commit, or push). Task closure is tracked locally by moving this file to `.agents/tasks/closed/`.
-Completion check: Task-relevant implementation, test, and doc files are updated locally and this task file is moved to `.agents/tasks/closed/` without performing git commit/push.
+Files: .github/tasks/open/TASK-011-playwright-coverage-migration-gate.md, ui/e2e/coverage-route-map.json, scripts/check-playwright-route-coverage.mjs, scripts/test-precommit.sh, scripts/test-full.sh, ui/package.json, ui/e2e/settings.spec.ts, ui/e2e/support/dashboard-settings.ts, ui/e2e/README.md, tests/impact/TASK-011-affected-tests.md, README.md
+Action: Skipped per user instruction for this run (no staging, commit, or push). Task closure is tracked locally by moving this file to `.github/tasks/closed/`.
+Completion check: Task-relevant implementation, test, and doc files are updated locally and this task file is moved to `.github/tasks/closed/` without performing git commit/push.

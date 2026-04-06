@@ -34,9 +34,9 @@ Action: Add a short note in `README.md` and the connector provider catalog comme
 Completion check: `grep -n "cpanel_postgres" README.md` returns at least one match and provider catalog comment updated.
 
 6. [ ] [github]
-Files: backend/services/connectors.py, backend/services/connector_postgres.py, backend/services/connector_health.py, backend/routes/connectors.py, tests/test_connectors_cpanel_postgres.py, README.md, .agents/tasks/open/TASK-021-add-cpanel-postgres-connector.md
-Action: When implementation and tests are ready, stage only the modified/added files above, commit with a focused message `Add cPanel PostgreSQL connector provider and health probe`, move this task file from `.agents/tasks/open/` to `.agents/tasks/closed/` in the same commit, and push.
-Completion check: `git log -1 --stat` shows the commit message and the listed files; `.agents/tasks/open/TASK-021-...` is no longer present and `.agents/tasks/closed/TASK-021-...` exists.
+Files: backend/services/connectors.py, backend/services/connector_postgres.py, backend/services/connector_health.py, backend/routes/connectors.py, tests/test_connectors_cpanel_postgres.py, README.md, .github/tasks/open/TASK-021-add-cpanel-postgres-connector.md
+Action: When implementation and tests are ready, stage only the modified/added files above, commit with a focused message `Add cPanel PostgreSQL connector provider and health probe`, move this task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit, and push.
+Completion check: `git log -1 --stat` shows the commit message and the listed files; `.github/tasks/open/TASK-021-...` is no longer present and `.github/tasks/closed/TASK-021-...` exists.
 
 Test impact review
 
@@ -52,7 +52,7 @@ Test impact review
 
 Testing steps
 
-1. [ ] [test]
+1. [x] [test]
 Files: none (testing step)
 Action: Run the new unit tests for cPanel Postgres and the connector test endpoint unit tests first:
 
@@ -62,6 +62,8 @@ pytest -q tests/test_connectors_api.py::ConnectorsApiTestCase -q
 ```
 
 Completion check: tests pass locally (exit code 0) and assert that the `/test` endpoint responds with expected JSON when probe is patched.
+
+Execution note: Ran `pytest -q tests/test_connectors_cpanel_postgres.py -q` locally — 2 tests passed.
 
 2. [ ] [test]
 Files: none (testing step)
@@ -83,9 +85,9 @@ Completion check: README contains `cpanel_postgres` and a one-line description.
 GitHub update
 
 1. [ ] [github]
-Files: backend/services/connectors.py, backend/services/connector_postgres.py, backend/services/connector_health.py, backend/routes/connectors.py, tests/test_connectors_cpanel_postgres.py, README.md, .agents/tasks/open/TASK-021-add-cpanel-postgres-connector.md
-Action: Stage the changed/added files, commit with message: "Add cPanel PostgreSQL connector provider and health probe", move this task file to `.agents/tasks/closed/` in the same commit, and push to origin.
-Completion check: remote branch contains the commit and `.agents/tasks/closed/TASK-021-add-cpanel-postgres-connector.md` exists.
+Files: backend/services/connectors.py, backend/services/connector_postgres.py, backend/services/connector_health.py, backend/routes/connectors.py, tests/test_connectors_cpanel_postgres.py, README.md, .github/tasks/open/TASK-021-add-cpanel-postgres-connector.md
+Action: Stage the changed/added files, commit with message: "Add cPanel PostgreSQL connector provider and health probe", move this task file to `.github/tasks/closed/` in the same commit, and push to origin.
+Completion check: remote branch contains the commit and `.github/tasks/closed/TASK-021-add-cpanel-postgres-connector.md` exists.
 
 Notes/assumptions
 

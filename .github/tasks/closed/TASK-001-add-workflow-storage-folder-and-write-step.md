@@ -76,7 +76,7 @@ Completion check: Changes pushed to the remote repository; commit message follow
 Run notes: Committed and pushed the task updates.
 
 - Commit: `514bf88` (partial) — message: "Add workflow storage folder and extend write step to support storage types with append/timestamp rules"
-- Files staged and pushed: `.agents/tasks/open/TASK-001-add-workflow-storage-folder-and-write-step.md`, `.agents/tasks/open/TASK-002-update-ui-write-step.md`
+- Files staged and pushed: `.github/tasks/open/TASK-001-add-workflow-storage-folder-and-write-step.md`, `.github/tasks/open/TASK-002-update-ui-write-step.md`
 
 Testing steps
 
@@ -105,7 +105,7 @@ Action: Stage only the changed files, commit with a clear message, and push the 
 Completion check: Changes pushed to the remote repository; commit message follows repository conventions.
 
 Run notes:
-- Committed and pushed: `AGENTS.md`, `backend/AGENTS.md`, `.agents/tasks/open/TASK-001-add-workflow-storage-folder-and-write-step.md`.
+- Committed and pushed: `AGENTS.md`, `backend/AGENTS.md`, `.github/tasks/open/TASK-001-add-workflow-storage-folder-and-write-step.md`.
 - Commit: "Document workflow storage: examples, defaults, and task notes" (pushed to `main`).
 
 Notes and hand-off

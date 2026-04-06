@@ -1,4 +1,4 @@
-Path: .agents/tasks/open/TASK-004-replace-runtime-resource-profile-with-resource-dashboard.md
+Path: .github/tasks/open/TASK-004-replace-runtime-resource-profile-with-resource-dashboard.md
 
 Confirm and update task instructions
 

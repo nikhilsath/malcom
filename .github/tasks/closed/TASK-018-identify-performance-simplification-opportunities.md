@@ -46,9 +46,9 @@ Action: Document the canonical owner for connector OAuth lifecycle (move note to
 Completion check: `backend/AGENTS.md` contains a short paragraph mentioning `RuntimeEventBus` and connector OAuth ownership (verify with `grep -n "RuntimeEventBus\|connector OAuth" backend/AGENTS.md`).
 
 10. [ ] [github]
-Files: .agents/tasks/open/TASK-018-identify-performance-simplification-opportunities.md (this file), plus the changed/created files listed above when implemented
-Action: Stage only the task file (this file) now. After executor implements each code change, they should stage the minimal changes grouped by concern (runtime, executor, workflow_storage, db-schema, connectors, ui), commit with focused messages, and push. Move this task file to `.agents/tasks/closed/` only when all implementation steps are complete.
-Completion check: This task file remains in `.agents/tasks/open/` until an executor confirms all changes; the executor will commit implementation patches separately.
+Files: .github/tasks/open/TASK-018-identify-performance-simplification-opportunities.md (this file), plus the changed/created files listed above when implemented
+Action: Stage only the task file (this file) now. After executor implements each code change, they should stage the minimal changes grouped by concern (runtime, executor, workflow_storage, db-schema, connectors, ui), commit with focused messages, and push. Move this task file to `.github/tasks/closed/` only when all implementation steps are complete.
+Completion check: This task file remains in `.github/tasks/open/` until an executor confirms all changes; the executor will commit implementation patches separately.
 
 Test impact review
 
@@ -67,24 +67,24 @@ pytest -q tests/test_runtime_performance.py::test_runtime_eventbus_requeue_perfo
 pytest -q tests/test_workflow_storage.py
 pytest -q tests/test_connectors_for_builder.py
 ```
-Completion check: Each targeted command runs and outputs runtime numbers or test pass/fail; record results in `.agents/tasks/open/TASK-018-test-run-results.md`.
+Completion check: Each targeted command runs and outputs runtime numbers or test pass/fail; record results in `.github/tasks/open/TASK-018-test-run-results.md`.
 
 2. [ ] [test]
 Files: none (commands)
 Action: After DB index migration is added, run only the workflow persistence test and record execution time before/after: `pytest -q tests/test_workflow_storage.py::test_large_workflow_persistence -q` (adjust test name to match repo tests if different).
-Completion check: A runtimes snapshot line is added to `.agents/tasks/open/TASK-018-test-run-results.md`.
+Completion check: A runtimes snapshot line is added to `.github/tasks/open/TASK-018-test-run-results.md`.
 
 Documentation review
 
 1. [ ] [docs]
 Files: AGENTS.md, backend/AGENTS.md, README.md
-Action: Apply the short docs edits captured above (connector OAuth owner, RuntimeEventBus note). If no doc edits are necessary, note "no doc changes required" in `.agents/tasks/open/TASK-018-docs-review.md`.
+Action: Apply the short docs edits captured above (connector OAuth owner, RuntimeEventBus note). If no doc edits are necessary, note "no doc changes required" in `.github/tasks/open/TASK-018-docs-review.md`.
 Completion check: `backend/AGENTS.md` updated or `TASK-018-docs-review.md` created stating no changes.
 
 GitHub update
 
 1. [ ] [github]
-Files: `.agents/tasks/open/TASK-018-identify-performance-simplification-opportunities.md`
+Files: `.github/tasks/open/TASK-018-identify-performance-simplification-opportunities.md`
 Action: Stage this updated task file and commit it with message: "TASK-018: replace discovery with concrete cleanup steps for runtime, executor, storage, db, connectors, and UI". Push the commit. Executors will stage implementation changes in separate commits grouped by concern.
 Completion check: Commit pushed containing only the updated task file.
 
