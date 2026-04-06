@@ -169,8 +169,8 @@ check_documentation_ownership_model() {
     missing+=(".agents/module-contracts directory must be retired")
   fi
 
-  if [[ -d ".agents/tasks" ]]; then
-    missing+=(".agents/tasks directory must be retired after migration to .github/tasks")
+  if [[ -d ".agents" ]] && [[ -d ".agents"/"tasks" ]]; then
+    missing+=("Legacy tasks directory must be retired after migration to .github/tasks")
   fi
 
   if [[ ! -d ".github/tasks/open" ]]; then
