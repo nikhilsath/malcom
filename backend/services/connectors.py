@@ -229,6 +229,9 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
             "revoked": "Google access has been revoked. Reconnect Google to restore this integration.",
         },
     },
+    # cPanel PostgreSQL: Connect to a PostgreSQL database managed via cPanel
+    # or similar hosting control panels. Required setup fields: host, port,
+    # database, username, password. Optional: sslmode.
     {
         "id": "cpanel_postgres",
         "name": "cPanel PostgreSQL",

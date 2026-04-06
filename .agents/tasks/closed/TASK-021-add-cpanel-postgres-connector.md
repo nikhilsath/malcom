@@ -8,10 +8,12 @@ Files: backend/services/connectors.py
 Action: Add a new connector provider id `cpanel_postgres` to `SUPPORTED_CONNECTOR_PROVIDERS` and add a catalog entry in `DEFAULT_CONNECTOR_CATALOG`. Add a matching provider metadata entry in `DEFAULT_CONNECTOR_PROVIDER_METADATA` describing setup fields: host, port, database, username, password, optional `sslmode`, `auth_types` set to ["basic"], and docs/ui copy. Keep naming consistent with existing provider IDs.
 Completion check: `grep -n "cpanel_postgres" backend/services/connectors.py` returns at least one match and the catalog/provider metadata contains the new entry.
 Note: Added `backend/services/connector_postgres.py` implementing `probe_postgres_connection` and `_probe_cpanel_postgres_credentials` in `connector_health.py`.
-1. [-] [backend]
+1. [x] [backend]
 Files: backend/services/connector_health.py, backend/services/connector_postgres.py (new)
 Action: Implement a Postgres connection probe helper. Create `backend/services/connector_postgres.py` exposing `probe_postgres_connection(auth_config: dict[str, Any]) -> tuple[bool, str]` which uses `psycopg` (psycopg[binary]) to attempt a short connection with provided host, port, dbname, user, password and optional sslmode; return `(True, "PostgreSQL connection verified.")` on success and `(False, "<user-facing message>")` or raise `HTTPException` with 502 on network errors similar to other probes. Add a thin wrapper `_probe_cpanel_postgres_credentials` in `connector_health.py` that calls the new helper and normalizes messages.
 Completion check: file `backend/services/connector_postgres.py` exists and `connector_health.py` contains `_probe_cpanel_postgres_credentials` or an import referencing `probe_postgres_connection`.
+
+Execution note: `backend/services/connector_postgres.py` already existed and exposes `probe_postgres_connection`; `connector_health.py` imports it and contains `_probe_cpanel_postgres_credentials` which calls the probe. Verified present.
 
 Note: I'll add the provider id, catalog entry, and provider metadata in `backend/services/connectors.py`.
 1. [x] [backend]
@@ -23,6 +25,8 @@ Note: Added `cpanel_postgres` to `SUPPORTED_CONNECTOR_PROVIDERS`, inserted a cat
 Files: tests/test_connectors_cpanel_postgres.py
 Action: Add unit tests that create a `cpanel_postgres` connector record via `POST /api/v1/connectors` and assert `POST /api/v1/connectors/{id}/test` behaves as expected. To avoid external dependencies, patch the probe function to return success/failure in the test (use `unittest.mock.patch`), following existing test patterns used for Notion/Trello/GitHub. Keep tests isolated and deterministic.
 Completion check: `ls tests | grep test_connectors_cpanel_postgres.py` and the test file imports the connector API and uses patch to simulate probe results.
+
+Execution note: `tests/test_connectors_cpanel_postgres.py` created and patches `backend.services.connector_postgres.probe_postgres_connection` to simulate probe outcomes.
 
 5. [ ] [docs]
 Files: README.md, backend/services/connectors.py (doc strings)

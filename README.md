@@ -632,6 +632,10 @@ These items are non-blocking and tracked for future work:
 - **Step 13**: Decompose oversized UI form components inside `ui/src/automation/step-editors/`.
 - **Step 14**: Extract dashboard-specific logic from mixed-concern components into focused modules.
 
+## Connector providers
+
+- **cpanel_postgres**: Connect to a PostgreSQL database managed in cPanel or similar hosting control panels. Provide `host`, `port`, `database`, `username`, and `password` when creating the connector. Use the `Check connection` action to verify credentials and reachability.
+
 ---
 
 ## Quick Start
