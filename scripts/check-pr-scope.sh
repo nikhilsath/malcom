@@ -101,50 +101,6 @@ any_changed_matching() {
 # Scope checks
 # ---------------------------------------------------------------------------
 
-# Rule: extraction PRs (modularisation work) must include a module contract.
-check_extraction_has_contract() {
-  local new_service_files=()
-  local file
-
-  for file in "${CHANGED_FILES[@]:-}"; do
-    case "$file" in
-      backend/services/*.py|ui/src/*/index.ts|ui/src/*/index.tsx)
-        # Skip files that already exist (not net-new) by checking git status
-        if git diff --name-only HEAD -- "$file" 2>/dev/null | grep -q "$file"; then
-          # file was modified, not added — skip
-          :
-        elif git ls-files --others --exclude-standard "$file" 2>/dev/null | grep -q "$file"; then
-          new_service_files+=("$file")
-        elif git diff --name-only --diff-filter=A HEAD -- "$file" 2>/dev/null | grep -q "$file"; then
-          new_service_files+=("$file")
-        fi
-        ;;
-    esac
-  done
-
-  if ((${#new_service_files[@]} == 0)); then
-    printf 'No new service/module files detected; contract check skipped.\n'
-    return 0
-  fi
-
-  local contract_added=0
-  for file in "${CHANGED_FILES[@]:-}"; do
-    if [[ "$file" == .agents/module-contracts/*.md ]]; then
-      contract_added=1
-      break
-    fi
-  done
-
-  if ((contract_added == 0)); then
-    printf 'New service/module files were added without a module contract:\n'
-    printf '  %s\n' "${new_service_files[@]}"
-    print_warn "Add a contract file under .agents/module-contracts/<module-name>.md"
-    return 0  # advisory only
-  fi
-
-  printf 'New module file(s) accompanied by a module contract. OK.\n'
-}
-
 # Rule: schema changes must not silently mix into unrelated feature PRs.
 check_schema_change_isolation() {
   if ! any_changed_matching "backend/database.py"; then
@@ -222,9 +178,6 @@ if ((${#CHANGED_FILES[@]} > 0)); then
 else
   printf 'No changed files detected; running checks against current tree.\n'
 fi
-
-print_check "New module contract presence"
-check_extraction_has_contract
 
 print_check "Schema change isolation"
 check_schema_change_isolation

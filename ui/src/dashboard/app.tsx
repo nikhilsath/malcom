@@ -462,6 +462,7 @@ const LogsPage = () => {
   const [category, setCategory] = useState("all");
   const [timeframe, setTimeframe] = useState("all");
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [clearStatus, setClearStatus] = useState<string | null>(null);
 
   const visibleEntries = logsResponse
     ? logsResponse.entries.slice(0, logsResponse.settings.maxVisibleEntries)
@@ -541,21 +542,47 @@ const LogsPage = () => {
           title="Detailed log filters"
           description="Filter by severity, source, category, time window, and free-text matches across message, context, and details."
           action={
-            <button
-              type="button"
-              id="dashboard-logs-reset-button"
-              className="button button--secondary secondary-action-button"
-              onClick={() => {
-                setQuery("");
-                setLevel("all");
-                setSource("all");
-                setCategory("all");
-                setTimeframe("all");
-                setSelectedEntryId(null);
-              }}
-            >
-              Reset filters
-            </button>
+            <div id="dashboard-logs-toolbar-actions" className="dashboard-toolbar__actions">
+              {clearStatus ? (
+                <p id="dashboard-logs-clear-status" className="dashboard-toolbar__description">
+                  {clearStatus}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                id="dashboard-logs-clear-button"
+                className="button button--secondary secondary-action-button"
+                onClick={async () => {
+                  if (!window.confirm("Clear application and Caddy logs?")) {
+                    return;
+                  }
+
+                  const wasCleared = await dashboardApi.clearLogs();
+                  setClearStatus(wasCleared ? "Logs cleared." : "Unable to clear logs.");
+                  if (wasCleared) {
+                    setSelectedEntryId(null);
+                  }
+                }}
+              >
+                Clear logs
+              </button>
+              <button
+                type="button"
+                id="dashboard-logs-reset-button"
+                className="button button--secondary secondary-action-button"
+                onClick={() => {
+                  setQuery("");
+                  setLevel("all");
+                  setSource("all");
+                  setCategory("all");
+                  setTimeframe("all");
+                  setSelectedEntryId(null);
+                  setClearStatus(null);
+                }}
+              >
+                Reset filters
+              </button>
+            </div>
           }
         />
         <form id="dashboard-logs-filters" className="dashboard-log-filters">

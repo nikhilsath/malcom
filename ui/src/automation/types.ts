@@ -1,7 +1,7 @@
 // Shared types and utilities for the automation builder.
 // Imported by app.tsx and all step-modal components.
 
-export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email";
+export type TriggerType = "manual" | "schedule" | "inbound_api" | "smtp_email" | "github";
 export type StepType = "log" | "api" | "script" | "tool" | "condition" | "llm_chat" | "outbound_request" | "connector_activity";
 
 export type AutomationBuilderOption = {
@@ -56,7 +56,8 @@ export const triggerTypeOptions: Array<{ value: TriggerType; label: string }> = 
   { value: "manual", label: "Manual" },
   { value: "schedule", label: "Schedule" },
   { value: "inbound_api", label: "Inbound API" },
-  { value: "smtp_email", label: "SMTP email" }
+  { value: "smtp_email", label: "SMTP email" },
+  { value: "github", label: "GitHub webhook", description: "Trigger when a GitHub repository emits selected events." }
 ];
 
 export type ToolInputField = {

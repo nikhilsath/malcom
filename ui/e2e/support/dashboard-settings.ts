@@ -534,8 +534,30 @@ export async function installDashboardSettingsFixtures(page: Page, options: Dash
           max_visible_entries: Number(loggingSettings?.max_visible_entries || 50),
           max_detail_characters: Number(loggingSettings?.max_detail_characters || 4000)
         },
+        metadata: {
+          allowed_levels: [
+            { value: "debug", label: "Debug" },
+            { value: "info", label: "Info" },
+            { value: "warning", label: "Warning" },
+            { value: "error", label: "Error" }
+          ]
+        },
         entries: state.logs
       })
+    });
+  });
+
+  await page.route("**/api/v1/dashboard/logs/clear", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    state.logs = [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, cleared: ["application", "caddy"], skipped: [], errors: [] })
     });
   });
 

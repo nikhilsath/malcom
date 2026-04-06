@@ -58,6 +58,13 @@ class AutomationTriggerConfig(BaseModel):
     inbound_api_id: str | None = Field(default=None, max_length=120)
     smtp_subject: str | None = Field(default=None, max_length=500)
     smtp_recipient_email: str | None = Field(default=None, max_length=320)
+    # GitHub trigger fields
+    github_owner: str | None = Field(default=None, max_length=120)
+    github_repo: str | None = Field(default=None, max_length=120)
+    github_event_type: str | None = Field(default=None, max_length=120)
+    github_branch_filter: str | None = Field(default=None, max_length=200)
+    github_path_filter: str | None = Field(default=None, max_length=1000)
+    github_secret: str | None = Field(default=None, max_length=500)
 
 
 class AutomationStepConfig(BaseModel):
@@ -119,7 +126,7 @@ class AutomationSummaryResponse(BaseModel):
     name: str
     description: str
     enabled: bool
-    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email"]
+    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email", "github"]
     trigger_config: AutomationTriggerConfig
     step_count: int
     created_at: str
@@ -136,7 +143,7 @@ class AutomationCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
     enabled: bool = True
-    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email"]
+    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email", "github"]
     trigger_config: AutomationTriggerConfig = Field(default_factory=AutomationTriggerConfig)
     steps: list[AutomationStepDefinition] = Field(default_factory=list, max_length=50)
 
@@ -145,7 +152,7 @@ class AutomationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     enabled: bool | None = None
-    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email"] | None = None
+    trigger_type: Literal["manual", "schedule", "inbound_api", "smtp_email", "github"] | None = None
     trigger_config: AutomationTriggerConfig | None = None
     steps: list[AutomationStepDefinition] | None = Field(default=None, max_length=50)
 

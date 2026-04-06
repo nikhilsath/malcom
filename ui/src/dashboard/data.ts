@@ -801,6 +801,21 @@ export const dashboardApi = {
     }
   },
 
+  async clearLogs(): Promise<boolean> {
+    try {
+      const response = await fetch("/api/v1/dashboard/logs/clear", { method: "POST" });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      window.dispatchEvent(new CustomEvent("malcom:logs-updated"));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async getQueue(): Promise<DashboardQueueResponse> {
     try {
       const response = await fetch("/api/v1/dashboard/queue");

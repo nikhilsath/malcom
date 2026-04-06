@@ -81,10 +81,18 @@ const defaultDashboardLogsPayload = {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.stubGlobal("confirm", vi.fn(() => true));
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+    vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+
+      if (url.includes("/api/v1/dashboard/logs/clear") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, cleared: ["application", "caddy"], skipped: [], errors: [] })
+        };
+      }
 
       if (url.includes("/api/v1/dashboard/queue")) {
         return {
@@ -444,6 +452,57 @@ describe("DashboardApp", () => {
     expect(screen.getAllByText("Default logging thresholds applied.").length).toBeGreaterThan(0);
     expect(screen.getByText("Event id")).toBeInTheDocument();
     expect(screen.getByText("log-settings-defaults")).toBeInTheDocument();
+  });
+
+  it("clears logs from the logs route after confirmation", async () => {
+    let logsCleared = false;
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/v1/dashboard/logs/clear") && init?.method === "POST") {
+        logsCleared = true;
+        return {
+          ok: true,
+          json: async () => ({ ok: true, cleared: ["application", "caddy"], skipped: [], errors: [] })
+        };
+      }
+
+      if (url.includes("/api/v1/dashboard/logs")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ...defaultDashboardLogsPayload,
+            entries: logsCleared ? [] : defaultDashboardLogsPayload.entries
+          })
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ host: null, devices: [] })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDashboardApp(["/logs"]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Dashboard Logs")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear logs" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/dashboard/logs/clear", { method: "POST" });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Logs cleared.")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("No logs match the current filters")).toBeInTheDocument();
+    });
   });
 
   it("renders the queue route when requested", async () => {

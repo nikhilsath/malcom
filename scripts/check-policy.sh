@@ -239,7 +239,7 @@ check_policy_family_review() {
 }
 
 check_repo_scan_index_shape() {
-  local tracker_file=".agents/repo-scan-index.md"
+  local tracker_file=".github/repo-scan-index.md"
   local missing_markers=()
   local marker
 

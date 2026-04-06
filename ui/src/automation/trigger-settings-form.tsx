@@ -317,6 +317,62 @@ export const TriggerSettingsForm = ({
       );
     }
 
+      if (value.trigger_type === "github") {
+        return (
+          <>
+            <label id={id("trigger-github-owner-field")} className="automation-field automation-field--full">
+              <span id={id("trigger-github-owner-label")} className="automation-field__label">Repository owner</span>
+              <input
+                id={id("trigger-github-owner-input")}
+                className="automation-input"
+                value={(value.trigger_config as any).github_owner || ""}
+                onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, github_owner: event.target.value } })}
+                placeholder="e.g. octocat"
+              />
+            </label>
+
+            <label id={id("trigger-github-repo-field")} className="automation-field automation-field--full">
+              <span id={id("trigger-github-repo-label")} className="automation-field__label">Repository name</span>
+              <input
+                id={id("trigger-github-repo-input")}
+                className="automation-input"
+                value={(value.trigger_config as any).github_repo || ""}
+                onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, github_repo: event.target.value } })}
+                placeholder="e.g. hello-world"
+              />
+            </label>
+
+            <label id={id("trigger-github-events-field")} className="automation-field automation-field--full">
+              <span id={id("trigger-github-events-label")} className="automation-field__label">Events</span>
+              <input
+                id={id("trigger-github-events-input")}
+                className="automation-input"
+                value={((value.trigger_config as any).github_events || []).join(",")}
+                onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, github_events: event.target.value.split(",").map((s) => s.trim()).filter(Boolean) } })}
+                placeholder="push,pull_request,issues"
+              />
+              <span id={id("trigger-github-events-help")} className="automation-switch-field__description">Comma-separated GitHub event names.</span>
+            </label>
+
+            <label id={id("trigger-github-secret-field")} className="automation-field automation-field--full">
+              <span id={id("trigger-github-secret-label")} className="automation-field__label">Webhook secret</span>
+              <input
+                id={id("trigger-github-secret-input")}
+                className="automation-input"
+                type="password"
+                value={(value.trigger_config as any).github_secret || ""}
+                onChange={(event) => onPatch({ trigger_config: { ...value.trigger_config, github_secret: event.target.value } })}
+                placeholder="Optional secret for signature verification"
+              />
+            </label>
+
+            <span id={id("trigger-github-help")} className="automation-switch-field__description">
+              Configure the repository and events that will trigger this automation. The runtime will validate delivery signatures when a secret is provided.
+            </span>
+          </>
+        );
+      }
+
     return (
       <div id={id("trigger-manual-help")} className="automation-switch-field__description">
         Manual triggers do not need additional settings. Run the automation directly when you are ready.

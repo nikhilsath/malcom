@@ -30,6 +30,7 @@ from backend.schemas.apis import (
     WebhookApiResourceCreate,
 )
 from backend.services.support import *
+from backend.services.github_webhook import extract_delivery_id, normalize_github_event
 
 
 JsonLoader = Callable[[], Awaitable[Any]]
@@ -511,6 +512,7 @@ def log_webhook_event(
     received_at: str,
     status_value: str,
     event_name: str | None,
+    delivery_id: str | None = None,
     verification_ok: bool,
     signature_ok: bool,
     headers: dict[str, str],
@@ -528,6 +530,7 @@ def log_webhook_event(
             received_at,
             status,
             event_name,
+            delivery_id,
             verification_ok,
             signature_ok,
             request_headers_subset,
@@ -545,6 +548,7 @@ def log_webhook_event(
             received_at,
             status_value,
             event_name,
+            delivery_id,
             int(verification_ok),
             int(signature_ok),
             json.dumps(headers),
@@ -644,6 +648,13 @@ async def receive_webhook_event(
     )
     event_name = _infer_webhook_event_name(headers, payload)
 
+    # Extract GitHub delivery id for dedupe/audit when present
+    delivery_id: str | None = None
+    try:
+        delivery_id = extract_delivery_id(headers)
+    except Exception:
+        delivery_id = None
+
     if not verification_ok:
         log_webhook_event(
             connection,
@@ -652,6 +663,7 @@ async def receive_webhook_event(
             received_at=received_at,
             status_value="invalid_verification",
             event_name=event_name,
+            delivery_id=delivery_id,
             verification_ok=False,
             signature_ok=signature_ok,
             headers=header_subset(request.headers),
@@ -670,6 +682,7 @@ async def receive_webhook_event(
             received_at=received_at,
             status_value="invalid_signature",
             event_name=event_name,
+            delivery_id=delivery_id,
             verification_ok=True,
             signature_ok=False,
             headers=header_subset(request.headers),
@@ -689,6 +702,7 @@ async def receive_webhook_event(
             received_at=received_at,
             status_value="ignored",
             event_name=event_name,
+            delivery_id=delivery_id,
             verification_ok=True,
             signature_ok=True,
             headers=header_subset(request.headers),
@@ -714,7 +728,53 @@ async def receive_webhook_event(
         "verification_ok": verification_ok,
         "signature_ok": signature_ok,
         "callback_path": api_row.get("callback_path") or "",
+        "delivery_id": delivery_id,
     }
+    # Attach normalized GitHub event if this looks like a GitHub delivery
+    try:
+        if event_name and (str(event_name).lower() in ("push", "pull_request") or headers.get("x-github-event")):
+            normalized, metadata = normalize_github_event(payload if isinstance(payload, dict) else {}, str(event_name or ""))
+            webhook_payload["normalized"] = normalized
+            webhook_payload["normalized_metadata"] = metadata
+    except Exception:
+        # Normalization must not break webhook processing; log and continue.
+        try:
+            write_application_log(logger, logging.WARNING, "github_normalize_failed", api_id=api_row.get("id"), event_name=event_name)
+        except Exception:
+            pass
+
+    # Deduplicate by delivery id when possible. If the schema hasn't been migrated yet,
+    # the SELECT may fail — swallow errors and continue to avoid blocking webhook processing.
+    if delivery_id:
+        try:
+            existing = fetch_one(connection, "SELECT event_id FROM webhook_api_events WHERE delivery_id = ? LIMIT 1", (delivery_id,))
+        except Exception:
+            existing = None
+        if existing:
+            log_webhook_event(
+                connection,
+                event_id=event_id,
+                api_id=api_row["id"],
+                received_at=received_at,
+                status_value="duplicate",
+                event_name=event_name,
+                delivery_id=delivery_id,
+                verification_ok=verification_ok,
+                signature_ok=signature_ok,
+                headers=header_subset(request.headers),
+                payload=payload,
+                raw_body=raw_body,
+                source_ip=source_ip,
+                error_message="Duplicate delivery id",
+            )
+            return WebhookReceiveResult(
+                event_id=event_id,
+                accepted=InboundReceiveAccepted(
+                    status="duplicate",
+                    event_id=event_id,
+                    trigger={"type": "webhook", "api_id": api_row["id"], "event_id": event_id, "payload": None, "received_at": received_at},
+                ),
+            )
     triggered_automation_count = _execute_matching_webhook_automations(
         connection,
         logger,
@@ -730,6 +790,7 @@ async def receive_webhook_event(
         received_at=received_at,
         status_value="accepted",
         event_name=event_name,
+        delivery_id=delivery_id,
         verification_ok=True,
         signature_ok=True,
         headers=header_subset(request.headers),

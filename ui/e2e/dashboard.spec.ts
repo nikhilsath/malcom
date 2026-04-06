@@ -71,6 +71,11 @@ test("filters dashboard logs and opens the log detail modal", async ({ page }) =
 
   await page.keyboard.press("Escape");
   await expect(page.locator("#dashboard-log-details-modal")).toBeHidden();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator("#dashboard-logs-clear-button").click();
+  await expect(page.locator("#dashboard-logs-clear-status")).toHaveText("Logs cleared.");
+  await expect(page.locator("#dashboard-logs-empty")).toBeVisible();
 });
 
 test("renders the queue route and toggles pause controls", async ({ page }) => {

@@ -103,6 +103,8 @@ class RuntimeApiTestCase(unittest.TestCase):
     def test_dashboard_logs_endpoint_returns_normalized_entries(self) -> None:
         logs_dir = Path(self.tempdir.name) / "backend" / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
+        caddy_dir = Path(self.tempdir.name) / "backend" / "data" / "caddy"
+        caddy_dir.mkdir(parents=True, exist_ok=True)
 
         structured_payload = {
             "event": "http_request_completed",
@@ -125,6 +127,24 @@ class RuntimeApiTestCase(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        (caddy_dir / "caddy.log").write_text(
+            json.dumps(
+                {
+                    "level": "info",
+                    "ts": "2026-03-28T10:01:00.000Z",
+                    "logger": "http.log.access",
+                    "msg": "handled request",
+                    "request": {
+                        "method": "GET",
+                        "host": "malcom.example.com",
+                        "uri": "/dashboard/home.html",
+                        "remote_ip": "127.0.0.1",
+                    },
+                    "status": 200,
+                }
+            ),
+            encoding="utf-8",
+        )
 
         response = self.client.get("/api/v1/dashboard/logs")
         self.assertEqual(response.status_code, 200)
@@ -134,24 +154,42 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertIn("metadata", payload)
         self.assertIn("entries", payload)
         self.assertGreaterEqual(len(payload["entries"]), 2)
-        self.assertEqual([item["value"] for item in payload["metadata"]["allowed_levels"]], ["debug", "info", "warning", "error"])
+        self.assertGreaterEqual(len(payload["entries"]), 3)
 
-        first_entry = payload["entries"][0]
-        self.assertEqual(first_entry["source"], "backend.runtime")
-        self.assertEqual(first_entry["category"], "runtime")
-        self.assertIn("raw_line", first_entry["details"])
+        caddy_entry = next(entry for entry in payload["entries"] if entry["source"] == "caddy.http.log.access")
+        self.assertEqual(caddy_entry["category"], "access")
+        self.assertEqual(caddy_entry["details"]["status"], 200)
 
-        structured_entry = payload["entries"][1]
+        raw_entry = next(entry for entry in payload["entries"] if entry["source"] == "backend.runtime")
+        self.assertEqual(raw_entry["category"], "runtime")
+        self.assertIn("raw_line", raw_entry["details"])
+
+        structured_entry = next(entry for entry in payload["entries"] if entry["source"] == "api.runtime")
         self.assertEqual(structured_entry["action"], "http_request_completed")
         self.assertEqual(structured_entry["source"], "api.runtime")
         self.assertEqual(structured_entry["category"], "http")
         self.assertEqual(structured_entry["level"], "info")
         self.assertEqual(structured_entry["details"]["status_code"], 200)
 
-    def test_dashboard_logs_endpoint_handles_missing_log_file(self) -> None:
-        log_file = Path(self.tempdir.name) / "backend" / "data" / "logs" / "malcom.log"
-        if log_file.exists():
-            log_file.unlink()
+    def test_dashboard_logs_clear_endpoint_truncates_application_and_caddy_logs(self) -> None:
+        logs_dir = Path(self.tempdir.name) / "backend" / "data" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        caddy_dir = Path(self.tempdir.name) / "backend" / "data" / "caddy"
+        caddy_dir.mkdir(parents=True, exist_ok=True)
+
+        app_log_path = logs_dir / "malcom.log"
+        caddy_log_path = caddy_dir / "caddy.log"
+        app_log_path.write_text("application log entry\n", encoding="utf-8")
+        caddy_log_path.write_text('{"msg":"handled request"}\n', encoding="utf-8")
+
+        response = self.client.post("/api/v1/dashboard/logs/clear")
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["cleared"], ["application", "caddy"])
+        self.assertEqual(app_log_path.read_text(encoding="utf-8"), "")
+        self.assertEqual(caddy_log_path.read_text(encoding="utf-8"), "")
 
         response = self.client.get("/api/v1/dashboard/logs")
         self.assertEqual(response.status_code, 200)

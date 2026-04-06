@@ -34,13 +34,13 @@ Use `[AREA: audit]` for repository-wide review tasks that cannot be completed in
 
 Audit rules:
 
-1. Use `.agents/repo-scan-index.md` as the source of truth for repo-review progress.
+1. Use `.github/repo-scan-index.md` as the source of truth for repo-review progress.
 2. Review the repo in small batches by folder, subsystem, or another explicit scope; do not treat the whole repository as one undifferentiated pass.
 3. Load only the closest domain policy file for the current batch instead of loading every domain file up front.
 4. Update the tracker as work progresses using these statuses: `pending`, `in_progress`, `reviewed`, `needs_followup`, `blocked`, `skip_generated`.
 5. Mark a file as `reviewed` only after it has been opened and assessed for the stated audit scope.
 6. Use `needs_followup` for files that were inspected but need a second pass, and `skip_generated` for generated or forbidden paths that are intentionally excluded.
-7. Do not keep duplicate ad hoc progress trackers in task notes when `.agents/repo-scan-index.md` already covers the audit.
+7. Do not keep duplicate ad hoc progress trackers in task notes when `.github/repo-scan-index.md` already covers the audit.
 8. Do not claim a repo-wide review is complete unless every in-scope non-skipped file for that audit has been accounted for in the tracker.
 
 For `[AREA: audit]` responses, include the current batch, what was completed, what still needs follow-up, and the next recommended batch.
@@ -240,7 +240,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
-| Audit repo-wide file coverage or architecture in batches | `.agents/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
+| Audit repo-wide file coverage or architecture in batches | `.github/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
 | Update documentation ownership policy | `AGENTS.md`, `README.md`, `docs/**` | `.github/agents/fact-doc-writer.md`, `scripts/check-policy.sh` | parallel documentation systems outside tasks/AGENTS/README/docs |
 | Update agent response policy or instruction-following rules | `AGENTS.md`, `scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
@@ -249,7 +249,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
 | R-ROUTE-001 | If no `[AREA:]` prefix is provided, infer the area only when the task is clearly scoped; otherwise stop before domain-specific work and ask the user to choose from the supported area keywords | Prompt routing and policy loading |
-| R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.agents/repo-scan-index.md`, operate in explicit batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
+| R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.github/repo-scan-index.md`, operate in explicit batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CODE-001 | Keep files narrowly responsible; factor new concerns into adjacent modules/services instead of growing catch-all files | Implementation structure and refactors |
 | R-FIX-001 | Fix the canonical path instead of layering fallback branches, shadow state, or duplicate reads/writes, except for explicit staged migrations with documented removal | Behavior fixes and architecture corrections |
@@ -310,7 +310,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "ui_html_routes": ["backend/routes/ui.py"],
     "db_schema": ["backend/database.py"],
     "database_docs": ["AGENTS.md", "README.md"],
-    "repo_scan_tracker": [".agents/repo-scan-index.md"],
+    "repo_scan_tracker": [".github/repo-scan-index.md"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
@@ -357,7 +357,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     },
     "repo_audit": {
       "read": ["AGENTS.md"],
-      "edit": [".agents/repo-scan-index.md"],
+      "edit": [".github/repo-scan-index.md"],
       "verify": ["current batch files are accounted for with audit statuses and notes"]
     },
     "response_policy_update": {
@@ -459,6 +459,6 @@ Minimal scripts to include (examples):
 - `scripts/generate_repo_index.py` — produce `.indices/repo_index.json`.
 - `scripts/update_indices.sh` — wrapper that runs ctags, the repo manifest generator, and API/test mappers.
 
-Location: keep indexes under `.indices/` at the repo root and reference them from `AGENTS.md` and `.agents/repo-scan-index.md` when relevant.
+Location: keep indexes under `.indices/` at the repo root and reference them from `AGENTS.md` and `.github/repo-scan-index.md` when relevant.
 
 When to update: regenerate indexes after structural changes (routes, schema, major refactors) and during periodic CI runs to keep them fresh.

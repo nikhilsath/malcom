@@ -25,6 +25,7 @@ AUTOMATION_TRIGGER_TYPE_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "manual", "label": "Manual", "description": "Run the automation only when an operator starts it."},
     {"value": "schedule", "label": "Schedule", "description": "Start automatically at a set time each day."},
     {"value": "inbound_api", "label": "Inbound API", "description": "Start when an inbound API endpoint receives an event."},
+    {"value": "github", "label": "GitHub", "description": "Start when a configured GitHub repository event occurs (push, PR, etc)."},
     {"value": "smtp_email", "label": "SMTP email", "description": "Start when incoming email matches your filters."},
 )
 

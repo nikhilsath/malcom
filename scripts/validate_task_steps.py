@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 
-TASK_DIR = Path('.agents/tasks')
+TASK_DIR = Path('.github/tasks')
 PATTERN = re.compile(r'^\s*(\d+)\.\s*\[')
 SECTION_TITLES = [
     'Execution steps',

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from backend.schemas import *
 from backend.services.metrics import get_metrics_collector
 from backend.services.support import *
+from backend.services.dashboard_logs import clear_runtime_dashboard_logs, get_runtime_dashboard_logs_response
 
 router = APIRouter()
 
@@ -43,6 +44,11 @@ def get_dashboard_queue() -> DashboardQueueApiResponse:
 @router.get("/api/v1/dashboard/logs", response_model=DashboardLogsApiResponse)
 def get_dashboard_logs(request: Request) -> DashboardLogsApiResponse:
     return get_runtime_dashboard_logs_response(get_connection(request), get_root_dir(request))
+
+
+@router.post("/api/v1/dashboard/logs/clear")
+def clear_dashboard_logs(request: Request) -> dict[str, Any]:
+    return clear_runtime_dashboard_logs(get_root_dir(request))
 
 
 @router.get("/api/v1/dashboard/resource-history", response_model=DashboardResourceHistoryApiResponse)
