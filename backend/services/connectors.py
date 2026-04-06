@@ -763,7 +763,7 @@ def normalize_connector_auth_config_for_storage(
 
     next_auth_config["protected_secrets"] = protected_secrets
 
-    for field_name in ("client_id", "username", "header_name", "scope_preset", "redirect_uri", "expires_at"):
+    for field_name in ("client_id", "username", "host", "port", "database", "header_name", "scope_preset", "redirect_uri", "expires_at"):
         if field_name in incoming_auth_config:
             next_auth_config[field_name] = incoming_auth_config.get(field_name)
 
