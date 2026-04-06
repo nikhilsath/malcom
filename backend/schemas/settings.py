@@ -133,6 +133,10 @@ class ConnectorSettingsResponse(BaseModel):
 class ConnectorAuthConfigUpdate(BaseModel):
     client_id: str | None = Field(default=None, max_length=255)
     username: str | None = Field(default=None, max_length=120)
+    host: str | None = Field(default=None, max_length=255)
+    port: str | None = Field(default=None, max_length=10)
+    database: str | None = Field(default=None, max_length=255)
+    sslmode: str | None = Field(default=None, max_length=50)
     header_name: str | None = Field(default=None, max_length=120)
     scope_preset: str | None = Field(default=None, max_length=120)
     redirect_uri: str | None = Field(default=None, max_length=2000)
