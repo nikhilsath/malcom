@@ -11,7 +11,7 @@ from backend.services.connector_health import (
     _probe_trello_credentials,
     _inspect_github_scopes_from_payload,
 )
-from backend.services.connector_postgres import probe_postgres_connection
+import backend.services.connector_postgres as connector_postgres
 
 
 def test_connector_record(record: dict[str, Any], protection_secret: str | None = None) -> Tuple[bool, str, dict[str, Any]]:
@@ -86,7 +86,7 @@ def test_connector_record(record: dict[str, Any], protection_secret: str | None 
                 ok = False
             else:
                 try:
-                    ok, message = probe_postgres_connection(
+                    ok, message = connector_postgres.probe_postgres_connection(
                         {
                             "host": host,
                             "port": port,
