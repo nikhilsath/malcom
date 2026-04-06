@@ -184,6 +184,17 @@ DEFAULT_CONNECTOR_CATALOG: list[dict[str, Any]] = [
         "docs_url": "https://developer.atlassian.com/cloud/trello/guides/rest-api/api-introduction/",
         "base_url": "https://api.trello.com/1",
     },
+    {
+        "id": "cpanel_postgres",
+        "name": "cPanel PostgreSQL",
+        "description": "Connect to a PostgreSQL database managed in cPanel or similar hosting control panels.",
+        "category": "database",
+        "auth_types": ["basic"],
+        "default_scopes": [],
+        "recommended_scopes": [],
+        "docs_url": "",
+        "base_url": None,
+    },
 ]
 DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
     {
