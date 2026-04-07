@@ -401,6 +401,19 @@ Top-level automation definitions and trigger configuration.
 | `next_run_at` | `text` | Optional timestamp for the next scheduled run. |
 | `default_storage_location_id` | `text` | Optional default storage destination id for run artifacts. This points into storage settings, not a dedicated table. |
 
+#### SMTP email trigger
+
+Malcom supports starting automations when an incoming email is received by the built-in SMTP tool. Use the automation builder's trigger type `SMTP email` (`trigger_type` = `smtp_email`) to create rules that match on sender, recipient, or subject. Typical steps:
+
+- Start the SMTP listener (tool ID `smtp`) — the listener binds to a configured port (commonly `2525`) and can be started/stopped via the Tools UI or the tools API (`POST /api/v1/tools/smtp/start`, `POST /api/v1/tools/smtp/stop`, and `GET /api/v1/tools/smtp` for runtime state).
+- In the Automations builder select `SMTP email` as the trigger and configure filter criteria (subject/from/recipient). When a matching email arrives the automation will be enqueued and executed like other trigger types.
+
+Runtime notes:
+
+- The SMTP tool exposes recent received messages in its runtime state (`runtime.recent_messages`) for UI inspection and debugging.
+- SMTP-triggered automations use the same persisted run history and step-executor plumbing as other trigger types.
+
+
 #### `automation_steps`
 
 Ordered step definitions for each automation.
@@ -905,7 +918,7 @@ Maintainer update points for this lineage:
 
 **Source of truth**: `connectors` table rows. Any connector option shown in the builder must originate from this persistent location.
 
-Schema ownership note: PostgreSQL schema evolution is migration-driven through Alembic (`alembic.ini`, `backend/migrations/`), with `backend/database.py` as the runtime DB helper layer.
+Schema ownership note: PostgreSQL schema evolution is migration-driven through Alembic (`data/config/alembic.ini`, `backend/migrations/`), with `backend/database.py` as the runtime DB helper layer.
 
 Note: The Settings -> Connectors UI must fetch live connector availability from `GET /api/v1/connectors` (database-backed) on initial page load and must not rely on a cached `settings` payload as the authoritative source for connector availability.
 

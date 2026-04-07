@@ -615,7 +615,7 @@ def run_migrations(*, database_url: str) -> None:
     from alembic.config import Config
 
     project_root = Path(__file__).parent.parent
-    cfg = Config(str(project_root / "alembic.ini"))
+    cfg = Config(str(project_root / "data" / "config" / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", database_url)
     cfg.set_main_option("script_location", str(project_root / "backend" / "migrations"))
     command.upgrade(cfg, "head")
