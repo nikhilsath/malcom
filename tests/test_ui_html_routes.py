@@ -18,10 +18,10 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         self.root_dir = Path(self.tempdir.name)
         (self.root_dir / "tools").mkdir(parents=True, exist_ok=True)
         (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
-        (self.root_dir / "media").mkdir(parents=True, exist_ok=True)
+        (self.root_dir / "data" / "media").mkdir(parents=True, exist_ok=True)
         dist_dir = self.root_dir / "ui" / "dist"
         (dist_dir / "assets").mkdir(parents=True, exist_ok=True)
-        (self.root_dir / "media" / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
+        (self.root_dir / "data" / "media" / "favicon.ico").write_bytes(b"\x00\x00\x01\x00")
 
         for entry in get_served_ui_pages():
             destination = dist_dir / entry.source_html_path

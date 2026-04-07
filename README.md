@@ -716,7 +716,7 @@ What this launcher does:
 
 - Settings -> Data includes a Local backups section for creating and restoring PostgreSQL dumps from the current workspace database.
 - Backup creation and restore use `pg_dump` and `pg_restore` against `MALCOM_DATABASE_URL`.
-- Backup files are stored locally under `backend/data/backups/` in the repository workspace on the machine running Malcom.
+- Backup files are stored locally under `data/backups/` in the repository workspace on the machine running Malcom.
 - If PostgreSQL client binaries are missing from `PATH`, the Settings Data backup actions return an inline error instead of silently failing.
 
 ## Testing Workflow
@@ -1121,7 +1121,7 @@ Common ports:
 - `./malcom` requires `8000` to be free and aborts if it is occupied.
 - When available, `./malcom` prints existing listeners with `lsof` before exiting.
 - Playwright starts at `4173` and automatically selects the next free port if needed.
-- When startup or Playwright launch fails, check active listeners first and inspect `backend/data/logs/` for companion startup/runtime errors.
+- When startup or Playwright launch fails, check active listeners first and inspect `data/logs/` for companion startup/runtime errors.
 
 ### Playwright/browser setup
 

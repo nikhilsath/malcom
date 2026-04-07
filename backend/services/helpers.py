@@ -173,7 +173,7 @@ DEFAULT_COQUI_TTS_TOOL_CONFIG = {
     "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
     "speaker": "",
     "language": "",
-    "output_directory": "backend/data/generated/coqui-tts",
+    "output_directory": "data/generated/coqui-tts",
 }
 DEFAULT_IMAGE_MAGIC_TOOL_CONFIG = {
     "enabled": False,
@@ -369,7 +369,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "data": {
         "payload_redaction": True,
         "export_window_utc": "02:00",
-        "workflow_storage_path": "backend/data/workflows",
+        "workflow_storage_path": "data/workflows",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
     "proxy": {
@@ -4379,7 +4379,7 @@ def _execute_automation_step_impl(
             from backend.services.workflow_storage import execute_workflow_write
             from backend.services.settings import read_stored_settings_section
             data_settings = read_stored_settings_section(connection, "data") or {}
-            storage_path = data_settings.get("workflow_storage_path", "backend/data/workflows")
+            storage_path = data_settings.get("workflow_storage_path", "data/workflows")
             payload = step.config.message or {}
             if isinstance(payload, str):
                 try:

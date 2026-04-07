@@ -14,7 +14,7 @@ from backend.services.support import utc_now_iso
 
 def execute_log_step(connection: Any, logger: logging.Logger, *, automation_id: str, step: Any, context: dict[str, Any], root_dir: Path) -> dict:
     # This function encapsulates the logic for `log` steps extracted from automation_executor._execute_automation_step_impl
-    _DEFAULT_WORKFLOW_STORAGE_PATH = "backend/data/workflows"
+    _DEFAULT_WORKFLOW_STORAGE_PATH = "data/workflows"
     _DEFAULT_STORAGE_TYPE = "json"
     _DEFAULT_STORAGE_TARGET = "output"
 

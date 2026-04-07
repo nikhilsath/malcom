@@ -13,7 +13,7 @@ def invoke_image_magic_execute(case, context, state):
     with mock.patch(
         "backend.routes.tools.execute_image_magic_conversion_request",
         return_value={
-            "output_file_path": "backend/data/generated/image-magic/smoke-output.png",
+            "output_file_path": "data/generated/image-magic/smoke-output.png",
             "stdout": "ok",
         },
     ):

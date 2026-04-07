@@ -32,7 +32,7 @@ Applies to backend implementation, schema, API route behavior, connector/tool ba
   - backend business logic and service helpers
 - `backend/schemas.py`
   - Pydantic request/response models
-- `backend/data/logs/`
+- `data/logs/`
   - application log output
 
 ---

@@ -101,9 +101,9 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertIn("needs_attention", body["connector_health"])
 
     def test_dashboard_logs_endpoint_returns_normalized_entries(self) -> None:
-        logs_dir = Path(self.tempdir.name) / "backend" / "data" / "logs"
+        logs_dir = Path(self.tempdir.name) / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
-        caddy_dir = Path(self.tempdir.name) / "backend" / "data" / "caddy"
+        caddy_dir = Path(self.tempdir.name) / "data" / "caddy"
         caddy_dir.mkdir(parents=True, exist_ok=True)
 
         structured_payload = {
@@ -172,9 +172,9 @@ class RuntimeApiTestCase(unittest.TestCase):
         self.assertEqual(structured_entry["details"]["status_code"], 200)
 
     def test_dashboard_logs_clear_endpoint_truncates_application_and_caddy_logs(self) -> None:
-        logs_dir = Path(self.tempdir.name) / "backend" / "data" / "logs"
+        logs_dir = Path(self.tempdir.name) / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
-        caddy_dir = Path(self.tempdir.name) / "backend" / "data" / "caddy"
+        caddy_dir = Path(self.tempdir.name) / "data" / "caddy"
         caddy_dir.mkdir(parents=True, exist_ok=True)
 
         app_log_path = logs_dir / "malcom.log"

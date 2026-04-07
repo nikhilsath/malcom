@@ -614,7 +614,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
 
         with mock.patch(
             "backend.routes.tools.execute_image_magic_conversion_request",
-            return_value={"output_file_path": "backend/data/generated/image-magic/output.png", "stdout": "ok"},
+            return_value={"output_file_path": "data/generated/image-magic/output.png", "stdout": "ok"},
         ) as execute_conversion:
             response = self.client.post(
                 "/api/v1/tools/image-magic/execute",
@@ -657,7 +657,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         mocked_response = mock.Mock()
         mocked_response.json.return_value = {
             "ok": True,
-            "output_file_path": "backend/data/generated/image-magic/remote-output.png",
+            "output_file_path": "data/generated/image-magic/remote-output.png",
             "worker_id": "worker_remote_image",
             "worker_name": "Remote Image Worker",
         }

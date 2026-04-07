@@ -35,7 +35,7 @@ def build_redirect_route(redirect_target: str):
 @router.get("/favicon.ico")
 def serve_favicon(request: Request) -> FileResponse:
     root_dir = get_root_dir(request)
-    favicon_path = root_dir / "media" / "favicon.ico"
+    favicon_path = root_dir / "data" / "media" / "favicon.ico"
     if not favicon_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Favicon not found.")
     return FileResponse(favicon_path)

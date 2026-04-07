@@ -67,7 +67,7 @@ The settings response is normalized against these sections:
 - `general`: `environment` (`live`) and `timezone` (`utc|local|ops`, default `local`).
 - `logging`: `max_stored_entries` (50-5000, default 250), `max_visible_entries` (10-500, default 50), `max_detail_characters` (500-20000, default 4000), `max_file_size_mb` (1-100, default 5).
 - `notifications`: `channel` (`email|pager`, default `email`) and `digest` (`realtime|hourly|daily`, default `hourly`).
-- `data`: `payload_redaction` (default `true`), `export_window_utc` (`00:00|02:00|04:00`, default `02:00`), `workflow_storage_path` (default `backend/data/workflows`).
+- `data`: `payload_redaction` (default `true`), `export_window_utc` (`00:00|02:00|04:00`, default `02:00`), `workflow_storage_path` (default `data/workflows`).
 - `automation`: `default_tool_retries` (0-10, default 2).
 - `security`: `session_timeout_minutes` (`30|60|120|480`, default `60`), `dual_approval_required` (default `false`), `token_rotation_days` (`30|60|90`, default `90`).
 
@@ -83,7 +83,7 @@ Connector policy updates are served through `PATCH /api/v1/connectors/auth-polic
 
 - The settings UI includes proxy controls for domain, HTTP/HTTPS ports, and enabled state.
 - Settings PATCH handling includes a proxy sync branch that calls runtime sync for caddy proxy state when a `proxy` section is changed.
-- Runtime proxy state is written to `backend/data/caddy/public_proxy_runtime.json`.
+- Runtime proxy state is written to `data/caddy/public_proxy_runtime.json`.
 
 ### Backup and restore endpoints
 

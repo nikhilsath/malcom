@@ -60,8 +60,8 @@ The following table pairs the user-facing interaction (left) with the program ac
 
 | User interaction | Program actions |
 |---|---|
-| `POST /api/v1/settings/data/backups` (Create backup via UI) | `create_backup()` resolves DB URL, ensures `backend/data/backups/` exists, runs `pg_dump --format=custom --file <out_path> --dbname <db_url>`, returns metadata (`filename`, `path`, `created_at`, `size_bytes`). |
-| `GET /api/v1/settings/data/backups` (List backups in UI) | `list_backups()` enumerates `*.dump` files in `backend/data/backups/`, reads `stat()` for size/mtime, returns sorted metadata array. |
+| `POST /api/v1/settings/data/backups` (Create backup via UI) | `create_backup()` resolves DB URL, ensures `data/backups/` exists, runs `pg_dump --format=custom --file <out_path> --dbname <db_url>`, returns metadata (`filename`, `path`, `created_at`, `size_bytes`). |
+| `GET /api/v1/settings/data/backups` (List backups in UI) | `list_backups()` enumerates `*.dump` files in `data/backups/`, reads `stat()` for size/mtime, returns sorted metadata array. |
 | `POST /api/v1/settings/data/backups/restore` (Restore selected backup) | `restore_backup(filename)` verifies file exists, resolves DB URL, runs `pg_restore --dbname <db_url> --clean --if-exists <path>`, returns `restored_at` and `stdout`/`stderr`. |
 
 **Notes:** operator playbooks (manual shell restores) were removed — the product exposes create/list/restore via APIs and the UI for simple operations.
@@ -74,7 +74,7 @@ Implementation details and locations for engineers.
 
 | File | Purpose |
 |---|---|
-| `backend/services/settings_backup_restore.py` | Implements `create_backup()`, `list_backups()`, and `restore_backup()` using `pg_dump`/`pg_restore` and `backend/data/backups/` as storage. |
+| `backend/services/settings_backup_restore.py` | Implements `create_backup()`, `list_backups()`, and `restore_backup()` using `pg_dump`/`pg_restore` and `data/backups/` as storage. |
 | `backend/services/support.py` | Re-exports helpers for use by route handlers and higher-level services. |
 | `tests/test_settings_api.py` | Tests that mock backup helpers and exercise API flows for create/list/restore. |
 

@@ -352,7 +352,7 @@ const defaultCoquiTtsToolState: CoquiTtsToolState = {
     model_name: "tts_models/en/ljspeech/tacotron2-DDC",
     speaker: "ljspeech",
     language: "en",
-    output_directory: "backend/data/generated/coqui-tts"
+    output_directory: "data/generated/coqui-tts"
   }
 };
 
@@ -743,7 +743,7 @@ export async function stubImageMagicTool(page: Page, overrides: DeepPartial<Imag
     executeRequests.push(payload);
     await fulfillJson(route, {
       ok: true,
-      output_file_path: "backend/data/generated/image-magic/output.png",
+      output_file_path: "data/generated/image-magic/output.png",
       worker_id: "worker-local-1",
       worker_name: "Local Worker"
     });

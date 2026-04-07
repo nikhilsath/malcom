@@ -55,7 +55,7 @@ DEFAULT_COQUI_TTS_TOOL_CONFIG: dict[str, Any] = {
     "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
     "speaker": "",
     "language": "",
-    "output_directory": "backend/data/generated/coqui-tts",
+    "output_directory": "data/generated/coqui-tts",
 }
 DEFAULT_IMAGE_MAGIC_TOOL_CONFIG: dict[str, Any] = {
     "enabled": False,

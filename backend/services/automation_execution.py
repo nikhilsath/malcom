@@ -552,7 +552,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "data": {
         "payload_redaction": True,
         "export_window_utc": "02:00",
-        "workflow_storage_path": "backend/data/workflows",
+        "workflow_storage_path": "data/workflows",
     },
     "automation": DEFAULT_TOOL_RETRY_SETTINGS,
     "proxy": {

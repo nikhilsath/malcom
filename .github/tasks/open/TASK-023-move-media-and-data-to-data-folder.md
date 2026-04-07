@@ -12,22 +12,22 @@ Files: backend/main.py, backend/services/logging_service.py, backend/services/do
 Action: Replace hardcoded filesystem references from backend/data or root media directory to the new canonical data/* paths. Keep the public URL contract at /media (only filesystem source changes), following AGENTS.md#implementation-quality-and-source-of-truth (R-FIX-001, R-SOT-001).
 Completion check: These files resolve filesystem locations through root/data/* and no longer use root/backend/data/* or root/media for storage locations.
 
-3. [ ] [backend]
+3. [x] [backend]
 Files: backend/schemas/settings.py, backend/services/helpers.py, backend/services/tool_configs.py, backend/services/automation_execution.py, backend/services/automation_step_executors/log.py
 Action: Update default settings/config values from backend/data/* to data/* for workflow storage and generated output directories so new writes use canonical paths without compatibility indirection.
 Completion check: No backend/data/* default literals remain in these files; defaults now point to data/workflows or data/generated/* as appropriate.
 
-4. [ ] [ui]
+4. [x] [ui]
 Files: ui/tools/coqui-tts.html, ui/settings/data.html
 Action: Update user-facing path placeholders/examples from backend/data/* to data/* so UI guidance matches runtime canonical paths.
 Completion check: These UI files no longer reference backend/data/* placeholders.
 
-5. [ ] [test]
+5. [x] [test]
 Files: tests/test_ui_html_routes.py, tests/test_runtime_api.py, tests/test_tools_api.py, tests/api_smoke_registry/tools_cases.py, ui/e2e/tools-coqui-tts.spec.ts, ui/e2e/support/tools.ts
 Action: Update stale tests and fixtures to reflect canonical data/* filesystem paths and new media fixture location under data/media. Apply stale-test cleanup before broader validation per AGENTS.md#task-file-construction (R-TASK-002).
 Completion check: Updated test files contain data/* paths where applicable and no longer rely on backend/data/* path literals that changed in this task.
 
-6. [ ] [docs]
+6. [x] [docs]
 Files: README.md, docs/settings-reference.md, docs/backup-process.md, AGENTS.md, backend/AGENTS.md, tests/AGENTS.md
 Action: Align operator/developer documentation and policy references with the canonical data/* locations (backups, logs, workflows, caddy runtime paths), following AGENTS.md#documentation-ownership-model (R-DOC-001).
 Completion check: These docs no longer claim backend/data/* as the canonical runtime location where this task migrated behavior to data/*.
@@ -35,22 +35,22 @@ Completion check: These docs no longer claim backend/data/* as the canonical run
 
 ## Test impact review
 
-1. [ ] [test]
+1. [x] [test]
 Files: tests/test_ui_html_routes.py
 Action: Affected test: tests/test_ui_html_routes.py::UiHtmlRoutesTestCase::test_serves_favicon_from_media_directory. Intent: ensure favicon is still served via /favicon.ico after media filesystem source moved to data/media. Recommended action: update. Validation command: pytest tests/test_ui_html_routes.py::UiHtmlRoutesTestCase::test_serves_favicon_from_media_directory -q
 Completion check: Test fixture writes favicon under the migrated media source path and the targeted command is listed for execution.
 
-2. [ ] [test]
+2. [x] [test]
 Files: tests/test_runtime_api.py
 Action: Affected tests: tests/test_runtime_api.py::RuntimeApiTestCase::test_dashboard_logs_endpoint_returns_normalized_entries and tests/test_runtime_api.py::RuntimeApiTestCase::test_dashboard_logs_clear_endpoint_truncates_application_and_caddy_logs. Intent: verify dashboard log ingestion/clear behavior with logs now under data/logs and data/caddy. Recommended action: update. Validation command: pytest tests/test_runtime_api.py::RuntimeApiTestCase::test_dashboard_logs_endpoint_returns_normalized_entries tests/test_runtime_api.py::RuntimeApiTestCase::test_dashboard_logs_clear_endpoint_truncates_application_and_caddy_logs -q
 Completion check: Runtime API tests build fixtures in migrated directories and command is listed for execution.
 
-3. [ ] [test]
+3. [x] [test]
 Files: tests/test_tools_api.py, tests/api_smoke_registry/tools_cases.py, ui/e2e/tools-coqui-tts.spec.ts, ui/e2e/support/tools.ts
 Action: Affected tests: tool API and e2e fixtures that use backend/data/generated/* sample paths. Intent: keep tool contracts consistent with migrated default paths. Recommended action: update. Validation commands: pytest tests/test_tools_api.py -q and cd ui && npx playwright test e2e/tools-coqui-tts.spec.ts
 Completion check: Sample/expected generated output paths in these tests use data/generated/* and both validation commands are listed.
 
-4. [ ] [test]
+4. [x] [test]
 Files: tests/test_main_app_factory.py, tests/test_settings_api.py
 Action: Affected tests: tests/test_main_app_factory.py::MainAppFactoryTestCase::test_create_app_registers_core_routes_and_static_mounts and tests/test_settings_api.py::SettingsApiTestCase::test_get_settings_returns_seeded_defaults. Intent: verify unchanged API route surface (/media mount remains) and updated default settings payload contract. Recommended action: keep. Validation command: none (covered in Testing section).
 Completion check: Keep decision documented with explicit intent.
@@ -58,7 +58,7 @@ Completion check: Keep decision documented with explicit intent.
 
 ## Testing
 
-1. [ ] [test]
+1. [x] [test]
 Files: tests/test_ui_html_routes.py, tests/test_main_app_factory.py, tests/test_runtime_api.py, tests/test_settings_api.py
 Action: Run targeted backend verification after implementation edits:
 - pytest tests/test_ui_html_routes.py::UiHtmlRoutesTestCase::test_serves_favicon_from_media_directory -q
@@ -67,7 +67,7 @@ Action: Run targeted backend verification after implementation edits:
 - pytest tests/test_settings_api.py::SettingsApiTestCase::test_get_settings_returns_seeded_defaults -q
 Completion check: All listed pytest commands complete successfully.
 
-2. [ ] [test]
+2. [x] [test]
 Files: tests/test_tools_api.py, tests/api_smoke_registry/tools_cases.py, ui/e2e/tools-coqui-tts.spec.ts, ui/e2e/support/tools.ts
 Action: Run path-contract verification for tool defaults and e2e fixture usage:
 - pytest tests/test_tools_api.py -q

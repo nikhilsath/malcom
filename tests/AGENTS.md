@@ -49,7 +49,7 @@ Startup lifecycle coverage must include an explicit automated contract test in `
 Required triage steps:
 
 1. check active listeners/processes on expected ports (for example app, Vite, or Playwright web server ports)
-2. inspect `backend/data/logs/` for startup/runtime failures that accompany listener conflicts or partial startup
+2. inspect `data/logs/` for startup/runtime failures that accompany listener conflicts or partial startup
 3. report the specific conflicting process or listener in the task output
 4. remediate the conflict and rerun the same failing command to confirm recovery
 

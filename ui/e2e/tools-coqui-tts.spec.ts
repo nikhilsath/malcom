@@ -17,7 +17,7 @@ test("shows client-side validation and saves the Coqui TTS configuration", async
   await page.locator("#tools-coqui-enabled-input").selectOption("true");
   await page.locator("#tools-coqui-command-input").fill("tts");
   await page.locator("#tools-coqui-model-input").fill("tts_models/en/vctk/vits");
-  await page.locator("#tools-coqui-output-input").fill("backend/data/generated/coqui-tts-alt");
+  await page.locator("#tools-coqui-output-input").fill("data/generated/coqui-tts-alt");
   await page.locator("#tools-coqui-speaker-input").fill("speaker-2");
   await page.locator("#tools-coqui-language-input").fill("en-us");
   await page.locator("#tools-coqui-save-button").click();
@@ -25,6 +25,6 @@ test("shows client-side validation and saves the Coqui TTS configuration", async
   await expect.poll(() => coqui.savedConfigs.length).toBe(1);
   await expect(page.locator("#tools-coqui-status-value")).toHaveText("Enabled");
   await expect(page.locator("#tools-coqui-summary-model-value")).toHaveText("tts_models/en/vctk/vits");
-  await expect(page.locator("#tools-coqui-summary-output-value")).toHaveText("backend/data/generated/coqui-tts-alt");
+  await expect(page.locator("#tools-coqui-summary-output-value")).toHaveText("data/generated/coqui-tts-alt");
   await expect(page.locator("#tools-coqui-form-feedback")).toHaveText("Coqui TTS configuration saved.");
 });

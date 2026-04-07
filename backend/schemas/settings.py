@@ -27,7 +27,7 @@ class NotificationSettings(BaseModel):
 class DataSettings(BaseModel):
     payload_redaction: bool
     export_window_utc: str = Field(pattern=r"^(00:00|02:00|04:00)$")
-    workflow_storage_path: str = "backend/data/workflows"
+    workflow_storage_path: str = "data/workflows"
 
 
 class AutomationSettings(BaseModel):
