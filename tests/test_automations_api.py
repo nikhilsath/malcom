@@ -99,7 +99,7 @@ class AutomationsApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertEqual([item["value"] for item in body["trigger_types"]], ["manual", "schedule", "inbound_api", "smtp_email"])
+        self.assertEqual([item["value"] for item in body["trigger_types"]], ["manual", "schedule", "inbound_api", "github", "smtp_email"])
         self.assertEqual(
             [item["value"] for item in body["step_types"]],
             ["log", "connector_activity", "outbound_request", "script", "tool", "condition", "llm_chat"],
