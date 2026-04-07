@@ -12,7 +12,7 @@ from .utils import utc_now_iso
 
 
 def get_caddy_runtime_path(root_dir: Path) -> Path:
-    return root_dir / "backend" / "data" / "caddy" / "public_proxy_runtime.json"
+    return root_dir / "data" / "caddy" / "public_proxy_runtime.json"
 
 
 def sync_proxy_to_caddy_runtime(root_dir: Path, proxy_settings: dict[str, Any]) -> None:

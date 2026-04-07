@@ -20,7 +20,7 @@ DEFAULT_LOG_BACKUP_COUNT = 5
 
 
 def get_log_dir(root_dir: Path) -> Path:
-    return root_dir / "backend" / "data" / "logs"
+    return root_dir / "data" / "logs"
 
 
 def get_log_file_path(root_dir: Path) -> Path:

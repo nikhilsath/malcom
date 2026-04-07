@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
 
     project_root = get_project_root()
     app.mount("/assets", StaticFiles(directory=str(get_ui_dist_dir(project_root) / "assets"), check_dir=False), name="ui-assets")
-    app.mount("/media", StaticFiles(directory=str(project_root / "media"), check_dir=False), name="media")
+    app.mount("/media", StaticFiles(directory=str(project_root / "data" / "media"), check_dir=False), name="media")
     app.mount("/scripts", StaticFiles(directory=str(get_ui_dir(project_root) / "scripts"), check_dir=False), name="ui-scripts")
     app.mount("/styles", StaticFiles(directory=str(get_ui_dir(project_root) / "styles"), check_dir=False), name="ui-styles")
     app.mount("/modals", StaticFiles(directory=str(get_ui_dir(project_root) / "modals"), check_dir=False), name="ui-modals")

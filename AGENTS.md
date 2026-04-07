@@ -62,11 +62,32 @@ Canonical documentation locations are limited to the following:
 3. `README.md` for human-facing repository architecture, orientation, and contributor context
 4. `docs/**` for operator/user/contributor instructions and product usage guidance
 
+## Task Storage
+
+Tasks for execution and historical tracking are stored under `.github/tasks/` using two subfolders:
+
+- Open tasks: `.github/tasks/open/` — active task files created by the task-builder and executed by the task-executor.
+- Closed tasks: `.github/tasks/closed/` — completed task records kept for history and audit.
+
+Task filenames must follow the `TASK-###-short-human-name.md` convention and are the canonical source for task state. Use the `task-builder` and `task-executor` agent instructions in `.github/agents/` to create, update, and execute tasks; do not store task files elsewhere.
+
 Rules:
 
 1. Do not create or require a parallel module-contract documentation process outside these locations.
 2. Preserve historical task records under `.github/tasks/closed/**`; do not rewrite closed history unless explicitly requested.
 3. Keep documentation intent aligned with `.github/agents/fact-doc-writer.md` when authoring or updating `docs/**`.
+
+## Task File Construction {#task-file-construction}
+
+Task files created or updated by `task-builder` are execution artifacts, not parallel policy documents.
+
+Rules:
+
+1. Task files must use these sections in this order: `Execution steps`, `Test impact review`, `Testing`, `GitHub update`.
+2. Do not add a separate `Documentation review` section. If the change requires documentation updates under the ownership model, include those edits in `Execution steps`; otherwise omit doc-only review filler.
+3. Use `AGENTS.md`, domain `AGENTS.md` files, and `tests/AGENTS.md` as the source of truth for documentation ownership, testing workflow, and GitHub update behavior. Task files should reference those rules and describe only the concrete delta.
+4. Every task file must include `Test impact review` with affected test file paths, one-line intent, recommended action (`keep`, `update`, `replace`, or `remove`), and the exact validation command when the action is `update` or `replace`.
+5. If a current test will go stale, the task must update or replace that test before any broader validation step runs later in the file.
 
 ---
 
@@ -237,6 +258,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/AGENTS.md`, shared modal utilities, related tests | auto-open detail panes on load or permanent empty inline detail columns |
 | Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
 | Implement or change behavior | feature source files + matching tests | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
+| Update task execution planning policy | `AGENTS.md`, `.github/agents/task-builder.md`, `scripts/check-policy.sh` | `tests/AGENTS.md` when test workflow references change | unrelated app source files |
 | Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
 | Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `backend/data/logs/`, `README.md` | skipping listener/process diagnostics |
@@ -270,6 +292,8 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
 | R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
+| R-TASK-001 | Task files created by `task-builder` must use exactly these sections in order: `Execution steps`, `Test impact review`, `Testing`, `GitHub update`; documentation work belongs inside `Execution steps` instead of a separate documentation section | Task planning and execution artifacts |
+| R-TASK-002 | Every task file must include a `Test impact review` section that enumerates affected tests, intended handling, and exact validation commands for updated or replaced tests before broader validation runs | Task planning and stale-test prevention |
 | R-TEST-001 | Development work responses include expected behavior, but only for implementation-oriented tasks | All implementation responses |
 | R-RESP-001 | Do not add unprompted explanatory text or adjacent guidance beyond the explicit user request | All responses |
 | R-RESP-002 | Default to the shortest complete answer unless the user asks for more detail | All responses |
@@ -286,7 +310,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 26,
+  "version": 27,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -313,6 +337,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "repo_scan_tracker": [".github/repo-scan-index.md"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
+    "task_builder_agent": [".github/agents/task-builder.md"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
     "documentation_model": [".github/tasks/open/", ".github/tasks/closed/", "AGENTS.md", "README.md", "docs/**", ".github/agents/fact-doc-writer.md"],
     "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
@@ -365,6 +390,12 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "edit": ["AGENTS.md", "scripts/check-policy.sh", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "check": ["#required-output-for-development-work", "#response-scope-and-instruction-fidelity", "#maintenance-sync-rule", "#rules-matrix", "MACHINE_INDEX_START"],
       "verify": ["policy text, machine index, and scripts/check-policy.sh stay synchronized"]
+    },
+    "task_file_policy_update": {
+      "read": ["AGENTS.md", ".github/agents/task-builder.md", "tests/AGENTS.md"],
+      "edit": ["AGENTS.md", ".github/agents/task-builder.md", "scripts/check-policy.sh"],
+      "check": ["#task-file-construction", "#rules-matrix", "MACHINE_INDEX_START"],
+      "verify": ["task-builder defers to AGENTS policy for documentation/testing/github rules", "task files use the canonical section order and keep mandatory test impact review"]
     },
     "documentation_policy_update": {
       "read": ["AGENTS.md", "README.md", ".github/agents/fact-doc-writer.md"],

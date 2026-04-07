@@ -318,8 +318,8 @@ def _candidate_caddy_log_paths(root_dir: Path) -> list[Path]:
 
     candidates.extend(
         [
-            root_dir / "backend" / "data" / "caddy" / "caddy.log",
-            root_dir / "backend" / "data" / "caddy" / "access.log",
+            root_dir / "data" / "caddy" / "caddy.log",
+            root_dir / "data" / "caddy" / "access.log",
             Path("/var/log/caddy/caddy.log"),
             Path("/var/log/caddy/access.log"),
             Path("/opt/homebrew/var/log/caddy/access.log"),

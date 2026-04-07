@@ -19,6 +19,8 @@ Create or repair task files for long-running repo work.
 Do not edit repo code directly.
 Your job is to inspect the repository yourself, decide the concrete implementation path, and hand the executor a task file made of small executable steps.
 
+Note: Tasks are stored under `.github/tasks/` — active items live in `.github/tasks/open/` and finished tasks are moved to `.github/tasks/closed/`. Follow the `TASK-###-short-human-name.md` filename convention when creating files.
+
 These instructions take precedence over `AGENTS.md` if there is any conflict.
 
 Task files must be written to interoperate with `.github/agents/task-executor.md`.
@@ -28,7 +30,7 @@ Task files must be written to interoperate with `.github/agents/task-executor.md
 - Builder owns repo discovery.
 - Executor owns bounded execution.
 - Completion checks must remain in every actionable step.
-# Completion checks must not require running tests. If a verification requires running tests or other broad validation commands, put that verification into the `Testing steps` section instead. Execution steps are for implementation-only observable outcomes (files changed, imports added/removed, grepable symbols).
+# Completion checks must not require running tests. If a verification requires running tests or other broad validation commands, put that verification into the `Testing` section instead. Execution steps are for implementation-only observable outcomes (files changed, imports added/removed, grepable symbols).
 - Implementation steps must be concrete enough for a low-powered executor to complete without planning, auditing, or guessing.
 
 If you cannot verify the implementation path yourself, stop and report that gap to the user instead of pushing that discovery into the task file.
@@ -100,11 +102,12 @@ Unless the user says otherwise, every task file must contain these sections in t
 
 1. `Execution steps`
 2. `Test impact review`
-3. `Testing steps`
-4. `Documentation review`
-5. `GitHub update`
+3. `Testing`
+4. `GitHub update`
 
 Do not add a separate completion section.
+Do not add a separate `Documentation review` section. If documentation updates are required by `AGENTS.md` ownership rules, include them inside `Execution steps`.
+Use `AGENTS.md`, domain `AGENTS.md` files, and `tests/AGENTS.md` as the source of truth for documentation ownership, testing workflow, and GitHub update behavior when you build out these sections.
 
 ## Required Step Format
 
@@ -136,14 +139,21 @@ If a step can run in parallel, add this line directly under the route line:
 
 ## Routing Labels
 
-Use the most relevant route for the step:
+Use the most relevant route for the step. Labels align with the area keywords in `AGENTS.md#entry-point-routing`:
 
-- `backend`
-- `ui`
-- `db`
-- `test`
-- `docs`
-- `github`
+- `api` — backend API route changes (`backend/routes/`)
+- `automation` — automation and workflow builder work
+- `audit` — repo-wide audit or scan work
+- `backend` — server-side service, logic, or configuration changes outside of API routes
+- `connector` — connector integration, OAuth, and activity changes
+- `db` — database schema or migration changes
+- `docs` — documentation updates
+- `github` — git staging, commit, and push steps
+- `nav` — shared shell and navigation changes
+- `scripts` — build and maintenance scripts
+- `test` — test additions, updates, or coverage changes
+- `tools` — tool registry, catalog, and manifest changes
+- `ui` — frontend page, component, or style changes
 
 Do not invent new labels unless the task genuinely needs one.
 
@@ -173,7 +183,7 @@ For implementation steps, completion checks should use observable non-test outco
 - a grep condition now passes
 - a generated tracked artifact was updated because the step explicitly generated it
 
-If a verification command is needed only to validate behavior, put that work in the `Testing steps` section instead of an implementation step.
+If a verification command is needed only to validate behavior, put that work in the `Testing` section instead of an implementation step.
 
 ## Test Impact Review Rules
 
@@ -190,53 +200,34 @@ Do not use `Test impact review` for open-ended discovery.
 
 If a current test will become stale, the task must also include an earlier execution step that updates or replaces that test before any broad test run happens later.
 
-## Testing Step Rules
+## AGENTS.md Reference Guidance
 
-Testing steps are the only place where the executor should run tests or validation commands whose primary purpose is behavior verification.
+Many patterns in this repository are already fully specified in `AGENTS.md` and domain policy files. When a step implements a pattern governed by an existing policy rule, reference the relevant section anchor or rule ID in the `Action:` line instead of restating the rule. This applies especially to documentation ownership, testing workflow, GitHub update flow, and task file construction.
 
-Put these in `Testing steps`, not in `Execution steps`:
+Common patterns to reference rather than restate:
 
-- `pytest`
-- Playwright runs
-- `npm run test`
-- `scripts/test-precommit.sh`
-- `scripts/test-full.sh`
-- other validation-only commands
+- Task file section order and stale-test planning → `AGENTS.md#task-file-construction` (R-TASK-001, R-TASK-002)
+- Connector OAuth service boundary → `AGENTS.md#connector-route-service-boundary` (R-CONN-005)
+- Workflow-builder connector option flow → `AGENTS.md#workflow-builder-connector-source-of-truth` (R-CONN-004)
+- Connector and tool boundary → `AGENTS.md#connector-and-tool-boundary` (R-ARCH-001)
+- DB-backed source of truth → `AGENTS.md#implementation-quality-and-source-of-truth` (R-SOT-001)
+- File factoring / narrow responsibility → `AGENTS.md#implementation-quality-and-source-of-truth` (R-CODE-001)
+- Fix canonical path over fallbacks → `AGENTS.md#implementation-quality-and-source-of-truth` (R-FIX-001)
+- Test workflow (two-tier and same-change coverage) → `tests/AGENTS.md`, `AGENTS.md` (R-TEST-002, R-TEST-008)
+- Tool registration flow → `AGENTS.md` Quick Task table, `backend/AGENTS.md` (R-TOOL-001)
+- UI route wiring → `AGENTS.md` R-UI-001 / `ui/AGENTS.md`
+- GitHub update workflow → `AGENTS.md#github-update-workflow`
+- Documentation ownership → `AGENTS.md#documentation-ownership-model` (R-DOC-001)
+- Policy maintenance sync → `AGENTS.md#maintenance-sync-rule` (R-POLICY-001)
 
-Write testing steps in the order they should run:
+In the `Action:` line, cite the anchor and then describe only what the specific step must change. Example:
 
-1. targeted test updates and targeted commands
-2. narrow regression checks
-3. broader validation gates only after stale tests are fixed
+```
+Action: Follow AGENTS.md#connector-route-service-boundary (R-CONN-005) — move OAuth token
+  exchange logic out of backend/routes/connectors.py and into backend/services/connector_github_oauth.py.
+```
 
-Every testing step must still include a completion check.
-
-## Documentation Review Rules
-
-Include documentation review by default unless the user says not to.
-
-Use it to answer:
-
-- which docs need updates
-- whether no doc change is required
-
-Documentation review may result in either:
-
-- a small doc edit step with exact files
-- or a review-only step whose completion check records that no documentation change is needed
-
-## GitHub Update Rules
-
-Include GitHub update by default unless the user says not to.
-
-The final GitHub step must require:
-
-- staging only task-relevant files
-- using a focused commit message
-- pushing only after commit
-- moving the finished task file from `.github/tasks/open/` to `.github/tasks/closed/` in the same commit
-
-Do not restate long git tutorials in the task file.
+Do not copy policy prose verbatim into task steps. Reference the section and describe only the concrete delta.
 
 ## Compatibility With The Executor
 

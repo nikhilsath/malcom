@@ -12,6 +12,9 @@ set -uo pipefail
 # Practical Do And Do Not section restructured with rule annotations.
 # TASK-023 (2026-04-06): module-contract process retired; canonical documentation model
 # is limited to tasks, AGENTS policy files, README, and docs (R-DOC-001).
+# TASK-024 (2026-04-07): task-file construction is canonical in AGENTS.md; task-builder
+# must defer to AGENTS for documentation/testing/github rules, keep mandatory Test impact
+# review, and avoid a separate Documentation review section.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -188,6 +191,70 @@ check_documentation_ownership_model() {
   fi
 
   printf 'Documentation ownership model is explicit and no module-contract system is active.\n'
+}
+
+check_task_file_policy_sync() {
+  local missing=()
+  local agents_file="AGENTS.md"
+  local builder_file=".github/agents/task-builder.md"
+
+  if [[ ! -f "$agents_file" ]]; then
+    printf 'Missing AGENTS.md; cannot validate task file policy.\n'
+    return 1
+  fi
+
+  if [[ ! -f "$builder_file" ]]; then
+    printf 'Missing task-builder agent file: %s\n' "$builder_file"
+    return 1
+  fi
+
+  if ! grep -q "## Task File Construction" "$agents_file"; then
+    missing+=("AGENTS.md: ## Task File Construction")
+  fi
+
+  if ! grep -q "R-TASK-001" "$agents_file"; then
+    missing+=("AGENTS.md: R-TASK-001 rules matrix entry")
+  fi
+
+  if ! grep -q "R-TASK-002" "$agents_file"; then
+    missing+=("AGENTS.md: R-TASK-002 rules matrix entry")
+  fi
+
+  if ! grep -q '^3\. `Testing`$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: Required Task File Structure must include section 3 as `Testing`")
+  fi
+
+  if ! grep -q '^4\. `GitHub update`$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: Required Task File Structure must include section 4 as `GitHub update`")
+  fi
+
+  if grep -q '^4\. `Documentation review`$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: Documentation review section must not be required")
+  fi
+
+  if grep -q '^## Documentation Review Rules$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: duplicate Documentation Review Rules section must be removed")
+  fi
+
+  if grep -q '^## Testing Step Rules$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: duplicate Testing Step Rules section must be removed")
+  fi
+
+  if grep -q '^## GitHub Update Rules$' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: duplicate GitHub Update Rules section must be removed")
+  fi
+
+  if ! grep -q 'AGENTS.md#task-file-construction' "$builder_file"; then
+    missing+=(".github/agents/task-builder.md: AGENTS.md#task-file-construction reference")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'Task file policy sync checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Task file construction is canonical in AGENTS.md and task-builder defers to that policy.\n'
 }
 
 check_db_schema_docs_sync() {
@@ -408,6 +475,7 @@ fi
 run_check "Forbidden path modifications" check_forbidden_path_modifications
 run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "Documentation ownership model" check_documentation_ownership_model
+run_check "Task file policy sync" check_task_file_policy_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape

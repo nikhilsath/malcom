@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-DEFAULT_BACKUP_DIR = Path(__file__).resolve().parents[1] / "data" / "backups"
+DEFAULT_BACKUP_DIR = Path(__file__).resolve().parents[2] / "data" / "backups"
 
 
 def get_backup_dir() -> Path:

@@ -109,11 +109,11 @@ def _safe_segment(value: str) -> str:
 def _download_location_dir(context: dict[str, Any] | None, download_location: str) -> Path:
     root_dir = Path(str((context or {}).get("_root_dir") or Path.cwd()))
     if download_location == "workflow_storage":
-        path = root_dir / "backend" / "data" / "workflows"
+        path = root_dir / "data" / "workflows"
     elif download_location == "workspace_media":
-        path = root_dir / "media"
+        path = root_dir / "data" / "media"
     elif download_location == "app_logs":
-        path = root_dir / "backend" / "data" / "logs"
+        path = root_dir / "data" / "logs"
     else:
         raise RuntimeError("Download location is required for repository archive downloads.")
     path.mkdir(parents=True, exist_ok=True)

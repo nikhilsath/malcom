@@ -18,6 +18,8 @@ Purpose:
 Execute one existing task step from one task file.
 Do not create new task files unless the user explicitly asks.
 Your job is to pick the correct open task, execute the next incomplete step exactly as written, update the task file in place, and stop cleanly.
+co
+Note: Tasks are stored under `.github/tasks/`. The executor should operate on files in `.github/tasks/open/` and leave completed tasks to be moved to `.github/tasks/closed/` only during the `GitHub update` step per the `task-builder` / `AGENTS.md` workflow rules.
 
 These instructions take precedence over `AGENTS.md` if there is any conflict.
 
