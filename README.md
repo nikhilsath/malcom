@@ -65,11 +65,11 @@ The current product UI is organized into these areas:
 - FastAPI app serving feature routers under `/api/v1/**`, `/health`, and the built UI/static surface
 - Runtime scheduler, trigger queue, worker registration/claim flow, and automation execution services
 - Feature APIs for automations, runs, inbound and outgoing APIs, webhooks, connectors, tools, scripts, log tables, settings, workers, dashboard status, runtime status, scheduler jobs, and trigger history
-- Registry-driven served and redirect UI route registration via `backend/page_registry.py` and `ui/page-registry.json`
+- Registry-driven served and redirect UI route registration via `app/backend/page_registry.py` and `app/ui/page-registry.json`
 
 ### Frontend
 
-- Vite-built HTML entry pages and route metadata driven by `ui/page-registry.json`
+- Vite-built HTML entry pages and route metadata driven by `app/ui/page-registry.json`
 - Mixed stack: React/TypeScript pages for dashboard and automations, plus vanilla JavaScript pages for APIs, settings, tools, and shell wiring
 
 ## Documentation Ownership
@@ -79,13 +79,13 @@ Documentation is intentionally limited to these canonical locations:
 1. `.github/tasks/open/` and `.github/tasks/closed/` for task execution tracking and change history.
 2. `AGENTS.md` and domain `AGENTS.md` files for AI policy, routing, and enforcement rules.
 3. `README.md` for repository architecture and contributor orientation.
-4. `docs/**` for user/operator/contributor instruction content and usage guides.
+4. `data/docs/**` for user/operator/contributor instruction content and usage guides.
 
 The module-contracts process is retired. New work should not introduce a parallel documentation system outside these locations.
 
 ## Database Schema
 
-Schema source of truth: `backend/database.py`
+Schema source of truth: `app/backend/database.py`
 
 ### API Registry
 
@@ -578,7 +578,7 @@ Managed GitHub repo clones linked to a `storage_locations` row of type `repo`.
 The current schema is serviceable for a single-environment local-first app, but it is not fully aligned with stricter relational database best practices yet.
 
 - Good: primary keys exist for every documented table, unique constraints exist where identity matters (`path_slug`, tool ids, managed log names), and key child tables such as `automation_steps`, `automation_run_steps`, `inbound_api_events`, `webhook_api_events`, and `log_db_columns` already use foreign keys.
-- Good: connector source-of-truth is split cleanly by responsibility: `integration_presets` for provider catalog rows (seeded from [`DEFAULT_CONNECTOR_CATALOG`](backend/services/connectors.py) on init), `connectors` for saved connector instance rows, `connector_auth_policies` for workspace credential policy, and `connector_endpoint_definitions` for provider action/endpoint metadata. `get_stored_connector_settings()` assembles the response from those DB-backed sources, and legacy `settings.connectors` rows are only a startup migration input.
+- Good: connector source-of-truth is split cleanly by responsibility: `integration_presets` for provider catalog rows (seeded from [`DEFAULT_CONNECTOR_CATALOG`](app/backend/services/connectors.py) on init), `connectors` for saved connector instance rows, `connector_auth_policies` for workspace credential policy, and `connector_endpoint_definitions` for provider action/endpoint metadata. `get_stored_connector_settings()` assembles the response from those DB-backed sources, and legacy `settings.connectors` rows are only a startup migration input.
 - Good: scheduler-heavy query paths now have dedicated composite indexes for the runtime lookups used by automations, outbound APIs, runs, and connectors.
 - Needs improvement: most timestamps are stored as `text` instead of `timestamptz`, most booleans are stored as `integer` instead of `boolean`, and most structured payloads are stored as `text` instead of `jsonb`.
 - Needs improvement: several important reference columns intentionally remain soft references today, including `automation_runs.automation_id`, `storage_artifacts.automation_id`, `storage_artifacts.run_id`, and `storage_artifacts.step_id`, because current deletion/retention behavior preserves historical records.
@@ -587,25 +587,25 @@ The current schema is serviceable for a single-environment local-first app, but 
 
 ### Core backend
 
-- `backend/main.py` - app factory and mounting
-- `backend/routes/` - feature API routers plus UI-serving glue
-- `backend/page_registry.py` - UI page registry loader and validator
-- `backend/runtime.py` - runtime event bus, queue, and worker state
-- `backend/services/` - runtime and feature logic
-- `backend/schemas/` - request/response contracts
-- `backend/database.py` - schema initialization and additive evolution
-- `backend/tool_registry.py` - seed tool catalog plus DB sync and manifest support
+- `app/backend/main.py` - app factory and mounting
+- `app/backend/routes/` - feature API routers plus UI-serving glue
+- `app/backend/page_registry.py` - UI page registry loader and validator
+- `app/backend/runtime.py` - runtime event bus, queue, and worker state
+- `app/backend/services/` - runtime and feature logic
+- `app/backend/schemas/` - request/response contracts
+- `app/backend/database.py` - schema initialization and additive evolution
+- `app/backend/tool_registry.py` - seed tool catalog plus DB sync and manifest support
 
 ### Core frontend
 
-- `ui/<section>/<page>.html` - page entry HTML
-- `ui/page-registry.json` - canonical served and redirect UI page registry
-- `ui/page-registry.ts` - Vite input generation from the page registry
-- `ui/src/` - React/TS features for dashboard and automations, plus TypeScript modules such as the scripts library and shared frontend helpers
-- `ui/scripts/` - vanilla page controllers plus shared shell logic for APIs, settings, and tools
-- `ui/modals/` - shared modal HTML fragments loaded by vanilla UI pages
-- `ui/styles/` - shared and page styles
-- `ui/vite.config.ts` - Vite config using registry-derived inputs
+- `app/ui/<section>/<page>.html` - page entry HTML
+- `app/ui/page-registry.json` - canonical served and redirect UI page registry
+- `app/ui/page-registry.ts` - Vite input generation from the page registry
+- `app/ui/src/` - React/TS features for dashboard and automations, plus TypeScript modules such as the scripts library and shared frontend helpers
+- `app/ui/scripts/` - vanilla page controllers plus shared shell logic for APIs, settings, and tools
+- `app/ui/modals/` - shared modal HTML fragments loaded by vanilla UI pages
+- `app/ui/styles/` - shared and page styles
+- `app/ui/vite.config.ts` - Vite config using registry-derived inputs
 
 ### Tooling and tests
 

@@ -1,0 +1,385 @@
+{
+  "version": 1,
+  "registrySource": "app/ui/page-registry.json",
+  "servedRoutes": [
+    {
+      "routePath": "/dashboard/home.html",
+      "workflowContract": "Renders dashboard summary cards, resource widgets, and collapsible overview sections.",
+      "owners": [
+        {
+          "spec": "dashboard.spec.ts",
+          "testIds": [
+            "renders the dashboard home summary and collapsible sections"
+          ]
+        },
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "keeps shared shell navigation active and persists sidebar collapse"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/workspace.html",
+      "workflowContract": "Saves workspace defaults, preserves connector-backed storage state during delayed loads, and restores default values.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "saves and resets workspace defaults",
+            "preserves saved connectors when workspace settings are saved before settings finish loading"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/logging.html",
+      "workflowContract": "Updates logging thresholds and clears stored runtime logs with visible success feedback.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "saves logging thresholds and clears stored logs"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/notifications.html",
+      "workflowContract": "Changes alert channel and digest cadence, then restores the seeded notification defaults.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "toggles notifications and restores the defaults"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/connectors.html",
+      "workflowContract": "Exercises guided connector onboarding, lifecycle actions, OAuth callback handling, and connector list hydration.",
+      "owners": [
+        {
+          "spec": "connectors.spec.ts",
+          "testIds": [
+            "google OAuth draft can be created and returned through the callback UX",
+            "github PAT setup supports save, test, and revoke actions",
+            "notion OAuth setup uses the provider-specific guided flow",
+            "trello OAuth setup uses provider-specific guided authorization and lifecycle actions",
+            "invalid OAuth return surfaces an error without mutating the registry",
+            "populates connectors from the API-backed harness payload"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/access.html",
+      "workflowContract": "Renders access and session security defaults, plus connector auth policy controls.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "saves and resets access security settings"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/settings/data.html",
+      "workflowContract": "Shows connector-backed storage, manages log-table cleanup, and creates plus restores local backups.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "renders connector-backed storage and clears log table rows",
+            "creates and restores a local backup"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/automations/overview.html",
+      "workflowContract": "Displays automation overview metrics and opens the selected automation detail modal.",
+      "owners": [
+        {
+          "spec": "automations-overview.spec.ts",
+          "testIds": [
+            "shows automation overview metrics and opens the selected detail modal"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/automations/library.html",
+      "workflowContract": "Filters saved automations, opens modal details, follows builder deep links, and covers the empty state.",
+      "owners": [
+        {
+          "spec": "automations-library.spec.ts",
+          "testIds": [
+            "filters saved automations and opens the builder deep link",
+            "shows the empty state when no automations exist"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/automations/builder.html",
+      "workflowContract": "Creates and edits automation drafts, validates and runs saved workflows, and persists guided write-step storage options.",
+      "owners": [
+        {
+          "spec": "automations-builder.spec.ts",
+          "testIds": [
+            "creates a new automation draft, adds a connector activity step, edits it, and saves",
+            "edits an existing automation, validates, runs, and deletes it",
+            "keeps a new draft intact when a prior run finishes later",
+            "defaults to guided mode for new drafts and allows switching to canvas mode"
+          ]
+        },
+        {
+          "spec": "automation-write-step.spec.ts",
+          "testIds": [
+            "adds a Write step and persists storage options"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/automations/data.html",
+      "workflowContract": "Selects log tables, changes modal limits, clears rows, deletes tables, and covers empty-state behavior.",
+      "owners": [
+        {
+          "spec": "automations-data.spec.ts",
+          "testIds": [
+            "selects a log table, changes limits, clears rows, and deletes the table",
+            "returns focus to the selected table after closing the modal",
+            "shows the empty state when no log tables exist"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/apis/registry.html",
+      "workflowContract": "Keeps the API registry navigation-only while preserving list visibility and copy actions.",
+      "owners": [
+        {
+          "spec": "apis-registry.spec.ts",
+          "testIds": [
+            "API registry stays navigation-only and supports copy actions"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/apis/incoming.html",
+      "workflowContract": "Opens incoming API details, rotates secrets, toggles endpoint status, and filters event logs.",
+      "owners": [
+        {
+          "spec": "apis-incoming.spec.ts",
+          "testIds": [
+            "incoming APIs open details, rotate secrets, toggle status, and filter logs"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/apis/outgoing.html",
+      "workflowContract": "Creates connector-backed outgoing APIs and edits saved registry entries with test delivery feedback.",
+      "owners": [
+        {
+          "spec": "apis-outgoing.spec.ts",
+          "testIds": [
+            "outgoing API create-from-connector flow populates connector defaults and saves",
+            "outgoing registry edit modal saves changes and exercises the test delivery action"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/apis/webhooks.html",
+      "workflowContract": "Creates webhook records, preserves list metadata, and supports callback copy actions.",
+      "owners": [
+        {
+          "spec": "apis-webhooks.spec.ts",
+          "testIds": [
+            "webhook registry creates records and copies callback metadata"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/tools/catalog.html",
+      "workflowContract": "Opens tool details, edits metadata, toggles enablement, and follows the tool config link into a concrete tool page.",
+      "owners": [
+        {
+          "spec": "tools-catalog.spec.ts",
+          "testIds": [
+            "opens a tool detail, edits metadata, enables it, and follows the config link"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/tools/coqui-tts.html",
+      "workflowContract": "Validates and saves Coqui TTS settings with updated summary state.",
+      "owners": [
+        {
+          "spec": "tools-coqui-tts.spec.ts",
+          "testIds": [
+            "shows client-side validation and saves the Coqui TTS configuration"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/tools/llm-deepl.html",
+      "workflowContract": "Applies local LLM presets, saves model settings, and completes a streamed chat response.",
+      "owners": [
+        {
+          "spec": "tools-llm-deepl.spec.ts",
+          "testIds": [
+            "applies a preset, saves the config, and streams a chat response"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/tools/smtp.html",
+      "workflowContract": "Covers mailbox inspection, local test sends, runtime start and stop behavior, relay delivery, and remote-assignment failure states.",
+      "owners": [
+        {
+          "spec": "tools-smtp.spec.ts",
+          "testIds": [
+            "copies mailbox details and sends a local test email",
+            "saves SMTP assignment, starts and stops the listener, and sends a relay message",
+            "shows remote SMTP assignment failures from the controller view"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/tools/image-magic.html",
+      "workflowContract": "Validates local ImageMagick enablement, then saves a remote assignment with updated status feedback.",
+      "owners": [
+        {
+          "spec": "tools-image-magic.spec.ts",
+          "testIds": [
+            "rejects a bad local enablement command, then saves a remote assignment"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/scripts/library.html",
+      "workflowContract": "Filters, edits, validates, and creates scripts while preserving empty-state and validation coverage.",
+      "owners": [
+        {
+          "spec": "scripts-library.spec.ts",
+          "testIds": [
+            "filters scripts, edits an existing script, validates, and saves changes",
+            "creates a new script and switches the starter template language",
+            "shows empty and validation error states for scripts"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/docs/index.html",
+      "workflowContract": "Serves the docs index page and links to in-app documentation sections.",
+      "owners": [
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "loads docs index and library routes"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/docs/library.html",
+      "workflowContract": "Serves the docs library page for internal documentation references.",
+      "owners": [
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "loads docs index and library routes"
+          ]
+        }
+      ]
+    }
+  ],
+  "redirectRoutes": [
+    {
+      "routePath": "/dashboard/devices.html",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/devices",
+      "owners": [
+        {
+          "spec": "dashboard.spec.ts",
+          "testIds": [
+            "renders dashboard devices with host telemetry and runtime endpoints"
+          ]
+        },
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "redirects legacy dashboard and settings routes to the canonical pages"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/dashboard/logs.html",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/logs",
+      "owners": [
+        {
+          "spec": "dashboard.spec.ts",
+          "testIds": [
+            "filters dashboard logs and opens the log detail modal"
+          ]
+        },
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "redirects legacy dashboard and settings routes to the canonical pages"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/dashboard/queue.html",
+      "canonicalRoutePath": "/dashboard/home.html",
+      "redirectTarget": "/dashboard/home.html#/queue",
+      "owners": [
+        {
+          "spec": "dashboard.spec.ts",
+          "testIds": [
+            "renders the queue route and toggles pause controls"
+          ]
+        },
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "redirects legacy dashboard and settings routes to the canonical pages"
+          ]
+        }
+      ]
+    },
+    {
+      "routePath": "/apis/automation.html",
+      "canonicalRoutePath": "/automations/library.html",
+      "redirectTarget": "/automations/library.html",
+      "owners": [],
+      "notes": "Redirect-only registry path documented during the migration gate and excluded from served-route ownership requirements."
+    },
+    {
+      "routePath": "/scripts.html",
+      "canonicalRoutePath": "/scripts/library.html",
+      "redirectTarget": "/scripts/library.html",
+      "owners": [],
+      "notes": "Redirect-only registry path documented during the migration gate and excluded from served-route ownership requirements."
+    }
+  ]
+}

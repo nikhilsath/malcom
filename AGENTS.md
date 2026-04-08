@@ -6,14 +6,14 @@ Prefer starting prompts with `[AREA: <keyword>]` to scope which policy files app
 
 | Keyword | Read These Files | Skip These Files |
 |---|---|---|
-| `db` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
-| `ui` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except connector boundary rules in root |
-| `tools` | `AGENTS.md` + `backend/AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | none |
-| `api` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
-| `test` | `AGENTS.md` + `tests/AGENTS.md` + matching domain file | unrelated domain files |
-| `automation` | `AGENTS.md` + `backend/AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | none |
-| `nav` | `AGENTS.md` + `ui/AGENTS.md` + `tests/AGENTS.md` | `backend/AGENTS.md` except global rules in root |
-| `scripts` | `AGENTS.md` + `backend/AGENTS.md` + `tests/AGENTS.md` | `ui/AGENTS.md` |
+| `db` | `AGENTS.md` + `app/backend/AGENTS.md` + `app/tests/AGENTS.md` | `app/ui/AGENTS.md` |
+| `ui` | `AGENTS.md` + `app/ui/AGENTS.md` + `app/tests/AGENTS.md` | `app/backend/AGENTS.md` except connector boundary rules in root |
+| `tools` | `AGENTS.md` + `app/backend/AGENTS.md` + `app/ui/AGENTS.md` + `app/tests/AGENTS.md` | none |
+| `api` | `AGENTS.md` + `app/backend/AGENTS.md` + `app/tests/AGENTS.md` | `app/ui/AGENTS.md` |
+| `test` | `AGENTS.md` + `app/tests/AGENTS.md` + matching domain file | unrelated domain files |
+| `automation` | `AGENTS.md` + `app/backend/AGENTS.md` + `app/ui/AGENTS.md` + `app/tests/AGENTS.md` | none |
+| `nav` | `AGENTS.md` + `app/ui/AGENTS.md` + `app/tests/AGENTS.md` | `app/backend/AGENTS.md` except global rules in root |
+| `scripts` | `AGENTS.md` + `app/backend/AGENTS.md` + `app/tests/AGENTS.md` | `app/ui/AGENTS.md` |
 | `audit` | `AGENTS.md`, then the closest domain AGENTS file for the current review batch | unrelated domain files until the batch reaches them |
 
 If no `[AREA:]` prefix is present, read Quick Task -> Where to Edit first.
@@ -24,9 +24,9 @@ If the task is ambiguous across multiple areas, stop before loading domain-speci
 
 After reading root routing and machine index, load the closest domain AGENTS file when relevant:
 
-- `backend/AGENTS.md` for backend, schema, and tool/backend contract work
-- `ui/AGENTS.md` for frontend structure, shell, styles, and route wiring work
-- `tests/AGENTS.md` for verification workflow, smoke coverage, and startup/test triage
+- `app/backend/AGENTS.md` for backend, schema, and tool/backend contract work
+- `app/ui/AGENTS.md` for frontend structure, shell, styles, and route wiring work
+- `app/tests/AGENTS.md` for verification workflow, smoke coverage, and startup/test triage
 
 ### Repository Audit Area {#repository-audit-area}
 
@@ -60,7 +60,7 @@ Canonical documentation locations are limited to the following:
 1. `.github/tasks/open/` and `.github/tasks/closed/` for task execution tracking and implementation history
 2. `AGENTS.md` plus domain `AGENTS.md` files for AI policy, routing, and enforcement rules
 3. `README.md` for human-facing repository architecture, orientation, and contributor context
-4. `docs/**` for operator/user/contributor instructions and product usage guidance
+4. `data/docs/**` for operator/user/contributor instructions and product usage guidance
 
 ## Task Storage
 
@@ -75,7 +75,7 @@ Rules:
 
 1. Do not create or require a parallel module-contract documentation process outside these locations.
 2. Preserve historical task records under `.github/tasks/closed/**`; do not rewrite closed history unless explicitly requested.
-3. Keep documentation intent aligned with `.github/agents/fact-doc-writer.md` when authoring or updating `docs/**`.
+3. Keep documentation intent aligned with `.github/agents/fact-doc-writer.md` when authoring or updating `data/docs/**`.
 
 ## Task File Construction {#task-file-construction}
 
@@ -85,7 +85,7 @@ Rules:
 
 1. Task files must use these sections in this order: `Execution steps`, `Test impact review`, `Testing`, `GitHub update`.
 2. Do not add a separate `Documentation review` section. If the change requires documentation updates under the ownership model, include those edits in `Execution steps`; otherwise omit doc-only review filler.
-3. Use `AGENTS.md`, domain `AGENTS.md` files, and `tests/AGENTS.md` as the source of truth for documentation ownership, testing workflow, and GitHub update behavior. Task files should reference those rules and describe only the concrete delta.
+3. Use `AGENTS.md`, domain `AGENTS.md` files, and `app/tests/AGENTS.md` as the source of truth for documentation ownership, testing workflow, and GitHub update behavior. Task files should reference those rules and describe only the concrete delta.
 4. Every task file must include `Test impact review` with affected test file paths, one-line intent, recommended action (`keep`, `update`, `replace`, or `remove`), and the exact validation command when the action is `update` or `replace`.
 5. If a current test will go stale, the task must update or replace that test before any broader validation step runs later in the file.
 
@@ -164,7 +164,7 @@ When updating policy, agents must update all of the following in the same change
 3. `Rules Matrix` entries
 4. machine index block between `MACHINE_INDEX_START` and `MACHINE_INDEX_END`
 
-Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules.
+Whenever `AGENTS.md` is updated, `app/scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules.
 
 Do not leave machine reference content stale after changing source rules.
 
@@ -190,7 +190,7 @@ Connector HTTP routes must stay thin when provider-specific credential lifecycle
 
 Rules:
 
-1. Keep provider-specific connector business logic, including OAuth token exchange, refresh, and revoke handlers, in dedicated `backend/services/connector_<provider>*.py` or adjacent connector service modules.
+1. Keep provider-specific connector business logic, including OAuth token exchange, refresh, and revoke handlers, in dedicated `app/backend/services/connector_<provider>*.py` or adjacent connector service modules.
 2. Keep `backend/routes/connectors.py` focused on HTTP parameter extraction, response shaping, redirects, and dependency wiring rather than provider-specific OAuth token lifecycle implementations.
 3. Do not make backend services import connector route helpers as the source of truth for provider-specific connector business logic.
 4. GitHub OAuth setup may resolve omitted client credentials from `MALCOM_GITHUB_OAUTH_CLIENT_ID` and `MALCOM_GITHUB_OAUTH_CLIENT_SECRET`; the OAuth app redirect URI remains `/api/v1/connectors/github/oauth/callback`. Trello OAuth may resolve omitted client credentials from `MALCOM_TRELLO_OAUTH_CLIENT_ID` and `MALCOM_TRELLO_OAUTH_CLIENT_SECRET`; the default callback path is `/api/v1/connectors/trello/oauth/callback`.
@@ -200,9 +200,9 @@ Rules:
 Workflow-builder connector dropdown/options must follow one explicit resolver path:
 
 1. persistence source: `connectors` table rows
-2. backend resolver: `backend/services/workflow_builder.py:list_workflow_builder_connectors`
-3. API surface: `GET /api/v1/automations/workflow-connectors` in `backend/routes/automations.py`
-4. UI consumer: automation builder support loading in `ui/src/automation/app.tsx`
+2. backend resolver: `app/backend/services/workflow_builder.py:list_workflow_builder_connectors`
+3. API surface: `GET /api/v1/automations/workflow-connectors` in `app/backend/routes/automations.py`
+4. UI consumer: automation builder support loading in `app/ui/src/automation/app.tsx`
 
 Rules:
 
@@ -215,9 +215,9 @@ Rules:
 
 ## Database Schema {#database-schema}
 
-`backend/database.py` is the schema source of truth for structure changes and for repo-facing schema documentation.
+`app/backend/database.py` is the schema source of truth for structure changes and for repo-facing schema documentation.
 
-When schema tables or table groups change, update `AGENTS.md` and `README.md` in the same change so the documented structure stays aligned with `backend/database.py`.
+When schema tables or table groups change, update `AGENTS.md` and `README.md` in the same change so the documented structure stays aligned with `app/backend/database.py`.
 
 Current schema groups defined there:
 
@@ -240,31 +240,31 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 | Task | Primary Files | Also Check | Must Not Edit |
 |---|---|---|---|
-| Add backend API route | `backend/routes/api.py` | `backend/AGENTS.md`, `tests/AGENTS.md`, `tests/test_<feature>.py` | `ui/dist/**` |
-| Add served UI page route | `backend/routes/ui.py` | `ui/AGENTS.md`, `ui/vite.config.ts`, `ui/<section>/<page>.html` | `backend/main.py` (for UI routes) |
-| Change DB schema | `backend/database.py` | `backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
-| Document database schema | `AGENTS.md`, `README.md` | `backend/database.py`, `backend/AGENTS.md`, `scripts/check-policy.sh` | runtime database objects directly |
-| Add or update connector-backed remote API integration | `backend/routes/connectors.py`, `backend/routes/apis.py`, `backend/services/connector_activities.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | `backend/tool_registry.py` unless local runtime/executable is required |
-| Refactor connector OAuth/service boundary | `backend/services/connector_oauth.py`, `backend/services/connector_*oauth*.py`, `backend/routes/connectors.py` | `backend/AGENTS.md`, `tests/AGENTS.md`, `tests/test_connectors_api.py`, `tests/test_connector_oauth_service.py`, `scripts/check-policy.sh` | provider-specific OAuth token lifecycle helpers in `backend/routes/connectors.py` |
-| Refactor workflow-builder connector option flow | `backend/services/workflow_builder.py`, `backend/routes/automations.py`, `ui/src/automation/app.tsx` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md`, `README.md` | duplicate connector option lists in UI components |
-| Update Google connector onboarding flow | `ui/settings/connectors.html`, `ui/scripts/settings/connectors.js`, `ui/scripts/settings/connectors/` | `ui/AGENTS.md`, `backend/routes/connectors.py`, `ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
-| Add or update tool registration | `backend/tool_registry.py` | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | hardcoded tool cards/nav links |
+| Add backend API route | `app/backend/routes/api.py` | `app/backend/AGENTS.md`, `app/tests/AGENTS.md`, `app/tests/test_<feature>.py` | `app/ui/dist/**` |
+| Add served UI page route | `app/backend/routes/ui.py` | `app/ui/AGENTS.md`, `app/ui/vite.config.ts`, `app/ui/<section>/<page>.html` | `app/backend/main.py` (for UI routes) |
+| Change DB schema | `app/backend/database.py` | `app/backend/AGENTS.md`, related serializers + tests | runtime database objects directly |
+| Document database schema | `AGENTS.md`, `README.md` | `app/backend/database.py`, `app/backend/AGENTS.md`, `app/scripts/check-policy.sh` | runtime database objects directly |
+| Add or update connector-backed remote API integration | `app/backend/routes/connectors.py`, `app/backend/routes/apis.py`, `app/backend/services/connector_activities.py` | `app/backend/AGENTS.md`, `app/ui/AGENTS.md`, `app/tests/AGENTS.md` | `app/backend/tool_registry.py` unless local runtime/executable is required |
+| Refactor connector OAuth/service boundary | `app/backend/services/connector_oauth.py`, `app/backend/services/connector_*oauth*.py`, `app/backend/routes/connectors.py` | `app/backend/AGENTS.md`, `app/tests/AGENTS.md`, `app/tests/test_connectors_api.py`, `app/tests/test_connector_oauth_service.py`, `app/scripts/check-policy.sh` | provider-specific OAuth token lifecycle helpers in `app/backend/routes/connectors.py` |
+| Refactor workflow-builder connector option flow | `app/backend/services/workflow_builder.py`, `app/backend/routes/automations.py`, `app/ui/src/automation/app.tsx` | `app/backend/AGENTS.md`, `app/ui/AGENTS.md`, `app/tests/AGENTS.md`, `README.md` | duplicate connector option lists in UI components |
+| Update Google connector onboarding flow | `app/ui/settings/connectors.html`, `app/ui/scripts/settings/connectors.js`, `app/ui/scripts/settings/connectors/` | `app/ui/AGENTS.md`, `app/backend/routes/connectors.py`, `app/ui/e2e/`, `README.md` | browser `prompt()` dialogs for OAuth credentials |
+| Add or update tool registration | `app/backend/tool_registry.py` | `app/backend/AGENTS.md`, `app/ui/AGENTS.md`, `app/tests/AGENTS.md` | hardcoded tool cards/nav links |
 | Refactor oversized or mixed-responsibility implementation | closest feature module + adjacent service/helper files | matching domain `AGENTS.md`, matching tests | dumping new responsibilities into the largest existing file without need |
-| Fix DB-backed source-of-truth drift | canonical DB-backed resolver/service + matching tests | `backend/AGENTS.md`, `README.md` if schema/docs are affected | fallback reads/writes, hardcoded mirrors, duplicate availability lists |
-| Add vanilla page logic | `ui/scripts/<section>/<page>.js` | `ui/AGENTS.md`, matching HTML + styles, `ui/e2e/` | new root-level page entry in `ui/scripts/*.js` |
-| Add React page logic | `ui/src/<feature>/` | `ui/AGENTS.md`, matching HTML entry + tests, `ui/e2e/` | unrelated section folders |
-| Reduce UI text density / badge migration | `ui/<section>/<page>.html` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, style files | visible explanatory paragraphs in default page state |
-| Add or update collapsible UI section | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/AGENTS.md`, `ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or non-collapsing hidden states |
-| Convert list/detail UI to selection-driven modal details | `ui/src/<feature>/` or `ui/<section>/<page>.html` | `ui/AGENTS.md`, shared modal utilities, related tests | auto-open detail panes on load or permanent empty inline detail columns |
-| Update shared shell navigation | `ui/scripts/shell-config.js` | `ui/AGENTS.md`, `ui/scripts/navigation.js`, shell page attributes, `ui/e2e/` | page-local duplicated topnav/sidenav markup |
-| Implement or change behavior | feature source files + matching tests | `backend/AGENTS.md`, `ui/AGENTS.md`, `tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
-| Update task execution planning policy | `AGENTS.md`, `.github/agents/task-builder.md`, `scripts/check-policy.sh` | `tests/AGENTS.md` when test workflow references change | unrelated app source files |
-| Change generated tool manifest | `scripts/generate-tools-manifest.mjs` | `backend/AGENTS.md`, regenerate `ui/scripts/tools-manifest.js` | hand-edit `ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `pytest.ini`, test scripts, `scripts/check-policy.sh`, smoke registry, `ui/e2e/` | `tests/AGENTS.md`, `ui/playwright.config.ts`, `README.md` | `ui/dist/**` |
-| Troubleshoot startup or Playwright execution blockers | `scripts/dev.py`, `scripts/run_playwright_server.sh`, `ui/playwright.config.ts` | `tests/AGENTS.md`, `data/logs/`, `README.md` | skipping listener/process diagnostics |
+| Fix DB-backed source-of-truth drift | canonical DB-backed resolver/service + matching tests | `app/backend/AGENTS.md`, `README.md` if schema/docs are affected | fallback reads/writes, hardcoded mirrors, duplicate availability lists |
+| Add vanilla page logic | `app/ui/scripts/<section>/<page>.js` | `app/ui/AGENTS.md`, matching HTML + styles, `app/ui/e2e/` | new root-level page entry in `app/ui/scripts/*.js` |
+| Add React page logic | `app/ui/src/<feature>/` | `app/ui/AGENTS.md`, matching HTML entry + tests, `app/ui/e2e/` | unrelated section folders |
+| Reduce UI text density / badge migration | `app/ui/<section>/<page>.html` | `app/ui/AGENTS.md`, `app/ui/scripts/navigation.js`, style files | visible explanatory paragraphs in default page state |
+| Add or update collapsible UI section | `app/ui/src/<feature>/` or `app/ui/<section>/<page>.html` | `app/ui/AGENTS.md`, `app/ui/styles/pages/**`, related tests | oversized CTA-style collapse buttons or non-collapsing hidden states |
+| Convert list/detail UI to selection-driven modal details | `app/ui/src/<feature>/` or `app/ui/<section>/<page>.html` | `app/ui/AGENTS.md`, shared modal utilities, related tests | auto-open detail panes on load or permanent empty inline detail columns |
+| Update shared shell navigation | `app/ui/scripts/shell-config.js` | `app/ui/AGENTS.md`, `app/ui/scripts/navigation.js`, shell page attributes, `app/ui/e2e/` | page-local duplicated topnav/sidenav markup |
+| Implement or change behavior | feature source files + matching tests | `app/backend/AGENTS.md`, `app/ui/AGENTS.md`, `app/tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
+| Update task execution planning policy | `AGENTS.md`, `.github/agents/task-builder.md`, `app/scripts/check-policy.sh` | `app/tests/AGENTS.md` when test workflow references change | unrelated app source files |
+| Change generated tool manifest | `app/scripts/generate-tools-manifest.mjs` | `app/backend/AGENTS.md`, regenerate `app/ui/scripts/tools-manifest.js` | hand-edit `app/ui/scripts/tools-manifest.js` without regeneration |
+| Improve testing workflow | `app/pytest.ini`, test scripts, `app/scripts/check-policy.sh`, smoke registry, `app/ui/e2e/` | `app/tests/AGENTS.md`, `app/ui/playwright.config.ts`, `README.md` | `app/ui/dist/**` |
+| Troubleshoot startup or Playwright execution blockers | `app/scripts/dev.py`, `app/scripts/run_playwright_server.sh`, `app/ui/playwright.config.ts` | `app/tests/AGENTS.md`, `data/logs/`, `README.md` | skipping listener/process diagnostics |
 | Audit repo-wide file coverage or architecture in batches | `.github/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
-| Update documentation ownership policy | `AGENTS.md`, `README.md`, `docs/**` | `.github/agents/fact-doc-writer.md`, `scripts/check-policy.sh` | parallel documentation systems outside tasks/AGENTS/README/docs |
-| Update agent response policy or instruction-following rules | `AGENTS.md`, `scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
+| Update documentation ownership policy | `AGENTS.md`, `README.md`, `data/docs/**` | `.github/agents/fact-doc-writer.md`, `app/scripts/check-policy.sh` | parallel documentation systems outside tasks/AGENTS/README/docs |
+| Update agent response policy or instruction-following rules | `AGENTS.md`, `app/scripts/check-policy.sh`, domain AGENTS files | `Required Output`, `Response Scope`, `Rules Matrix`, `MACHINE_INDEX_START` | unrelated app source files |
 
 ### Rules Matrix {#rules-matrix}
 
@@ -280,8 +280,8 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-CONN-003 | Provider-aware connector workflow actions must use the connector activity system, remain provider-aware in the builder with explicit selectable UI actions plus action-specific inputs/outputs, and keep generic HTTP steps available for raw/custom API calls | Automation builder connector actions |
 | R-CONN-004 | Workflow-builder connector options must be served by `GET /api/v1/automations/workflow-connectors` via `backend/services/workflow_builder.py` sourced from persisted connector rows (`connectors` table); do not duplicate connector availability definitions across UI/backend layers | Workflow builder connector option architecture |
 | R-CONN-005 | Provider-specific connector OAuth token lifecycle handlers belong in backend service modules, and `backend/routes/connectors.py` must not be the source of truth for those handlers or route-imported service logic | Connector route/service architecture |
-| R-DB-001 | Schema source of truth is `backend/database.py` | Database changes |
-| R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `backend/database.py` when tables or table groups change | Database documentation |
+| R-DB-001 | Schema source of truth is `app/backend/database.py` | Database changes |
+| R-DB-002 | Root schema documentation in `AGENTS.md` and `README.md` must stay aligned with `app/backend/database.py` when tables or table groups change | Database documentation |
 | R-SOT-001 | For DB-backed entities, catalogs, presets, enablement, or provider state, persisted rows plus canonical resolvers are the runtime source of truth; seed constants must not become parallel runtime registries | Backend/services, connector catalogs, and runtime configuration flows |
 | R-UI-001 | Served HTML routes are registered in `backend/routes/ui.py` | UI route wiring |
 | R-UI-002 | Explanatory UI descriptions use info-badge pattern | UI pages |
@@ -301,7 +301,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-DOC-001 | Documentation must live only in task files, AGENTS policy files, README, and docs; do not create parallel module-contract systems | Documentation policy and repo workflow |
 | R-POLICY-001 | Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules | Policy maintenance and enforcement automation |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
-| R-TEST-003 | Keep internal API smoke coverage in `tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `tests/api_smoke_registry/` | Backend route additions and removals |
+| R-TEST-003 | Keep internal API smoke coverage in `app/tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `app/tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 | R-TEST-005 | Any user-visible UI workflow change must add or update Playwright coverage in `ui/e2e/` unless the change is strictly non-behavioral | Frontend and browser workflow changes |
 | R-TEST-006 | Playwright coverage must assert the changed workflow behavior, not only route load or static render | Playwright authoring and UI changes |
@@ -332,27 +332,27 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "ui_rules": ["ui/AGENTS.md"],
     "test_rules": ["tests/AGENTS.md"],
     "ui_html_routes": ["backend/routes/ui.py"],
-    "db_schema": ["backend/database.py"],
+    "db_schema": ["app/backend/database.py"],
     "database_docs": ["AGENTS.md", "README.md"],
     "repo_scan_tracker": [".github/repo-scan-index.md"],
     "tool_catalog": ["backend/tool_registry.py"],
     "tool_manifest_generator": ["scripts/generate-tools-manifest.mjs"],
     "task_builder_agent": [".github/agents/task-builder.md"],
     "policy_enforcement_script": ["scripts/check-policy.sh"],
-    "documentation_model": [".github/tasks/open/", ".github/tasks/closed/", "AGENTS.md", "README.md", "docs/**", ".github/agents/fact-doc-writer.md"],
-    "api_smoke_registry": ["tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py"]
+    "documentation_model": [".github/tasks/open/", ".github/tasks/closed/", "AGENTS.md", "README.md", "data/docs/**", ".github/agents/fact-doc-writer.md"],
+    "api_smoke_registry": ["app/tests/api_smoke_registry/", "app/tests/test_api_smoke_matrix.py"]
     ,"workflow_builder_connectors": ["backend/services/workflow_builder.py", "backend/routes/automations.py", "ui/src/automation/app.tsx"]
   },
   "task_routes": {
     "db_schema_change": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
-      "edit": ["backend/database.py"],
+      "edit": ["app/backend/database.py"],
       "verify": ["AGENTS.md", "README.md", "tests/"]
     },
     "db_schema_documentation": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh"],
-      "verify": ["policy text and README stay aligned with backend/database.py"]
+      "verify": ["policy text and README stay aligned with app/backend/database.py"]
     },
     "factoring_refactor": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
@@ -377,7 +377,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     },
     "test_workflow_change": {
       "read": ["AGENTS.md", "tests/AGENTS.md"],
-      "edit": ["pytest.ini", "scripts/test-precommit.sh", "scripts/test-full.sh", "scripts/check-policy.sh", "tests/api_smoke_registry/", "tests/test_api_smoke_matrix.py", "ui/e2e/", "ui/e2e/README.md"],
+      "edit": ["app/pytest.ini", "app/scripts/test-precommit.sh", "app/scripts/test-full.sh", "app/scripts/check-policy.sh", "app/tests/api_smoke_registry/", "app/tests/test_api_smoke_matrix.py", "app/ui/e2e/", "app/ui/e2e/README.md"],
       "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
     },
     "repo_audit": {
@@ -399,7 +399,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     },
     "documentation_policy_update": {
       "read": ["AGENTS.md", "README.md", ".github/agents/fact-doc-writer.md"],
-      "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh", "docs/**"],
+      "edit": ["AGENTS.md", "README.md", "scripts/check-policy.sh", "data/docs/**"],
       "verify": ["documentation ownership is explicit", "no parallel module-contract process remains", "policy enforcement remains synchronized"]
     },
     "workflow_builder_connector_refactor": {
@@ -443,7 +443,7 @@ Do:
 - follow the existing DB-backed tool flow (→ R-SOT-001, R-TOOL-001)
 - keep page entrypoints matched to page paths (→ R-UI-001)
 - keep shared shell config centralized
-- keep schema documentation in `AGENTS.md` and `README.md` aligned with `backend/database.py` (→ R-DB-002)
+- keep schema documentation in `AGENTS.md` and `README.md` aligned with `app/backend/database.py` (→ R-DB-002)
 - keep `scripts/check-policy.sh` in sync with `AGENTS.md` policy requirements (→ R-POLICY-001)
 - place tests beside the backend feature area they cover or under the React feature they cover
 - add or update relevant automated tests in the same change when behavior changes (→ R-TEST-008)
