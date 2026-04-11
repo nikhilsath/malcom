@@ -41,7 +41,9 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 
 ## Test Classification
 
-Specs are divided into two tiers based on whether they intercept API calls:
+Specs are divided into tiers based on how they interact with the backend.
+
+**Stubbed Playwright tests are prohibited.** Do not use `installDashboardSettingsFixtures` or `page.route()` to intercept first-party backend routes in any Playwright spec. Browser tests must run against the real FastAPI app and real PostgreSQL test database. Isolated frontend-only state tests that do not need browser/system proof belong in Vitest rather than Playwright. (→ R-TEST-010)
 
 ### Critical
 
@@ -63,25 +65,16 @@ Specs that make no `page.route()` intercepts and run against the live Playwright
 - `automations-data.spec.ts`
 - `automations-library.spec.ts`
 - `automations-overview.spec.ts`
+- `dashboard.spec.ts`
 - `github-trigger.spec.ts`
 - `scripts-library.spec.ts`
+- `settings.spec.ts`
+- `shell.spec.ts`
 - `tools-catalog.spec.ts`
 - `tools-coqui-tts.spec.ts`
 - `tools-image-magic.spec.ts`
 - `tools-llm-deepl.spec.ts`
 - `tools-smtp.spec.ts`
-
-### Stubbed
-
-Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept API calls. These test UI logic and rendering under controlled state rather than end-to-end system behavior. **Stubbed specs are secondary to real specs and are not the primary proof for critical workflows.** Use them to verify isolated UI logic and rendering; use real specs (or the backend real-test runner) to prove that critical workflows function end-to-end.
-
-- `settings.spec.ts` — fully stubbed via `installDashboardSettingsFixtures` and additional direct `page.route()` calls for `/api/v1/storage/locations`
-- `dashboard.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
-- `shell.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
-- `automation-write-step.spec.ts` — partially stubbed via `page.route`
-- `connectors.spec.ts` — partially stubbed via `page.route`
-
-The `"stubbed"` Playwright project in `playwright.config.ts` targets the three fully-stubbed specs (`settings.spec.ts`, `dashboard.spec.ts`, `shell.spec.ts`) so they can be run in isolation: `cd app/ui && npx playwright test --project=stubbed`.
 
 > **AI agent note:** `app/scripts/test-real-failfast.sh` (which delegates to `app/scripts/test-system.sh`) is the recommended first-pass check for AI agents. It builds the environment from scratch, runs backend real tests and the critical browser subset, stops on the first failure, and writes a machine-readable JSON artifact to `app/tests/test-artifacts/system-result.json` (also mirrored to `app/tests/test-artifacts/failfast-result.json`). `bash app/scripts/test-system.sh` is the canonical single command for proving the product works end to end.
 

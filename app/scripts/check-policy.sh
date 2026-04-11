@@ -25,9 +25,9 @@ set -uo pipefail
 # coverage is secondary for critical workflow verification.
 # TASK-027 step 4: test-precommit.sh now invokes test-real-failfast.sh as its first step
 # before adding coverage and UI gate checks; R-TEST-002 description updated to match.
-# TASK-028 (2026-04-11): test-system.sh is now the canonical real-system completion command;
-# critical_browser step runs by default (minimal real Playwright subset); DB reset happens
-# every run; test-full.sh is secondary; check-canonical-completion-gate-sync added.
+# TASK-029 (2026-04-11): no-stubbed-playwright prohibition (R-TEST-010) added;
+# stubbed Playwright project removed; policy synchronized across AGENTS.md,
+# app/tests/AGENTS.md, app/ui/e2e/README.md, and app/ui/playwright.config.ts.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -333,6 +333,38 @@ check_canonical_completion_gate_sync() {
   printf 'Canonical completion gate is synchronized: test-system.sh referenced in AGENTS.md, app/tests/AGENTS.md, and app/ui/e2e/README.md.\n'
 }
 
+check_no_stubbed_playwright_policy() {
+  local missing=()
+
+  if grep -q '"stubbed"' "app/ui/playwright.config.ts" 2>/dev/null || grep -q "name: \"stubbed\"" "app/ui/playwright.config.ts" 2>/dev/null; then
+    missing+=("app/ui/playwright.config.ts: must not define a 'stubbed' Playwright project")
+  fi
+
+  if ! grep -q "R-TEST-010" AGENTS.md; then
+    missing+=("AGENTS.md: R-TEST-010 rules matrix entry for no-stubbed-playwright prohibition")
+  fi
+
+  if ! grep -q "installDashboardSettingsFixtures.*prohibited\|prohibited.*installDashboardSettingsFixtures\|prohibited\b" AGENTS.md; then
+    missing+=("AGENTS.md: must contain an explicit prohibition on stubbed Playwright coverage")
+  fi
+
+  if ! grep -q "R-TEST-010" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: R-TEST-010 reference for no-stubbed-playwright prohibition")
+  fi
+
+  if ! grep -q "prohibited\b" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must explicitly prohibit stubbed Playwright tests")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'No-stubbed-playwright policy checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Stubbed Playwright tests are explicitly prohibited and enforcement is synchronized across all policy files.\n'
+}
+
 check_real_test_failfast_policy_sync() {
   local missing=()
 
@@ -595,6 +627,7 @@ run_check "Task file policy sync" check_task_file_policy_sync
 run_check "Startup launcher policy sync" check_startup_launcher_policy_sync
 run_check "Canonical completion gate sync" check_canonical_completion_gate_sync
 run_check "Real-test first-pass policy sync" check_real_test_failfast_policy_sync
+run_check "No-stubbed-playwright policy" check_no_stubbed_playwright_policy
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape

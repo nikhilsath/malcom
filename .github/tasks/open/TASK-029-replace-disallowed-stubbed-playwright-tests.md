@@ -4,12 +4,12 @@ Assumption: `TASK-027-policy-first-real-test-runner-workflow.md` and `TASK-028-e
 
 ## Execution steps
 
-1. [ ] [test]
+1. [x] [test]
 Files: AGENTS.md, app/tests/AGENTS.md, app/ui/e2e/README.md, app/scripts/check-policy.sh, app/ui/playwright.config.ts
 Action: Update policy and repo test documentation to explicitly forbid stubbed Playwright coverage. Remove any language that permits Playwright tests using `page.route()` or `installDashboardSettingsFixtures` for first-party backend flows. Remove the `stubbed` Playwright project and replace the current "secondary stubbed tier" wording with an explicit prohibition plus the replacement rule: browser tests must run against the real FastAPI app and real PostgreSQL test database, and isolated frontend-only state tests belong in Vitest rather than Playwright. Keep AGENTS.md and app/scripts/check-policy.sh synchronized per AGENTS.md#maintenance-sync-rule.
 Completion check: `AGENTS.md`, `app/tests/AGENTS.md`, and `app/ui/e2e/README.md` explicitly forbid stubbed Playwright tests; `app/ui/playwright.config.ts` no longer defines a `stubbed` project; `app/scripts/check-policy.sh` contains enforcement for the no-stubbed-Playwright rule.
 
-2. [ ] [test]
+2. [x] [test]
 Files: app/ui/e2e/settings.spec.ts, app/ui/e2e/dashboard.spec.ts, app/ui/e2e/shell.spec.ts, app/ui/e2e/support/dashboard-settings.ts, app/ui/e2e/support/core.ts
 Action: Inspect the existing fully stubbed specs and replace each one with either: (a) a real Playwright test that hits the live backend/test DB, or (b) a lower-level Vitest/frontend test if the coverage target is purely UI logic and does not need browser/system proof. Remove any dependency on `installDashboardSettingsFixtures` and route interception for first-party endpoints. Delete `app/ui/e2e/support/dashboard-settings.ts` entirely if nothing valid remains in it after the conversion.
 Completion check: `settings.spec.ts`, `dashboard.spec.ts`, and `shell.spec.ts` no longer use `installDashboardSettingsFixtures` or `page.route()` for first-party backend routes; any coverage that stays in Playwright runs against the real backend; dead stub helper code is removed.

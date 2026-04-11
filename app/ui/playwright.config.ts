@@ -73,25 +73,15 @@ export default defineConfig({
     },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
+      use: { ...devices["Desktop Chrome"] }
     },
     {
       name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
+      use: { ...devices["Desktop Firefox"] }
     },
     {
       name: "webkit",
-      use: { ...devices["Desktop Safari"] },
-      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
-    },
-    {
-      // Secondary project: fully-stubbed specs for isolated UI logic only.
-      // Not the primary proof for critical workflows — real specs serve that role.
-      name: "stubbed",
-      use: { ...devices["Desktop Chrome"] },
-      testMatch: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
+      use: { ...devices["Desktop Safari"] }
     }
   ],
   webServer: {

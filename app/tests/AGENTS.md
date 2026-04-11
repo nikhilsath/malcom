@@ -67,6 +67,7 @@ User-visible workflow changes are not complete until `bash app/scripts/test-syst
 - run `npm run test:e2e` in `app/ui/` for browser workflow coverage when validating the full gate
 - ensure Playwright assertions cover the changed workflow behavior, not only route load or static render
 - manually verify the served page route if HTML/script wiring changed
+- **Playwright specs must not use `installDashboardSettingsFixtures` or `page.route()` to intercept first-party backend routes** (→ R-TEST-010); browser tests must run against the real FastAPI app and real PostgreSQL test database; isolated frontend-only state tests that do not need browser/system proof belong in Vitest rather than Playwright
 
 ### Startup And Port Conflict Triage
 
