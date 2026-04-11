@@ -57,7 +57,7 @@ jobs:
         run: bash app/scripts/test-system.sh
 
       - name: Install Playwright browsers for stubbed specs
-        run: npm --prefix app/ui run test:e2e:install -- --with-deps chromium
+        run: npm --prefix app/ui exec -- playwright install --with-deps chromium
 
       - name: Run stubbed Playwright specs
         run: npm --prefix app/ui run test:e2e -- --project=stubbed
