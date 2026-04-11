@@ -308,10 +308,6 @@ check_canonical_completion_gate_sync() {
     missing+=("AGENTS.md: must reference app/scripts/test-system.sh as the canonical real-system completion command")
   fi
 
-  if ! grep -q "canonical" AGENTS.md || ! grep -q "test-system.sh" AGENTS.md; then
-    missing+=("AGENTS.md: must document test-system.sh as the canonical single command for real-system verification")
-  fi
-
   if ! grep -q "R-TEST-002" AGENTS.md; then
     missing+=("AGENTS.md: R-TEST-002 rules matrix entry")
   fi
