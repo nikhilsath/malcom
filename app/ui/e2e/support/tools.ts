@@ -392,7 +392,7 @@ const getCoquiVoiceOptions = (modelName: string) => {
   };
 };
 
-const buildCoquiRuntimeState = (state: CoquiTtsToolState, *, modelName?: string) => {
+const buildCoquiRuntimeState = (state: CoquiTtsToolState, { modelName }: { modelName?: string } = {}) => {
   if (!state.runtime.command_available) {
     return deepClone(state.runtime);
   }
