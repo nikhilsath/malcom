@@ -4,17 +4,16 @@ Assumption: `TASK-027-policy-first-real-test-runner-workflow.md` has already bee
 
 ## Execution steps
 
-1. [ ] [scripts]
+1. [x] [scripts]
 Files: app/scripts/dev.py, app/scripts/require_test_database.py, app/scripts/reset_playwright_test_db.py, app/scripts/run_playwright_server.sh, app/scripts/test-real-failfast.sh
 Action: Refactor database/test bootstrap responsibilities so tests no longer depend on a persistent manually running local Postgres test instance. Extract or introduce reusable bootstrap logic that first ensures the test runtime exists, then ensures the test database exists, then migrates/resets it. Do not keep the test flow centered on checking for an already-running DB and then assuming the environment is ready. Preserve compatibility with GitHub Actions by making the bootstrap consume a provided reachable DB URL when present, while allowing a local fallback startup strategy only when the environment supports it.
 Completion check: the changed scripts show a clear sequence of environment bootstrap → DB existence/setup → migration/reset → tests; there is no test entrypoint whose primary contract is "assume persistent local test DB is already running".
 
-2. [ ] [scripts]
-Files: app/scripts/test-real-failfast.sh, app/scripts/test-system.sh, app/tests/AGENTS.md, app/tests/test-artifacts/
+2. [x] [scripts]
 Action: Introduce a true environment-building real-system command such as `app/scripts/test-system.sh` and reposition `test-real-failfast.sh` accordingly. The primary command must provision or attach to the test DB runtime, create/prepare the real test environment from zero, stop on first failure, and write one stable machine-readable artifact for every failure path. Keep the output shape small and stable for low-token AI debugging.
 Completion check: the primary system-test command writes `step`, `exit_code`, `command`, and `first_error_lines` for bootstrap failure, DB setup failure, startup-lifecycle failure, backend-suite failure, browser-suite failure if included, and success; `app/tests/AGENTS.md` documents the final artifact contract and command purpose.
 
-3. [ ] [scripts]
+3. [x] [scripts]
 Files: app/scripts/test-precommit.sh, app/scripts/test-full.sh, app/tests/AGENTS.md
 Action: Realign the broader gates so they sit downstream of the new primary system-test command or otherwise reflect the environment-first testing design introduced by TASK-027. Keep the two-tier broader-gate model intact, but ensure the gate scripts no longer rely on the old persistent-test-DB assumption.
 Completion check: `app/scripts/test-precommit.sh` and/or `app/scripts/test-full.sh` reflect the environment-first design, and their behavior matches the updated test documentation.

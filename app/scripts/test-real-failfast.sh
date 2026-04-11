@@ -1,87 +1,30 @@
 #!/usr/bin/env bash
+# test-real-failfast.sh — AI agent first-pass command.
+#
+# This script delegates to test-system.sh, which builds the test environment
+# from scratch (bootstrap → db_setup → startup_lifecycle → backend_suite) and
+# stops on the first failure.  The machine-readable artifact is written to
+# app/tests/test-artifacts/system-result.json and mirrored to the legacy path
+# failfast-result.json for backward compatibility with any tooling that reads
+# the older location.
+#
+# Agents and CI should prefer running this script directly per R-TEST-009.
 set -euo pipefail
 
 WORKSPACE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
 ARTIFACT_DIR="app/tests/test-artifacts"
-ARTIFACT_FILE="$ARTIFACT_DIR/failfast-result.json"
-mkdir -p "$ARTIFACT_DIR"
+SYSTEM_ARTIFACT="$ARTIFACT_DIR/system-result.json"
+LEGACY_ARTIFACT="$ARTIFACT_DIR/failfast-result.json"
 
-# Step 1: PostgreSQL preflight
-PREFLIGHT_CMD=".venv/bin/python app/scripts/require_test_database.py"
-PREFLIGHT_OUTPUT=$(eval "$PREFLIGHT_CMD" 2>&1) || PREFLIGHT_EXIT=$?
-PREFLIGHT_EXIT=${PREFLIGHT_EXIT:-0}
+# Delegate all environment-building and test execution to test-system.sh.
+bash app/scripts/test-system.sh "$@"
+EXIT_CODE=$?
 
-if [[ "$PREFLIGHT_EXIT" -ne 0 ]]; then
-  echo "PostgreSQL preflight failed"
-  FIRST_ERROR_LINES=$(echo "$PREFLIGHT_OUTPUT" | tail -40 | python3 -c "import sys,json; lines=sys.stdin.read().splitlines(); print(json.dumps(lines))")
-  python3 -c "
-import json
-data = {
-    'step': 'preflight',
-    'exit_code': $PREFLIGHT_EXIT,
-    'command': '$PREFLIGHT_CMD',
-    'first_error_lines': $FIRST_ERROR_LINES
-}
-with open('$ARTIFACT_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-"
-  exit 1
+# Mirror the artifact to the legacy failfast path for backward compatibility.
+if [[ -f "$SYSTEM_ARTIFACT" ]]; then
+  cp "$SYSTEM_ARTIFACT" "$LEGACY_ARTIFACT"
 fi
 
-# Step 2: Startup/backup lifecycle tests (highest-value real tests first)
-LIFECYCLE_CMD=".venv/bin/pytest -c app/pytest.ini -x -q --tb=short app/tests/test_startup_lifecycle.py"
-LIFECYCLE_OUTPUT=$(eval "$LIFECYCLE_CMD" 2>&1) || LIFECYCLE_EXIT=$?
-LIFECYCLE_EXIT=${LIFECYCLE_EXIT:-0}
-
-if [[ "$LIFECYCLE_EXIT" -ne 0 ]]; then
-  FIRST_ERROR_LINES=$(echo "$LIFECYCLE_OUTPUT" | tail -40 | python3 -c "import sys,json; lines=sys.stdin.read().splitlines(); print(json.dumps(lines))")
-  python3 -c "
-import json
-data = {
-    'step': 'startup_lifecycle',
-    'exit_code': $LIFECYCLE_EXIT,
-    'command': '$LIFECYCLE_CMD',
-    'first_error_lines': $FIRST_ERROR_LINES
-}
-with open('$ARTIFACT_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-"
-  exit 1
-fi
-
-# Step 3: Full real-test suite (fail on first failure, exclude smoke)
-SUITE_CMD=".venv/bin/pytest -c app/pytest.ini -x -q --tb=short -m \"not smoke\" app/tests/"
-SUITE_OUTPUT=$(eval "$SUITE_CMD" 2>&1) || SUITE_EXIT=$?
-SUITE_EXIT=${SUITE_EXIT:-0}
-
-if [[ "$SUITE_EXIT" -ne 0 ]]; then
-  FIRST_ERROR_LINES=$(echo "$SUITE_OUTPUT" | tail -40 | python3 -c "import sys,json; lines=sys.stdin.read().splitlines(); print(json.dumps(lines))")
-  python3 -c "
-import json
-data = {
-    'step': 'backend_suite',
-    'exit_code': $SUITE_EXIT,
-    'command': '$SUITE_CMD',
-    'first_error_lines': $FIRST_ERROR_LINES
-}
-with open('$ARTIFACT_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-"
-  exit 1
-fi
-
-# All real tests passed
-python3 -c "
-import json
-data = {
-    'step': 'all',
-    'exit_code': 0,
-    'command': 'test-real-failfast.sh',
-    'first_error_lines': []
-}
-with open('$ARTIFACT_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-"
-echo "All real tests passed."
+exit "$EXIT_CODE"
