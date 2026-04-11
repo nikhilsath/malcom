@@ -8,8 +8,10 @@ Phases:
     runtime   Ensure the PostgreSQL server is reachable.
               If no external database URL is configured and the server is not
               running, attempt to start it via Homebrew (macOS local only).
-    db_setup  Ensure the test database exists (creating it if needed) and
-              initialize its schema via the canonical migration path.
+    db_setup  Ensure the test database exists (creating it if needed), then
+              reset it to a clean state by running migrations and truncating
+              all application tables.  Every invocation produces a fresh
+              environment — no prior test data is retained.
     full      Run runtime then db_setup (default when no --phase is given).
 """
 from __future__ import annotations
@@ -26,8 +28,7 @@ from urllib.parse import urlparse, urlunparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend.database import connect, initialize
-from tests.postgres_test_utils import get_test_database_url
+from tests.postgres_test_utils import get_test_database_url, reset_database
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +139,11 @@ def _get_maintenance_url(database_url: str) -> tuple[str, str]:
 
 
 def ensure_test_database(database_url: str) -> int:  # pragma: no cover - exercised by shell scripts
-    """Ensure the test database exists, then initialize its schema.
+    """Ensure the test database exists, then reset it to a clean state.
+
+    Every call drops all application data (via truncation) and re-applies
+    migrations so each test-system.sh run starts from a deterministic, fresh
+    environment.  Creating the database on first use is still handled here.
 
     Returns 0 on success, 1 on failure.
     """
@@ -156,7 +161,7 @@ def ensure_test_database(database_url: str) -> int:  # pragma: no cover - exerci
                 maint_conn.execute(f'CREATE DATABASE "{db_name}"')
                 print(f"Created test database '{db_name}'.")
             else:
-                print(f"Test database '{db_name}' already exists.")
+                print(f"Test database '{db_name}' exists; will reset to clean state.")
     except Exception as error:  # pragma: no cover
         print(
             f"DB setup failed: could not ensure test database '{db_name}' exists. "
@@ -165,30 +170,19 @@ def ensure_test_database(database_url: str) -> int:  # pragma: no cover - exerci
         )
         return 1
 
-    # Initialize (migrate) the schema.
+    # Reset: run migrations to head, then truncate all application tables so
+    # every test run starts from a known-clean state.
     try:
-        connection = connect(database_url=database_url)
+        reset_database(database_url)
     except Exception as error:  # pragma: no cover
         print(
-            f"DB setup failed: could not connect to {database_url!r}. "
+            f"DB setup failed while resetting the test database. "
             f"Original error: {error}",
             file=sys.stderr,
         )
         return 1
 
-    try:
-        initialize(connection)
-    except Exception as error:  # pragma: no cover
-        print(
-            f"DB setup failed while initializing the schema. "
-            f"Original error: {error}",
-            file=sys.stderr,
-        )
-        return 1
-    finally:
-        connection.close()
-
-    print(f"Test database schema initialized for {database_url}.")
+    print(f"Test database reset to clean state for {database_url}.")
     return 0
 
 
@@ -222,7 +216,7 @@ def main() -> int:
             return rc
 
     if args.phase == "full":
-        print(f"PostgreSQL test bootstrap complete for {database_url}.")
+        print(f"PostgreSQL test bootstrap complete (fresh environment) for {database_url}.")
     return 0
 
 

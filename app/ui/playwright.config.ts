@@ -65,6 +65,13 @@ export default defineConfig({
   },
   projects: [
     {
+      // Critical project: minimal real subset run by default in test-system.sh.
+      // Proves the product boots and critical UI flows work against the real backend.
+      name: "critical",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: ["**/apis-incoming.spec.ts"]
+    },
+    {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]

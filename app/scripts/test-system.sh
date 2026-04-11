@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# test-system.sh — primary environment-building real-system test command.
+# test-system.sh — canonical real-system test command.
 #
-# This script builds the test environment from scratch, runs all real tests,
-# and writes a stable machine-readable artifact for every failure path.
+# This script builds the test environment from scratch, runs all real tests
+# including a minimal critical browser check, and writes a stable machine-readable
+# artifact for every failure path.  It is the single command that proves the
+# product can boot from zero and its critical functionality actually works.
 #
 # Usage:
 #   bash app/scripts/test-system.sh
-#   INCLUDE_BROWSER_SUITE=1 bash app/scripts/test-system.sh
+#   SKIP_BROWSER_SUITE=1 bash app/scripts/test-system.sh  # skip browser (local, no Playwright installed)
+#   INCLUDE_FULL_BROWSER_SUITE=1 bash app/scripts/test-system.sh  # also run the full Playwright suite
 #
 # Artifact: app/tests/test-artifacts/system-result.json
 #   Fields:  step          — failure stage name (see below) or "all" on success
@@ -16,10 +19,11 @@
 #
 # Step names written to the artifact:
 #   bootstrap          Ensure the PostgreSQL runtime is reachable
-#   db_setup           Ensure the test database exists and is migrated/initialized
+#   db_setup           Reset/create the test database to a clean state each run
 #   startup_lifecycle  Run test_startup_lifecycle.py (highest-value real tests)
 #   backend_suite      Run the full non-smoke pytest suite (-x)
-#   browser_suite      Run Playwright e2e suite (only when INCLUDE_BROWSER_SUITE=1)
+#   critical_browser   Run the minimal real Playwright subset (default ON, skip with SKIP_BROWSER_SUITE=1)
+#   browser_suite      Run the full Playwright e2e suite (only when INCLUDE_FULL_BROWSER_SUITE=1)
 #   all                Success (exit_code: 0)
 set -euo pipefail
 
@@ -119,9 +123,24 @@ if [[ "$SUITE_EXIT" -ne 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 5 (optional): browser_suite — real Playwright e2e suite
+# Step 5 (default): critical_browser — minimal real Playwright subset
+# Skippable with SKIP_BROWSER_SUITE=1 (e.g. local dev without browsers installed)
 # ---------------------------------------------------------------------------
-if [[ "${INCLUDE_BROWSER_SUITE:-0}" == "1" ]]; then
+if [[ "${SKIP_BROWSER_SUITE:-0}" != "1" ]]; then
+  CRITICAL_CMD="npm --prefix app/ui run test:e2e:critical"
+  CRITICAL_OUTPUT=$(eval "$CRITICAL_CMD" 2>&1) || CRITICAL_EXIT=$?
+  CRITICAL_EXIT=${CRITICAL_EXIT:-0}
+
+  if [[ "$CRITICAL_EXIT" -ne 0 ]]; then
+    echo "critical_browser step failed"
+    write_artifact_and_exit "critical_browser" "$CRITICAL_EXIT" "$CRITICAL_CMD" "$CRITICAL_OUTPUT"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Step 6 (optional): browser_suite — full Playwright e2e suite
+# ---------------------------------------------------------------------------
+if [[ "${INCLUDE_FULL_BROWSER_SUITE:-0}" == "1" ]]; then
   BROWSER_CMD="npm --prefix app/ui run test:e2e"
   BROWSER_OUTPUT=$(eval "$BROWSER_CMD" 2>&1) || BROWSER_EXIT=$?
   BROWSER_EXIT=${BROWSER_EXIT:-0}

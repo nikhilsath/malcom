@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e:coverage": "node ../scripts/check-playwright-route-coverage.mjs",
+    "test:e2e:critical": "playwright test --project=critical",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium firefox webkit"
   },
