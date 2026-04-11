@@ -31,7 +31,7 @@ Completion check: `app/ui/e2e/README.md` and `app/ui/playwright.config.ts` agree
 
 ## Test impact review
 
-1. [ ] [test]
+1. [x] [test]
 Files: app/tests/test_startup_lifecycle.py
 Action: keep — this remains the highest-value real startup/backup contract and should continue to run first in the fail-fast path.
 Completion check: none.
