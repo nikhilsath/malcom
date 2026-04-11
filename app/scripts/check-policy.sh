@@ -25,6 +25,9 @@ set -uo pipefail
 # coverage is secondary for critical workflow verification.
 # TASK-027 step 4: test-precommit.sh now invokes test-real-failfast.sh as its first step
 # before adding coverage and UI gate checks; R-TEST-002 description updated to match.
+# TASK-028 (2026-04-11): test-system.sh is now the canonical real-system completion command;
+# critical_browser step runs by default (minimal real Playwright subset); DB reset happens
+# every run; test-full.sh is secondary; check-canonical-completion-gate-sync added.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -298,6 +301,42 @@ check_startup_launcher_policy_sync() {
   printf 'Startup launcher policy text is synchronized across AGENTS.md and app/tests/AGENTS.md.\n'
 }
 
+check_canonical_completion_gate_sync() {
+  local missing=()
+
+  if ! grep -q "test-system.sh" AGENTS.md; then
+    missing+=("AGENTS.md: must reference app/scripts/test-system.sh as the canonical real-system completion command")
+  fi
+
+  if ! grep -q "canonical" AGENTS.md || ! grep -q "test-system.sh" AGENTS.md; then
+    missing+=("AGENTS.md: must document test-system.sh as the canonical single command for real-system verification")
+  fi
+
+  if ! grep -q "R-TEST-002" AGENTS.md; then
+    missing+=("AGENTS.md: R-TEST-002 rules matrix entry")
+  fi
+
+  if ! grep -q "test-system.sh" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must reference app/scripts/test-system.sh as the canonical completion command")
+  fi
+
+  if ! grep -q "canonical" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must document test-system.sh as canonical")
+  fi
+
+  if ! grep -q "test-system.sh" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must reference test-system.sh as the completion gate")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'Canonical completion gate sync checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Canonical completion gate is synchronized: test-system.sh referenced in AGENTS.md, app/tests/AGENTS.md, and app/ui/e2e/README.md.\n'
+}
+
 check_real_test_failfast_policy_sync() {
   local missing=()
 
@@ -558,6 +597,7 @@ run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "Documentation ownership model" check_documentation_ownership_model
 run_check "Task file policy sync" check_task_file_policy_sync
 run_check "Startup launcher policy sync" check_startup_launcher_policy_sync
+run_check "Canonical completion gate sync" check_canonical_completion_gate_sync
 run_check "Real-test first-pass policy sync" check_real_test_failfast_policy_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review

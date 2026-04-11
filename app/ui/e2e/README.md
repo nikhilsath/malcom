@@ -29,8 +29,9 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 
 - Route ownership gate: `cd app/ui && npm run test:e2e:coverage`
 - Targeted iteration: `cd app/ui && npx playwright test <spec>`
+- Critical browser subset (default in test-system.sh): `cd app/ui && npm run test:e2e:critical`
 - Full browser suite: `cd app/ui && npm run test:e2e`
-- Repository completion gate: `./app/scripts/test-full.sh`
+- **Repository completion gate (canonical):** `bash app/scripts/test-system.sh`
 
 ## Port handling
 
@@ -41,6 +42,14 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 ## Test Classification
 
 Specs are divided into two tiers based on whether they intercept API calls:
+
+### Critical
+
+The `critical` Playwright project (`--project=critical`) runs a minimal real subset that always executes by default in `test-system.sh`. It proves the product boots, the backend is healthy, and at least one critical UI workflow works end-to-end against the real backend.
+
+- `apis-incoming.spec.ts`
+
+This is the primary browser proof for `bash app/scripts/test-system.sh`. Skip with `SKIP_BROWSER_SUITE=1` only in environments where Playwright browsers are not installed.
 
 ### Real
 
@@ -74,5 +83,5 @@ Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept
 
 The `"stubbed"` Playwright project in `playwright.config.ts` targets the three fully-stubbed specs (`settings.spec.ts`, `dashboard.spec.ts`, `shell.spec.ts`) so they can be run in isolation: `cd app/ui && npx playwright test --project=stubbed`.
 
-> **AI agent note:** `app/scripts/test-real-failfast.sh` runs only backend real tests (no Playwright) and is the recommended first-pass check for AI agents. It stops on the first failure and writes a machine-readable JSON artifact to `app/tests/test-artifacts/failfast-result.json`.
+> **AI agent note:** `app/scripts/test-real-failfast.sh` (which delegates to `app/scripts/test-system.sh`) is the recommended first-pass check for AI agents. It builds the environment from scratch, runs backend real tests and the critical browser subset, stops on the first failure, and writes a machine-readable JSON artifact to `app/tests/test-artifacts/system-result.json` (also mirrored to `app/tests/test-artifacts/failfast-result.json`). `bash app/scripts/test-system.sh` is the canonical single command for proving the product works end to end.
 
