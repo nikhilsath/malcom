@@ -64,9 +64,9 @@ Specs that make no `page.route()` intercepts and run against the live Playwright
 
 ### Stubbed
 
-Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept API calls. These test UI logic and rendering under controlled state rather than end-to-end system behavior:
+Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept API calls. These test UI logic and rendering under controlled state rather than end-to-end system behavior. **Stubbed specs are secondary to real specs and are not the primary proof for critical workflows.** Use them to verify isolated UI logic and rendering; use real specs (or the backend real-test runner) to prove that critical workflows function end-to-end.
 
-- `settings.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
+- `settings.spec.ts` — fully stubbed via `installDashboardSettingsFixtures` and additional direct `page.route()` calls for `/api/v1/storage/locations`
 - `dashboard.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
 - `shell.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
 - `automation-write-step.spec.ts` — partially stubbed via `page.route`
