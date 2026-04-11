@@ -7,12 +7,12 @@ Files: AGENTS.md, app/tests/AGENTS.md, app/ui/e2e/README.md, app/scripts/check-p
 Action: Update the canonical testing policy first so AI agents are explicitly told to use `app/scripts/test-real-failfast.sh` as the first-pass command for minimal-context real-test verification, while keeping `app/scripts/test-precommit.sh` and `app/scripts/test-full.sh` as broader gates. In this same policy change, explicitly define stubbed Playwright coverage as secondary to real system verification for critical workflows. Follow AGENTS.md#maintenance-sync-rule, AGENTS.md#task-file-construction, and the testing policy references in AGENTS.md / app/tests/AGENTS.md. This task changes the policy that governs `.github/agents/task-builder.md` and `.github/agents/task-executor.md`, so execute this task directly rather than through those agents until the policy update is complete.
 Completion check: `AGENTS.md`, `app/tests/AGENTS.md`, and `app/ui/e2e/README.md` all mention `app/scripts/test-real-failfast.sh`; `AGENTS.md` and `app/scripts/check-policy.sh` are both changed in the same diff; root policy text makes the first-pass AI command explicit.
 
-2. [ ] [scripts]
+2. [x] [scripts]
 Files: app/scripts/check-policy.sh
 Action: Extend policy enforcement so testing-workflow policy changes are checked consistently. Add sync checks for the new real-test-runner policy language and any new rule IDs, Quick Task entries, or machine-index references introduced in `AGENTS.md`. Keep this aligned with AGENTS.md#maintenance-sync-rule (R-POLICY-001).
 Completion check: `app/scripts/check-policy.sh` contains explicit checks for the real-test-runner policy language and fails when `AGENTS.md` is changed without the matching policy-enforcement update.
 
-3. [ ] [test]
+3. [x] [test]
 Files: app/scripts/test-real-failfast.sh, app/tests/AGENTS.md
 Action: Tighten the fail-fast runner so every failure path, including PostgreSQL preflight failure, writes the same machine-readable artifact format to `app/tests/test-artifacts/failfast-result.json`. Keep the output shape small and stable for low-token AI debugging.
 Completion check: `app/scripts/test-real-failfast.sh` writes `step`, `exit_code`, `command`, and `first_error_lines` for preflight failure, startup-lifecycle failure, backend-suite failure, and success; `app/tests/AGENTS.md` documents the final artifact contract.

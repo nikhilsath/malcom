@@ -36,7 +36,7 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 `app/scripts/test-real-failfast.sh` is the recommended first-pass command for AI agents and automated checks that need minimal token output.
 
 - Runs `test_startup_lifecycle.py` first (highest-value real tests), then the full non-smoke pytest suite with `-x` (stop on first failure).
-- On failure, writes a JSON artifact to `app/tests/test-artifacts/failfast-result.json` with fields `step`, `exit_code`, `command`, and `first_error_lines`.
+- On failure, writes a JSON artifact to `app/tests/test-artifacts/failfast-result.json` with fields `step`, `exit_code`, `command`, and `first_error_lines`. This contract applies to every failure path: `preflight` (PostgreSQL preflight failure), `startup_lifecycle` (lifecycle test failure), `backend_suite` (backend suite failure), and `all` with `exit_code: 0` for success.
 - `app/scripts/test-external-probes.py` is informational-only (no assertions, always exits 0) and must not appear in any automated fail gate.
 - The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002.
 

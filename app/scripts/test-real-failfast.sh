@@ -9,8 +9,24 @@ ARTIFACT_FILE="$ARTIFACT_DIR/failfast-result.json"
 mkdir -p "$ARTIFACT_DIR"
 
 # Step 1: PostgreSQL preflight
-if ! ./.venv/bin/python app/scripts/require_test_database.py; then
+PREFLIGHT_CMD=".venv/bin/python app/scripts/require_test_database.py"
+PREFLIGHT_OUTPUT=$(eval "$PREFLIGHT_CMD" 2>&1) || PREFLIGHT_EXIT=$?
+PREFLIGHT_EXIT=${PREFLIGHT_EXIT:-0}
+
+if [[ "$PREFLIGHT_EXIT" -ne 0 ]]; then
   echo "PostgreSQL preflight failed"
+  FIRST_ERROR_LINES=$(echo "$PREFLIGHT_OUTPUT" | tail -40 | python3 -c "import sys,json; lines=sys.stdin.read().splitlines(); print(json.dumps(lines))")
+  python3 -c "
+import json
+data = {
+    'step': 'preflight',
+    'exit_code': $PREFLIGHT_EXIT,
+    'command': '$PREFLIGHT_CMD',
+    'first_error_lines': $FIRST_ERROR_LINES
+}
+with open('$ARTIFACT_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+"
   exit 1
 fi
 
