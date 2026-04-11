@@ -4,8 +4,10 @@ set -euo pipefail
 WORKSPACE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-# First-pass: real test runner — preflight → startup lifecycle → backend suite (fail-fast)
-# AI agents should run this script first before this broader gate.
+# First-pass: delegates to test-system.sh which builds the environment from
+# scratch (bootstrap → db_setup → startup_lifecycle → backend_suite, fail-fast).
+# AI agents should run test-real-failfast.sh (or test-system.sh directly) before
+# this broader gate.
 ./app/scripts/test-real-failfast.sh
 
 # Supplemental: coverage report (add-on to the first-pass backend run)

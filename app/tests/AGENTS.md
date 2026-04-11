@@ -25,20 +25,38 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 
 - run targeted `pytest` files in `app/tests/`
 - add or update API tests for route, schema, or DB behavior changes
-- use `app/scripts/test-precommit.sh` as the local iteration gate before commits — it invokes `app/scripts/test-real-failfast.sh` first (preflight → startup lifecycle → backend suite, fail-fast), then adds an optional coverage report and UI checks
+- use `app/scripts/test-system.sh` as the primary real-system command — it builds the environment from scratch (bootstrap → db_setup → startup lifecycle → backend suite) and stops on first failure
+- use `app/scripts/test-real-failfast.sh` (which delegates to `test-system.sh`) as the AI agent first-pass command before broader gates
+- use `app/scripts/test-precommit.sh` as the local iteration gate before commits — it invokes `app/scripts/test-real-failfast.sh` first (which calls `test-system.sh` for environment-first setup), then adds an optional coverage report and UI checks
 - use `app/scripts/test-full.sh` as the completion gate when backend route smoke coverage, browser coverage, or shared test infrastructure changes are involved
 - keep `/health` and every `/api/v1/**` route represented in `app/tests/test_api_smoke_matrix.py`, with scenarios sourced from `app/tests/api_smoke_registry/`
 - keep connector/settings boundary assertions explicit: connector CRUD/auth-policy behavior belongs to `/api/v1/connectors*`, while `/api/v1/settings` covers app settings sections only
 - keep builder catalog tests aligned to persisted `connector_endpoint_definitions` sourcing for `/api/v1/connectors/activity-catalog` and `/api/v1/connectors/http-presets`
 
+### Primary Environment-Building Real-System Command
+
+`app/scripts/test-system.sh` is the primary command that builds the test environment from scratch and runs all real tests.
+
+- **What it does**: provisions or attaches to the test database runtime → ensures the test database exists → migrates/initializes the schema → runs `test_startup_lifecycle.py` → runs the full non-smoke pytest suite → optionally runs the Playwright browser suite.
+- **When to use**: whenever you need a clean, repeatable real-system verification that does not assume a standing test database.
+- Set `INCLUDE_BROWSER_SUITE=1` to include the Playwright e2e suite as an additional step.
+- On any failure, writes a JSON artifact to `app/tests/test-artifacts/system-result.json` with the following contract:
+
+| Field | Description |
+|---|---|
+| `step` | Failure stage: `bootstrap`, `db_setup`, `startup_lifecycle`, `backend_suite`, `browser_suite`, or `all` (success) |
+| `exit_code` | Non-zero on failure; `0` on success |
+| `command` | The exact command string that failed, or `"test-system.sh"` on success |
+| `first_error_lines` | JSON array of up to 40 lines from the end of the failed command's output |
+
 ### Fail-Fast Real-Test Runner
 
 `app/scripts/test-real-failfast.sh` is the recommended first-pass command for AI agents and automated checks that need minimal token output.
 
-- Runs `test_startup_lifecycle.py` first (highest-value real tests), then the full non-smoke pytest suite with `-x` (stop on first failure).
-- On failure, writes a JSON artifact to `app/tests/test-artifacts/failfast-result.json` with fields `step`, `exit_code`, `command`, and `first_error_lines`. This contract applies to every failure path: `preflight` (PostgreSQL preflight failure), `startup_lifecycle` (lifecycle test failure), `backend_suite` (backend suite failure), and `all` with `exit_code: 0` for success.
+- Delegates to `test-system.sh`, which builds the environment from scratch (bootstrap → db_setup → startup_lifecycle → backend_suite) and stops on the first failure.
+- On failure, `test-system.sh` writes `app/tests/test-artifacts/system-result.json`; `test-real-failfast.sh` also copies it to `app/tests/test-artifacts/failfast-result.json` for backward compatibility with any tooling that reads the legacy path.
 - `app/scripts/test-external-probes.py` is informational-only (no assertions, always exits 0) and must not appear in any automated fail gate.
-- The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002. `test-precommit.sh` invokes `test-real-failfast.sh` as its first step before adding coverage and UI gates.
+- The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002. `test-precommit.sh` invokes `test-real-failfast.sh` as its first step before adding coverage and UI gates; it therefore runs through the full environment-building sequence automatically.
 
 ### Frontend
 
