@@ -17,15 +17,17 @@ Files: app/scripts/test-real-failfast.sh, app/tests/AGENTS.md
 Action: Tighten the fail-fast runner so every failure path, including PostgreSQL preflight failure, writes the same machine-readable artifact format to `app/tests/test-artifacts/failfast-result.json`. Keep the output shape small and stable for low-token AI debugging.
 Completion check: `app/scripts/test-real-failfast.sh` writes `step`, `exit_code`, `command`, and `first_error_lines` for preflight failure, startup-lifecycle failure, backend-suite failure, and success; `app/tests/AGENTS.md` documents the final artifact contract.
 
-4. [ ] [scripts]
+4. [x] [scripts]
 Files: app/scripts/test-precommit.sh, app/scripts/test-full.sh, AGENTS.md, app/tests/AGENTS.md
 Action: After the policy files are updated, realign the broader gates to the new policy. Decide whether they should invoke `app/scripts/test-real-failfast.sh` directly or remain separate but explicitly downstream of it. Keep the two-tier broader-gate model intact, but make the real-test runner the canonical first-pass path for AI agents. Update root and test policy text if the gate order or descriptions change.
 Completion check: `app/scripts/test-precommit.sh` and/or `app/scripts/test-full.sh` reflect the post-policy design, and the final policy text matches the actual script behavior.
+<!-- Execution note: test-precommit.sh now invokes ./app/scripts/test-real-failfast.sh as its first step (replacing explicit preflight + lifecycle + backend-suite commands), then adds optional coverage report and UI checks. test-full.sh unchanged — it calls test-precommit.sh which already chains correctly. AGENTS.md R-TEST-002 row and Real-Test First-Pass Policy item 3 updated to describe the exact script design. app/tests/AGENTS.md Backend and Fail-Fast sections updated to match. check-policy.sh TASK-027 note updated to satisfy check_agents_script_sync. -->
 
-5. [ ] [test]
+5. [x] [test]
 Files: app/ui/playwright.config.ts, app/ui/e2e/README.md, app/ui/e2e/settings.spec.ts, app/ui/e2e/dashboard.spec.ts, app/ui/e2e/shell.spec.ts, app/ui/e2e/support/dashboard-settings.ts
 Action: Audit the current real vs stubbed Playwright split and make the classification explicit and accurate. Preserve stubbed specs where they are still useful for isolated UI logic, but document that they are secondary and not the primary proof for critical workflows. If any of the listed specs are misclassified or partially stubbed in a way that the docs do not reflect, fix the docs and config in the same change.
 Completion check: `app/ui/e2e/README.md` and `app/ui/playwright.config.ts` agree on which specs are real vs stubbed, and the documented classification matches the actual interception behavior in the named spec/support files.
+<!-- Execution note: README Stubbed section updated: (1) added explicit "secondary" and "not the primary proof for critical workflows" language; (2) corrected settings.spec.ts description to note additional direct page.route() calls for /api/v1/storage/locations. playwright.config.ts stubbed project entry annotated with secondary classification comment. check-policy.sh passes all policy checks. test-real-failfast.sh writes expected JSON artifact (step/exit_code/command/first_error_lines). Playwright stubbed specs not runnable in sandbox (no node_modules/DB) but config and README are in sync and accurately describe interception behavior. -->
 
 ## Test impact review
 

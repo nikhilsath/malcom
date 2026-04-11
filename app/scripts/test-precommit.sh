@@ -4,15 +4,15 @@ set -euo pipefail
 WORKSPACE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-./.venv/bin/python app/scripts/require_test_database.py
-./.venv/bin/pytest -c app/pytest.ini -q app/tests/test_startup_lifecycle.py
+# First-pass: real test runner — preflight → startup lifecycle → backend suite (fail-fast)
+# AI agents should run this script first before this broader gate.
+./app/scripts/test-real-failfast.sh
 
-BACKEND_ARGS=(-m "not smoke")
+# Supplemental: coverage report (add-on to the first-pass backend run)
 if ./.venv/bin/python -c "import pytest_cov" >/dev/null 2>&1; then
-  BACKEND_ARGS+=(--cov=app/backend --cov-report=term-missing)
+  ./.venv/bin/pytest -c app/pytest.ini -q --cov=app/backend --cov-report=term-missing -m "not smoke" app/tests/
 fi
 
-./.venv/bin/pytest -c app/pytest.ini "${BACKEND_ARGS[@]}" app/tests/
 node app/scripts/check-ui-page-entry-modules.mjs
 
 if [[ "${SKIP_PLAYWRIGHT_ROUTE_COVERAGE:-0}" != "1" ]]; then

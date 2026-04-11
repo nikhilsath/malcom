@@ -80,6 +80,8 @@ export default defineConfig({
       testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
     },
     {
+      // Secondary project: fully-stubbed specs for isolated UI logic only.
+      // Not the primary proof for critical workflows — real specs serve that role.
       name: "stubbed",
       use: { ...devices["Desktop Chrome"] },
       testMatch: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
