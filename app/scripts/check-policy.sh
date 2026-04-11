@@ -20,6 +20,9 @@ set -uo pipefail
 # shape checks continue to require the dedicated `scope` and `notes` columns.
 # TASK-026 (2026-04-11): startup lifecycle policy now requires real launcher coverage
 # in app/tests/test_startup_lifecycle.py and failure-log capture to data/logs/.
+# TASK-027 (2026-04-11): real-test-runner first-pass policy (R-TEST-009) added;
+# test-real-failfast.sh is the canonical first-pass AI command; stubbed Playwright
+# coverage is secondary for critical workflow verification.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -293,6 +296,38 @@ check_startup_launcher_policy_sync() {
   printf 'Startup launcher policy text is synchronized across AGENTS.md and app/tests/AGENTS.md.\n'
 }
 
+check_real_test_failfast_policy_sync() {
+  local missing=()
+
+  if ! grep -q "test-real-failfast.sh" AGENTS.md; then
+    missing+=("AGENTS.md: must reference app/scripts/test-real-failfast.sh as the first-pass AI command")
+  fi
+
+  if ! grep -q "Real-Test First-Pass Policy" AGENTS.md; then
+    missing+=("AGENTS.md: must contain a ## Real-Test First-Pass Policy section")
+  fi
+
+  if ! grep -q "R-TEST-009" AGENTS.md; then
+    missing+=("AGENTS.md: R-TEST-009 rules matrix entry")
+  fi
+
+  if ! grep -q "test-real-failfast.sh" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must reference app/scripts/test-real-failfast.sh")
+  fi
+
+  if ! grep -q "test-real-failfast.sh" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must reference app/scripts/test-real-failfast.sh")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'Real-test first-pass policy sync checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Real-test first-pass policy is synchronized across AGENTS.md, app/tests/AGENTS.md, and app/ui/e2e/README.md.\n'
+}
+
 check_db_schema_docs_sync() {
   local missing=()
 
@@ -521,6 +556,7 @@ run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "Documentation ownership model" check_documentation_ownership_model
 run_check "Task file policy sync" check_task_file_policy_sync
 run_check "Startup launcher policy sync" check_startup_launcher_policy_sync
+run_check "Real-test first-pass policy sync" check_real_test_failfast_policy_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape

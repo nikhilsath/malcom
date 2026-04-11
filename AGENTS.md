@@ -105,6 +105,16 @@ Rules:
 8. Keep files narrowly responsible; factor new concerns into adjacent modules or helpers instead of growing catch-all files. (→ R-CODE-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
 9. Fix the canonical path instead of layering fallbacks, duplicate reads, or shadow writes when the root cause can be corrected directly. (→ R-FIX-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
 10. When runtime-managed entities already live in the database, persisted rows plus their canonical resolvers are the runtime source of truth. (→ R-SOT-001; see [Implementation Quality](#implementation-quality-and-source-of-truth))
+11. When running tests in a minimal-context or low-token environment, use `app/scripts/test-real-failfast.sh` as the first-pass command before invoking broader gates. (→ R-TEST-009; see [Real-Test First-Pass Policy](#real-test-first-pass-policy))
+
+### Real-Test First-Pass Policy {#real-test-first-pass-policy}
+
+AI agents must use `app/scripts/test-real-failfast.sh` as the explicit first-pass command when verifying changes in minimal-context, low-token, or automated environments.
+
+1. **(R-TEST-009)** Run `app/scripts/test-real-failfast.sh` before any broader gate (`test-precommit.sh` or `test-full.sh`). It runs `test_startup_lifecycle.py` first, then the full non-smoke pytest suite with `-x`, and writes a machine-readable artifact to `app/tests/test-artifacts/failfast-result.json` on failure.
+2. Stubbed Playwright coverage (specs using `installDashboardSettingsFixtures` or `page.route()` intercepts) is secondary. It may not substitute for real system verification on critical workflows.
+3. The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002 and are run after the first-pass check.
+
 
 ### Implementation Quality And Source Of Truth {#implementation-quality-and-source-of-truth}
 
@@ -261,7 +271,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Implement or change behavior | feature source files + matching tests | `app/backend/AGENTS.md`, `app/ui/AGENTS.md`, `app/tests/AGENTS.md` | shipping behavior changes without relevant automated tests |
 | Update task execution planning policy | `AGENTS.md`, `.github/agents/task-builder.md`, `app/scripts/check-policy.sh` | `app/tests/AGENTS.md` when test workflow references change | unrelated app source files |
 | Change generated tool manifest | `app/scripts/generate-tools-manifest.mjs` | `app/backend/AGENTS.md`, regenerate `app/ui/scripts/tools-manifest.js` | hand-edit `app/ui/scripts/tools-manifest.js` without regeneration |
-| Improve testing workflow | `app/pytest.ini`, test scripts, `app/scripts/check-policy.sh`, smoke registry, `app/ui/e2e/` | `app/tests/AGENTS.md`, `app/ui/playwright.config.ts`, `README.md` | `app/ui/dist/**` |
+| Improve testing workflow | `app/pytest.ini`, `app/scripts/test-real-failfast.sh`, test scripts, `app/scripts/check-policy.sh`, smoke registry, `app/ui/e2e/` | `app/tests/AGENTS.md`, `app/ui/playwright.config.ts`, `README.md` | `app/ui/dist/**` |
 | Troubleshoot startup or Playwright execution blockers | `app/scripts/dev.py`, `app/scripts/run_playwright_server.sh`, `app/ui/playwright.config.ts` | `app/tests/AGENTS.md`, `data/logs/`, `README.md` | skipping listener/process diagnostics |
 | Audit repo-wide file coverage or architecture in batches | `.github/repo-scan-index.md`, current batch files | matching domain AGENTS file, `AGENTS.md` | duplicate ad hoc progress trackers |
 | Update documentation ownership policy | `AGENTS.md`, `README.md`, `data/docs/**` | `.github/agents/fact-doc-writer.md`, `app/scripts/check-policy.sh` | parallel documentation systems outside tasks/AGENTS/README/docs |
@@ -302,6 +312,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-DOC-001 | Documentation must live only in task files, AGENTS policy files, README, and docs; do not create parallel module-contract systems | Documentation policy and repo workflow |
 | R-POLICY-001 | Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules | Policy maintenance and enforcement automation |
 | R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
+| R-TEST-009 | AI agents must use `app/scripts/test-real-failfast.sh` as the first-pass command for minimal-context real-test verification before running broader gates; stubbed Playwright coverage is secondary and must not substitute for real system verification on critical workflows | AI agent test workflow and Playwright authoring |
 | R-TEST-003 | Keep internal API smoke coverage in `app/tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `app/tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 | R-TEST-005 | Any user-visible UI workflow change must add or update Playwright coverage in `ui/e2e/` unless the change is strictly non-behavioral | Frontend and browser workflow changes |
@@ -311,7 +322,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 28,
+  "version": 29,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -378,8 +389,9 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     },
     "test_workflow_change": {
       "read": ["AGENTS.md", "tests/AGENTS.md"],
-      "edit": ["app/pytest.ini", "app/scripts/test-precommit.sh", "app/scripts/test-full.sh", "app/scripts/check-policy.sh", "app/tests/api_smoke_registry/", "app/tests/test_api_smoke_matrix.py", "app/ui/e2e/", "app/ui/e2e/README.md"],
-      "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"]
+      "edit": ["app/pytest.ini", "app/scripts/test-real-failfast.sh", "app/scripts/test-precommit.sh", "app/scripts/test-full.sh", "app/scripts/check-policy.sh", "app/tests/api_smoke_registry/", "app/tests/test_api_smoke_matrix.py", "app/ui/e2e/", "app/ui/e2e/README.md"],
+      "verify": ["pytest", "npm run test", "npm run build", "npm run test:e2e"],
+      "first_pass_ai_command": "bash app/scripts/test-real-failfast.sh"
     },
     "repo_audit": {
       "read": ["AGENTS.md"],
