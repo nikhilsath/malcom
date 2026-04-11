@@ -116,7 +116,7 @@ No existing test is removed. No stale assertion is introduced. The only behavior
 
 ## GitHub update
 
-1. [-] [github]
+1. [x] [github]
    Files: `app/scripts/test-real-failfast.sh`, `app/scripts/test-full.sh`, `app/ui/playwright.config.ts`, `app/ui/e2e/README.md`, `app/tests/AGENTS.md`
    Action: Follow AGENTS.md#github-update-workflow — stage the five files above, commit with message `"test: add fail-fast real-test runner, classify stubbed Playwright specs, drop informational probes from full gate"`, and push.
    Completion check: `git log --oneline -1` shows the commit message above.
