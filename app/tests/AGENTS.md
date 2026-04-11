@@ -31,6 +31,15 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 - keep connector/settings boundary assertions explicit: connector CRUD/auth-policy behavior belongs to `/api/v1/connectors*`, while `/api/v1/settings` covers app settings sections only
 - keep builder catalog tests aligned to persisted `connector_endpoint_definitions` sourcing for `/api/v1/connectors/activity-catalog` and `/api/v1/connectors/http-presets`
 
+### Fail-Fast Real-Test Runner
+
+`app/scripts/test-real-failfast.sh` is the recommended first-pass command for AI agents and automated checks that need minimal token output.
+
+- Runs `test_startup_lifecycle.py` first (highest-value real tests), then the full non-smoke pytest suite with `-x` (stop on first failure).
+- On failure, writes a JSON artifact to `app/tests/test-artifacts/failfast-result.json` with fields `step`, `exit_code`, `command`, and `first_error_lines`.
+- `app/scripts/test-external-probes.py` is informational-only (no assertions, always exits 0) and must not appear in any automated fail gate.
+- The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002.
+
 ### Frontend
 
 - run `npm run build` in `app/ui/` for page wiring, Vite input, or asset changes

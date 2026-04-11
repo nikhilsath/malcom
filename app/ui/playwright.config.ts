@@ -66,15 +66,23 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] }
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
     },
     {
       name: "firefox",
-      use: { ...devices["Desktop Firefox"] }
+      use: { ...devices["Desktop Firefox"] },
+      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
     },
     {
       name: "webkit",
-      use: { ...devices["Desktop Safari"] }
+      use: { ...devices["Desktop Safari"] },
+      testIgnore: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
+    },
+    {
+      name: "stubbed",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: ["**/settings.spec.ts", "**/dashboard.spec.ts", "**/shell.spec.ts"]
     }
   ],
   webServer: {
