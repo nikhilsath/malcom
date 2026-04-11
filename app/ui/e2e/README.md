@@ -37,3 +37,42 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 - Playwright defaults to port `4173` for its web server.
 - If `4173` is busy, `app/ui/playwright.config.ts` automatically picks the next available port.
 - You can force a port with `PLAYWRIGHT_PORT=<port>`, for example: `cd app/ui && PLAYWRIGHT_PORT=4190 npx playwright test <spec>`.
+
+## Test Classification
+
+Specs are divided into two tiers based on whether they intercept API calls:
+
+### Real
+
+Specs that make no `page.route()` intercepts and run against the live Playwright test server (reset DB). These test full end-to-end system behavior:
+
+- `apis-incoming.spec.ts`
+- `apis-outgoing.spec.ts`
+- `apis-registry.spec.ts`
+- `apis-webhooks.spec.ts`
+- `automations-builder.spec.ts`
+- `automations-data.spec.ts`
+- `automations-library.spec.ts`
+- `automations-overview.spec.ts`
+- `github-trigger.spec.ts`
+- `scripts-library.spec.ts`
+- `tools-catalog.spec.ts`
+- `tools-coqui-tts.spec.ts`
+- `tools-image-magic.spec.ts`
+- `tools-llm-deepl.spec.ts`
+- `tools-smtp.spec.ts`
+
+### Stubbed
+
+Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept API calls. These test UI logic and rendering under controlled state rather than end-to-end system behavior:
+
+- `settings.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
+- `dashboard.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
+- `shell.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
+- `automation-write-step.spec.ts` — partially stubbed via `page.route`
+- `connectors.spec.ts` — partially stubbed via `page.route`
+
+The `"stubbed"` Playwright project in `playwright.config.ts` targets the three fully-stubbed specs (`settings.spec.ts`, `dashboard.spec.ts`, `shell.spec.ts`) so they can be run in isolation: `cd app/ui && npx playwright test --project=stubbed`.
+
+> **AI agent note:** `app/scripts/test-real-failfast.sh` runs only backend real tests (no Playwright) and is the recommended first-pass check for AI agents. It stops on the first failure and writes a machine-readable JSON artifact to `app/tests/test-artifacts/failfast-result.json`.
+

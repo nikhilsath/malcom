@@ -27,7 +27,7 @@ Verified repo state at task creation:
 
 ## Execution steps
 
-1. [ ] [scripts]
+1. [x] [scripts]
    Files: `app/scripts/test-real-failfast.sh`
    Action: Create a new executable shell script. It must:
    - Set `set -euo pipefail` and resolve `WORKSPACE_ROOT` the same way as `test-precommit.sh`.
@@ -40,17 +40,17 @@ Verified repo state at task creation:
    - Do NOT call `test-external-probes.py`, `npm test`, `npm run build`, or any Playwright commands. The script is Python-only, real-test-only.
    Completion check: `app/scripts/test-real-failfast.sh` exists, is executable (`ls -l` shows `x` bit), contains `test_startup_lifecycle.py` and `failfast-result.json`, and does not contain `test-external-probes`.
 
-2. [ ] [scripts]
+2. [x] [scripts]
    Files: `app/scripts/test-full.sh`
    Action: Remove the `test-external-probes.py` call from `test-full.sh`. The line `./.venv/bin/python app/scripts/test-external-probes.py` is currently the second-to-last step. Delete that line. Do not add any replacement — the probes file is informational and does not belong in any automated fail gate.
    Completion check: `grep -c "test-external-probes" app/scripts/test-full.sh` returns `0`.
 
-3. [ ] [test]
+3. [x] [test]
    Files: `app/ui/playwright.config.ts`
    Action: Add a second Playwright project named `"stubbed"` alongside (or after) the existing default project. Configure the `"stubbed"` project to run only the stub-heavy specs by setting its `testMatch` (or `testDir` + `testMatch`) to include: `settings.spec.ts`, `dashboard.spec.ts`, `shell.spec.ts`. The existing default project should exclude those three files by adding a corresponding `testIgnore` (or negative `testMatch`) entry so they are not double-run. Do not change the default project's browser or device config. Keep the `webServer` config unchanged.
    Completion check: `app/ui/playwright.config.ts` contains `"stubbed"` as a project name and references `settings.spec.ts` in that project's match config.
 
-4. [ ] [test]
+4. [x] [test]
    Files: `app/ui/e2e/README.md`
    Action: Add a section titled `## Test Classification` that defines the two tiers:
    - **Real** — specs that make no `page.route()` intercepts and run against the live Playwright test server (reset DB). List the real specs by filename.
@@ -59,7 +59,7 @@ Verified repo state at task creation:
    - Add a note that `test-real-failfast.sh` runs only backend real tests (no Playwright) and is the recommended first-pass check for AI agents.
    Completion check: `app/ui/e2e/README.md` contains the string `## Test Classification`.
 
-5. [ ] [test]
+5. [x] [test]
    Files: `app/tests/AGENTS.md`
    Action: Add a subsection under `### Backend` (or after it as a peer section) titled `### Fail-Fast Real-Test Runner` that:
    - Names `app/scripts/test-real-failfast.sh` as the recommended first-pass command for AI agents and automated checks that need minimal token output.
@@ -116,7 +116,7 @@ No existing test is removed. No stale assertion is introduced. The only behavior
 
 ## GitHub update
 
-1. [ ] [github]
+1. [-] [github]
    Files: `app/scripts/test-real-failfast.sh`, `app/scripts/test-full.sh`, `app/ui/playwright.config.ts`, `app/ui/e2e/README.md`, `app/tests/AGENTS.md`
    Action: Follow AGENTS.md#github-update-workflow — stage the five files above, commit with message `"test: add fail-fast real-test runner, classify stubbed Playwright specs, drop informational probes from full gate"`, and push.
    Completion check: `git log --oneline -1` shows the commit message above.
