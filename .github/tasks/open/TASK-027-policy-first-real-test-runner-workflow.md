@@ -2,7 +2,7 @@
 
 ## Execution steps
 
-1. [ ] [test]
+1. [x] [test]
 Files: AGENTS.md, app/tests/AGENTS.md, app/ui/e2e/README.md, app/scripts/check-policy.sh
 Action: Update the canonical testing policy first so AI agents are explicitly told to use `app/scripts/test-real-failfast.sh` as the first-pass command for minimal-context real-test verification, while keeping `app/scripts/test-precommit.sh` and `app/scripts/test-full.sh` as broader gates. In this same policy change, explicitly define stubbed Playwright coverage as secondary to real system verification for critical workflows. Follow AGENTS.md#maintenance-sync-rule, AGENTS.md#task-file-construction, and the testing policy references in AGENTS.md / app/tests/AGENTS.md. This task changes the policy that governs `.github/agents/task-builder.md` and `.github/agents/task-executor.md`, so execute this task directly rather than through those agents until the policy update is complete.
 Completion check: `AGENTS.md`, `app/tests/AGENTS.md`, and `app/ui/e2e/README.md` all mention `app/scripts/test-real-failfast.sh`; `AGENTS.md` and `app/scripts/check-policy.sh` are both changed in the same diff; root policy text makes the first-pass AI command explicit.
