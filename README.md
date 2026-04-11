@@ -187,7 +187,21 @@ Notes:
 
 ## Testing Workflow
 
-Fast local verification:
+### Environment-first design
+
+The test system builds the environment it needs rather than depending on a standing manual setup. This makes the workflow repeatable for new-environment preparation and CI alike.
+
+Primary environment-building real-system command (bootstrap → db setup → startup lifecycle → backend suite, stops on first failure):
+
+```bash
+bash app/scripts/test-system.sh
+```
+
+`test-precommit.sh` calls `test-real-failfast.sh`, which delegates to `test-system.sh` — so the environment-first approach is used automatically at every gate level.
+
+### Local gates
+
+Fast local verification (runs `test-real-failfast.sh` → `test-system.sh` internally):
 
 ```bash
 ./app/scripts/test-precommit.sh

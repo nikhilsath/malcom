@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: malcom_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MALCOM_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/malcom_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r app/requirements.txt
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node dependencies
+        run: npm --prefix app/ui ci
+
+      - name: Run primary system-test (environment-first)
+        # test-system.sh owns environment creation: bootstrap → db_setup → startup lifecycle → backend suite
+        run: bash app/scripts/test-system.sh
+
+      - name: Install Playwright browsers for stubbed specs
+        run: npm --prefix app/ui exec -- playwright install --with-deps chromium
+
+      - name: Run stubbed Playwright specs
+        run: npm --prefix app/ui run test:e2e -- --project=stubbed
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: app/tests/test-artifacts/
+          if-no-files-found: ignore
