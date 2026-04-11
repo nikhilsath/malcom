@@ -12,15 +12,14 @@ from fastapi.testclient import TestClient
 from backend.database import connect, fetch_all
 from backend.main import app
 from backend.services.automation_execution import get_settings_payload
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
 class SettingsApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
-        manifest_dir = self.root_dir / "ui" / "scripts"
-        manifest_dir.mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(self.root_dir)
         self.database_url = setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
@@ -284,7 +283,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["notifications"]["channel"], "email")
         self.assertEqual(body["notifications"]["digest"], "hourly")
 
-    def test_create_list_and_restore_backups_with_mocked_services(self) -> None:
+    def test_backup_routes_delegate_to_service_layer_with_mocked_services(self) -> None:
         with patch.dict("os.environ", {}, clear=False):
             os.environ.pop("MALCOM_DATABASE_URL", None)
             with patch("backend.services.support.create_backup") as mock_create, patch(
@@ -293,16 +292,16 @@ class SettingsApiTestCase(unittest.TestCase):
                 "backend.services.support.get_backup_dir"
             ) as mock_backup_dir:
                 mock_create.return_value = {
-                    "filename": "backup-2026-04-03.sql",
+                    "filename": "backup-2026-04-03.dump",
                     "size_bytes": 1024,
-                    "path": "/tmp/malcom-backups/backup-2026-04-03.sql",
+                    "path": "/tmp/malcom-backups/backup-2026-04-03.dump",
                 }
                 mock_list.return_value = [
                     {
-                        "filename": "backup-2026-04-03.sql",
+                        "filename": "backup-2026-04-03.dump",
                         "size_bytes": 1024,
                         "created_at": "2026-04-03T00:00:00+00:00",
-                        "path": "/tmp/malcom-backups/backup-2026-04-03.sql",
+                        "path": "/tmp/malcom-backups/backup-2026-04-03.dump",
                     }
                 ]
                 mock_restore.return_value = {"restored_at": "2026-04-03T00:00:00+00:00"}
@@ -313,7 +312,7 @@ class SettingsApiTestCase(unittest.TestCase):
                 create_body = create_resp.json()
                 self.assertTrue(create_body.get("ok"))
                 self.assertIsNotNone(create_body.get("backup"))
-                self.assertEqual(create_body["backup"]["filename"], "backup-2026-04-03.sql")
+                self.assertEqual(create_body["backup"]["filename"], "backup-2026-04-03.dump")
                 mock_create.assert_called_once_with(db_url=self.database_url)
 
                 list_resp = self.client.get("/api/v1/settings/data/backups")
@@ -321,16 +320,16 @@ class SettingsApiTestCase(unittest.TestCase):
                 list_body = list_resp.json()
                 self.assertEqual(list_body["directory"], "/tmp/malcom-backups")
                 self.assertIsInstance(list_body.get("backups"), list)
-                self.assertEqual(list_body["backups"][0]["filename"], "backup-2026-04-03.sql")
+                self.assertEqual(list_body["backups"][0]["filename"], "backup-2026-04-03.dump")
 
                 restore_resp = self.client.post(
-                    "/api/v1/settings/data/backups/restore", json={"backup_id": "backup-2026-04-03.sql"}
+                    "/api/v1/settings/data/backups/restore", json={"backup_id": "backup-2026-04-03.dump"}
                 )
                 self.assertEqual(restore_resp.status_code, 200)
                 restore_body = restore_resp.json()
                 self.assertTrue(restore_body.get("ok"))
                 self.assertIsNotNone(restore_body.get("restored_at"))
-                mock_restore.assert_called_once_with("backup-2026-04-03.sql", db_url=self.database_url)
+                mock_restore.assert_called_once_with("backup-2026-04-03.dump", db_url=self.database_url)
 
     def test_backup_service_errors_propagate_gracefully(self) -> None:
         with patch("backend.services.support.create_backup") as mock_create:

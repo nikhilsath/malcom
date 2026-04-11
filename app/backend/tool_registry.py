@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.database import connect, fetch_all, fetch_one, get_database_url, run_migrations
+from backend.services.ui_assets import get_ui_dir
 
 REQUIRED_FIELDS = ("id", "name", "description")
 DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
@@ -17,6 +18,7 @@ DEFAULT_TOOL_CATALOG: tuple[dict, ...] = (
         "inputs": [
             {"key": "text", "label": "Text to Speak", "type": "text", "required": True},
             {"key": "output_filename", "label": "Output Filename", "type": "string", "required": False},
+            {"key": "output_directory", "label": "Output Directory Override", "type": "string", "required": False},
             {"key": "speaker", "label": "Speaker Override", "type": "string", "required": False},
             {"key": "language", "label": "Language Override", "type": "string", "required": False},
         ],
@@ -95,7 +97,7 @@ def get_project_root() -> Path:
 
 
 def get_manifest_path(root_dir: Path) -> Path:
-    return root_dir / "ui" / "scripts" / "tools-manifest.js"
+    return get_ui_dir(root_dir) / "scripts" / "tools-manifest.js"
 
 
 def validate_tool_metadata(metadata: dict[str, object], directory_name: str) -> dict:

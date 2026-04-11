@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
 import logging
 
+from fastapi import APIRouter, Request
+
+from backend.database import connect
 from backend.schemas import *
-from backend.services.support import *
 from backend.services import support
 from backend.services.domain_proxy import test_proxy_connection
+from backend.services.support import *
 
 router = APIRouter()
 
@@ -119,6 +121,13 @@ def restore_settings_backup(payload: SettingsBackupRestoreRequest, request: Requ
     logger = get_application_logger(request)
     try:
         res = support.restore_backup(payload.backup_id, db_url=request.app.state.database_url)
+        existing_connection = getattr(request.app.state, "connection", None)
+        if existing_connection is not None:
+            try:
+                existing_connection.close()
+            except Exception:
+                pass
+        request.app.state.connection = connect(database_url=request.app.state.database_url)
         write_application_log(logger, logging.INFO, "settings_backup_restored", filename=payload.backup_id)
         return SettingsBackupRestoreResponse(ok=True, message="Restore started", restored_at=res.get("restored_at"))
     except RuntimeError as exc:

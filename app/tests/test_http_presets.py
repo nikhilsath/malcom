@@ -14,7 +14,7 @@ from backend.services.http_presets import (
     get_http_presets_by_provider,
     list_http_preset_catalog,
 )
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
 class TestHttpPresetCatalog:
@@ -234,7 +234,7 @@ class TestHttpPresetValidity:
 def client() -> TestClient:
     tempdir = tempfile.TemporaryDirectory()
     root_dir = Path(tempdir.name)
-    (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+    ensure_test_ui_scripts_dir(root_dir)
     setup_postgres_test_app(app=app, root_dir=root_dir)
     with TestClient(app) as test_client:
         yield test_client

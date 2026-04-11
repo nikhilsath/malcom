@@ -15,7 +15,7 @@ from backend.services.connector_oauth import (
     complete_connector_oauth,
     refresh_oauth_token,
 )
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 from backend.main import app
 
 
@@ -25,7 +25,7 @@ class ConnectorOAuthServiceTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         root_dir = Path(self.tempdir.name)
-        (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(root_dir)
         database_url = setup_postgres_test_app(app=app, root_dir=root_dir)
         self._test_app = app
         self.root_dir = str(root_dir)

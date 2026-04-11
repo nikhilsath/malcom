@@ -55,8 +55,8 @@ DEFAULT_COQUI_TTS_TOOL_CONFIG: dict[str, Any] = {
     "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
     "speaker": "",
     "language": "",
-    "output_directory": "data/generated/coqui-tts",
 }
+DEFAULT_COQUI_TTS_OUTPUT_DIRECTORY = "data/generated/coqui-tts"
 DEFAULT_IMAGE_MAGIC_TOOL_CONFIG: dict[str, Any] = {
     "enabled": False,
     "target_worker_id": None,
@@ -378,6 +378,7 @@ def save_coqui_tts_tool_config(connection: DatabaseConnection, config: dict[str,
 
 
 def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | None = None) -> dict[str, Any]:
+    _ = root_dir
     normalized = get_default_coqui_tts_tool_config()
     normalized.update(config or {})
     normalized["enabled"] = bool(normalized.get("enabled"))
@@ -385,10 +386,6 @@ def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | 
     normalized["model_name"] = str(normalized.get("model_name") or DEFAULT_COQUI_TTS_TOOL_CONFIG["model_name"]).strip()
     normalized["speaker"] = str(normalized.get("speaker") or "").strip()
     normalized["language"] = str(normalized.get("language") or "").strip()
-    output_directory = str(normalized.get("output_directory") or DEFAULT_COQUI_TTS_TOOL_CONFIG["output_directory"]).strip()
-    if root_dir is not None and not Path(output_directory).is_absolute():
-        output_directory = str((root_dir / output_directory).resolve())
-    normalized["output_directory"] = output_directory
     return normalized
 
 

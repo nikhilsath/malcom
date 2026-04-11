@@ -15,9 +15,9 @@ const generateManifest = () => {
       [
         "from pathlib import Path",
         "from backend.tool_registry import write_tools_manifest",
-        `root = Path(${JSON.stringify(appDir)})`,
+        `root = Path(${JSON.stringify(workspaceRoot)})`,
         "tools = write_tools_manifest(root)",
-        'print(f"Generated ui/scripts/tools-manifest.js with {len(tools)} tools.")',
+        'print(f"Generated app/ui/scripts/tools-manifest.js with {len(tools)} tools.")',
       ].join("; "),
     ],
     {

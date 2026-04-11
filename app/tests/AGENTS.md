@@ -44,7 +44,7 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 
 When startup, test server launch, or Playwright execution fails, confirm what is already running before declaring a blocker unresolved.
 
-Startup lifecycle coverage must include an explicit automated contract test in `tests/test_startup_lifecycle.py` that exercises FastAPI lifespan boot/shutdown behavior.
+Startup lifecycle coverage must include an explicit automated contract test in `tests/test_startup_lifecycle.py` that launches a real uvicorn startup process and captures stdout/stderr output to `data/logs/` when startup fails.
 
 Required triage steps:
 

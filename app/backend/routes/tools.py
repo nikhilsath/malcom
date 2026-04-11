@@ -4,7 +4,9 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from backend.schemas import *
+from backend.services.coqui_tts_runtime import discover_coqui_tts_runtime, validate_coqui_tts_selection
 from backend.services.support import *
+from backend.services.tool_command_utils import verify_local_command_ready
 from backend.services.tool_configs import (
     get_image_magic_tool_config as get_image_magic_tool_config_core,
     normalize_image_magic_tool_config as normalize_image_magic_tool_config_core,
@@ -26,8 +28,17 @@ def get_local_llm_tool(request: Request) -> LocalLlmToolResponse:
 
 
 @router.get("/api/v1/tools/coqui-tts", response_model=CoquiTtsToolResponse)
-def get_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
-    return build_coqui_tts_tool_response(get_connection(request), root_dir=get_root_dir(request))
+def get_coqui_tts_tool(
+    request: Request,
+    command: str | None = None,
+    model_name: str | None = None,
+) -> CoquiTtsToolResponse:
+    return build_coqui_tts_tool_response(
+        get_connection(request),
+        root_dir=get_root_dir(request),
+        runtime_command=command,
+        runtime_model_name=model_name,
+    )
 
 
 @router.get("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse)
@@ -129,6 +140,7 @@ def patch_local_llm_tool(payload: LocalLlmToolUpdate, request: Request) -> Local
 @router.patch("/api/v1/tools/coqui-tts", response_model=CoquiTtsToolResponse)
 def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> CoquiTtsToolResponse:
     connection = get_connection(request)
+    root_dir = get_root_dir(request)
     changes = payload.model_dump(exclude_unset=True)
 
     if not changes:
@@ -136,7 +148,7 @@ def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> Coqui
 
     next_config = normalize_coqui_tts_tool_config(
         get_coqui_tts_tool_config(connection),
-        root_dir=get_root_dir(request),
+        root_dir=root_dir,
     )
     if "enabled" in changes:
         next_config["enabled"] = bool(changes["enabled"])
@@ -148,13 +160,27 @@ def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> Coqui
         next_config["speaker"] = str(changes["speaker"] or "").strip()
     if "language" in changes:
         next_config["language"] = str(changes["language"] or "").strip()
-    if "output_directory" in changes:
-        next_config["output_directory"] = str(changes["output_directory"] or "").strip()
 
-    normalized_config = normalize_coqui_tts_tool_config(next_config, root_dir=get_root_dir(request))
+    normalized_config = normalize_coqui_tts_tool_config(next_config, root_dir=root_dir)
+    if normalized_config["enabled"]:
+        runtime = discover_coqui_tts_runtime(
+            command=normalized_config["command"],
+            selected_model_name=normalized_config["model_name"],
+            root_dir=root_dir,
+        )
+        try:
+            validate_coqui_tts_selection(
+                runtime=runtime,
+                model_name=normalized_config["model_name"],
+                speaker=normalized_config["speaker"],
+                language=normalized_config["language"],
+            )
+        except RuntimeError as error:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
     save_coqui_tts_tool_config(connection, normalized_config)
     sync_managed_tool_enabled_state(request, "coqui-tts", normalized_config["enabled"])
-    return build_coqui_tts_tool_response(connection, root_dir=get_root_dir(request))
+    return build_coqui_tts_tool_response(connection, root_dir=root_dir)
 
 
 @router.patch("/api/v1/tools/image-magic", response_model=ImageMagicToolResponse | ToolMetadataResponse)
@@ -390,6 +416,21 @@ def patch_tool_directory(tool_id: str, payload: ToolDirectoryUpdate, request: Re
                         get_coqui_tts_tool_config(connection),
                         root_dir=get_root_dir(request),
                     )
+                    if desired_enabled:
+                        runtime = discover_coqui_tts_runtime(
+                            command=config["command"],
+                            selected_model_name=config["model_name"],
+                            root_dir=get_root_dir(request),
+                        )
+                        try:
+                            validate_coqui_tts_selection(
+                                runtime=runtime,
+                                model_name=config["model_name"],
+                                speaker=config["speaker"],
+                                language=config["language"],
+                            )
+                        except RuntimeError as error:
+                            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
                     save_coqui_tts_tool_config(connection, config)
                 if tool_id == "image-magic":
                     config = normalize_image_magic_tool_config(get_image_magic_tool_config(connection))

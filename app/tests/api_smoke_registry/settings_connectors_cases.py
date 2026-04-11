@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .builders import action_case, list_case, patch_case
@@ -44,6 +45,76 @@ def connector_path(_context: SmokeContext, state: dict[str, object]) -> str:
     if isinstance(connector, dict):
         connector_id = str(connector.get("id") or connector_id)
     return f"/api/v1/connectors/{connector_id}"
+
+
+def configure_backup_dir(context: SmokeContext) -> None:
+    previous_backup_dir = os.environ.get("MALCOM_BACKUP_DIR")
+    setattr(context, "_previous_backup_dir", previous_backup_dir)
+    backup_dir = context.root_dir / "test-backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["MALCOM_BACKUP_DIR"] = str(backup_dir)
+    setattr(context, "_backup_dir", backup_dir)
+
+
+def cleanup_backup_dir(context: SmokeContext) -> None:
+    previous_backup_dir = getattr(context, "_previous_backup_dir", None)
+    if previous_backup_dir:
+        os.environ["MALCOM_BACKUP_DIR"] = previous_backup_dir
+    else:
+        os.environ.pop("MALCOM_BACKUP_DIR", None)
+
+
+def backup_create_setup(context: SmokeContext) -> dict[str, Any]:
+    configure_backup_dir(context)
+    return {"backup_dir": getattr(context, "_backup_dir", None)}
+
+
+def backup_list_setup(context: SmokeContext) -> dict[str, Any]:
+    state = backup_create_setup(context)
+    response = context.client.post("/api/v1/settings/data/backups")
+    response.raise_for_status()
+    backup = response.json().get("backup") or {}
+    state["backup"] = backup
+    return state
+
+
+def backup_restore_setup(context: SmokeContext) -> dict[str, Any]:
+    state = backup_list_setup(context)
+    backup = state.get("backup") or {}
+    filename = str(backup.get("filename") or "")
+    if not filename:
+        raise AssertionError("Expected backup create setup to return a filename for restore smoke coverage")
+    state["backup_filename"] = filename
+    return state
+
+
+def restore_backup_payload(_context: SmokeContext, state: dict[str, object]) -> dict[str, object]:
+    return {"backup_id": str(state.get("backup_filename") or "")}
+
+
+def assert_backup_create_response(response: object, context: SmokeContext, _: dict[str, object]) -> None:
+    assert_json_response(response, context, {})
+    body = response.json()
+    assert body.get("ok") is True, body
+    backup = body.get("backup")
+    assert isinstance(backup, dict), body
+    assert backup.get("filename"), body
+    assert backup.get("path"), body
+
+
+def assert_backup_list_response(response: object, context: SmokeContext, _: dict[str, object]) -> None:
+    assert_json_response(response, context, {})
+    body = response.json()
+    assert isinstance(body.get("backups"), list), body
+    assert len(body["backups"]) >= 1, body
+    assert body["backups"][0].get("filename"), body
+
+
+def assert_backup_restore_response(response: object, context: SmokeContext, _: dict[str, object]) -> None:
+    assert_json_response(response, context, {})
+    body = response.json()
+    assert body.get("ok") is True, body
+    assert body.get("restored_at"), body
 
 
 SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
@@ -202,13 +273,17 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         "/api/v1/settings/data/backups",
         200,
         route_path="/api/v1/settings/data/backups",
-        response_assert=assert_json_response,
+        setup=backup_create_setup,
+        teardown=cleanup_backup_dir,
+        response_assert=assert_backup_create_response,
     ),
     list_case(
         "settings-backup-list",
         "GET",
         "/api/v1/settings/data/backups",
-        response_assert=assert_json_response,
+        setup=backup_list_setup,
+        teardown=cleanup_backup_dir,
+        response_assert=assert_backup_list_response,
     ),
     action_case(
         "settings-backup-restore",
@@ -216,8 +291,10 @@ SETTINGS_CONNECTORS_CASES: tuple[RouteSmokeCase, ...] = (
         "/api/v1/settings/data/backups/restore",
         200,
         route_path="/api/v1/settings/data/backups/restore",
-        payload={"backup_id": "backup-2026-04-03.sql"},
-        response_assert=assert_json_response,
+        setup=backup_restore_setup,
+        teardown=cleanup_backup_dir,
+        payload=restore_backup_payload,
+        response_assert=assert_backup_restore_response,
     ),
     action_case(
         "settings-proxy-test",

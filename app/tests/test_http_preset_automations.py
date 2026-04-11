@@ -8,14 +8,14 @@ from fastapi.testclient import TestClient
 
 from backend.database import connect
 from backend.main import app
-from tests.postgres_test_utils import get_test_database_url, setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, get_test_database_url, setup_postgres_test_app
 
 
 class HttpPresetAutomationTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
-        (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(self.root_dir)
         self.previous_root_dir = app.state.root_dir
         self.previous_db_path = app.state.db_path
         self.previous_database_url = app.state.database_url

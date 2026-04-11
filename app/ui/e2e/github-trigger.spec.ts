@@ -8,6 +8,7 @@ test('creates a github trigger in builder (smoke)', async ({ page }) => {
   // - fill owner/repo/events/secret
   // - submit and assert backend API call persisted the trigger
 
-  await page.goto('/automation/builder');
+  await page.goto('/automations/builder.html?new=true');
   await expect(page).toHaveTitle(/Automation Builder/i);
+  await expect(page.getByRole('heading', { name: 'Automation Builder' })).toBeVisible();
 });

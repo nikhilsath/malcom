@@ -105,9 +105,9 @@ Completion check: `scripts/test-precommit.sh` exits `0` (or the targeted pytest 
 Documentation review
 
 1. [x] [Route: docs]
-Files: docs/github-webhooks.md, README.md
+Files: data/docs/github-webhooks.md, README.md
 Action: Documentation — add docs describing how to configure GitHub webhooks for Malcom: recommended webhook URL, which events to subscribe to, how to set the secret, an example push payload mapping to Malcom's fields, and instructions for using the workflow builder to create bindings. Include guidance on idempotency and delivery dedupe behavior.
-Completion check: `docs/github-webhooks.md` exists and references the backend endpoint path and builder UI location.
+Completion check: `data/docs/github-webhooks.md` exists and references the backend endpoint path and builder UI location.
 
 GitHub update
 

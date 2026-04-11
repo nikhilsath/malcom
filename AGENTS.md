@@ -30,20 +30,20 @@ After reading root routing and machine index, load the closest domain AGENTS fil
 
 ### Repository Audit Area {#repository-audit-area}
 
-Use `[AREA: audit]` for repository-wide review tasks that cannot be completed in one pass, such as architecture audits, dead-code scans, policy conformance reviews, or broad fileset walkthroughs.
+Use `[AREA: audit]` for repository-wide review tasks that cannot be completed in one pass, such as architecture audits, dead-code scans, policy conformance reviews, broad fileset walkthroughs, or product-surface documentation refreshes that require evidence from multiple subsystems.
 
 Audit rules:
 
 1. Use `.github/repo-scan-index.md` as the source of truth for repo-review progress.
-2. Review the repo in small batches by folder, subsystem, or another explicit scope; do not treat the whole repository as one undifferentiated pass.
+2. Review the repo in small batches by folder, subsystem, or another explicit named scope; do not treat the whole repository as one undifferentiated pass.
 3. Load only the closest domain policy file for the current batch instead of loading every domain file up front.
 4. Update the tracker as work progresses using these statuses: `pending`, `in_progress`, `reviewed`, `needs_followup`, `blocked`, `skip_generated`.
 5. Mark a file as `reviewed` only after it has been opened and assessed for the stated audit scope.
 6. Use `needs_followup` for files that were inspected but need a second pass, and `skip_generated` for generated or forbidden paths that are intentionally excluded.
 7. Do not keep duplicate ad hoc progress trackers in task notes when `.github/repo-scan-index.md` already covers the audit.
-8. Do not claim a repo-wide review is complete unless every in-scope non-skipped file for that audit has been accounted for in the tracker.
+8. Do not claim a repo-wide or product-surface review is complete unless every in-scope non-skipped file for that named audit scope has been accounted for in the tracker.
 
-For `[AREA: audit]` responses, include the current batch, what was completed, what still needs follow-up, and the next recommended batch.
+For `[AREA: audit]` responses, include the named audit scope, the current batch, what was completed, what still needs follow-up, and the next recommended batch.
 
 ---
 
@@ -222,10 +222,11 @@ When schema tables or table groups change, update `AGENTS.md` and `README.md` in
 Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `tool_configs`, `settings`, `integration_presets`, `connectors`, `connector_auth_policies`, `connector_endpoint_definitions`
-  Saved connector instances are canonical in `connectors`, workspace credential policy is canonical in `connector_auth_policies`, and legacy `settings.connectors` rows are migration-only input.
+- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `connector_endpoint_definitions`
+  Saved connector instances are canonical in `connectors`, and legacy `settings.connectors` rows are migration-only input.
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`
+- Documentation: `docs_articles`, `docs_tags`, `docs_article_tags`
 - Log schema: `log_db_tables`, `log_db_columns`
 - Storage: `storage_locations`, `repo_checkouts`
   Persisted storage destination rows (`storage_locations`) are the runtime source of truth for local folders, Google Drive folders, and repo roots. `repo_checkouts` tracks managed GitHub repo clones linked to a storage location.
@@ -271,7 +272,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | Rule ID | Requirement | Enforced In |
 |---|---|---|
 | R-ROUTE-001 | If no `[AREA:]` prefix is provided, infer the area only when the task is clearly scoped; otherwise stop before domain-specific work and ask the user to choose from the supported area keywords | Prompt routing and policy loading |
-| R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.github/repo-scan-index.md`, operate in explicit batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
+| R-AUDIT-001 | `[AREA: audit]` work must track repo-review progress in `.github/repo-scan-index.md`, operate in explicit named scopes and batches, and avoid duplicate progress trackers outside that file | Repo-wide review and audit workflows |
 | R-ARCH-001 | Remote SaaS/API integrations use connectors plus outgoing APIs, connector workflow activities, or automation HTTP steps by default; do not model them as tools unless a local runtime/executable is required | Integration architecture and agent routing |
 | R-CODE-001 | Keep files narrowly responsible; factor new concerns into adjacent modules/services instead of growing catch-all files | Implementation structure and refactors |
 | R-FIX-001 | Fix the canonical path instead of layering fallback branches, shadow state, or duplicate reads/writes, except for explicit staged migrations with documented removal | Behavior fixes and architecture corrections |
@@ -291,7 +292,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-TOOL-001 | Tool registration flows through backend catalog + DB sync | Tool lifecycle changes |
 | R-TOOL-002 | Tool page wiring includes Vite input + UI route + page script | Tool page additions |
 | R-GEN-001 | Do not hand-edit generated artifacts like `ui/dist/**` | Build outputs |
-| R-GEN-002 | Regenerate `ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
+| R-GEN-002 | Regenerate `app/ui/scripts/tools-manifest.js` from script source | Tool catalog manifest updates |
 | R-TASK-001 | Task files created by `task-builder` must use exactly these sections in order: `Execution steps`, `Test impact review`, `Testing`, `GitHub update`; documentation work belongs inside `Execution steps` instead of a separate documentation section | Task planning and execution artifacts |
 | R-TASK-002 | Every task file must include a `Test impact review` section that enumerates affected tests, intended handling, and exact validation commands for updated or replaced tests before broader validation runs | Task planning and stale-test prevention |
 | R-TEST-001 | Development work responses include expected behavior, but only for implementation-oriented tasks | All implementation responses |
@@ -305,12 +306,12 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |
 | R-TEST-005 | Any user-visible UI workflow change must add or update Playwright coverage in `ui/e2e/` unless the change is strictly non-behavioral | Frontend and browser workflow changes |
 | R-TEST-006 | Playwright coverage must assert the changed workflow behavior, not only route load or static render | Playwright authoring and UI changes |
-| R-TEST-007 | For startup, server-launch, or Playwright execution failures, verify what is already running by checking active listeners/processes on expected ports before treating the failure as unresolved | Failure recovery and test infrastructure troubleshooting |
+| R-TEST-007 | For startup, server-launch, or Playwright execution failures, verify what is already running by checking active listeners/processes on expected ports before treating the failure as unresolved, and keep startup lifecycle coverage as a real launcher test that captures process output on failure | Failure recovery and test infrastructure troubleshooting |
 | R-TEST-008 | Behavior-changing implementation work must add or update relevant automated tests in the same change unless the change is strictly non-behavioral | All implementation workflows |
 
 <!-- MACHINE_INDEX_START
 {
-  "version": 27,
+  "version": 28,
   "prompt_prefix": {
     "convention": "[AREA: <keyword>] <task description>",
     "routing_section": "#entry-point-routing",
@@ -373,7 +374,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],
       "edit": ["backend/tool_registry.py", "backend/services/support.py", "ui/tools/", "ui/scripts/tools/", "ui/vite.config.ts", "backend/routes/ui.py"],
       "generate": ["scripts/generate-tools-manifest.mjs"],
-      "verify": ["ui/scripts/tools-manifest.js", "ui/tools/catalog.html", "ui/e2e/"]
+      "verify": ["app/ui/scripts/tools-manifest.js", "app/ui/tools/catalog.html", "app/ui/e2e/"]
     },
     "test_workflow_change": {
       "read": ["AGENTS.md", "tests/AGENTS.md"],
@@ -383,7 +384,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
     "repo_audit": {
       "read": ["AGENTS.md"],
       "edit": [".github/repo-scan-index.md"],
-      "verify": ["current batch files are accounted for with audit statuses and notes"]
+      "verify": ["named audit scope and current batch files are accounted for with audit statuses and notes"]
     },
     "response_policy_update": {
       "read": ["AGENTS.md", "backend/AGENTS.md", "ui/AGENTS.md", "tests/AGENTS.md"],

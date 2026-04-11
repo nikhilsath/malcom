@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.page_registry import get_redirect_ui_routes, get_served_ui_pages
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
 class UiHtmlRoutesTestCase(unittest.TestCase):
@@ -17,7 +17,7 @@ class UiHtmlRoutesTestCase(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
         (self.root_dir / "tools").mkdir(parents=True, exist_ok=True)
-        (self.root_dir / "app" / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(self.root_dir)
         (self.root_dir / "data" / "media").mkdir(parents=True, exist_ok=True)
         dist_dir = self.root_dir / "app" / "ui" / "dist"
         (dist_dir / "assets").mkdir(parents=True, exist_ok=True)

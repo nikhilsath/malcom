@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest import mock
 
+from backend.schemas import CoquiTtsOptionResponse, CoquiTtsToolRuntimeResponse
+
 from .builders import action_case, list_case, patch_case
 from .core import RouteSmokeCase, assert_json_response, default_invoke
 from .local_llm_mocks import invoke_local_llm_chat, invoke_local_llm_stream
@@ -22,6 +24,22 @@ def invoke_image_magic_execute(case, context, state):
 
 def invoke_image_magic_patch(case, context, state):
     with mock.patch("backend.routes.tools.verify_local_command_ready", return_value=["magick"]):
+        return default_invoke(case, context, state)
+
+
+def invoke_coqui_patch(case, context, state):
+    with mock.patch(
+        "backend.routes.tools.discover_coqui_tts_runtime",
+        return_value=CoquiTtsToolRuntimeResponse(
+            ready=True,
+            command_available=True,
+            message="Coqui TTS runtime is available for workflow steps.",
+            command_options=[CoquiTtsOptionResponse(value="tts", label="tts")],
+            model_options=[CoquiTtsOptionResponse(value="tts_models/en/ljspeech/tacotron2-DDC", label="tts_models/en/ljspeech/tacotron2-DDC")],
+            speaker_options=[CoquiTtsOptionResponse(value="ljspeech", label="ljspeech")],
+            language_options=[CoquiTtsOptionResponse(value="en", label="en")],
+        ),
+    ):
         return default_invoke(case, context, state)
 
 
@@ -84,9 +102,9 @@ TOOLS_CASES: tuple[RouteSmokeCase, ...] = (
             "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
             "speaker": "ljspeech",
             "language": "en",
-            "output_directory": "generated-audio",
         },
         response_assert=assert_json_response,
+        invoke=invoke_coqui_patch,
     ),
     patch_case(
         "tools-image-magic-patch",

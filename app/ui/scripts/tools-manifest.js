@@ -18,6 +18,12 @@ export const toolsManifest = Object.freeze([
         "required": false
       },
       {
+        "key": "output_directory",
+        "label": "Output Directory Override",
+        "type": "string",
+        "required": false
+      },
+      {
         "key": "speaker",
         "label": "Speaker Override",
         "type": "string",

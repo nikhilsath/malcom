@@ -48,6 +48,7 @@ from backend.services.runtime_workers import (
     get_runtime_hostname,
     slugify_identifier,
 )
+from .coqui_tts_runtime import discover_coqui_tts_runtime
 from .tool_configs import (
     get_coqui_tts_tool_config,
     get_default_tool_retries,
@@ -432,8 +433,19 @@ def build_local_llm_tool_response(connection: Any) -> LocalLlmToolResponse:
     )
 
 
-def build_coqui_tts_tool_response(connection: Any, *, root_dir: Path) -> CoquiTtsToolResponse:
+def build_coqui_tts_tool_response(
+    connection: Any,
+    *,
+    root_dir: Path,
+    runtime_command: str | None = None,
+    runtime_model_name: str | None = None,
+) -> CoquiTtsToolResponse:
     config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
+    runtime = discover_coqui_tts_runtime(
+        command=str(runtime_command or config["command"]).strip(),
+        selected_model_name=str(runtime_model_name or config["model_name"]).strip(),
+        root_dir=root_dir,
+    )
     return CoquiTtsToolResponse(
         tool_id="coqui-tts",
         config=CoquiTtsToolConfigResponse(
@@ -442,8 +454,8 @@ def build_coqui_tts_tool_response(connection: Any, *, root_dir: Path) -> CoquiTt
             model_name=config["model_name"],
             speaker=config["speaker"],
             language=config["language"],
-            output_directory=config["output_directory"],
         ),
+        runtime=runtime,
     )
 
 

@@ -189,7 +189,7 @@ Note: Trello's current onboarding contract does not provide long-lived refresh t
 
 Every tool in the catalog that can be used as a workflow step must declare its input and output fields. These fields drive:
 - DB sync (stored in `inputs_schema_json` and `outputs_schema_json` on the `tools` table)
-- Frontend tool manifest (`ui/scripts/tools-manifest.js`) for dynamic form rendering in the automation canvas
+- Frontend tool manifest (`app/ui/scripts/tools-manifest.js`) for dynamic form rendering in the automation canvas
 - Backend validation in `validate_automation_definition()`
 - Execution engine dispatch and `inputs_json` tracking in `automation_run_steps`
 
@@ -264,7 +264,7 @@ Tools are registered by backend catalog plus database sync, not by static fronte
   - sync into the runtime database
 - `tools` table in PostgreSQL
   - persisted tool state, enablement, overrides
-- `ui/scripts/tools-manifest.js`
+- `app/ui/scripts/tools-manifest.js`
   - generated frontend manifest
 - `scripts/generate-tools-manifest.mjs`
   - manifest generation script
@@ -297,7 +297,7 @@ When adding or changing tools, agents must:
 
 1. create or update the tool catalog entry in `backend/tool_registry.py`
 2. run `node scripts/generate-tools-manifest.mjs`
-3. verify that `ui/scripts/tools-manifest.js` changed as expected
+3. verify that `app/ui/scripts/tools-manifest.js` changed as expected
 4. add or update `ui/tools/<tool-id>.html`
 5. add or update `ui/scripts/tools/<tool-id>.js`
 6. add the page to `ui/vite.config.ts`
@@ -319,7 +319,7 @@ Agents must not:
 Agents must not hand-edit generated or runtime artifact files unless the task explicitly targets them:
 
 - `ui/dist/**`
-- `ui/scripts/tools-manifest.js` without also regenerating it from the script
+- `app/ui/scripts/tools-manifest.js` without also regenerating it from the script
 - runtime database objects directly as a substitute for schema/code changes
 - `ui/node_modules/**`
 - `node_modules/**`

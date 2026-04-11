@@ -36,11 +36,11 @@ This agent may create or update markdown documentation only.
 
 Allowed edit paths:
 
-- `docs/**/*.md`
+- `data/docs/**/*.md`
 
 Forbidden edit paths:
 
-- Anything outside `docs/**/*.md`
+- Anything outside `data/docs/**/*.md`
 
 If a request requires non-doc edits, stop and report that constraint.
 
@@ -254,7 +254,7 @@ If sync fails, report the exact error and do not claim the article is complete.
 
 Before finishing, verify all items:
 
-- Markdown-only diff under `docs/**/*.md`.
+- Markdown-only diff under `data/docs/**/*.md`.
 - Article is short and factual with no speculative language.
   - Duplicate prose from other docs removed.
 - Required article structure is present (Scope, Prerequisites, Expected result).

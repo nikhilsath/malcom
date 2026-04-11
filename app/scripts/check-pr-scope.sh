@@ -103,7 +103,7 @@ any_changed_matching() {
 
 # Rule: schema changes must not silently mix into unrelated feature PRs.
 check_schema_change_isolation() {
-  if ! any_changed_matching "backend/database.py"; then
+  if ! any_changed_matching "app/backend/database.py"; then
     printf 'No schema changes detected.\n'
     return 0
   fi
@@ -112,14 +112,14 @@ check_schema_change_isolation() {
   local migration_added=0
   local file
   for file in "${CHANGED_FILES[@]:-}"; do
-    if [[ "$file" == backend/migrations/versions/*.py ]]; then
+    if [[ "$file" == app/backend/migrations/versions/*.py ]]; then
       migration_added=1
       break
     fi
   done
 
   if ((migration_added == 0)); then
-    print_warn "backend/database.py changed without a matching migration in backend/migrations/versions/. Confirm whether a migration is needed."
+    print_warn "app/backend/database.py changed without a matching migration in app/backend/migrations/versions/. Confirm whether a migration is needed."
   else
     printf 'Schema change accompanied by a migration file. OK.\n'
   fi
@@ -133,10 +133,10 @@ check_no_mixed_generated_source() {
 
   for file in "${CHANGED_FILES[@]:-}"; do
     case "$file" in
-      ui/dist/*)
+      app/ui/dist/*)
         generated+=("$file")
         ;;
-      backend/*.py|ui/src/*.ts|ui/src/*.tsx|ui/scripts/*.js)
+      app/backend/*.py|app/ui/src/*.ts|app/ui/src/*.tsx|app/ui/scripts/*.js)
         source_touched=1
         ;;
     esac
@@ -145,7 +145,7 @@ check_no_mixed_generated_source() {
   if ((${#generated[@]} > 0)) && ((source_touched == 1)); then
     printf 'Generated output files committed alongside source files:\n'
     printf '  %s\n' "${generated[@]}"
-    print_fail "Do not commit ui/dist/** files. They are build artifacts."
+    print_fail "Do not commit app/ui/dist/** files. They are build artifacts."
     return 1
   fi
 
@@ -155,14 +155,14 @@ check_no_mixed_generated_source() {
 # Rule: connector route boundary — no provider OAuth lifecycle helpers in the route file.
 # (This duplicates the hard check in check-policy.sh; here it is an advisory pre-check.)
 check_connector_route_boundary_advisory() {
-  local route_file="backend/routes/connectors.py"
+  local route_file="app/backend/routes/connectors.py"
   if [[ ! -f "$route_file" ]]; then
     printf 'Route file not found; skipping.\n'
     return 0
   fi
 
   if rg -n '^def (_exchange_[a-z0-9_]+_oauth_code_for_tokens|_refresh_[a-z0-9_]+_access_token|_revoke_[a-z0-9_]+_token)\(' "$route_file" >/dev/null 2>&1; then
-    print_warn "Provider-specific OAuth lifecycle helpers detected in $route_file. Move them to backend/services/connector_oauth.py (R-CONN-005)."
+    print_warn "Provider-specific OAuth lifecycle helpers detected in $route_file. Move them to app/backend/services/connector_oauth.py (R-CONN-005)."
   else
     printf 'Connector route boundary looks clean (R-CONN-005).\n'
   fi

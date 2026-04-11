@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +32,12 @@ def create_app() -> FastAPI:
     app.state.db_path = "postgresql"
     app.state.database_url = database_url
     app.state.root_dir = get_project_root()
+    app.state.skip_ui_build_check = os.getenv("MALCOM_SKIP_UI_BUILD_CHECK", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     app.add_middleware(
         CORSMiddleware,

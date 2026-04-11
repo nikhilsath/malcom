@@ -15,6 +15,11 @@ set -uo pipefail
 # TASK-024 (2026-04-07): task-file construction is canonical in AGENTS.md; task-builder
 # must defer to AGENTS for documentation/testing/github rules, keep mandatory Test impact
 # review, and avoid a separate Documentation review section.
+# TASK-025 (2026-04-10): audit policy clarified that `[AREA: audit]` work must keep
+# named scopes and current batches explicit in `.github/repo-scan-index.md`; repo-scan
+# shape checks continue to require the dedicated `scope` and `notes` columns.
+# TASK-026 (2026-04-11): startup lifecycle policy now requires real launcher coverage
+# in app/tests/test_startup_lifecycle.py and failure-log capture to data/logs/.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -120,7 +125,7 @@ check_forbidden_path_modifications() {
 
   for file in "${CHANGED_FILES[@]:-}"; do
     case "$file" in
-      ui/dist/*|ui/node_modules/*|node_modules/*)
+      app/ui/dist/*|app/ui/node_modules/*|node_modules/*)
         forbidden+=("$file")
         ;;
     esac
@@ -136,12 +141,12 @@ check_forbidden_path_modifications() {
 }
 
 check_agents_script_sync() {
-  if path_changed "AGENTS.md" && ! path_changed "scripts/check-policy.sh"; then
-    printf 'AGENTS.md changed without a matching update to scripts/check-policy.sh.\n'
+  if path_changed "AGENTS.md" && ! path_changed "app/scripts/check-policy.sh"; then
+    printf 'AGENTS.md changed without a matching update to app/scripts/check-policy.sh.\n'
     return 1
   fi
 
-  printf 'AGENTS.md and scripts/check-policy.sh are aligned for this change.\n'
+  printf 'AGENTS.md and app/scripts/check-policy.sh are aligned for this change.\n'
 }
 
 check_documentation_ownership_model() {
@@ -258,10 +263,40 @@ check_task_file_policy_sync() {
   printf 'Task file construction is canonical in AGENTS.md and task-builder defers to that policy.\n'
 }
 
+check_startup_launcher_policy_sync() {
+  local tests_agents_file="app/tests/AGENTS.md"
+  local missing=()
+
+  if [[ ! -f "$tests_agents_file" ]]; then
+    printf 'Missing %s; cannot validate startup launcher policy sync.\n' "$tests_agents_file"
+    return 1
+  fi
+
+  if ! grep -q "real uvicorn startup process" "$tests_agents_file"; then
+    missing+=("app/tests/AGENTS.md: startup policy must require a real uvicorn startup process test")
+  fi
+
+  if ! grep -q 'captures stdout/stderr output to `data/logs/`' "$tests_agents_file"; then
+    missing+=("app/tests/AGENTS.md: startup policy must require failure output capture to data/logs/")
+  fi
+
+  if ! grep -q "R-TEST-007" AGENTS.md; then
+    missing+=("AGENTS.md: R-TEST-007 rules matrix entry")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'Startup launcher policy sync checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'Startup launcher policy text is synchronized across AGENTS.md and app/tests/AGENTS.md.\n'
+}
+
 check_db_schema_docs_sync() {
   local missing=()
 
-  if ! path_changed "backend/database.py"; then
+  if ! path_changed "app/backend/database.py"; then
     printf 'No schema source changes detected.\n'
     return 0
   fi
@@ -275,7 +310,7 @@ check_db_schema_docs_sync() {
   fi
 
   if ((${#missing[@]} > 0)); then
-    printf 'backend/database.py changed without updating schema documentation in:\n'
+    printf 'app/backend/database.py changed without updating schema documentation in:\n'
     printf '  %s\n' "${missing[@]}"
     return 1
   fi
@@ -287,7 +322,7 @@ check_policy_family_review() {
   local changed_policy_files=()
   local policy_file
 
-  for policy_file in AGENTS.md backend/AGENTS.md ui/AGENTS.md tests/AGENTS.md; do
+  for policy_file in AGENTS.md app/backend/AGENTS.md app/ui/AGENTS.md app/tests/AGENTS.md; do
     if path_changed "$policy_file"; then
       changed_policy_files+=("$policy_file")
     fi
@@ -339,17 +374,25 @@ check_repo_scan_index_shape() {
     return 1
   fi
 
-  printf 'Repo audit tracker exists and includes the required status/index shape.\n'
+  printf 'Repo audit tracker exists and includes the required status, scope, and notes shape.\n'
 }
 
 check_tool_manifest_sync() {
-  if ! path_changed "backend/tool_registry.py"; then
+  local catalog_diff=""
+
+  if ! path_changed "app/backend/tool_registry.py"; then
     printf 'No tool catalog definition changes detected.\n'
     return 0
   fi
 
-  if ! path_changed "ui/scripts/tools-manifest.js"; then
-    printf 'backend/tool_registry.py changed without regenerating ui/scripts/tools-manifest.js.\n'
+  catalog_diff="$(git diff -- app/backend/tool_registry.py)"
+  if ! printf '%s' "$catalog_diff" | rg -q '^[+-].*(DEFAULT_TOOL_CATALOG|"id":|"name":|"description":|"inputs":|"outputs":)'; then
+    printf 'No tool catalog definition changes detected.\n'
+    return 0
+  fi
+
+  if ! path_changed "app/ui/scripts/tools-manifest.js"; then
+    printf 'app/backend/tool_registry.py changed without regenerating app/ui/scripts/tools-manifest.js.\n'
     return 1
   fi
 
@@ -362,10 +405,10 @@ check_workflow_builder_connector_path_sync() {
   local ui_changed=0
   local builder_tests_changed=0
 
-  path_changed "backend/services/workflow_builder.py" && service_changed=1
-  path_changed "backend/routes/automations.py" && route_changed=1
-  path_changed "ui/src/automation/app.tsx" && ui_changed=1
-  if path_changed "tests/test_connectors_for_builder.py" || path_changed "tests/test_connectors_for_builder_extra.py"; then
+  path_changed "app/backend/services/workflow_builder.py" && service_changed=1
+  path_changed "app/backend/routes/automations.py" && route_changed=1
+  path_changed "app/ui/src/automation/app.tsx" && ui_changed=1
+  if path_changed "app/tests/test_connectors_for_builder.py" || path_changed "app/tests/test_connectors_for_builder_extra.py"; then
     builder_tests_changed=1
   fi
 
@@ -375,7 +418,7 @@ check_workflow_builder_connector_path_sync() {
   fi
 
   if ((route_changed == 1)) && ((ui_changed == 0)); then
-    printf 'Workflow connector backend path changed without updating ui/src/automation/app.tsx consumer.\n'
+    printf 'Workflow connector backend path changed without updating app/ui/src/automation/app.tsx consumer.\n'
     return 1
   fi
 
@@ -388,7 +431,7 @@ check_workflow_builder_connector_path_sync() {
 }
 
 check_connector_route_service_boundary() {
-  local route_file="backend/routes/connectors.py"
+  local route_file="app/backend/routes/connectors.py"
   local boundary_violations=()
 
   if [[ ! -f "$route_file" ]]; then
@@ -400,7 +443,7 @@ check_connector_route_service_boundary() {
     boundary_violations+=("$route_file defines provider-specific OAuth token lifecycle helpers")
   fi
 
-  if rg -n '^from backend\.routes\.connectors import ' backend/services/support.py backend/services/connector_oauth.py >/dev/null; then
+  if rg -n '^from backend\.routes\.connectors import ' app/backend/services/support.py app/backend/services/connector_oauth.py >/dev/null; then
     boundary_violations+=("backend services import connector route helpers as business-logic dependencies")
   fi
 
@@ -423,10 +466,10 @@ check_large_changed_source_files() {
     [[ -f "$file" ]] || continue
 
     case "$file" in
-      AGENTS.md|backend/AGENTS.md|ui/AGENTS.md|tests/AGENTS.md|scripts/check-policy.sh)
+      AGENTS.md|app/backend/AGENTS.md|app/ui/AGENTS.md|app/tests/AGENTS.md|app/scripts/check-policy.sh)
         continue
         ;;
-      backend/*.py|backend/**/*.py|ui/src/*.ts|ui/src/*.tsx|ui/src/**/*.ts|ui/src/**/*.tsx|ui/scripts/*.js|ui/scripts/**/*.js|tests/*.py|tests/**/*.py)
+      app/backend/*.py|app/backend/**/*.py|app/ui/src/*.ts|app/ui/src/*.tsx|app/ui/src/**/*.ts|app/ui/src/**/*.tsx|app/ui/scripts/*.js|app/ui/scripts/**/*.js|app/tests/*.py|app/tests/**/*.py)
         ;;
       *)
         continue
@@ -450,19 +493,19 @@ check_large_changed_source_files() {
 }
 
 check_pr_scope() {
-  if [[ ! -x "$ROOT_DIR/scripts/check-pr-scope.sh" ]]; then
-    printf 'scripts/check-pr-scope.sh not found or not executable; skipping PR scope check.\n'
+  if [[ ! -x "$APP_DIR/scripts/check-pr-scope.sh" ]]; then
+    printf 'app/scripts/check-pr-scope.sh not found or not executable; skipping PR scope check.\n'
     return 0
   fi
-  "$ROOT_DIR/scripts/check-pr-scope.sh"
+  "$APP_DIR/scripts/check-pr-scope.sh"
 }
 
 check_test_precommit() {
-  "$ROOT_DIR/scripts/test-precommit.sh"
+  "$APP_DIR/scripts/test-precommit.sh"
 }
 
 check_test_full() {
-  "$ROOT_DIR/scripts/test-full.sh"
+  "$APP_DIR/scripts/test-full.sh"
 }
 
 collect_changed_files
@@ -477,6 +520,7 @@ run_check "Forbidden path modifications" check_forbidden_path_modifications
 run_check "AGENTS/check-policy sync" check_agents_script_sync
 run_check "Documentation ownership model" check_documentation_ownership_model
 run_check "Task file policy sync" check_task_file_policy_sync
+run_check "Startup launcher policy sync" check_startup_launcher_policy_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape
@@ -485,8 +529,8 @@ run_check "Workflow builder connector path sync" check_workflow_builder_connecto
 run_check "Connector route/service boundary" check_connector_route_service_boundary
 run_warning_check "Large changed source files" check_large_changed_source_files
 run_warning_check "PR scope validation" check_pr_scope
-run_check "scripts/test-precommit.sh" check_test_precommit
-run_check "scripts/test-full.sh" check_test_full
+run_check "app/scripts/test-precommit.sh" check_test_precommit
+run_check "app/scripts/test-full.sh" check_test_full
 
 printf '\nSummary: %d failure(s), %d warning(s).\n' "$FAILURES" "$WARNINGS"
 

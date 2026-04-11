@@ -194,8 +194,8 @@ from backend.services.tool_execution import (
     render_template_string,
     sanitize_generated_audio_filename,
     should_retry_local_llm_with_openai_chat,
-    verify_local_command_ready,
 )
+from backend.services.tool_command_utils import verify_local_command_ready
 
 INBOUND_SECRET_PREFIX = "malcom_sk_v1_"
 INBOUND_SECRET_BYTES = 32
@@ -923,7 +923,9 @@ async def lifespan(app: FastAPI):
         log_handler: RotatingFileHandler | None = getattr(app.state, "log_handler", None)
         if log_handler is not None:
             log_handler.flush()
-        connection.close()
+        current_connection = getattr(app.state, "connection", None)
+        if current_connection is not None:
+            current_connection.close()
 def get_connection(request: Request) -> DatabaseConnection:
     return request.app.state.connection
 def get_root_dir(request: Request) -> Path:

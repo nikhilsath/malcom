@@ -204,6 +204,57 @@
   margin-top: 0;
 }
 
+.tool-config-header-toggle {
+  width: min(100%, 260px);
+  align-self: stretch;
+}
+
+.tool-config-status-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(120px, 180px) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.tool-config-status-row__label,
+.tool-config-status-row__value,
+.tool-config-status-row__message {
+  margin: 0;
+}
+
+.tool-config-status-row__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tool-config-status-row__value {
+  font-weight: 700;
+}
+
+.tool-config-status-row__message {
+  color: var(--muted);
+}
+
+.tool-config-form-region[hidden] {
+  display: none;
+}
+
+.tool-config-inline-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.coqui-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .tool-config-checklist {
   margin: 0;
   padding-left: var(--space-5);
@@ -679,6 +730,7 @@
   }
 
   .tool-config-panels,
+  .coqui-summary-grid,
   .smtp-summary-grid,
   .smtp-layout,
   .smtp-console-layout,
@@ -695,6 +747,10 @@
   .storage-workspace__status {
     width: 100%;
     min-width: 0;
+  }
+
+  .tool-config-status-row {
+    grid-template-columns: 1fr;
   }
 
   .storage-preview-list__row {

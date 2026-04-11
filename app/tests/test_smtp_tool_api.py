@@ -11,14 +11,14 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services.support import get_local_worker_id
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
 class SmtpToolApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
-        (self.root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(self.root_dir)
 
         self.previous_root_dir = app.state.root_dir
         self.previous_db_path = app.state.db_path

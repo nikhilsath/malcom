@@ -7,10 +7,8 @@ SMTP relay helpers, and generated file sanitization utilities.
 from __future__ import annotations
 
 import json
-import os
 import re
 import shlex
-import shutil
 import smtplib
 import socket
 import ssl
@@ -32,6 +30,7 @@ from backend.schemas import (
     SmtpRelaySendRequest,
 )
 from .tool_configs import (
+    DEFAULT_COQUI_TTS_OUTPUT_DIRECTORY,
     get_coqui_tts_tool_config,
     get_default_tool_retries,
     get_image_magic_tool_config,
@@ -40,6 +39,7 @@ from .tool_configs import (
     normalize_image_magic_tool_config,
     normalize_local_llm_tool_config,
 )
+from .tool_command_utils import verify_local_command_ready
 from .tool_runtime import (
     build_smtp_email_message,
     call_worker_rpc,
@@ -82,27 +82,12 @@ def _get_tool_input(step: AutomationStepDefinition, key: str, context: dict[str,
         raw = getattr(step.config, legacy_attr, None)
     return render_template_string(raw, context).strip() if raw else ""
 
-
-def verify_local_command_ready(command: str, *, working_dir: Path | None = None, tool_name: str = "Command") -> list[str]:
-    command_parts = shlex.split(str(command or "").strip())
-    if not command_parts:
-        raise RuntimeError(f"{tool_name} command is invalid.")
-
-    executable = command_parts[0]
-    executable_path = Path(executable).expanduser()
-    has_explicit_path = executable_path.is_absolute() or any(separator in executable for separator in ("/", "\\"))
-
-    if has_explicit_path:
-        if not executable_path.is_absolute() and working_dir is not None:
-            executable_path = (working_dir / executable_path).resolve()
-        if not executable_path.exists() or not os.access(executable_path, os.X_OK):
-            raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
-        return command_parts
-
-    if shutil.which(executable) is None:
-        raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
-
-    return command_parts
+def resolve_coqui_tts_output_directory(raw_output_directory: str | None, *, root_dir: Path) -> Path:
+    output_directory = str(raw_output_directory or "").strip() or DEFAULT_COQUI_TTS_OUTPUT_DIRECTORY
+    directory_path = Path(output_directory)
+    if not directory_path.is_absolute():
+        directory_path = (root_dir / directory_path).resolve()
+    return directory_path
 
 
 def execute_coqui_tts_tool_step(
@@ -124,7 +109,10 @@ def execute_coqui_tts_tool_step(
     if not rendered_text:
         raise RuntimeError("Coqui TTS steps require a 'text' input.")
 
-    output_directory = Path(config["output_directory"])
+    output_directory = resolve_coqui_tts_output_directory(
+        _get_tool_input(step, "output_directory", context),
+        root_dir=root_dir,
+    )
     output_directory.mkdir(parents=True, exist_ok=True)
     requested_filename = _get_tool_input(step, "output_filename", context, legacy_attr="tool_output_filename")
     safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"coqui-output-{uuid4().hex[:8]}"

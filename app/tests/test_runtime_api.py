@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from tests.postgres_test_utils import setup_postgres_test_app
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
 class RuntimeApiTestCase(unittest.TestCase):
@@ -25,7 +25,7 @@ class RuntimeApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         root_dir = Path(self.tempdir.name)
-        (root_dir / "ui" / "scripts").mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(root_dir)
         setup_postgres_test_app(app=app, root_dir=root_dir)
         self.client = TestClient(app)
         self.client.__enter__()

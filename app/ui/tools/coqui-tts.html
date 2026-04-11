@@ -18,7 +18,7 @@
                     <h2 class="page-title section-header__title--page" id="page-title">Coqui TTS</h2>
                     <button type="button" id="page-info-badge" class="info-badge" aria-label="Page information" aria-expanded="false" aria-controls="page-description">i</button>
                 </div>
-                <p class="page-description section-header__description--page" id="page-description" hidden>Configure the local Coqui TTS runtime.</p>
+                <p class="page-description section-header__description--page" id="page-description" hidden>Manage saved Coqui defaults and runtime availability for workflow steps.</p>
             </div>
 
             <section id="tools-coqui-workspace" class="card tool-config-workspace">
@@ -26,30 +26,44 @@
                     <div id="tools-coqui-overview-copy" class="section-header__copy">
                         <p id="tools-coqui-overview-eyebrow" class="section-header__eyebrow">Tool Setup</p>
                         <div class="title-row">
-                            <h3 id="tools-coqui-title" class="section-header__title">Coqui TTS configuration</h3>
+                            <h3 id="tools-coqui-section-title" class="section-header__title">Runtime defaults</h3>
                             <button type="button" id="tools-coqui-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-description">i</button>
                         </div>
-                        <p id="tools-coqui-description" class="section-header__description" hidden>Manage command, model, and output defaults.</p>
+                        <p id="tools-coqui-description" class="section-header__description" hidden>Choose the saved command, model, speaker, and language used by Coqui workflow steps when they do not override those values.</p>
                     </div>
-                    <div id="tools-coqui-status-card" class="stat-card tool-config-workspace__status" aria-live="polite">
-                        <p id="tools-coqui-status-label" class="stat-card__label">Directory state</p>
-                        <p id="tools-coqui-status-value" class="stat-card__value">Loading</p>
-                        <p id="tools-coqui-status-message" class="api-directory-description">Fetching Coqui TTS settings.</p>
-                    </div>
+
+                    <label id="tools-coqui-enabled-field" class="api-form-field api-form-field--toggle tool-detail-switch-field tool-config-header-toggle">
+                        <span id="tools-coqui-enabled-copy-group" class="tool-detail-switch-field__copy">
+                            <span id="tools-coqui-enabled-label" class="api-form-label">Enabled</span>
+                            <span id="tools-coqui-enabled-copy" class="tool-detail-switch-field__description">Tool is disabled</span>
+                        </span>
+                        <span id="tools-coqui-enabled-control" class="tool-detail-switch">
+                            <input id="tools-coqui-enabled-input" class="tool-detail-switch__input" name="enabled" type="checkbox">
+                            <span id="tools-coqui-enabled-track" class="tool-detail-switch__track" aria-hidden="true">
+                                <span id="tools-coqui-enabled-thumb" class="tool-detail-switch__thumb"></span>
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
+                <div id="tools-coqui-status-row" class="tool-config-status-row">
+                    <p id="tools-coqui-status-label" class="tool-config-status-row__label">Runtime status</p>
+                    <p id="tools-coqui-status-value" class="tool-config-status-row__value">Loading</p>
+                    <p id="tools-coqui-status-message" class="tool-config-status-row__message">Fetching Coqui TTS settings.</p>
                 </div>
 
                 <div id="tools-coqui-summary-grid" class="summary-grid coqui-summary-grid">
-                    <article id="tools-coqui-summary-model-card" class="stat-card summary-card">
-                        <p id="tools-coqui-summary-model-label" class="summary-card__label">Model</p>
-                        <p id="tools-coqui-summary-model-value" class="summary-card__value">Loading</p>
-                    </article>
                     <article id="tools-coqui-summary-command-card" class="stat-card summary-card">
                         <p id="tools-coqui-summary-command-label" class="summary-card__label">Command</p>
                         <p id="tools-coqui-summary-command-value" class="summary-card__value">Loading</p>
                     </article>
-                    <article id="tools-coqui-summary-output-card" class="stat-card summary-card">
-                        <p id="tools-coqui-summary-output-label" class="summary-card__label">Output directory</p>
-                        <p id="tools-coqui-summary-output-value" class="summary-card__value">Loading</p>
+                    <article id="tools-coqui-summary-model-card" class="stat-card summary-card">
+                        <p id="tools-coqui-summary-model-label" class="summary-card__label">Model</p>
+                        <p id="tools-coqui-summary-model-value" class="summary-card__value">Loading</p>
+                    </article>
+                    <article id="tools-coqui-summary-voice-card" class="stat-card summary-card">
+                        <p id="tools-coqui-summary-voice-label" class="summary-card__label">Voice defaults</p>
+                        <p id="tools-coqui-summary-voice-value" class="summary-card__value">Loading</p>
                     </article>
                 </div>
 
@@ -57,49 +71,38 @@
                     <section id="tools-coqui-form-panel" class="card tool-config-panel">
                         <div id="tools-coqui-form-header" class="section-header tool-config-panel__header">
                             <div id="tools-coqui-form-copy" class="section-header__copy">
-                                <p id="tools-coqui-form-eyebrow" class="section-header__eyebrow">Runtime</p>
+                                <p id="tools-coqui-form-eyebrow" class="section-header__eyebrow">Defaults</p>
                                 <div class="title-row">
-                                    <h3 id="tools-coqui-form-title" class="section-header__title">Command and defaults</h3>
+                                    <h3 id="tools-coqui-form-title" class="section-header__title">Saved runtime selections</h3>
                                     <button type="button" id="tools-coqui-form-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-form-description">i</button>
                                 </div>
-                                <p id="tools-coqui-form-description" class="section-header__description" hidden>These settings are used by `coqui-tts` steps.</p>
+                                <p id="tools-coqui-form-description" class="section-header__description" hidden>Model, speaker, and language choices come from the detected Coqui runtime on this host.</p>
                             </div>
                         </div>
 
-                        <form id="tools-coqui-form" class="api-form">
-                            <div id="tools-coqui-form-grid" class="api-form-grid">
-                                <label id="tools-coqui-enabled-field" class="api-form-field">
-                                    <span id="tools-coqui-enabled-label" class="api-form-label">Availability</span>
-                                    <select id="tools-coqui-enabled-input" class="api-form-input" name="enabled">
-                                        <option id="tools-coqui-enabled-option-on" value="true">Enabled</option>
-                                        <option id="tools-coqui-enabled-option-off" value="false">Disabled</option>
-                                    </select>
-                                </label>
+                        <form id="tools-coqui-form" class="api-form" novalidate>
+                            <div id="tools-coqui-config-region" class="tool-config-form-region" hidden>
+                                <div id="tools-coqui-form-grid" class="api-form-grid">
+                                    <label id="tools-coqui-command-field" class="api-form-field api-form-field--full">
+                                        <span id="tools-coqui-command-label" class="api-form-label">Runtime command</span>
+                                        <select id="tools-coqui-command-input" class="api-form-input" name="command"></select>
+                                    </label>
 
-                                <label id="tools-coqui-command-field" class="api-form-field api-form-field--full">
-                                    <span id="tools-coqui-command-label" class="api-form-label">CLI command</span>
-                                    <input id="tools-coqui-command-input" class="api-form-input" name="command" type="text" maxlength="500" placeholder="tts">
-                                </label>
+                                    <label id="tools-coqui-model-field" class="api-form-field api-form-field--full">
+                                        <span id="tools-coqui-model-label" class="api-form-label">Model</span>
+                                        <select id="tools-coqui-model-input" class="api-form-input" name="modelName"></select>
+                                    </label>
 
-                                <label id="tools-coqui-model-field" class="api-form-field api-form-field--full">
-                                    <span id="tools-coqui-model-label" class="api-form-label">Model name</span>
-                                    <input id="tools-coqui-model-input" class="api-form-input" name="modelName" type="text" maxlength="255" placeholder="tts_models/en/ljspeech/tacotron2-DDC">
-                                </label>
+                                    <label id="tools-coqui-speaker-field" class="api-form-field">
+                                        <span id="tools-coqui-speaker-label" class="api-form-label">Default speaker</span>
+                                        <select id="tools-coqui-speaker-input" class="api-form-input" name="speaker"></select>
+                                    </label>
 
-                                <label id="tools-coqui-speaker-field" class="api-form-field">
-                                    <span id="tools-coqui-speaker-label" class="api-form-label">Default speaker</span>
-                                    <input id="tools-coqui-speaker-input" class="api-form-input" name="speaker" type="text" maxlength="120" placeholder="Optional speaker index">
-                                </label>
-
-                                <label id="tools-coqui-language-field" class="api-form-field">
-                                    <span id="tools-coqui-language-label" class="api-form-label">Default language</span>
-                                    <input id="tools-coqui-language-input" class="api-form-input" name="language" type="text" maxlength="120" placeholder="Optional language index">
-                                </label>
-
-                                <label id="tools-coqui-output-field" class="api-form-field api-form-field--full">
-                                    <span id="tools-coqui-output-label" class="api-form-label">Output directory</span>
-                                    <input id="tools-coqui-output-input" class="api-form-input" name="outputDirectory" type="text" maxlength="2000" placeholder="data/generated/coqui-tts">
-                                </label>
+                                    <label id="tools-coqui-language-field" class="api-form-field">
+                                        <span id="tools-coqui-language-label" class="api-form-label">Default language</span>
+                                        <select id="tools-coqui-language-input" class="api-form-input" name="language"></select>
+                                    </label>
+                                </div>
                             </div>
 
                             <div id="tools-coqui-form-feedback" class="api-form-feedback" aria-live="polite"></div>
@@ -115,45 +118,29 @@
                             <div id="tools-coqui-summary-copy" class="section-header__copy">
                                 <p id="tools-coqui-summary-eyebrow" class="section-header__eyebrow">Workflow Use</p>
                                 <div class="title-row">
-                                    <h3 id="tools-coqui-summary-title" class="section-header__title">Execution notes</h3>
+                                    <h3 id="tools-coqui-summary-title" class="section-header__title">Step behavior</h3>
                                     <button type="button" id="tools-coqui-summary-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-summary-description">i</button>
                                 </div>
-                                <p id="tools-coqui-summary-description" class="section-header__description" hidden>Steps can override speaker, language, and output filename.</p>
+                                <p id="tools-coqui-summary-description" class="section-header__description" hidden>Workflow steps can override the saved model, speaker, language, output filename, and output directory when needed.</p>
                             </div>
                         </div>
 
-                        <article id="tools-coqui-registration-card" class="stat-card tool-config-summary-card">
-                            <p id="tools-coqui-registration-name-label" class="stat-card__label">Registered tool</p>
-                            <p id="tools-coqui-registration-name-value" class="stat-card__value">Coqui TTS</p>
-                            <dl id="tools-coqui-registration-list" class="dashboard-host-card__metadata tool-config-summary-list">
-                                <div id="tools-coqui-registration-id-group">
-                                    <dt class="summary-card__label">Tool ID</dt>
-                                    <dd id="tools-coqui-registration-id-value">coqui-tts</dd>
-                                </div>
-                                <div id="tools-coqui-registration-page-group">
-                                    <dt class="summary-card__label">Page path</dt>
-                                    <dd id="tools-coqui-registration-page-value">/tools/coqui-tts.html</dd>
-                                </div>
-                            </dl>
-                        </article>
-
-                        <section id="tools-coqui-guidance" class="tool-config-guidance">
-                            <div id="tools-coqui-guidance-header" class="section-header tool-config-panel__header">
-                                <div id="tools-coqui-guidance-copy" class="section-header__copy">
-                                    <p id="tools-coqui-guidance-eyebrow" class="section-header__eyebrow">Checklist</p>
-                                    <div class="title-row">
-                                        <h3 id="tools-coqui-guidance-title" class="section-header__title">Before enabling</h3>
-                                        <button type="button" id="tools-coqui-guidance-description-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-guidance-description">i</button>
-                                    </div>
-                                    <p id="tools-coqui-guidance-description" class="section-header__description" hidden>Workflow steps call the local CLI directly.</p>
-                                </div>
+                        <dl id="tools-coqui-workflow-list" class="dashboard-host-card__metadata tool-config-summary-list">
+                            <div id="tools-coqui-workflow-tool-id-group">
+                                <dt class="summary-card__label">Tool ID</dt>
+                                <dd id="tools-coqui-workflow-tool-id-value">coqui-tts</dd>
                             </div>
-                            <ol id="tools-coqui-guidance-list" class="tool-config-checklist">
-                                <li id="tools-coqui-guidance-item-1">Install the Coqui CLI on the backend host.</li>
-                                <li id="tools-coqui-guidance-item-2">Set a model name available in your runtime.</li>
-                                <li id="tools-coqui-guidance-item-3">Use `tool_id` = `coqui-tts` and provide `tool_text`.</li>
-                            </ol>
-                        </section>
+                            <div id="tools-coqui-workflow-text-group">
+                                <dt class="summary-card__label">Required input</dt>
+                                <dd id="tools-coqui-workflow-text-value">text</dd>
+                            </div>
+                            <div id="tools-coqui-workflow-overrides-group">
+                                <dt class="summary-card__label">Optional overrides</dt>
+                                <dd id="tools-coqui-workflow-overrides-value">speaker, language, output_filename, output_directory</dd>
+                            </div>
+                        </dl>
+
+                        <p id="tools-coqui-workflow-note" class="tool-config-inline-note">Output directory is chosen per workflow step when needed. Install and removal from within the app are not implemented yet.</p>
                     </section>
                 </div>
             </section>

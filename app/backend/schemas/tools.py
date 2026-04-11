@@ -124,12 +124,27 @@ class CoquiTtsToolConfigResponse(BaseModel):
     model_name: str
     speaker: str
     language: str
-    output_directory: str
+
+
+class CoquiTtsOptionResponse(BaseModel):
+    value: str
+    label: str
+
+
+class CoquiTtsToolRuntimeResponse(BaseModel):
+    ready: bool
+    command_available: bool
+    message: str
+    command_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
+    model_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
+    speaker_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
+    language_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
 
 
 class CoquiTtsToolResponse(BaseModel):
     tool_id: Literal["coqui-tts"]
     config: CoquiTtsToolConfigResponse
+    runtime: CoquiTtsToolRuntimeResponse
 
 
 class CoquiTtsToolUpdate(BaseModel):
@@ -138,7 +153,6 @@ class CoquiTtsToolUpdate(BaseModel):
     model_name: str | None = Field(default=None, min_length=1, max_length=255)
     speaker: str | None = Field(default=None, max_length=120)
     language: str | None = Field(default=None, max_length=120)
-    output_directory: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
 class ImageMagicToolConfigResponse(BaseModel):
@@ -271,7 +285,9 @@ class ToolDirectoryUpdate(BaseModel):
 
 __all__ = [
     "CoquiTtsToolConfigResponse",
+    "CoquiTtsOptionResponse",
     "CoquiTtsToolResponse",
+    "CoquiTtsToolRuntimeResponse",
     "CoquiTtsToolUpdate",
     "ImageMagicExecuteRequest",
     "ImageMagicExecuteResponse",

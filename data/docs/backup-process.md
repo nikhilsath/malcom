@@ -97,6 +97,6 @@ These behaviors are validated by unit tests that exercise the API surface (see `
 
 - Implementation: [backend/services/settings_backup_restore.py](backend/services/settings_backup_restore.py)
 - Support exports: [backend/services/support.py](backend/services/support.py)
-- Settings API endpoints used by the UI: [docs/settings-reference.md](docs/settings-reference.md#L78)
+- Settings API endpoints used by the UI: [data/docs/settings-reference.md](data/docs/settings-reference.md#L78)
 - Tests that exercise backup API flows (mocked): [tests/test_settings_api.py](tests/test_settings_api.py#L287-L305)
 

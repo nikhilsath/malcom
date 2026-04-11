@@ -72,6 +72,12 @@ def reset_database(database_url: str) -> None:
         connection.close()
 
 
+def ensure_test_ui_scripts_dir(root_dir: Path) -> Path:
+    scripts_dir = root_dir / "app" / "ui" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    return scripts_dir
+
+
 def setup_postgres_test_app(*, app, root_dir: Path, skip_ui_build_check: bool = True) -> str:
     database_url = get_test_database_url()
     try:
@@ -80,6 +86,7 @@ def setup_postgres_test_app(*, app, root_dir: Path, skip_ui_build_check: bool = 
         raise unittest.SkipTest(f"PostgreSQL test database is unavailable: {error}") from error
 
     runtime_event_bus.clear()
+    ensure_test_ui_scripts_dir(root_dir)
     app.state.root_dir = root_dir
     app.state.db_path = "postgresql"
     app.state.database_url = database_url

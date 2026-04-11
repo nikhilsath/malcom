@@ -78,6 +78,19 @@ from backend.services.network import (
     execute_outgoing_test_delivery,
 )
 from backend.services.connector_activities import execute_connector_activity
+from backend.services.tool_command_utils import verify_local_command_ready as _verify_local_command_ready
+from backend.services.tool_configs import (
+    get_default_coqui_tts_tool_config as _get_default_coqui_tts_tool_config,
+    get_coqui_tts_tool_config as _get_coqui_tts_tool_config,
+    save_coqui_tts_tool_config as _save_coqui_tts_tool_config,
+    normalize_coqui_tts_tool_config as _normalize_coqui_tts_tool_config,
+)
+from backend.services.tool_execution import (
+    execute_coqui_tts_tool_step as _execute_coqui_tts_tool_step,
+)
+from backend.services.tool_runtime import (
+    build_coqui_tts_tool_response as _build_coqui_tts_tool_response,
+)
 from backend.services.logging_service import (
     configure_application_logger as configure_application_logger_core,
     get_log_file_path as get_log_file_path_core,
@@ -1116,52 +1129,13 @@ def normalize_local_llm_tool_config(config: dict[str, Any]) -> dict[str, Any]:
     }
     return normalized
 def get_default_coqui_tts_tool_config() -> dict[str, Any]:
-    return json.loads(json.dumps(DEFAULT_COQUI_TTS_TOOL_CONFIG))
+    return _get_default_coqui_tts_tool_config()
 def get_coqui_tts_tool_config(connection: DatabaseConnection) -> dict[str, Any]:
-    config = get_default_coqui_tts_tool_config()
-    row = fetch_one(
-        connection,
-        """
-        SELECT value_json
-        FROM settings
-        WHERE key = ?
-        """,
-        (COQUI_TTS_TOOL_SETTINGS_KEY,),
-    )
-    if row is None:
-        return config
-
-    stored_value = json.loads(row["value_json"])
-    if isinstance(stored_value, dict):
-        config.update(stored_value)
-    return config
+    return _get_coqui_tts_tool_config(connection)
 def save_coqui_tts_tool_config(connection: DatabaseConnection, config: dict[str, Any]) -> dict[str, Any]:
-    now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO settings (key, value_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET
-            value_json = excluded.value_json,
-            updated_at = excluded.updated_at
-        """,
-        (COQUI_TTS_TOOL_SETTINGS_KEY, json.dumps(config), now, now),
-    )
-    connection.commit()
-    return config
+    return _save_coqui_tts_tool_config(connection, config)
 def normalize_coqui_tts_tool_config(config: dict[str, Any], *, root_dir: Path | None = None) -> dict[str, Any]:
-    normalized = get_default_coqui_tts_tool_config()
-    normalized.update(config or {})
-    normalized["enabled"] = bool(normalized.get("enabled"))
-    normalized["command"] = str(normalized.get("command") or DEFAULT_COQUI_TTS_TOOL_CONFIG["command"]).strip()
-    normalized["model_name"] = str(normalized.get("model_name") or DEFAULT_COQUI_TTS_TOOL_CONFIG["model_name"]).strip()
-    normalized["speaker"] = str(normalized.get("speaker") or "").strip()
-    normalized["language"] = str(normalized.get("language") or "").strip()
-    output_directory = str(normalized.get("output_directory") or DEFAULT_COQUI_TTS_TOOL_CONFIG["output_directory"]).strip()
-    if root_dir is not None and not Path(output_directory).is_absolute():
-        output_directory = str((root_dir / output_directory).resolve())
-    normalized["output_directory"] = output_directory
-    return normalized
+    return _normalize_coqui_tts_tool_config(config, root_dir=root_dir)
 
 
 def get_default_image_magic_tool_config() -> dict[str, Any]:
@@ -1234,25 +1208,7 @@ def _get_tool_input(step: AutomationStepDefinition, key: str, context: dict[str,
     return render_template_string(raw, context).strip() if raw else ""
 
 def verify_local_command_ready(command: str, *, working_dir: Path | None = None, tool_name: str = "Command") -> list[str]:
-    command_parts = shlex.split(str(command or "").strip())
-    if not command_parts:
-        raise RuntimeError(f"{tool_name} command is invalid.")
-
-    executable = command_parts[0]
-    executable_path = Path(executable).expanduser()
-    has_explicit_path = executable_path.is_absolute() or any(separator in executable for separator in ("/", "\\"))
-
-    if has_explicit_path:
-        if not executable_path.is_absolute() and working_dir is not None:
-            executable_path = (working_dir / executable_path).resolve()
-        if not executable_path.exists() or not os.access(executable_path, os.X_OK):
-            raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
-        return command_parts
-
-    if shutil.which(executable) is None:
-        raise RuntimeError(f"{tool_name} command is not executable on this host: {command}")
-
-    return command_parts
+    return _verify_local_command_ready(command, working_dir=working_dir, tool_name=tool_name)
 
 
 def execute_coqui_tts_tool_step(
@@ -1262,78 +1218,7 @@ def execute_coqui_tts_tool_step(
     *,
     root_dir: Path,
 ) -> RuntimeExecutionResult:
-    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
-    if not config["enabled"]:
-        raise RuntimeError("Tool 'coqui-tts' is disabled.")
-    if not config["command"]:
-        raise RuntimeError("Coqui TTS command is not configured.")
-    if not config["model_name"]:
-        raise RuntimeError("Coqui TTS model name is not configured.")
-
-    rendered_text = _get_tool_input(step, "text", context, legacy_attr="tool_text")
-    if not rendered_text:
-        raise RuntimeError("Coqui TTS steps require a 'text' input.")
-
-    output_directory = Path(config["output_directory"])
-    output_directory.mkdir(parents=True, exist_ok=True)
-    requested_filename = _get_tool_input(step, "output_filename", context, legacy_attr="tool_output_filename")
-    safe_filename = sanitize_generated_audio_filename(requested_filename) if requested_filename else f"coqui-output-{uuid4().hex[:8]}"
-    if "." not in safe_filename:
-        safe_filename = f"{safe_filename}.wav"
-    output_path = output_directory / safe_filename
-
-    command_parts = shlex.split(config["command"])
-    if not command_parts:
-        raise RuntimeError("Coqui TTS command is invalid.")
-    command = [
-        *command_parts,
-        "--text",
-        rendered_text,
-        "--model_name",
-        config["model_name"],
-        "--out_path",
-        str(output_path),
-    ]
-    speaker = _get_tool_input(step, "speaker", context, legacy_attr="tool_speaker") or config["speaker"]
-    language = _get_tool_input(step, "language", context, legacy_attr="tool_language") or config["language"]
-    if speaker:
-        command.extend(["--speaker_idx", speaker])
-    if language:
-        command.extend(["--language_idx", language])
-
-    try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=str(root_dir),
-        )
-    except FileNotFoundError as error:
-        raise RuntimeError(f"Coqui TTS command was not found: {config['command']}") from error
-    except subprocess.CalledProcessError as error:
-        stderr = (error.stderr or "").strip()
-        stdout = (error.stdout or "").strip()
-        detail = stderr or stdout or "Unknown Coqui TTS failure."
-        raise RuntimeError(f"Coqui TTS generation failed: {detail}") from error
-
-    outputs = {
-        "audio_file_path": str(output_path),
-    }
-    detail = {
-        "tool_id": "coqui-tts",
-        "model_name": config["model_name"],
-        "speaker": speaker or None,
-        "language": language or None,
-        "stdout": (completed.stdout or "").strip() or None,
-        **outputs,
-    }
-    return RuntimeExecutionResult(
-        status="completed",
-        response_summary=f"Generated speech audio at {output_path.name}.",
-        detail=detail,
-        output=outputs,
-    )
+    return _execute_coqui_tts_tool_step(connection, step, context, root_dir=root_dir)
 
 
 def execute_llm_deepl_tool_step(
@@ -2349,18 +2234,7 @@ def build_local_llm_tool_response(connection: DatabaseConnection) -> LocalLlmToo
         presets=presets,
     )
 def build_coqui_tts_tool_response(connection: DatabaseConnection, *, root_dir: Path) -> CoquiTtsToolResponse:
-    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
-    return CoquiTtsToolResponse(
-        tool_id="coqui-tts",
-        config=CoquiTtsToolConfigResponse(
-            enabled=config["enabled"],
-            command=config["command"],
-            model_name=config["model_name"],
-            speaker=config["speaker"],
-            language=config["language"],
-            output_directory=config["output_directory"],
-        ),
-    )
+    return _build_coqui_tts_tool_response(connection, root_dir=root_dir)
 
 
 def build_image_magic_tool_response(connection: DatabaseConnection) -> ImageMagicToolResponse:

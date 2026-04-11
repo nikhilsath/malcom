@@ -129,7 +129,15 @@ type CoquiTtsToolState = {
     model_name: string;
     speaker: string;
     language: string;
-    output_directory: string;
+  };
+  runtime: {
+    ready: boolean;
+    command_available: boolean;
+    message: string;
+    command_options: Array<{ value: string; label: string }>;
+    model_options: Array<{ value: string; label: string }>;
+    speaker_options: Array<{ value: string; label: string }>;
+    language_options: Array<{ value: string; label: string }>;
   };
 };
 
@@ -351,9 +359,49 @@ const defaultCoquiTtsToolState: CoquiTtsToolState = {
     command: "tts",
     model_name: "tts_models/en/ljspeech/tacotron2-DDC",
     speaker: "ljspeech",
-    language: "en",
-    output_directory: "data/generated/coqui-tts"
+    language: "en"
+  },
+  runtime: {
+    ready: true,
+    command_available: true,
+    message: "Coqui TTS runtime is available for workflow steps.",
+    command_options: [{ value: "tts", label: "tts" }],
+    model_options: [
+      { value: "tts_models/en/ljspeech/tacotron2-DDC", label: "tts_models/en/ljspeech/tacotron2-DDC" },
+      { value: "tts_models/en/vctk/vits", label: "tts_models/en/vctk/vits" }
+    ],
+    speaker_options: [{ value: "ljspeech", label: "ljspeech" }],
+    language_options: [{ value: "en", label: "en" }]
   }
+};
+
+const getCoquiVoiceOptions = (modelName: string) => {
+  if (modelName === "tts_models/en/vctk/vits") {
+    return {
+      speaker_options: [
+        { value: "speaker-1", label: "speaker-1" },
+        { value: "speaker-2", label: "speaker-2" }
+      ],
+      language_options: [{ value: "en-us", label: "en-us" }]
+    };
+  }
+
+  return {
+    speaker_options: [{ value: "ljspeech", label: "ljspeech" }],
+    language_options: [{ value: "en", label: "en" }]
+  };
+};
+
+const buildCoquiRuntimeState = (state: CoquiTtsToolState, *, modelName?: string) => {
+  if (!state.runtime.command_available) {
+    return deepClone(state.runtime);
+  }
+
+  const selectedModel = modelName || state.config.model_name;
+  return {
+    ...deepClone(state.runtime),
+    ...getCoquiVoiceOptions(selectedModel),
+  };
 };
 
 const fulfillJson = async (route: Route, body: unknown, status = 200) => {
@@ -760,9 +808,14 @@ export async function stubCoquiTtsTool(page: Page, overrides: DeepPartial<CoquiT
   let state = mergeDeep(defaultCoquiTtsToolState, overrides);
   const savedConfigs: JsonObject[] = [];
 
-  await page.route("**/api/v1/tools/coqui-tts", async (route) => {
+  await page.route("**/api/v1/tools/coqui-tts*", async (route) => {
     if (route.request().method() === "GET") {
-      await fulfillJson(route, state);
+      const requestUrl = new URL(route.request().url());
+      const requestedModelName = requestUrl.searchParams.get("model_name") || state.config.model_name;
+      await fulfillJson(route, {
+        ...state,
+        runtime: buildCoquiRuntimeState(state, { modelName: requestedModelName })
+      });
       return;
     }
 
@@ -780,12 +833,14 @@ export async function stubCoquiTtsTool(page: Page, overrides: DeepPartial<CoquiT
         command: typeof payload.command === "string" ? payload.command : state.config.command,
         model_name: typeof payload.model_name === "string" ? payload.model_name : state.config.model_name,
         speaker: typeof payload.speaker === "string" ? payload.speaker : state.config.speaker,
-        language: typeof payload.language === "string" ? payload.language : state.config.language,
-        output_directory: typeof payload.output_directory === "string" ? payload.output_directory : state.config.output_directory
+        language: typeof payload.language === "string" ? payload.language : state.config.language
       }
     });
 
-    await fulfillJson(route, state);
+    await fulfillJson(route, {
+      ...state,
+      runtime: buildCoquiRuntimeState(state, { modelName: state.config.model_name })
+    });
   });
 
   return {

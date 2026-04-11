@@ -10,17 +10,55 @@ from fastapi.testclient import TestClient
 
 from backend.database import connect, fetch_one
 from backend.main import app
-from backend.schemas import LocalLlmChatResponse
+from backend.schemas import (
+    AutomationStepConfig,
+    AutomationStepDefinition,
+    CoquiTtsOptionResponse,
+    CoquiTtsToolRuntimeResponse,
+    LocalLlmChatResponse,
+)
 from backend.services.support import build_local_llm_native_chat_body, build_local_llm_stream, execute_local_llm_chat_request
-from tests.postgres_test_utils import setup_postgres_test_app
+from backend.services.tool_execution import execute_coqui_tts_tool_step
+from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
+
+
+def build_coqui_runtime(
+    *,
+    ready: bool = True,
+    command_available: bool = True,
+    message: str = "Coqui TTS runtime is available for workflow steps.",
+    models: list[str] | None = None,
+    speakers: list[str] | None = None,
+    languages: list[str] | None = None,
+) -> CoquiTtsToolRuntimeResponse:
+    model_values = ["tts_models/en/ljspeech/tacotron2-DDC", "tts_models/en/vctk/vits"] if models is None else models
+    speaker_values = ["ljspeech"] if speakers is None else speakers
+    language_values = ["en"] if languages is None else languages
+    return CoquiTtsToolRuntimeResponse(
+        ready=ready,
+        command_available=command_available,
+        message=message,
+        command_options=[CoquiTtsOptionResponse(value="tts", label="tts")] if command_available else [],
+        model_options=[
+            CoquiTtsOptionResponse(value=value, label=value)
+            for value in model_values
+        ],
+        speaker_options=[
+            CoquiTtsOptionResponse(value=value, label=value)
+            for value in speaker_values
+        ],
+        language_options=[
+            CoquiTtsOptionResponse(value=value, label=value)
+            for value in language_values
+        ],
+    )
 
 
 class ToolMetadataApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
-        manifest_dir = self.root_dir / "ui" / "scripts"
-        manifest_dir.mkdir(parents=True, exist_ok=True)
+        ensure_test_ui_scripts_dir(self.root_dir)
         self.database_url = setup_postgres_test_app(app=app, root_dir=self.root_dir)
         self.client = TestClient(app)
         self.client.__enter__()
@@ -69,7 +107,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
             "Convert and transform image files for downstream processing.",
         )
 
-        manifest_source = (self.root_dir / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
+        manifest_source = (self.root_dir / "app" / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
         self.assertIn("Image Magic Pro", manifest_source)
         self.assertIn("Convert and transform image files for downstream processing.", manifest_source)
         self.assertIn("tools/image-magic.html", manifest_source)
@@ -80,11 +118,14 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         image_magic = next((item for item in body if item["id"] == "image-magic"), None)
+        coqui_tts = next((item for item in body if item["id"] == "coqui-tts"), None)
         self.assertIsNotNone(image_magic)
+        self.assertIsNotNone(coqui_tts)
         self.assertEqual(image_magic["page_href"], "/tools/image-magic.html")
         self.assertFalse(image_magic["enabled"])
         self.assertEqual(image_magic["inputs"][0]["key"], "input_file")
         self.assertEqual(image_magic["outputs"][0]["key"], "output_file_path")
+        self.assertIn("output_directory", [field["key"] for field in coqui_tts["inputs"]])
 
     def test_updates_enabled_state_in_directory_endpoint(self) -> None:
         response = self.client.patch(
@@ -476,27 +517,41 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertIn("User: Test Message", body["input"])
 
     def test_reads_and_updates_coqui_tts_tool_config(self) -> None:
-        initial_response = self.client.get("/api/v1/tools/coqui-tts")
+        with mock.patch(
+            "backend.services.tool_runtime.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ):
+            initial_response = self.client.get("/api/v1/tools/coqui-tts")
+
         self.assertEqual(initial_response.status_code, 200)
         self.assertEqual(initial_response.json()["tool_id"], "coqui-tts")
+        self.assertIn("runtime", initial_response.json())
+        self.assertNotIn("output_directory", initial_response.json()["config"])
 
-        update_response = self.client.patch(
-            "/api/v1/tools/coqui-tts",
-            json={
-                "enabled": True,
-                "command": "tts",
-                "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
-                "speaker": "ljspeech",
-                "language": "en",
-                "output_directory": "generated-audio",
-            },
-        )
+        with mock.patch(
+            "backend.routes.tools.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ), mock.patch(
+            "backend.services.tool_runtime.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ):
+            update_response = self.client.patch(
+                "/api/v1/tools/coqui-tts",
+                json={
+                    "enabled": True,
+                    "command": "tts",
+                    "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+                    "speaker": "ljspeech",
+                    "language": "en",
+                },
+            )
         self.assertEqual(update_response.status_code, 200)
         body = update_response.json()
         self.assertTrue(body["config"]["enabled"])
         self.assertEqual(body["config"]["command"], "tts")
         self.assertEqual(body["config"]["language"], "en")
-        self.assertTrue(body["config"]["output_directory"].endswith("generated-audio"))
+        self.assertTrue(body["runtime"]["ready"])
+        self.assertNotIn("output_directory", body["config"])
 
         connection = connect(database_url=self.database_url)
         try:
@@ -523,7 +578,123 @@ class ToolMetadataApiTestCase(unittest.TestCase):
 
         self.assertIsNotNone(config_row)
         self.assertEqual(json.loads(config_row["config_json"])["language"], "en")
+        self.assertNotIn("output_directory", json.loads(config_row["config_json"]))
         self.assertEqual(tool_row["enabled"], 1)
+
+    def test_rejects_coqui_enable_when_runtime_is_unavailable(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(
+                ready=False,
+                command_available=False,
+                message="Coqui TTS command is not executable on this host: tts",
+                models=[],
+                speakers=[],
+                languages=[],
+            ),
+        ):
+            response = self.client.patch(
+                "/api/v1/tools/coqui-tts",
+                json={
+                    "enabled": True,
+                    "command": "tts",
+                    "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "Coqui TTS command is not executable on this host: tts")
+
+    def test_coqui_execution_uses_output_directory_override(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ), mock.patch(
+            "backend.services.tool_runtime.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ):
+            response = self.client.patch(
+                "/api/v1/tools/coqui-tts",
+                json={
+                    "enabled": True,
+                    "command": "tts",
+                    "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+                    "speaker": "",
+                    "language": "",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+
+        connection = connect(database_url=self.database_url)
+        try:
+            step = AutomationStepDefinition(
+                id="step-coqui",
+                type="tool",
+                name="Coqui",
+                config=AutomationStepConfig(
+                    tool_id="coqui-tts",
+                    tool_inputs={
+                        "text": "Hello from override.",
+                        "output_filename": "voice-clip",
+                        "output_directory": "exports/coqui-audio",
+                    },
+                ),
+            )
+            with mock.patch("backend.services.tool_execution.subprocess.run") as run_command:
+                run_command.return_value = mock.Mock(stdout="ok", stderr="")
+                result = execute_coqui_tts_tool_step(connection, step, {}, root_dir=self.root_dir)
+        finally:
+            connection.close()
+
+        self.assertEqual(
+            result.output["audio_file_path"],
+            str((self.root_dir / "exports" / "coqui-audio" / "voice-clip.wav").resolve()),
+        )
+
+    def test_coqui_execution_falls_back_to_default_output_directory(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ), mock.patch(
+            "backend.services.tool_runtime.discover_coqui_tts_runtime",
+            return_value=build_coqui_runtime(),
+        ):
+            response = self.client.patch(
+                "/api/v1/tools/coqui-tts",
+                json={
+                    "enabled": True,
+                    "command": "tts",
+                    "model_name": "tts_models/en/ljspeech/tacotron2-DDC",
+                    "speaker": "",
+                    "language": "",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+
+        connection = connect(database_url=self.database_url)
+        try:
+            step = AutomationStepDefinition(
+                id="step-coqui-default",
+                type="tool",
+                name="Coqui",
+                config=AutomationStepConfig(
+                    tool_id="coqui-tts",
+                    tool_inputs={
+                        "text": "Hello default path.",
+                        "output_filename": "default-voice",
+                    },
+                ),
+            )
+            with mock.patch("backend.services.tool_execution.subprocess.run") as run_command:
+                run_command.return_value = mock.Mock(stdout="ok", stderr="")
+                result = execute_coqui_tts_tool_step(connection, step, {}, root_dir=self.root_dir)
+        finally:
+            connection.close()
+
+        self.assertEqual(
+            result.output["audio_file_path"],
+            str((self.root_dir / "data" / "generated" / "coqui-tts" / "default-voice.wav").resolve()),
+        )
 
     def test_reads_and_updates_image_magic_tool_config(self) -> None:
         initial_response = self.client.get("/api/v1/tools/image-magic")
@@ -695,7 +866,7 @@ class ToolMetadataApiTestCase(unittest.TestCase):
         self.assertEqual(response.json()["name"], "Image Magic Runtime")
         self.assertEqual(response.json()["description"], "Updated through the generic metadata route.")
 
-        manifest_source = (self.root_dir / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
+        manifest_source = (self.root_dir / "app" / "ui" / "scripts" / "tools-manifest.js").read_text(encoding="utf-8")
         self.assertIn("Image Magic Runtime", manifest_source)
 
 

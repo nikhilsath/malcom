@@ -228,6 +228,8 @@ def start_backend() -> None:
             str(VENV_PYTHON),
             "-m",
             "uvicorn",
+            "--app-dir",
+            str(APP_DIR),
             "backend.main:app",
             "--host",
             "127.0.0.1",
@@ -239,7 +241,7 @@ def start_backend() -> None:
 
 
 def main() -> None:
-    os.chdir(ROOT_DIR)
+    os.chdir(WORKSPACE_ROOT)
     ensure_virtualenv()
     reexec_into_virtualenv()
     ensure_backend_dependencies()

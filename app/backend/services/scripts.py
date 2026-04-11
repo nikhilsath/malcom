@@ -13,6 +13,7 @@ from backend.schemas import (
     ScriptValidationIssue,
     ScriptValidationResult,
 )
+from backend.services.ui_assets import get_ui_dir
 from backend.services.utils import utc_now_iso
 
 
@@ -205,7 +206,7 @@ def validate_python_script(code: str) -> ScriptValidationResult:
 
 
 def validate_javascript_script(code: str, *, root_dir: Path) -> ScriptValidationResult:
-    ui_dir = root_dir / "ui"
+    ui_dir = get_ui_dir(root_dir)
     ui_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.NamedTemporaryFile(

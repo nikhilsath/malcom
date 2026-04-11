@@ -74,7 +74,7 @@ Action: Run path-contract verification for tool defaults and e2e fixture usage:
 - cd ui && npx playwright test e2e/tools-coqui-tts.spec.ts
 Completion check: Tool API tests and the targeted Playwright spec pass with migrated data/* paths.
 
-3. [ ] [test]
+3. [x] [test]
 Files: ui/tools/coqui-tts.html, ui/settings/data.html
 Action: Build UI to confirm updated placeholder/example text changes do not break bundle generation:
 - cd ui && npm run build
@@ -83,7 +83,7 @@ Completion check: UI build succeeds.
 
 ## GitHub update
 
-1. [ ] [github]
+1. [x] [github]
 Files: data/media/*, data/backups/*, data/logs/*, data/workflows/*, backend/main.py, backend/services/logging_service.py, backend/services/domain_proxy.py, backend/services/dashboard_logs.py, backend/services/connector_activities_github_repos.py, backend/services/settings_backup_restore.py, backend/schemas/settings.py, backend/services/helpers.py, backend/services/tool_configs.py, backend/services/automation_execution.py, backend/services/automation_step_executors/log.py, ui/tools/coqui-tts.html, ui/settings/data.html, tests/test_ui_html_routes.py, tests/test_runtime_api.py, tests/test_tools_api.py, tests/api_smoke_registry/tools_cases.py, ui/e2e/tools-coqui-tts.spec.ts, ui/e2e/support/tools.ts, README.md, docs/settings-reference.md, docs/backup-process.md, AGENTS.md, backend/AGENTS.md, tests/AGENTS.md, .gitignore
 Action: Stage only Task 23 migration files, commit with a task-specific message, and push following AGENTS.md#github-update-workflow.
 Completion check: git log -1 --pretty=%B shows a Task 23 migration commit and git push completes for the current branch.

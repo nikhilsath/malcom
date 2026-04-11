@@ -15,7 +15,7 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 
 | path | status | last_reviewed | scope | notes |
 |---|---|---|---|---|
-| AGENTS.md | reviewed | 2026-04-03 | mapping-layer audit | root routing and audit rules reviewed |
+| AGENTS.md | reviewed | 2026-04-10 | docs-refresh audit | root policy re-reviewed for audit guidance and schema-group alignment during docs refresh |
 | backend/services/workflow_builder.py | reviewed | 2026-04-03 | mapping-layer audit | workflow-builder connector resolver reviewed for source-of-truth and duplication |
 | backend/routes/automations.py | reviewed | 2026-04-03 | mapping-layer audit | workflow-connectors API route reviewed |
 | backend/services/connectors.py | reviewed | 2026-04-03 | mapping-layer audit | provider catalog, connector storage split, and fallback behavior reviewed |
@@ -47,6 +47,23 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | tests/test_http_presets.py | reviewed | 2026-04-04 | connector-catalog/readme audit | preset coverage asserts Google and GitHub catalogs only |
 | ui/src/automation/step-modals/connector-activity-step-form.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | UI disables providers with no compatible activity catalog and surfaces "No connector actions available for this provider yet." |
 | ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | dropdown test remains minimal; current fixture use does not exercise unavailable-provider messaging |
-| README.md | reviewed | 2026-04-04 | connector-catalog/readme audit | updated UI surface wording and documented current builder support boundary for Google/GitHub vs Notion/Trello |
+| README.md | reviewed | 2026-04-10 | docs-refresh audit | full product README rewrite based on current routes, schema groups, runtime services, and unfinished feature audit |
+| backend/database.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current schema groups include docs articles/tags plus storage and repo checkout tables |
+| backend/routes/api.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current API surface aggregates runtime, automations, docs, log tables, scripts, settings, storage, workers, connectors, APIs, and tools |
+| backend/routes/runtime.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed dashboard, queue, logs, resource history, scheduler, and debug resource-profile endpoints |
+| backend/routes/storage.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed storage locations, usage, repo checkout CRUD, and repo sync endpoints |
+| backend/routes/tools.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current managed tool APIs are SMTP, Local LLM, Coqui TTS, and Image Magic |
+| backend/routes/docs.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed docs article CRUD surface backed by docs tables and `data/docs/*.md` content |
+| backend/routes/ui.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed served and redirect UI routes remain registry-driven |
+| backend/services/tool_registry.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current managed tool catalog and manifest source of truth |
+| backend/services/connector_oauth.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed Google, Notion, and Trello browser OAuth flow while GitHub remains credential-only |
+| backend/services/github_webhook.py | needs_followup | 2026-04-10 | docs-refresh audit | normalization exists, but dispatch helper still logs placeholder work instead of enqueueing runtime execution |
+| backend/services/automation_step_executors/storage.py | needs_followup | 2026-04-10 | docs-refresh audit | dedicated storage step executor still raises not implemented |
+| scripts/dev.py | needs_followup | 2026-04-10 | docs-refresh audit | launcher script still references undefined `ROOT_DIR`, so README documents manual startup from `app/` instead |
+| ui/settings/connectors.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed connectors live under Settings and expose registry plus auth-policy workflows |
+| ui/settings/data.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed storage locations, backups, and log-table storage management; payload redaction still marked coming soon |
+| ui/tools/catalog.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed tool catalog remains a metadata and availability editor, not a runtime registry source |
+| ui/src/docs/DocsApp.tsx | reviewed | 2026-04-10 | docs-refresh audit | confirmed docs library supports list, detail, create, and edit flows |
+| ui/e2e/github-trigger.spec.ts | needs_followup | 2026-04-10 | docs-refresh audit | GitHub trigger browser coverage is still a smoke placeholder rather than an end-to-end workflow assertion |
 | ui/page-registry.json | reviewed | 2026-04-04 | connector-catalog/readme audit | verified connectors page is served under Settings, not the APIs section |
 | ui/scripts/shell-config.js | reviewed | 2026-04-04 | connector-catalog/readme audit | verified shell nav places Connectors under Settings and APIs includes only registry/incoming/outgoing/webhooks |
