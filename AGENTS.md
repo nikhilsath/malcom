@@ -111,9 +111,9 @@ Rules:
 
 AI agents must use `app/scripts/test-real-failfast.sh` as the explicit first-pass command when verifying changes in minimal-context, low-token, or automated environments.
 
-1. **(R-TEST-009)** Run `app/scripts/test-real-failfast.sh` before any broader gate (`test-precommit.sh` or `test-full.sh`). It runs `test_startup_lifecycle.py` first, then the full non-smoke pytest suite with `-x`, and writes a machine-readable artifact to `app/tests/test-artifacts/failfast-result.json` on failure.
+1. **(R-TEST-009)** Run `app/scripts/test-real-failfast.sh` before any broader gate. It runs `test_startup_lifecycle.py` first, then the full non-smoke pytest suite with `-x`, and writes a machine-readable artifact to `app/tests/test-artifacts/failfast-result.json` on failure.
 2. Stubbed Playwright coverage (specs using `installDashboardSettingsFixtures` or `page.route()` intercepts) is secondary. It may not substitute for real system verification on critical workflows.
-3. The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002 and are run after the first-pass check.
+3. `test-precommit.sh` invokes `test-real-failfast.sh` as its first step, then adds an optional coverage report and UI checks (entry modules, Playwright route coverage, npm test, npm build). `test-full.sh` calls `test-precommit.sh` and adds smoke tests and full Playwright e2e, and remains the final completion gate per R-TEST-002.
 
 
 ### Implementation Quality And Source Of Truth {#implementation-quality-and-source-of-truth}
@@ -311,7 +311,7 @@ Machine-first routing index. Use for task-to-file targeting before consulting ca
 | R-RESP-003 | When user instructions conflict with default helpfulness behavior, follow the user instruction literally | All responses |
 | R-DOC-001 | Documentation must live only in task files, AGENTS policy files, README, and docs; do not create parallel module-contract systems | Documentation policy and repo workflow |
 | R-POLICY-001 | Whenever `AGENTS.md` is updated, `scripts/check-policy.sh` must be updated in the same change to reflect new or changed enforcement rules | Policy maintenance and enforcement automation |
-| R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` for fast local iteration and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
+| R-TEST-002 | Use the two-tier test workflow: `scripts/test-precommit.sh` (which invokes `test-real-failfast.sh` first, then adds coverage and UI checks) for local iteration, and `scripts/test-full.sh` as the completion gate for user-visible workflow changes, shared frontend/test infrastructure changes, and browser coverage validation | Testing workflow changes |
 | R-TEST-009 | AI agents must use `app/scripts/test-real-failfast.sh` as the first-pass command for minimal-context real-test verification before running broader gates; stubbed Playwright coverage is secondary and must not substitute for real system verification on critical workflows | AI agent test workflow and Playwright authoring |
 | R-TEST-003 | Keep internal API smoke coverage in `app/tests/test_api_smoke_matrix.py` aligned with every served `/api/v1/**` route and `/health`, with cases sourced from `app/tests/api_smoke_registry/` | Backend route additions and removals |
 | R-TEST-004 | Remove or retire a test only when the covered contract is removed or replaced, and update the replacement coverage in the same task | Test maintenance |

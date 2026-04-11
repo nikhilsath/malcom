@@ -25,7 +25,7 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 
 - run targeted `pytest` files in `app/tests/`
 - add or update API tests for route, schema, or DB behavior changes
-- use `app/scripts/test-precommit.sh` as the fast local backend/frontend iteration gate before commits
+- use `app/scripts/test-precommit.sh` as the local iteration gate before commits — it invokes `app/scripts/test-real-failfast.sh` first (preflight → startup lifecycle → backend suite, fail-fast), then adds an optional coverage report and UI checks
 - use `app/scripts/test-full.sh` as the completion gate when backend route smoke coverage, browser coverage, or shared test infrastructure changes are involved
 - keep `/health` and every `/api/v1/**` route represented in `app/tests/test_api_smoke_matrix.py`, with scenarios sourced from `app/tests/api_smoke_registry/`
 - keep connector/settings boundary assertions explicit: connector CRUD/auth-policy behavior belongs to `/api/v1/connectors*`, while `/api/v1/settings` covers app settings sections only
@@ -38,7 +38,7 @@ User-visible workflow changes are not complete until `./scripts/test-full.sh` su
 - Runs `test_startup_lifecycle.py` first (highest-value real tests), then the full non-smoke pytest suite with `-x` (stop on first failure).
 - On failure, writes a JSON artifact to `app/tests/test-artifacts/failfast-result.json` with fields `step`, `exit_code`, `command`, and `first_error_lines`. This contract applies to every failure path: `preflight` (PostgreSQL preflight failure), `startup_lifecycle` (lifecycle test failure), `backend_suite` (backend suite failure), and `all` with `exit_code: 0` for success.
 - `app/scripts/test-external-probes.py` is informational-only (no assertions, always exits 0) and must not appear in any automated fail gate.
-- The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002.
+- The two-tier gates (`test-precommit.sh` / `test-full.sh`) remain the broader completion gates per R-TEST-002. `test-precommit.sh` invokes `test-real-failfast.sh` as its first step before adding coverage and UI gates.
 
 ### Frontend
 

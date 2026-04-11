@@ -23,6 +23,8 @@ set -uo pipefail
 # TASK-027 (2026-04-11): real-test-runner first-pass policy (R-TEST-009) added;
 # test-real-failfast.sh is the canonical first-pass AI command; stubbed Playwright
 # coverage is secondary for critical workflow verification.
+# TASK-027 step 4: test-precommit.sh now invokes test-real-failfast.sh as its first step
+# before adding coverage and UI gate checks; R-TEST-002 description updated to match.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
