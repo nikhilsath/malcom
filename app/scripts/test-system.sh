@@ -30,7 +30,7 @@ set -euo pipefail
 WORKSPACE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-ARTIFACT_DIR="app/tests/test-artifacts"
+ARTIFACT_DIR="${MALCOM_TEST_ARTIFACT_DIR:-app/tests/test-artifacts}"
 ARTIFACT_FILE="$ARTIFACT_DIR/system-result.json"
 mkdir -p "$ARTIFACT_DIR"
 
@@ -72,12 +72,79 @@ write_artifact_and_exit() {
   exit "$2"
 }
 
+run_captured_command() {
+  local __result_var="$1"
+  local command="$2"
+  local output=""
+  local exit_code=0
+
+  output=$(eval "$command" 2>&1) || exit_code=$?
+  printf -v "$__result_var" '%s' "$output"
+  return "$exit_code"
+}
+
+fail_bootstrap_prerequisite() {
+  local command="$1"
+  local message="$2"
+
+  echo "bootstrap prerequisite failed"
+  write_artifact_and_exit "bootstrap" "1" "$command" "$message"
+}
+
+require_executable() {
+  local path="$1"
+  local install_hint="$2"
+
+  if [[ ! -x "$path" ]]; then
+    fail_bootstrap_prerequisite \
+      "test -x $path" \
+      "$path is missing or not executable. $install_hint"
+  fi
+}
+
+require_directory() {
+  local path="$1"
+  local install_hint="$2"
+
+  if [[ ! -d "$path" ]]; then
+    fail_bootstrap_prerequisite \
+      "test -d $path" \
+      "$path is missing. $install_hint"
+  fi
+}
+
+require_browser_prerequisites() {
+  local output=""
+  local check_command="cd app/ui && node -e \"const fs = require('fs'); const { chromium } = require('playwright'); const browserPath = chromium.executablePath(); if (!browserPath || !fs.existsSync(browserPath)) { console.error('Chromium browser binaries are missing. Run npm --prefix app/ui exec -- playwright install --with-deps chromium.'); process.exit(1); } console.log(browserPath);\""
+
+  if ! command -v npm >/dev/null 2>&1; then
+    fail_bootstrap_prerequisite \
+      "command -v npm" \
+      "npm is not installed. Install Node.js 20+ and run npm --prefix app/ui ci."
+  fi
+
+  require_directory "app/ui/node_modules" "Run npm --prefix app/ui ci."
+  require_executable "app/ui/node_modules/.bin/playwright" "Run npm --prefix app/ui ci."
+
+  if ! run_captured_command output "$check_command"; then
+    fail_bootstrap_prerequisite "$check_command" "$output"
+  fi
+}
+
+require_executable ".venv/bin/python" "Create the virtualenv and install backend dependencies with python3 -m venv .venv && .venv/bin/pip install -r app/requirements.txt."
+require_executable ".venv/bin/pytest" "Install backend test dependencies with .venv/bin/pip install -r app/requirements.txt."
+
+if [[ "${SKIP_BROWSER_SUITE:-0}" != "1" || "${INCLUDE_FULL_BROWSER_SUITE:-0}" == "1" ]]; then
+  require_browser_prerequisites
+fi
+
 # ---------------------------------------------------------------------------
 # Step 1: bootstrap — ensure PostgreSQL runtime is reachable
 # ---------------------------------------------------------------------------
 BOOTSTRAP_CMD=".venv/bin/python app/scripts/require_test_database.py --phase runtime"
-BOOTSTRAP_OUTPUT=$(eval "$BOOTSTRAP_CMD" 2>&1) || BOOTSTRAP_EXIT=$?
-BOOTSTRAP_EXIT=${BOOTSTRAP_EXIT:-0}
+BOOTSTRAP_OUTPUT=""
+BOOTSTRAP_EXIT=0
+run_captured_command BOOTSTRAP_OUTPUT "$BOOTSTRAP_CMD" || BOOTSTRAP_EXIT=$?
 
 if [[ "$BOOTSTRAP_EXIT" -ne 0 ]]; then
   echo "bootstrap step failed"
@@ -89,8 +156,9 @@ echo "$BOOTSTRAP_OUTPUT"
 # Step 2: db_setup — ensure test database exists and schema is initialized
 # ---------------------------------------------------------------------------
 DB_SETUP_CMD=".venv/bin/python app/scripts/require_test_database.py --phase db_setup"
-DB_SETUP_OUTPUT=$(eval "$DB_SETUP_CMD" 2>&1) || DB_SETUP_EXIT=$?
-DB_SETUP_EXIT=${DB_SETUP_EXIT:-0}
+DB_SETUP_OUTPUT=""
+DB_SETUP_EXIT=0
+run_captured_command DB_SETUP_OUTPUT "$DB_SETUP_CMD" || DB_SETUP_EXIT=$?
 
 if [[ "$DB_SETUP_EXIT" -ne 0 ]]; then
   echo "db_setup step failed"
@@ -102,8 +170,9 @@ echo "$DB_SETUP_OUTPUT"
 # Step 3: startup_lifecycle — highest-value real tests first
 # ---------------------------------------------------------------------------
 LIFECYCLE_CMD=".venv/bin/pytest -c app/pytest.ini -x -q --tb=short app/tests/test_startup_lifecycle.py"
-LIFECYCLE_OUTPUT=$(eval "$LIFECYCLE_CMD" 2>&1) || LIFECYCLE_EXIT=$?
-LIFECYCLE_EXIT=${LIFECYCLE_EXIT:-0}
+LIFECYCLE_OUTPUT=""
+LIFECYCLE_EXIT=0
+run_captured_command LIFECYCLE_OUTPUT "$LIFECYCLE_CMD" || LIFECYCLE_EXIT=$?
 
 if [[ "$LIFECYCLE_EXIT" -ne 0 ]]; then
   echo "startup_lifecycle step failed"
@@ -114,8 +183,9 @@ fi
 # Step 4: backend_suite — full non-smoke pytest suite (fail-fast)
 # ---------------------------------------------------------------------------
 SUITE_CMD=".venv/bin/pytest -c app/pytest.ini -x -q --tb=short -m \"not smoke\" app/tests/"
-SUITE_OUTPUT=$(eval "$SUITE_CMD" 2>&1) || SUITE_EXIT=$?
-SUITE_EXIT=${SUITE_EXIT:-0}
+SUITE_OUTPUT=""
+SUITE_EXIT=0
+run_captured_command SUITE_OUTPUT "$SUITE_CMD" || SUITE_EXIT=$?
 
 if [[ "$SUITE_EXIT" -ne 0 ]]; then
   echo "backend_suite step failed"
@@ -128,8 +198,9 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "${SKIP_BROWSER_SUITE:-0}" != "1" ]]; then
   CRITICAL_CMD="npm --prefix app/ui run test:e2e:critical"
-  CRITICAL_OUTPUT=$(eval "$CRITICAL_CMD" 2>&1) || CRITICAL_EXIT=$?
-  CRITICAL_EXIT=${CRITICAL_EXIT:-0}
+  CRITICAL_OUTPUT=""
+  CRITICAL_EXIT=0
+  run_captured_command CRITICAL_OUTPUT "$CRITICAL_CMD" || CRITICAL_EXIT=$?
 
   if [[ "$CRITICAL_EXIT" -ne 0 ]]; then
     echo "critical_browser step failed"
@@ -142,8 +213,9 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "${INCLUDE_FULL_BROWSER_SUITE:-0}" == "1" ]]; then
   BROWSER_CMD="npm --prefix app/ui run test:e2e"
-  BROWSER_OUTPUT=$(eval "$BROWSER_CMD" 2>&1) || BROWSER_EXIT=$?
-  BROWSER_EXIT=${BROWSER_EXIT:-0}
+  BROWSER_OUTPUT=""
+  BROWSER_EXIT=0
+  run_captured_command BROWSER_OUTPUT "$BROWSER_CMD" || BROWSER_EXIT=$?
 
   if [[ "$BROWSER_EXIT" -ne 0 ]]; then
     echo "browser_suite step failed"

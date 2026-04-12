@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { installDashboardSettingsFixtures } from "./support/dashboard-settings";
 
 const getIndicatorMetrics = async (page: Page, activeSelector: string) => {
   return page.evaluate((selector) => {
@@ -59,8 +58,6 @@ const expectIndicatorToAlign = async (page: Page, activeSelector: string) => {
 };
 
 test("keeps shared shell navigation active and persists sidebar collapse", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
-
   await page.goto("/dashboard/home.html");
 
   await expect(page.locator("#nav-dashboard")).toHaveAttribute("aria-current", "page");
@@ -68,7 +65,6 @@ test("keeps shared shell navigation active and persists sidebar collapse", async
   await expect(page.locator("#nav-docs")).toBeVisible();
   await expect(page.locator("#sidenav-dashboard-home")).toHaveAttribute("aria-current", "page");
   await expect(page.locator("#dashboard-page-title")).toHaveText("Dashboard Home");
-  await expect(page.locator("#dashboard-overview-summary-queue-status-value")).toHaveText("Running");
   await expectIndicatorToAlign(page, "#nav-dashboard");
 
   await page.locator("#sidebar-collapse-toggle").click();
@@ -93,8 +89,6 @@ test("keeps shared shell navigation active and persists sidebar collapse", async
 });
 
 test("redirects legacy dashboard and settings routes to the canonical pages", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
-
   const dashboardRedirects = [
     {
       route: "/dashboard/devices.html",
@@ -136,7 +130,6 @@ test("redirects legacy dashboard and settings routes to the canonical pages", as
 });
 
 test("keeps the animated top-nav indicator aligned on narrow widths", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
   await page.setViewportSize({ width: 700, height: 900 });
 
   await page.goto("/dashboard/home.html");

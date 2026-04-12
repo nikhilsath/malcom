@@ -317,6 +317,113 @@ beforeEach(() => {
 
 describe("AutomationApp", () => {
 
+  it("shows Write instead of the legacy Log label in the add-step modal", async () => {
+    renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+
+    const writeCard = await waitFor(() => {
+      const element = document.querySelector("#add-step-type-log") as HTMLElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+
+    expect(writeCard).toHaveTextContent("Write");
+    expect(writeCard.textContent?.trim()).not.toBe("Log");
+  });
+
+  it("shows file storage inputs when the Write step switches away from table mode", async () => {
+    renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-log") as HTMLElement);
+
+    const storageTypeInput = await waitFor(() => {
+      const element = document.querySelector("#log-step-storage-type-input") as HTMLSelectElement | null;
+      expect(element).not.toBeNull();
+      return element as HTMLSelectElement;
+    });
+
+    expect(storageTypeInput.value).toBe("table");
+    expect(document.querySelector("#log-step-target-input")).not.toBeInTheDocument();
+    expect(document.querySelector("#log-step-new-file-input")).not.toBeInTheDocument();
+
+    fireEvent.change(storageTypeInput, { target: { value: "json" } });
+
+    await waitFor(() => {
+      expect(document.querySelector("#log-step-target-input")).toBeInTheDocument();
+      expect(document.querySelector("#log-step-new-file-input")).toBeInTheDocument();
+    });
+
+    const newFileCheckbox = document.querySelector("#log-step-new-file-input") as HTMLInputElement;
+    expect(newFileCheckbox.checked).toBe(false);
+    fireEvent.click(newFileCheckbox);
+    expect(newFileCheckbox.checked).toBe(true);
+  });
+
+  it("serializes file storage fields for Write steps when saving an automation", async () => {
+    const { requestLog } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-log") as HTMLElement);
+    fireEvent.change(document.querySelector("#add-step-name-input") as HTMLElement, { target: { value: "Export CSV" } });
+    fireEvent.change(document.querySelector("#log-step-storage-type-input") as HTMLElement, { target: { value: "csv" } });
+    fireEvent.change(document.querySelector("#log-step-target-input") as HTMLElement, { target: { value: "run_events" } });
+    fireEvent.click(document.querySelector("#log-step-new-file-input") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
+      expect(patchRequest).toBeDefined();
+
+      const writeStep = (patchRequest?.body?.steps as Array<Record<string, any>>).find((step) => step.name === "Export CSV");
+      expect(writeStep).toBeDefined();
+      expect(writeStep?.type).toBe("log");
+      expect(writeStep?.config?.storage_type).toBe("csv");
+      expect(writeStep?.config?.storage_target).toBe("run_events");
+      expect(writeStep?.config?.storage_new_file).toBe(true);
+    });
+  });
+
+  it("omits file storage fields for table-backed Write steps when saving an automation", async () => {
+    const { requestLog } = renderAutomationApp();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Daily ingest")).toBeInTheDocument();
+    });
+
+    fireEvent.click(document.querySelector("#automation-canvas-insert-0-button") as HTMLElement);
+    fireEvent.click(document.querySelector("#add-step-type-log") as HTMLElement);
+    fireEvent.change(document.querySelector("#add-step-name-input") as HTMLElement, { target: { value: "Write to DB" } });
+    fireEvent.click(document.querySelector("#add-step-modal-confirm") as HTMLElement);
+    fireEvent.click(document.querySelector("#automations-save-button") as HTMLElement);
+
+    await waitFor(() => {
+      const patchRequest = requestLog.find((entry) => entry.path === `/api/v1/automations/${dailyIngest.id}` && entry.method === "PATCH");
+      expect(patchRequest).toBeDefined();
+
+      const writeStep = (patchRequest?.body?.steps as Array<Record<string, any>>).find((step) => step.name === "Write to DB");
+      expect(writeStep).toBeDefined();
+      expect(writeStep?.type).toBe("log");
+      expect(writeStep?.config?.storage_type).toBeUndefined();
+      expect(writeStep?.config?.storage_target).toBeUndefined();
+      expect(writeStep?.config?.storage_new_file).toBeUndefined();
+    });
+  });
+
   it("uses connector-scoped HTTP presets and hides manual fields in preset mode", async () => {
     renderAutomationApp({
       connectors: [

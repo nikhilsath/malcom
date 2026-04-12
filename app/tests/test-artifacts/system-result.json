@@ -1,8 +1,6 @@
 {
-  "step": "bootstrap",
-  "exit_code": 127,
-  "command": ".venv/bin/python app/scripts/require_test_database.py --phase runtime",
-  "first_error_lines": [
-    "app/scripts/test-system.sh: line 79: .venv/bin/python: No such file or directory"
-  ]
+  "step": "all",
+  "exit_code": 0,
+  "command": "test-system.sh",
+  "first_error_lines": []
 }

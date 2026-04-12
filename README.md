@@ -191,11 +191,13 @@ Notes:
 
 The test system builds the environment it needs rather than depending on a standing manual setup. This makes the workflow repeatable for new-environment preparation and CI alike.
 
-Primary environment-building real-system command (bootstrap → db setup → startup lifecycle → backend suite, stops on first failure):
+Primary environment-building real-system command (bootstrap prerequisites → DB setup → startup lifecycle → backend suite → critical browser subset, stops on first failure):
 
 ```bash
 bash app/scripts/test-system.sh
 ```
+
+On failure, `app/scripts/test-system.sh` writes the machine-readable result artifact to `app/tests/test-artifacts/system-result.json`.
 
 `test-precommit.sh` calls `test-real-failfast.sh`, which delegates to `test-system.sh` — so the environment-first approach is used automatically at every gate level.
 
@@ -211,6 +213,12 @@ Full completion gate:
 
 ```bash
 ./app/scripts/test-full.sh
+```
+
+Supported secondary browser check:
+
+```bash
+npm --prefix app/ui run test:e2e
 ```
 
 Useful focused commands:

@@ -1,22 +1,56 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
-import { createConnectorsApisHarness, installClipboardTracker } from "./support/connectors-apis";
+const deleteConnectorIfPresent = async (request: APIRequestContext, connectorId: string) => {
+  const response = await request.delete(`/api/v1/connectors/${connectorId}`);
+  expect([200, 404]).toContain(response.status());
+};
 
-test("google OAuth draft can be created and returned through the callback UX", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
-  await harness.install(page);
-  await installClipboardTracker(page);
+const createGithubConnector = async (request: APIRequestContext, connectorId: string) => {
+  const response = await request.post("/api/v1/connectors", {
+    data: {
+      id: connectorId,
+      provider: "github",
+      name: "GitHub Primary",
+      status: "draft",
+      auth_type: "bearer",
+      scopes: ["repo"],
+      base_url: "https://api.github.com",
+      owner: "Workspace",
+      auth_config: {
+        access_token_input: "token_secret_test_value"
+      }
+    }
+  });
+
+  expect(response.status()).toBe(201);
+};
+
+test("google OAuth draft can be created and returned through the callback UX", async ({ page, request }) => {
+  await deleteConnectorIfPresent(request, "google");
+
+  await page.route("https://accounts.google.com/**", async (route) => {
+    const authorizationUrl = new URL(route.request().url());
+    const redirectUri = authorizationUrl.searchParams.get("redirect_uri");
+    const state = authorizationUrl.searchParams.get("state");
+
+    if (!redirectUri || !state) {
+      throw new Error("Missing Google OAuth redirect parameters.");
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: `<html><body><script>window.location.href = ${JSON.stringify(`${redirectUri}?state=${state}&code=demo-code`)};</script></body></html>`
+    });
+  });
 
   await page.goto("/settings/connectors.html");
-  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("1");
-  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
-
   await page.locator("#settings-connectors-create-button").click();
   await page.locator("#settings-connectors-provider-option-google").click();
 
   await expect(page.locator("#settings-connectors-detail-modal")).toHaveClass(/modal--open/);
   await expect(page.locator("#settings-connectors-detail-title")).toHaveText("Google OAuth setup");
-  await expect(page.locator("#settings-connectors-redirect-uri-input")).toHaveValue(/\/api\/v1\/connectors\/google\/oauth\/callback$/);
+  await expect(page.locator("#settings-connectors-google-redirect-uri-input")).toHaveValue(/\/api\/v1\/connectors\/google\/oauth\/callback$/);
   await expect(page.locator("#settings-connectors-oauth-start-button")).toBeVisible();
   await expect(page.locator("#settings-connectors-save-button")).toBeHidden();
 
@@ -29,91 +63,53 @@ test("google OAuth draft can be created and returned through the callback UX", a
   await expect(page.locator("#settings-connectors-row-google")).toBeVisible();
   await expect(page.locator("#settings-connectors-row-status-google")).toContainText("Connected");
   await expect(page.locator("#settings-connectors-detail-modal")).not.toHaveClass(/modal--open/);
+
+  await deleteConnectorIfPresent(request, "google");
 });
 
-test("non-Google connector lifecycle actions update the registry", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
-  await harness.install(page);
+test("non-Google connector lifecycle actions update the registry through the live connectors API", async ({ page, request }) => {
+  const connectorId = `github-ui-${Date.now()}`;
+  await createGithubConnector(request, connectorId);
 
   await page.goto("/settings/connectors.html");
-  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
+  await expect(page.locator(`#settings-connectors-row-${connectorId}`)).toBeVisible();
+  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("0");
 
-  await page.locator("#settings-connectors-row-github-oauth").click();
+  await page.locator(`#settings-connectors-row-${connectorId}`).click();
   await expect(page.locator("#settings-connectors-detail-modal")).toHaveClass(/modal--open/);
   await expect(page.locator("#settings-connectors-detail-title")).toHaveText("GitHub PAT setup");
 
   await page.locator("#settings-connectors-github-name-input").fill("GitHub Primary Updated");
-  await page.locator("#settings-connectors-github-access-token-input").fill("ghp_smoke_token");
+  await page.locator("#settings-connectors-github-access-token-input").fill("token_secret_test_value");
   await page.locator("#settings-connectors-save-button").click();
 
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Connector saved.");
-  await expect(page.locator("#settings-connectors-row-name-value-github-oauth")).toHaveText("GitHub Primary Updated");
+  await expect(page.locator(`#settings-connectors-row-name-value-${connectorId}`)).toHaveText("GitHub Primary Updated");
 
   await page.locator("#settings-connectors-test-button").click();
   await expect(page.locator("#settings-connectors-feedback")).toContainText("GitHub connection verified.");
-  await expect(page.locator("#settings-connectors-row-status-github-oauth")).toContainText("Connected");
+  await expect(page.locator(`#settings-connectors-row-status-${connectorId}`)).toContainText("Connected");
+  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("1");
 
   await page.locator("#settings-connectors-revoke-button").click();
-  await expect(page.locator("#settings-connectors-row-status-github-oauth")).toContainText("Revoked");
-  await expect(page.locator("#settings-connectors-feedback")).toContainText("revoked");
+  await expect(page.locator(`#settings-connectors-row-status-${connectorId}`)).toContainText("Revoked");
+  await expect(page.locator("#settings-connectors-feedback")).toContainText("credentials cleared locally");
 
-  page.on("dialog", async (dialog) => {
+  page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
   await page.locator("#settings-connectors-remove-button").click();
 
-  await expect(page.locator("#settings-connectors-empty")).toBeVisible();
+  await expect(page.locator(`#settings-connectors-row-${connectorId}`)).toHaveCount(0);
   await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("0");
 });
 
-test("invalid OAuth return surfaces an error without mutating the registry", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
-  await harness.install(page);
+test("invalid OAuth return surfaces an error without mutating the registry", async ({ page, request }) => {
+  await deleteConnectorIfPresent(request, "google");
 
   await page.goto("/api/v1/connectors/google/oauth/callback?state=bad-state&code=demo-code&connector_id=google");
 
   await expect(page).toHaveURL(/\/settings\/connectors\.html$/);
   await expect(page.locator("#settings-connectors-feedback")).toContainText("Invalid OAuth state.");
   await expect(page.locator("#settings-connectors-row-google")).toHaveCount(0);
-  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
-});
-
-test("connectors page load sources connector records from the live settings API", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
-
-  await harness.install(page);
-  await page.goto("/settings/connectors.html");
-
-  // The connector record from the harness fixture should be visible
-  await expect(page.locator("#settings-connectors-row-github-oauth")).toBeVisible();
-
-  // Summary should reflect connected count from API data, not stale cache
-  await expect(page.locator("#settings-connectors-summary-connected-value")).toHaveText("1");
-});
-
-test("connectors page shows error feedback when settings API is unavailable", async ({ page }) => {
-  const harness = createConnectorsApisHarness();
-  await harness.install(page);
-
-  // Override connectors endpoint to fail after page install
-  await page.route("**/api/v1/connectors", async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Service unavailable" }) });
-      return;
-    }
-    await route.fallback();
-  });
-
-  await page.goto("/settings/connectors.html");
-
-  // Page should remain usable even when the live load fails.
-  await expect
-    .poll(async () => {
-      const feedbackText = (await page.locator("#settings-connectors-feedback").textContent())?.trim() || "";
-      const emptyVisible = await page.locator("#settings-connectors-empty").isVisible();
-      const tableVisible = await page.locator("#settings-connectors-table-shell").isVisible();
-      const rowCount = await page.locator("#settings-connectors-table-body tr").count();
-      return feedbackText.length > 0 || emptyVisible || tableVisible || rowCount > 0;
-    })
-    .toBe(true);
 });

@@ -59,9 +59,9 @@ jobs:
         # test-system.sh: bootstrap → db_setup/reset → startup lifecycle → backend suite → critical_browser (default)
         run: bash app/scripts/test-system.sh
 
-      - name: Run secondary broader checks (stubbed Playwright specs)
-        # Stubbed specs test isolated UI logic; they are secondary to the real-system proof above.
-        run: npm --prefix app/ui run test:e2e -- --project=stubbed
+      - name: Run secondary broader checks (full real Playwright suite)
+        # Secondary coverage stays on supported real-browser commands after the canonical system gate passes.
+        run: npm --prefix app/ui run test:e2e
 
       - name: Upload test artifacts on failure
         if: failure()

@@ -5,9 +5,10 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 ## Defaults
 
 - Run against the real FastAPI app and PostgreSQL test database.
-- Stub only unstable boundaries such as third-party OAuth providers or local runtime side effects.
+- Do not use `installDashboardSettingsFixtures` or `page.route()` interception for first-party backend `/api/v1/**` workflows.
+- Isolated frontend-only state/rendering checks belong in Vitest instead of Playwright.
 - Keep specs grouped by product area under `app/ui/e2e/`.
-- Prefer shared helpers from `app/ui/e2e/support/` over one-off route stubs in each spec.
+- Prefer shared helpers from `app/ui/e2e/support/` for real-flow setup and deterministic assertions.
 
 ## Expectations
 
@@ -41,47 +42,32 @@ Use Playwright in this repo for workflow coverage, not route-load smoke alone.
 
 ## Test Classification
 
-Specs are divided into two tiers based on whether they intercept API calls:
-
 ### Critical
 
 The `critical` Playwright project (`--project=critical`) runs a minimal real subset that always executes by default in `test-system.sh`. It proves the product boots, the backend is healthy, and at least one critical UI workflow works end-to-end against the real backend.
 
-- `apis-incoming.spec.ts`
+- `shell.spec.ts`
+- `settings.spec.ts`
 
 This is the primary browser proof for `bash app/scripts/test-system.sh`. Skip with `SKIP_BROWSER_SUITE=1` only in environments where Playwright browsers are not installed.
 
 ### Real
 
-Specs that make no `page.route()` intercepts and run against the live Playwright test server (reset DB). These test full end-to-end system behavior:
+Specs listed here make no first-party `/api/v1/**` route interceptions and run against the live Playwright test server (reset DB). These are the current real end-to-end browser proofs:
 
-- `apis-incoming.spec.ts`
-- `apis-outgoing.spec.ts`
-- `apis-registry.spec.ts`
-- `apis-webhooks.spec.ts`
-- `automations-builder.spec.ts`
-- `automations-data.spec.ts`
-- `automations-library.spec.ts`
-- `automations-overview.spec.ts`
-- `github-trigger.spec.ts`
-- `scripts-library.spec.ts`
-- `tools-catalog.spec.ts`
-- `tools-coqui-tts.spec.ts`
-- `tools-image-magic.spec.ts`
-- `tools-llm-deepl.spec.ts`
-- `tools-smtp.spec.ts`
+- `connectors.spec.ts`
+- `settings.spec.ts`
+- `shell.spec.ts`
 
-### Stubbed
+Legacy harness-based specs under `app/ui/e2e/` are not part of the real-browser inventory and should be migrated or retired instead of being documented as real coverage.
 
-Specs that use `installDashboardSettingsFixtures` or `page.route()` to intercept API calls. These test UI logic and rendering under controlled state rather than end-to-end system behavior. **Stubbed specs are secondary to real specs and are not the primary proof for critical workflows.** Use them to verify isolated UI logic and rendering; use real specs (or the backend real-test runner) to prove that critical workflows function end-to-end.
+### Prohibited Coverage Pattern
 
-- `settings.spec.ts` — fully stubbed via `installDashboardSettingsFixtures` and additional direct `page.route()` calls for `/api/v1/storage/locations`
-- `dashboard.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
-- `shell.spec.ts` — fully stubbed via `installDashboardSettingsFixtures`
-- `automation-write-step.spec.ts` — partially stubbed via `page.route`
-- `connectors.spec.ts` — partially stubbed via `page.route`
+Stubbed Playwright coverage for first-party backend workflows is prohibited.
 
-The `"stubbed"` Playwright project in `playwright.config.ts` targets the three fully-stubbed specs (`settings.spec.ts`, `dashboard.spec.ts`, `shell.spec.ts`) so they can be run in isolation: `cd app/ui && npx playwright test --project=stubbed`.
+- Do not use `installDashboardSettingsFixtures` in Playwright specs that validate first-party backend flows.
+- Do not intercept first-party backend `/api/v1/**` routes with `page.route()` in Playwright specs.
+- Keep Playwright for real browser + backend + DB proof only.
+- Move UI-only state/rendering checks to Vitest.
 
-> **AI agent note:** `app/scripts/test-real-failfast.sh` (which delegates to `app/scripts/test-system.sh`) is the recommended first-pass check for AI agents. It builds the environment from scratch, runs backend real tests and the critical browser subset, stops on the first failure, and writes a machine-readable JSON artifact to `app/tests/test-artifacts/system-result.json` (also mirrored to `app/tests/test-artifacts/failfast-result.json`). `bash app/scripts/test-system.sh` is the canonical single command for proving the product works end to end.
-
+> **AI agent note:** `app/scripts/test-real-failfast.sh` (which delegates to `app/scripts/test-system.sh`) is the recommended first-pass check for AI agents. It builds the environment from scratch, runs backend real tests and the critical browser subset, stops on the first failure, and writes a machine-readable JSON artifact to `app/tests/test-artifacts/system-result.json`. `bash app/scripts/test-system.sh` is the canonical single command for proving the product works end to end.

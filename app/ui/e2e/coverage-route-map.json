@@ -4,14 +4,8 @@
   "servedRoutes": [
     {
       "routePath": "/dashboard/home.html",
-      "workflowContract": "Renders dashboard summary cards, resource widgets, and collapsible overview sections.",
+      "workflowContract": "Loads the shared dashboard shell, keeps the active navigation state in sync, and preserves sidebar collapse across section changes.",
       "owners": [
-        {
-          "spec": "dashboard.spec.ts",
-          "testIds": [
-            "renders the dashboard home summary and collapsible sections"
-          ]
-        },
         {
           "spec": "shell.spec.ts",
           "testIds": [
@@ -22,79 +16,75 @@
     },
     {
       "routePath": "/settings/workspace.html",
-      "workflowContract": "Saves workspace defaults, preserves connector-backed storage state during delayed loads, and restores default values.",
+      "workflowContract": "Saves workspace defaults, autosaves proxy enablement, and restores the persisted defaults from the live settings API.",
       "owners": [
         {
           "spec": "settings.spec.ts",
           "testIds": [
-            "saves and resets workspace defaults",
-            "preserves saved connectors when workspace settings are saved before settings finish loading"
+            "saves and resets workspace defaults against the real settings API",
+            "autosaves proxy enabled toggle through the real settings API"
           ]
         }
       ]
     },
     {
       "routePath": "/settings/logging.html",
-      "workflowContract": "Updates logging thresholds and clears stored runtime logs with visible success feedback.",
+      "workflowContract": "Updates logging thresholds and clears browser-stored runtime logs with visible success feedback.",
       "owners": [
         {
           "spec": "settings.spec.ts",
           "testIds": [
-            "saves logging thresholds and clears stored logs"
+            "saves logging thresholds and clears browser-stored logs"
           ]
         }
       ]
     },
     {
       "routePath": "/settings/notifications.html",
-      "workflowContract": "Changes alert channel and digest cadence, then restores the seeded notification defaults.",
+      "workflowContract": "Changes alert channel and digest cadence, then restores the persisted notification defaults.",
       "owners": [
         {
           "spec": "settings.spec.ts",
           "testIds": [
-            "toggles notifications and restores the defaults"
+            "toggles notifications and restores the defaults against the real settings API"
           ]
         }
       ]
     },
     {
       "routePath": "/settings/connectors.html",
-      "workflowContract": "Exercises guided connector onboarding, lifecycle actions, OAuth callback handling, and connector list hydration.",
+      "workflowContract": "Exercises guided Google OAuth onboarding, non-OAuth connector lifecycle actions, and invalid OAuth callback handling through the live connectors API.",
       "owners": [
         {
           "spec": "connectors.spec.ts",
           "testIds": [
             "google OAuth draft can be created and returned through the callback UX",
-            "github PAT setup supports save, test, and revoke actions",
-            "notion OAuth setup uses the provider-specific guided flow",
-            "trello OAuth setup uses provider-specific guided authorization and lifecycle actions",
-            "invalid OAuth return surfaces an error without mutating the registry",
-            "populates connectors from the API-backed harness payload"
+            "non-Google connector lifecycle actions update the registry through the live connectors API",
+            "invalid OAuth return surfaces an error without mutating the registry"
           ]
         }
       ]
     },
     {
       "routePath": "/settings/access.html",
-      "workflowContract": "Renders access and session security defaults, plus connector auth policy controls.",
+      "workflowContract": "Saves access and session security defaults, then restores them from the live settings API.",
       "owners": [
         {
           "spec": "settings.spec.ts",
           "testIds": [
-            "saves and resets access security settings"
+            "saves and resets access security settings against the real settings API"
           ]
         }
       ]
     },
     {
       "routePath": "/settings/data.html",
-      "workflowContract": "Shows connector-backed storage, manages log-table cleanup, and creates plus restores local backups.",
+      "workflowContract": "Lists persisted storage locations and creates plus restores local backups against the live backend.",
       "owners": [
         {
           "spec": "settings.spec.ts",
           "testIds": [
-            "renders connector-backed storage and clears log table rows",
-            "creates and restores a local backup"
+            "renders real storage locations and creates plus restores a local backup"
           ]
         }
       ]
@@ -126,7 +116,7 @@
     },
     {
       "routePath": "/automations/builder.html",
-      "workflowContract": "Creates and edits automation drafts, validates and runs saved workflows, and persists guided write-step storage options.",
+      "workflowContract": "Creates and edits automation drafts, validates and runs saved workflows, and keeps the guided builder flow covered in end-to-end navigation.",
       "owners": [
         {
           "spec": "automations-builder.spec.ts",
@@ -135,12 +125,6 @@
             "edits an existing automation, validates, runs, and deletes it",
             "keeps a new draft intact when a prior run finishes later",
             "defaults to guided mode for new drafts and allows switching to canvas mode"
-          ]
-        },
-        {
-          "spec": "automation-write-step.spec.ts",
-          "testIds": [
-            "adds a Write step and persists storage options"
           ]
         }
       ]
@@ -316,12 +300,6 @@
       "redirectTarget": "/dashboard/home.html#/devices",
       "owners": [
         {
-          "spec": "dashboard.spec.ts",
-          "testIds": [
-            "renders dashboard devices with host telemetry and runtime endpoints"
-          ]
-        },
-        {
           "spec": "shell.spec.ts",
           "testIds": [
             "redirects legacy dashboard and settings routes to the canonical pages"
@@ -335,12 +313,6 @@
       "redirectTarget": "/dashboard/home.html#/logs",
       "owners": [
         {
-          "spec": "dashboard.spec.ts",
-          "testIds": [
-            "filters dashboard logs and opens the log detail modal"
-          ]
-        },
-        {
           "spec": "shell.spec.ts",
           "testIds": [
             "redirects legacy dashboard and settings routes to the canonical pages"
@@ -353,12 +325,6 @@
       "canonicalRoutePath": "/dashboard/home.html",
       "redirectTarget": "/dashboard/home.html#/queue",
       "owners": [
-        {
-          "spec": "dashboard.spec.ts",
-          "testIds": [
-            "renders the queue route and toggles pause controls"
-          ]
-        },
         {
           "spec": "shell.spec.ts",
           "testIds": [

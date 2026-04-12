@@ -28,6 +28,12 @@ set -uo pipefail
 # TASK-028 (2026-04-11): test-system.sh is now the canonical real-system completion command;
 # critical_browser step runs by default (minimal real Playwright subset); DB reset happens
 # every run; test-full.sh is secondary; check-canonical-completion-gate-sync added.
+# TASK-029 (2026-04-11): stubbed Playwright coverage for first-party backend workflows is
+# prohibited; policy/docs must forbid installDashboardSettingsFixtures and first-party
+# page.route() intercepts, and playwright.config.ts must not define a "stubbed" project.
+# TASK-030 (2026-04-11): the fail-fast runner now uses only the canonical
+# system-result.json artifact path, and bootstrap prerequisite failures must be
+# described through the same machine-readable contract.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -356,6 +362,30 @@ check_real_test_failfast_policy_sync() {
     missing+=("app/ui/e2e/README.md: must reference app/scripts/test-real-failfast.sh")
   fi
 
+  if ! grep -q "system-result.json" AGENTS.md; then
+    missing+=("AGENTS.md: must document app/tests/test-artifacts/system-result.json as the fail-fast artifact path")
+  fi
+
+  if ! grep -q "system-result.json" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must document app/tests/test-artifacts/system-result.json as the fail-fast artifact path")
+  fi
+
+  if ! grep -q "system-result.json" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must document app/tests/test-artifacts/system-result.json as the fail-fast artifact path")
+  fi
+
+  if grep -q "failfast-result.json" AGENTS.md; then
+    missing+=("AGENTS.md: must not document the retired failfast-result.json mirror path")
+  fi
+
+  if grep -q "failfast-result.json" "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must not document the retired failfast-result.json mirror path")
+  fi
+
+  if grep -q "failfast-result.json" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must not document the retired failfast-result.json mirror path")
+  fi
+
   if ((${#missing[@]} > 0)); then
     printf 'Real-test first-pass policy sync checks failed:\n'
     printf '  %s\n' "${missing[@]}"
@@ -363,6 +393,34 @@ check_real_test_failfast_policy_sync() {
   fi
 
   printf 'Real-test first-pass policy is synchronized across AGENTS.md, app/tests/AGENTS.md, and app/ui/e2e/README.md.\n'
+}
+
+check_no_stubbed_playwright_policy_sync() {
+  local missing=()
+
+  if ! grep -Fq "Stubbed Playwright coverage for first-party backend workflows is prohibited" AGENTS.md; then
+    missing+=("AGENTS.md: must explicitly prohibit stubbed Playwright coverage for first-party backend workflows")
+  fi
+
+  if ! grep -Fq 'no `installDashboardSettingsFixtures` and no `page.route()` interception of first-party `/api/v1/**` backend routes' "app/tests/AGENTS.md"; then
+    missing+=("app/tests/AGENTS.md: must prohibit installDashboardSettingsFixtures and first-party page.route interception")
+  fi
+
+  if ! grep -Fq "Stubbed Playwright coverage for first-party backend workflows is prohibited" "app/ui/e2e/README.md"; then
+    missing+=("app/ui/e2e/README.md: must explicitly prohibit stubbed first-party Playwright coverage")
+  fi
+
+  if grep -q 'name: "stubbed"' "app/ui/playwright.config.ts"; then
+    missing+=("app/ui/playwright.config.ts: must not define a stubbed Playwright project")
+  fi
+
+  if ((${#missing[@]} > 0)); then
+    printf 'No-stubbed-Playwright policy sync checks failed:\n'
+    printf '  %s\n' "${missing[@]}"
+    return 1
+  fi
+
+  printf 'No-stubbed-Playwright policy is enforced in AGENTS.md, app/tests/AGENTS.md, app/ui/e2e/README.md, and app/ui/playwright.config.ts.\n'
 }
 
 check_db_schema_docs_sync() {
@@ -595,6 +653,7 @@ run_check "Task file policy sync" check_task_file_policy_sync
 run_check "Startup launcher policy sync" check_startup_launcher_policy_sync
 run_check "Canonical completion gate sync" check_canonical_completion_gate_sync
 run_check "Real-test first-pass policy sync" check_real_test_failfast_policy_sync
+run_check "No-stubbed Playwright policy sync" check_no_stubbed_playwright_policy_sync
 run_check "DB schema documentation sync" check_db_schema_docs_sync
 run_warning_check "Policy file review coverage" check_policy_family_review
 run_check "Repo scan index shape" check_repo_scan_index_shape

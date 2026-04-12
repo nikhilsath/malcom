@@ -41,6 +41,7 @@ User-visible workflow changes are not complete until `bash app/scripts/test-syst
 - **When to use**: whenever you need to prove the product works end to end. This is the canonical completion gate for user-visible workflow changes, shared test infrastructure changes, and browser coverage validation.
 - **Critical browser by default**: the minimal real Playwright subset (`--project=critical`) always runs unless `SKIP_BROWSER_SUITE=1` is set (e.g. environments where Playwright browsers are not installed).
 - Set `INCLUDE_FULL_BROWSER_SUITE=1` to also run the full `test:e2e` suite as an additional step.
+- Missing bootstrap prerequisites such as `.venv/bin/python`, `app/ui/node_modules`, or Chromium browser binaries fail through the same `system-result.json` contract instead of raw shell-only errors.
 - On any failure, writes a JSON artifact to `app/tests/test-artifacts/system-result.json` with the following contract:
 
 | Field | Description |
@@ -55,7 +56,7 @@ User-visible workflow changes are not complete until `bash app/scripts/test-syst
 `app/scripts/test-real-failfast.sh` is the recommended first-pass command for AI agents and automated checks that need minimal token output.
 
 - Delegates to `test-system.sh`, which builds the environment from scratch (bootstrap → db_setup/reset → startup_lifecycle → backend_suite → critical_browser) and stops on the first failure.
-- On failure, `test-system.sh` writes `app/tests/test-artifacts/system-result.json`; `test-real-failfast.sh` also copies it to `app/tests/test-artifacts/failfast-result.json` for backward compatibility with any tooling that reads the legacy path.
+- On failure, `test-system.sh` writes `app/tests/test-artifacts/system-result.json`, which is the only supported machine-readable artifact path for the fail-fast runner.
 - `app/scripts/test-external-probes.py` is informational-only (no assertions, always exits 0) and must not appear in any automated fail gate.
 - `test-precommit.sh` invokes `test-real-failfast.sh` as its first step before adding coverage and UI gates. `test-full.sh` is a secondary broader gate (smoke coverage, Playwright route coverage) that sits downstream of `test-system.sh` and does not replace it as the primary real-system proof.
 
@@ -64,6 +65,8 @@ User-visible workflow changes are not complete until `bash app/scripts/test-syst
 - run `npm run build` in `app/ui/` for page wiring, Vite input, or asset changes
 - run `npm run test` in `app/ui/` for React test coverage when React code changes
 - add or update `app/ui/e2e/` coverage whenever a user-visible workflow changes unless the change is strictly non-behavioral
+- do not use stubbed Playwright coverage for first-party backend workflows: no `installDashboardSettingsFixtures` and no `page.route()` interception of first-party `/api/v1/**` backend routes
+- keep Playwright browser tests on real system behavior (real FastAPI app + real PostgreSQL test DB); move isolated frontend-only state/rendering coverage to Vitest
 - run `npm run test:e2e` in `app/ui/` for browser workflow coverage when validating the full gate
 - ensure Playwright assertions cover the changed workflow behavior, not only route load or static render
 - manually verify the served page route if HTML/script wiring changed

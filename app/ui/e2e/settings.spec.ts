@@ -1,8 +1,104 @@
-import { expect, test } from "@playwright/test";
-import { installDashboardSettingsFixtures } from "./support/dashboard-settings";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-test("saves and resets workspace defaults", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
+const defaultSettingsPayload = {
+  general: {
+    environment: "live",
+    timezone: "local"
+  },
+  logging: {
+    max_stored_entries: 250,
+    max_visible_entries: 50,
+    max_detail_characters: 4000,
+    max_file_size_mb: 5
+  },
+  notifications: {
+    channel: "email",
+    digest: "hourly"
+  },
+  security: {
+    session_timeout_minutes: 60,
+    dual_approval_required: false,
+    token_rotation_days: 30
+  },
+  data: {
+    payload_redaction: true,
+    export_window_utc: "02:00",
+    workflow_storage_path: "data/workflows"
+  },
+  automation: {
+    default_tool_retries: 2
+  },
+  proxy: {
+    domain: "",
+    http_port: 80,
+    https_port: 443,
+    enabled: false
+  }
+};
+
+const resetSettings = async (request: APIRequestContext) => {
+  const response = await request.patch("/api/v1/settings", {
+    data: defaultSettingsPayload
+  });
+  expect(response.ok()).toBeTruthy();
+};
+
+const seedBrowserLogs = async (page: Page) => {
+  await page.addInitScript((entries) => {
+    window.localStorage.setItem("malcom.runtimeLogs", JSON.stringify(entries));
+  }, [
+    {
+      id: "log-settings-seeded-1",
+      timestamp: "2026-04-11T09:00:00.000Z",
+      level: "info",
+      source: "system.bootstrap",
+      category: "runtime",
+      action: "startup",
+      message: "Client runtime booted.",
+      details: {},
+      context: {}
+    },
+    {
+      id: "log-settings-seeded-2",
+      timestamp: "2026-04-11T09:05:00.000Z",
+      level: "warning",
+      source: "system.settings",
+      category: "configuration",
+      action: "defaults_loaded",
+      message: "Defaults loaded.",
+      details: {},
+      context: {}
+    },
+    {
+      id: "log-settings-seeded-3",
+      timestamp: "2026-04-11T09:10:00.000Z",
+      level: "error",
+      source: "runtime.queue",
+      category: "runtime",
+      action: "queue_paused",
+      message: "Queue paused.",
+      details: {},
+      context: {}
+    }
+  ]);
+};
+
+const createStorageLocation = async (request: APIRequestContext, id: string, name: string) => {
+  const response = await request.post("/api/v1/storage/locations", {
+    data: {
+      id,
+      name,
+      location_type: "local",
+      path: `/tmp/${id}`,
+      max_size_mb: 512,
+      is_default_logs: false
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+};
+
+test("saves and resets workspace defaults against the real settings API", async ({ page, request }) => {
+  await resetSettings(request);
 
   await page.goto("/settings/workspace.html");
 
@@ -15,7 +111,6 @@ test("saves and resets workspace defaults", async ({ page }) => {
   await page.locator("#settings-workspace-proxy-domain-input").fill("tools.example.com");
   await page.locator("#settings-workspace-proxy-http-port-input").fill("8080");
   await page.locator("#settings-workspace-proxy-https-port-input").fill("8443");
-  await page.locator("#settings-workspace-proxy-enabled-toggle").click();
   await page.locator("#settings-save-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
@@ -24,8 +119,12 @@ test("saves and resets workspace defaults", async ({ page }) => {
   await expect(page.locator("#settings-workspace-proxy-domain-input")).toHaveValue("tools.example.com");
   await expect(page.locator("#settings-workspace-proxy-http-port-input")).toHaveValue("8080");
   await expect(page.locator("#settings-workspace-proxy-https-port-input")).toHaveValue("8443");
-  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).toBeChecked();
-  await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Enabled");
+
+  await page.reload();
+
+  await expect(page.locator("#settings-workspace-timezone-select")).toHaveValue("utc");
+  await expect(page.locator("#settings-workspace-tool-retries-input")).toHaveValue("4");
+  await expect(page.locator("#settings-workspace-proxy-domain-input")).toHaveValue("tools.example.com");
 
   await page.locator("#settings-reset-button").click();
 
@@ -39,70 +138,13 @@ test("saves and resets workspace defaults", async ({ page }) => {
   await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Disabled");
 });
 
-test("preserves saved connectors when workspace settings are saved before settings finish loading", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {
-    settingsGetDelayMs: 1500,
-    connectors: {
-      records: [
-        {
-          id: "google-drive-primary",
-          provider: "google",
-          name: "Google Drive",
-          status: "connected",
-          auth_type: "oauth2",
-          scopes: ["https://www.googleapis.com/auth/drive"],
-          base_url: "https://www.googleapis.com/drive/v3",
-          owner: "Workspace",
-          auth_config: {
-            client_id: "google-client-id",
-            client_secret_masked: "••••••••",
-            access_token_masked: "••••••••"
-          }
-        }
-      ]
-    }
-  });
-
-  await page.goto("/settings/workspace.html");
-
-  await page.locator("#settings-save-button").click();
-  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
-
-  await page.route("**/api/v1/storage/locations", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "loc-google-drive",
-          name: "Google Drive",
-          location_type: "google_drive",
-          path: "drive://workspace",
-          max_size_mb: 2048,
-          is_default_for_logs: false,
-        },
-      ]),
-    });
-  });
-
-  await page.goto("/settings/data.html");
-  await expect(page.locator("#settings-storage-locations")).toBeVisible();
-  await expect(page.locator("#settings-storage-locations-list")).toContainText("Google Drive");
-});
-
-test("autosaves proxy enabled toggle on change", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {
-    settings: {
-      proxy: {
-        enabled: false
-      }
-    }
-  });
+test("autosaves proxy enabled toggle through the real settings API", async ({ page, request }) => {
+  await resetSettings(request);
 
   await page.goto("/settings/workspace.html");
   await expect(page.locator("#page-title")).toHaveText("Settings Workspace");
-
   await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).not.toBeChecked();
+
   await page.locator("#settings-workspace-proxy-enabled-toggle").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
@@ -113,38 +155,18 @@ test("autosaves proxy enabled toggle on change", async ({ page }) => {
 
   await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).toBeChecked();
   await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Enabled");
+
+  await page.locator("#settings-reset-button").click();
+  await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).not.toBeChecked();
 });
 
-test("tests workspace proxy connection and shows feedback", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {
-    settings: {
-      proxy: {
-        domain: "malcom.artuin.io",
-        enabled: true,
-        http_port: 80,
-        https_port: 443,
-      },
-    },
-  });
-
-  await page.goto("/settings/workspace.html");
-
-  await page.locator("#settings-workspace-proxy-test-button").click();
-
-  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText(
-    "HTTP and HTTPS endpoints are reachable."
-  );
-  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText("HTTP 301");
-  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toContainText("HTTPS 200");
-  await expect(page.locator("#settings-workspace-proxy-test-feedback")).toHaveAttribute("data-state", "success");
-});
-
-test("saves logging thresholds and clears stored logs", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
+test("saves logging thresholds and clears browser-stored logs", async ({ page, request }) => {
+  await resetSettings(request);
+  await seedBrowserLogs(page);
 
   await page.goto("/settings/logging.html");
 
-  await expect(page.locator("#settings-log-total-value")).toHaveText("5");
+  await expect.poll(async () => Number.parseInt((await page.locator("#settings-log-total-value").textContent()) || "0", 10)).toBeGreaterThanOrEqual(3);
   await expect(page.locator("#settings-log-newest-value")).not.toHaveText("No logs recorded");
 
   await page.locator("#settings-log-retention-input").fill("500");
@@ -157,6 +179,11 @@ test("saves logging thresholds and clears stored logs", async ({ page }) => {
   await expect(page.locator("#settings-log-retention-input")).toHaveValue("500");
   await expect(page.locator("#settings-log-file-size-input")).toHaveValue("8");
 
+  await page.reload();
+
+  await expect(page.locator("#settings-log-retention-input")).toHaveValue("500");
+  await expect(page.locator("#settings-log-file-size-input")).toHaveValue("8");
+
   await page.locator("#settings-clear-logs-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Stored logs cleared.");
@@ -164,17 +191,17 @@ test("saves logging thresholds and clears stored logs", async ({ page }) => {
   await expect(page.locator("#settings-log-newest-value")).not.toHaveText("No logs recorded");
 });
 
-test("toggles notifications and restores the defaults", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
+test("toggles notifications and restores the defaults against the real settings API", async ({ page, request }) => {
+  await resetSettings(request);
 
   await page.goto("/settings/notifications.html");
 
-  await page.locator("#settings-notifications-channel-select").selectOption("email");
+  await page.locator("#settings-notifications-channel-select").selectOption("pager");
   await page.locator("#settings-notifications-digest-select").selectOption("daily");
   await page.locator("#settings-save-button").click();
 
   await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
-  await expect(page.locator("#settings-notifications-channel-select")).toHaveValue("email");
+  await expect(page.locator("#settings-notifications-channel-select")).toHaveValue("pager");
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("daily");
 
   await page.locator("#settings-reset-button").click();
@@ -184,8 +211,8 @@ test("toggles notifications and restores the defaults", async ({ page }) => {
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("hourly");
 });
 
-test("saves and resets access security settings", async ({ page }) => {
-  await installDashboardSettingsFixtures(page);
+test("saves and resets access security settings against the real settings API", async ({ page, request }) => {
+  await resetSettings(request);
 
   await page.goto("/settings/access.html");
 
@@ -212,117 +239,34 @@ test("saves and resets access security settings", async ({ page }) => {
   await expect(page.locator("#settings-access-token-select")).toHaveValue("30");
 });
 
-test("renders connector-backed storage and clears log table rows", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {
-    settings: {
-      data: {
-        payload_redaction: false
-      }
-    },
-    connectors: {
-      records: [
-        {
-          id: "google-drive-primary",
-          provider: "google",
-          name: "Google Drive",
-          status: "connected",
-          auth_type: "oauth2",
-          scopes: ["https://www.googleapis.com/auth/drive"],
-          base_url: "https://www.googleapis.com/drive/v3",
-          owner: "Workspace",
-          auth_config: {
-            client_id: "google-client-id",
-            client_secret_masked: "••••••••",
-            access_token_masked: "••••••••"
-          }
-        }
-      ]
-    }
-  });
-
-  await page.route("**/api/v1/storage/locations", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: "loc-local-db",
-          name: "Local database",
-          location_type: "local",
-          path: "/tmp/malcom-storage",
-          max_size_mb: 1024,
-          is_default_for_logs: true,
-        },
-        {
-          id: "loc-google-drive",
-          name: "Google Drive",
-          location_type: "google_drive",
-          path: "drive://workspace",
-          max_size_mb: 2048,
-          is_default_for_logs: false,
-        },
-      ]),
-    });
-  });
-
-  await page.goto("/settings/data.html");
-
-  await expect(page.locator("#settings-storage-locations")).toBeVisible();
-  await expect(page.locator("#settings-storage-locations-list")).toContainText("Google Drive");
-  await expect(page.locator("#settings-backups-section")).toBeVisible();
-  await expect(page.locator("#backup-dir")).toHaveText("/tmp/malcom-backups");
-  await expect(page.locator("#backup-list option")).toHaveCount(1);
-  await expect(page.locator("#settings-data-redaction-label")).toHaveText("Disabled");
-
-  await page.locator("#settings-data-redaction-toggle").click();
-  await expect(page.locator("#settings-data-redaction-label")).toHaveText("Enabled");
-
-  await page.locator("#settings-save-button").click();
-
-  await expect(page.locator("#settings-log-storage-body")).toBeHidden();
-  await page.locator("#settings-log-storage-collapse-toggle").click();
-  await expect(page.locator("#settings-log-storage-body")).toBeVisible();
-  await expect(page.locator("#settings-log-table-row-log-table-1")).toBeVisible();
-  await expect(page.locator("#settings-log-table-count-log-table-1")).toHaveText("2 rows");
-  await expect(page.locator("#settings-log-storage-view-link")).toHaveAttribute("href", "../automations/data.html");
-
-  page.on("dialog", async (dialog) => {
-    await dialog.accept();
-  });
-  await page.locator("#settings-log-table-clear-log-table-1").click();
-
-  await expect(page.locator("#settings-log-table-count-log-table-1")).toHaveText("0 rows");
-});
-
-test("creates and restores a local backup", async ({ page }) => {
-  await installDashboardSettingsFixtures(page, {});
+test("renders real storage locations and creates plus restores a local backup", async ({ page, request }) => {
+  const locationId = `loc_settings_${Date.now()}`;
+  await createStorageLocation(request, locationId, "Playwright Storage");
 
   await page.goto("/settings/data.html");
 
   await expect(page.locator("#page-title")).toHaveText("Settings Data");
+  await expect(page.locator("#settings-storage-locations")).toBeVisible();
+  await expect(page.locator("#settings-storage-locations-list")).toContainText("Playwright Storage");
   await expect(page.locator("#settings-backups-section")).toBeVisible();
-  await expect(page.locator("#backup-dir")).toHaveText("/tmp/malcom-backups");
+  await expect(page.locator("#backup-dir")).not.toContainText("Loading");
 
   const feedback = page.locator("#backup-feedback");
-  const createBtn = page.locator("#create-backup-btn");
-  const restoreBtn = page.locator("#restore-backup-btn");
-  const backupList = page.locator("#backup-list");
+  const createButton = page.locator("#create-backup-btn");
+  const restoreButton = page.locator("#restore-backup-btn");
   const backupOptions = page.locator("#backup-list option");
+  const initialBackupCount = await backupOptions.count();
 
-  await expect(backupOptions).toHaveCount(1);
-  await expect(restoreBtn).toBeEnabled();
+  await createButton.click();
 
-  page.on("dialog", async (dialog) => {
+  await expect(feedback).toContainText("Backup created:");
+  await expect.poll(async () => backupOptions.count()).toBeGreaterThan(initialBackupCount);
+  await expect(restoreButton).toBeEnabled();
+
+  page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
+  await restoreButton.click();
 
-  await createBtn.click();
-  await expect(feedback).toContainText("Backup created:");
-  await expect(backupOptions).toHaveCount(2);
-
-  const createdFilename = await backupOptions.first().getAttribute("value");
-  await expect(backupList).toHaveValue(createdFilename || "");
-
-  await restoreBtn.click();
   await expect(feedback).toContainText("Restore succeeded:");
 });

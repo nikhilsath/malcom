@@ -361,6 +361,125 @@ describe("DashboardApp", () => {
     expectTextById("dashboard-overview-resource-dashboard-widget-secondary-value", "512 KB");
   });
 
+  it("collapses and expands the home services section", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+
+        if (url.includes("/api/v1/dashboard/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              health: {
+                id: "system-health",
+                status: "healthy",
+                label: "Workspace healthy",
+                summary: "Summary endpoint connected.",
+                updated_at: "2026-03-21T12:00:00.000Z"
+              },
+              services: [
+                {
+                  id: "runtime-api",
+                  name: "Runtime API",
+                  status: "healthy",
+                  detail: "Serving local endpoints.",
+                  last_check_at: "2026-03-21T12:00:00.000Z"
+                }
+              ],
+              run_counts: { success: 2, warning: 0, error: 0, idle: 0 },
+              recent_runs: [],
+              alerts: [],
+              quick_links: [],
+              runtime_overview: {
+                scheduler_active: true,
+                queue_status: "running",
+                queue_pending_jobs: 0,
+                queue_claimed_jobs: 0,
+                queue_updated_at: "2026-03-21T12:00:00.000Z",
+                scheduler_last_tick_started_at: "2026-03-21T12:00:00.000Z",
+                scheduler_last_tick_finished_at: "2026-03-21T12:00:01.000Z"
+              },
+              worker_health: { total: 1, healthy: 1, offline: 0 },
+              api_performance: {
+                inbound_total_24h: 4,
+                inbound_errors_24h: 0,
+                error_rate_percent_24h: 0,
+                outgoing_scheduled_enabled: 1,
+                outgoing_continuous_enabled: 0
+              },
+              connector_health: {
+                total: 1,
+                connected: 1,
+                needs_attention: 0,
+                expired: 0,
+                revoked: 0,
+                draft: 0,
+                pending_oauth: 0
+              }
+            })
+          };
+        }
+
+        if (url.includes("/api/v1/dashboard/queue")) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: "running",
+              is_paused: false,
+              status_updated_at: "2026-03-20T09:00:00.000Z",
+              total_jobs: 0,
+              pending_jobs: 0,
+              claimed_jobs: 0,
+              jobs: []
+            })
+          };
+        }
+
+        if (url.includes("/api/v1/dashboard/resource-dashboard")) {
+          return {
+            ok: true,
+            json: async () => ({
+              collected_at: "2026-03-21T12:00:00.000Z",
+              total_snapshots: 0,
+              last_captured_at: null,
+              latest_snapshot: null,
+              storage: {
+                total_used_bytes: 0,
+                total_capacity_bytes: 0,
+                total_usage_percent: 0,
+                local_used_bytes: 0,
+                local_capacity_bytes: 0,
+                local_usage_percent: 0
+              },
+              highest_memory_processes: [],
+              widgets: []
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ host: null, devices: [] })
+        };
+      })
+    );
+
+    renderDashboardApp(["/home"]);
+
+    await waitFor(() => {
+      expect(document.querySelector("#dashboard-service-title-runtime-api")).toHaveTextContent("Runtime API");
+    });
+
+    expect(document.querySelector("#dashboard-overview-services-body")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /collapse runtime status/i }));
+    expect(document.querySelector("#dashboard-overview-services-body")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /expand runtime status/i }));
+    expect(document.querySelector("#dashboard-overview-services-body")).toBeVisible();
+  });
+
   it("renders live backend devices when data is available", async () => {
     vi.stubGlobal(
       "fetch",
