@@ -226,7 +226,7 @@ function renderStorageLocationItem(loc) {
             <p id="storage-loc-${loc.id}-limit" class="settings-storage-location-item__limit">${limitText}</p>
             <div id="storage-loc-${loc.id}-actions" class="settings-storage-location-item__actions">
                 <button type="button" id="storage-loc-${loc.id}-edit-btn" class="button button--secondary settings-storage-edit-btn" data-id="${loc.id}">Edit</button>
-                <button type="button" id="storage-loc-${loc.id}-delete-btn" class="button button--secondary settings-storage-delete-btn" data-id="${loc.id}">Delete</button>
+                <button type="button" id="storage-loc-${loc.id}-delete-btn" class="button button--danger settings-storage-delete-btn" data-id="${loc.id}">Delete</button>
             </div>
         </article>
     `;
@@ -419,7 +419,7 @@ function renderLogTableStats(tables) {
                 <button
                     id="settings-log-table-clear-${t.id}"
                     type="button"
-                    class="button button--secondary settings-log-table-clear"
+                    class="button button--danger settings-log-table-clear"
                     data-table-id="${t.id}"
                     data-table-name="${escapeHtml(t.name)}"
                 >

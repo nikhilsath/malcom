@@ -91,55 +91,131 @@
 .dashboard-log-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.dashboard-log-item {
+.dashboard-log-severity-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard-log-severity-chip {
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font-size: 0.75rem;
+}
+
+.dashboard-log-severity-chip--active {
+  background: var(--surface-accent);
+  border-color: var(--primary-soft);
+  color: var(--primary);
+}
+
+.dashboard-log-list__header,
+.dashboard-log-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 210px) minmax(150px, 1fr) 92px minmax(260px, 2.2fr);
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.dashboard-log-list__header {
+  padding: 0 var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-log-list__header-cell {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dashboard-log-list__header-cell--level {
+  text-align: center;
+}
+
+.dashboard-log-row {
   width: 100%;
   border: 1px solid var(--border);
   background: var(--bg);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
   text-align: left;
   cursor: pointer;
 }
 
-.dashboard-log-item:hover {
+.dashboard-log-row:hover {
   border-color: var(--primary-soft);
   background: var(--surface-accent);
 }
 
-.dashboard-log-item--active {
+.dashboard-log-row--active {
   border-color: var(--primary-soft);
   background: var(--surface-accent);
 }
 
-.dashboard-log-item__header,
-.dashboard-log-item__badges {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.dashboard-log-item__header {
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.dashboard-log-item__header-copy {
-  min-width: 0;
-}
-
-.dashboard-log-item__meta,
-.dashboard-log-details__meta {
+.dashboard-log-row__timestamp,
+.dashboard-log-row__source,
+.dashboard-log-row__meta {
   margin: 0;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
-.dashboard-log-item__title {
-  margin: 6px 0 0;
+.dashboard-log-row__source,
+.dashboard-log-row__message,
+.dashboard-log-row__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-log-row__level {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.dashboard-log-row__message-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dashboard-log-row__message {
+  margin: 0;
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.dashboard-log-row__meta,
+.dashboard-log-details__meta {
+  font-size: 0.75rem;
+}
+
+.dashboard-log-item__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.dashboard-log-item__fact {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 
@@ -324,21 +400,6 @@
   margin: var(--space-5) 0 0;
 }
 
-.dashboard-report-builder-card {
-  padding: var(--space-4);
-}
-
-.dashboard-report-builder-card__metadata {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-  margin: var(--space-5) 0 0;
-}
-
-.dashboard-report-builder-card__metadata dd {
-  margin: 4px 0 0;
-}
-
 .dashboard-host-card__metadata dd {
   margin: 4px 0 0;
 }
@@ -435,14 +496,28 @@
 @media (max-width: 900px) {
   .summary-grid,
   .dashboard-log-filters,
+  .dashboard-log-list__header,
+  .dashboard-log-row,
   .dashboard-log-details__overview,
   .dashboard-log-details__grid,
   .dashboard-service-grid,
   .dashboard-host-card__metadata,
-  .dashboard-report-builder-card__metadata,
   .dashboard-resource-process-grid,
   .dashboard-resource-widget-trends {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-log-list__header {
+    display: none;
+  }
+
+  .dashboard-log-row {
+    row-gap: 2px;
+    align-items: flex-start;
+  }
+
+  .dashboard-log-row__level {
+    justify-content: flex-start;
   }
 
   .dashboard-log-details-modal {

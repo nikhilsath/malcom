@@ -255,7 +255,7 @@ export const AutomationDataApp = () => {
               <button
                 id="automations-data-clear-button"
                 type="button"
-                className="button button--secondary"
+                className="button button--danger"
                 onClick={handleClearRows}
               >
                 Clear all rows

@@ -25,7 +25,6 @@ import {
   LogEntryDetailsModal,
   LogEntryList,
   RecentLogsPreview,
-  ReportBuilderPanel,
   ResourceDashboardPanel,
   SectionToolbar,
   ServiceStatusStrip,
@@ -515,7 +514,13 @@ const LogsPage = () => {
     return null;
   }
 
-  const openDetailsCount = selectedEntry ? 1 : 0;
+  const quickLevelOptions = [
+    { value: "all", label: "All" },
+    ...logsResponse.metadata.allowedLevels.map((levelOption) => ({
+      value: levelOption.value,
+      label: levelOption.label
+    }))
+  ];
 
   return (
     <div id="dashboard-logs-layout" className="stacked-card-layout">
@@ -536,7 +541,7 @@ const LogsPage = () => {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="dashboard-logs-filters-card" label="Detailed log filters">
+      <CollapsibleSection id="dashboard-logs-filters-card" label="Advanced filters" defaultCollapsed>
         <SectionToolbar
           id="dashboard-logs-toolbar"
           title="Detailed log filters"
@@ -551,7 +556,7 @@ const LogsPage = () => {
               <button
                 type="button"
                 id="dashboard-logs-clear-button"
-                className="button button--secondary secondary-action-button"
+                className="button button--danger"
                 onClick={async () => {
                   if (!window.confirm("Clear application and Caddy logs?")) {
                     return;
@@ -654,8 +659,6 @@ const LogsPage = () => {
         </form>
       </CollapsibleSection>
 
-      <ReportBuilderPanel />
-
       <CollapsibleSection id="dashboard-logs-results-card" label="Runtime event explorer">
         <SectionToolbar
           id="dashboard-logs-results-toolbar"
@@ -663,10 +666,28 @@ const LogsPage = () => {
           description="Click an event to open a full detail popup with context and metadata."
           action={
             <p id="dashboard-logs-results-count" className="dashboard-toolbar__description">
-              {filteredEntries.length} matching logs • {openDetailsCount} detail popup open
+              {filteredEntries.length} matching logs
             </p>
           }
         />
+        <div id="dashboard-logs-quick-levels" className="dashboard-log-severity-chips" role="group" aria-label="Quick level filters">
+          {quickLevelOptions.map((option) => {
+            const isActive = level === option.value;
+
+            return (
+              <button
+                type="button"
+                id={`dashboard-logs-quick-level-${option.value}`}
+                key={option.value}
+                className={`button button--secondary dashboard-log-severity-chip${isActive ? " dashboard-log-severity-chip--active" : ""}`}
+                aria-pressed={isActive}
+                onClick={() => setLevel(option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
         {filteredEntries.length === 0 ? (
           <EmptyState
             id="dashboard-logs-empty"

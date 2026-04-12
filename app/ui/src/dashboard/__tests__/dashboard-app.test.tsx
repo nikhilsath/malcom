@@ -534,6 +534,19 @@ describe("DashboardApp", () => {
   it("preserves logs filter behavior", async () => {
     renderDashboardApp(["/logs"]);
 
+    await waitFor(() => {
+      expectTextById("dashboard-logs-results-toolbar-title", "Runtime event explorer");
+    });
+
+    expect(document.querySelector("#dashboard-logs-filters-card-body")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Warning" }));
+
+    await waitFor(() => {
+      expect(document.querySelector("#dashboard-logs-results-count")?.textContent).toContain("1 matching logs");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /expand advanced filters/i }));
     const sourceSelect = await screen.findByLabelText("Source");
     fireEvent.change(sourceSelect, { target: { value: "api.webhooks" } });
 
@@ -542,6 +555,7 @@ describe("DashboardApp", () => {
     });
 
     expect(document.querySelector("#dashboard-logs-results-count")?.textContent).toContain("1 matching logs");
+    expect(document.querySelector("#dashboard-logs-results-count")?.textContent).not.toContain("detail popup open");
     expect(screen.getAllByText("Webhook signature verification retried against the local secret store.").length).toBeGreaterThan(0);
   });
 
@@ -554,8 +568,109 @@ describe("DashboardApp", () => {
 
     expectTextById("dashboard-logs-toolbar-title", "Detailed log filters");
     expectTextById("dashboard-logs-results-toolbar-title", "Runtime event explorer");
-    expectTextById("dashboard-logs-report-builder-toolbar-title", "Log report builder");
-    expect(screen.getByText("Grafana")).toBeInTheDocument();
+    expect(document.querySelector("#dashboard-logs-filters-card-body")).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "All" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Info" })).toBeInTheDocument();
+    expect(document.querySelector("#dashboard-logs-report-builder-card")).not.toBeInTheDocument();
+    expect(screen.queryByText("Grafana")).not.toBeInTheDocument();
+  });
+
+  it("shows differentiating request details for similar log rows", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.includes("/api/v1/dashboard/logs/clear") && init?.method === "POST") {
+          return {
+            ok: true,
+            json: async () => ({ ok: true, cleared: ["application", "caddy"], skipped: [], errors: [] })
+          };
+        }
+
+        if (url.includes("/api/v1/dashboard/logs")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ...defaultDashboardLogsPayload,
+              entries: [
+                {
+                  id: "log-http-one",
+                  timestamp: "2026-04-12T09:25:00.000Z",
+                  level: "info",
+                  source: "backend.runtime",
+                  category: "runtime",
+                  action: "http_request_completed",
+                  message: "http request completed",
+                  details: { log_file: "malcom.log" },
+                  context: {
+                    method: "GET",
+                    path: "/api/v1/dashboard/logs",
+                    request_id: "req_first",
+                    status_code: 200,
+                    duration_ms: 2,
+                    client_ip: "127.0.0.1"
+                  }
+                },
+                {
+                  id: "log-http-two",
+                  timestamp: "2026-04-12T09:25:00.000Z",
+                  level: "info",
+                  source: "backend.runtime",
+                  category: "runtime",
+                  action: "http_request_completed",
+                  message: "http request completed",
+                  details: { log_file: "malcom.log" },
+                  context: {
+                    method: "GET",
+                    path: "/api/v1/settings",
+                    request_id: "req_second",
+                    status_code: 200,
+                    duration_ms: 11,
+                    client_ip: "127.0.0.1"
+                  }
+                }
+              ]
+            })
+          };
+        }
+
+        if (url.includes("/api/v1/dashboard/queue")) {
+          return {
+            ok: true,
+            json: async () => ({
+              status: "running",
+              is_paused: false,
+              status_updated_at: "2026-03-20T09:00:00.000Z",
+              total_jobs: 0,
+              pending_jobs: 0,
+              claimed_jobs: 0,
+              jobs: []
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({
+            host: null,
+            devices: []
+          })
+        };
+      })
+    );
+
+    renderDashboardApp(["/logs"]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Dashboard Logs")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/GET \/api\/v1\/dashboard\/logs/i)).toBeInTheDocument();
+    expect(screen.getByText(/GET \/api\/v1\/settings/i)).toBeInTheDocument();
+    expect(screen.getByText(/Request req_first/i)).toBeInTheDocument();
+    expect(screen.getByText(/Request req_second/i)).toBeInTheDocument();
+    expect(screen.getByText(/Duration 11 ms/i)).toBeInTheDocument();
   });
 
   it("updates event detail when selecting another log", async () => {
@@ -609,6 +724,7 @@ describe("DashboardApp", () => {
       expect(screen.getByText("Dashboard Logs")).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /expand advanced filters/i }));
     fireEvent.click(screen.getByRole("button", { name: "Clear logs" }));
 
     await waitFor(() => {

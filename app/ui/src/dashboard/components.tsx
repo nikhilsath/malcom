@@ -443,48 +443,6 @@ export const RecentLogsPreview = ({ entries }: { entries: DashboardLogEntry[] })
     </CollapsibleSection>
 );
 
-export const ReportBuilderPanel = () => (
-  <CollapsibleSection id="dashboard-logs-report-builder-card" label="Log report builder">
-    <SectionToolbar
-      id="dashboard-logs-report-builder-toolbar"
-      title="Log report builder"
-      description="Build reports from retained runtime logs."
-      action={
-        <a
-          id="dashboard-logs-report-builder-link"
-          className="button button--secondary secondary-action-button"
-          href="../tools/catalog.html"
-        >
-          Open tools catalog
-        </a>
-      }
-    />
-    <article id="dashboard-logs-report-builder-tool" className="dashboard-report-builder-card">
-      <div id="dashboard-logs-report-builder-copy" className="dashboard-report-builder-card__copy">
-        <p id="dashboard-logs-report-builder-label" className="summary-card__label">
-          Recommended tool
-        </p>
-        <h3 id="dashboard-logs-report-builder-title" className="dashboard-host-card__title">
-          Grafana
-        </h3>
-        <p id="dashboard-logs-report-builder-description" className="dashboard-host-card__detail">
-          Open-source dashboards and reports for log analysis.
-        </p>
-      </div>
-      <dl id="dashboard-logs-report-builder-metadata" className="dashboard-report-builder-card__metadata">
-        <div id="dashboard-logs-report-builder-source-group">
-          <dt className="summary-card__label">Catalog entry</dt>
-          <dd id="dashboard-logs-report-builder-source-value">tools/grafana</dd>
-        </div>
-        <div id="dashboard-logs-report-builder-focus-group">
-          <dt className="summary-card__label">Best fit</dt>
-          <dd id="dashboard-logs-report-builder-focus-value">Reports from retained logs</dd>
-        </div>
-      </dl>
-    </article>
-  </CollapsibleSection>
-);
-
 export const DevicesTable = ({
   host,
   devices
@@ -637,6 +595,94 @@ export const DevicesTable = ({
   </div>
 );
 
+const getStringValue = (record: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+};
+
+const getNumberValue = (record: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const formatDurationFact = (milliseconds: number | null, rawDuration: number | null): string | null => {
+  if (milliseconds !== null) {
+    const roundedDuration = milliseconds >= 10 ? Math.round(milliseconds) : Number(milliseconds.toFixed(1));
+    return `${roundedDuration} ms`;
+  }
+
+  if (rawDuration !== null) {
+    const roundedDuration = rawDuration >= 10 ? rawDuration.toFixed(1) : rawDuration.toFixed(3);
+    return `${roundedDuration} s`;
+  }
+
+  return null;
+};
+
+const getLogRowSummary = (entry: DashboardLogEntry): { primary: string | null; facts: string[] } => {
+  const context = entry.context || {};
+  const details = entry.details || {};
+  const method = getStringValue(context, ["method"]);
+  const path = getStringValue(context, ["path", "uri"]);
+  const host = getStringValue(context, ["host"]);
+  const endpoint = getStringValue(details, ["endpoint"]);
+  const requestId = getStringValue(context, ["request_id"]);
+  const clientIp = getStringValue(context, ["client_ip", "remote_ip"]);
+  const query = getStringValue(context, ["query"]);
+  const statusCode = getNumberValue(context, ["status_code"]) ?? getNumberValue(details, ["status_code", "status"]);
+  const durationMs = getNumberValue(context, ["duration_ms"]) ?? getNumberValue(details, ["duration_ms"]);
+  const rawDuration = getNumberValue(details, ["duration"]);
+
+  let primary: string | null = null;
+  if (method && path) {
+    primary = `${method} ${path}`;
+  } else if (host && path) {
+    primary = `${host}${path}`;
+  } else if (path) {
+    primary = path;
+  } else if (endpoint) {
+    primary = endpoint;
+  } else if (host) {
+    primary = host;
+  }
+
+  const facts: string[] = [];
+  if (statusCode !== null) {
+    facts.push(`Status ${statusCode}`);
+  }
+
+  const durationFact = formatDurationFact(durationMs, rawDuration);
+  if (durationFact) {
+    facts.push(`Duration ${durationFact}`);
+  }
+
+  if (requestId) {
+    facts.push(`Request ${requestId}`);
+  }
+
+  if (clientIp) {
+    facts.push(`Client ${clientIp}`);
+  }
+
+  if (query) {
+    facts.push(`Query ${query}`);
+  }
+
+  return { primary, facts };
+};
+
 export const LogEntryList = ({
   entries,
   selectedEntryId,
@@ -647,33 +693,58 @@ export const LogEntryList = ({
   onSelectEntry: (entryId: string) => void;
 }) => (
   <div id="dashboard-logs-list" className="dashboard-log-list">
-    {entries.map((entry) => (
-      <button
-        type="button"
-        id={`dashboard-log-item-${entry.id}`}
-        key={entry.id}
-        className={`dashboard-log-item ${selectedEntryId === entry.id ? "dashboard-log-item--active" : ""}`}
-        onClick={() => onSelectEntry(entry.id)}
-        aria-pressed={selectedEntryId === entry.id}
-      >
-        <div id={`dashboard-log-header-${entry.id}`} className="dashboard-log-item__header">
-          <div id={`dashboard-log-header-copy-${entry.id}`} className="dashboard-log-item__header-copy">
-            <p id={`dashboard-log-meta-${entry.id}`} className="dashboard-log-item__meta">
-              {formatDateTime(entry.timestamp)} • {entry.source} • {entry.action}
-            </p>
-            <h4 id={`dashboard-log-title-${entry.id}`} className="dashboard-log-item__title">
-              {entry.message}
-            </h4>
-          </div>
-          <div id={`dashboard-log-badges-${entry.id}`} className="dashboard-log-item__badges">
+    <div id="dashboard-logs-list-header" className="dashboard-log-list__header" aria-hidden="true">
+      <span id="dashboard-logs-list-header-timestamp" className="dashboard-log-list__header-cell dashboard-log-list__header-cell--timestamp">
+        Timestamp
+      </span>
+      <span id="dashboard-logs-list-header-source" className="dashboard-log-list__header-cell dashboard-log-list__header-cell--source">
+        Source
+      </span>
+      <span id="dashboard-logs-list-header-level" className="dashboard-log-list__header-cell dashboard-log-list__header-cell--level">
+        Level
+      </span>
+      <span id="dashboard-logs-list-header-message" className="dashboard-log-list__header-cell dashboard-log-list__header-cell--message">
+        Message
+      </span>
+    </div>
+    {entries.map((entry) => {
+      const summary = getLogRowSummary(entry);
+      const prioritizedFacts = summary.facts.filter(
+        (fact) => fact.startsWith("Request ") || fact.startsWith("Duration ")
+      );
+      const detailFacts = prioritizedFacts.length > 0 ? prioritizedFacts.slice(0, 2) : summary.facts.slice(0, 1);
+      const detailParts = [summary.primary, ...detailFacts].filter(Boolean) as string[];
+
+      return (
+        <button
+          type="button"
+          id={`dashboard-log-item-${entry.id}`}
+          key={entry.id}
+          className={`dashboard-log-row ${selectedEntryId === entry.id ? "dashboard-log-row--active" : ""}`}
+          onClick={() => onSelectEntry(entry.id)}
+          aria-pressed={selectedEntryId === entry.id}
+        >
+          <span id={`dashboard-log-timestamp-${entry.id}`} className="dashboard-log-row__timestamp">
+            {formatDateTime(entry.timestamp)}
+          </span>
+          <span id={`dashboard-log-source-${entry.id}`} className="dashboard-log-row__source">
+            {entry.source}
+          </span>
+          <span id={`dashboard-log-badges-${entry.id}`} className="dashboard-log-row__level">
             <StatusBadge id={`dashboard-log-level-${entry.id}`} value={entry.level} />
-            <span id={`dashboard-log-category-${entry.id}`} className="status-badge status-badge--muted">
-              {entry.category}
+          </span>
+          <span id={`dashboard-log-message-group-${entry.id}`} className="dashboard-log-row__message-group">
+            <span id={`dashboard-log-title-${entry.id}`} className="dashboard-log-row__message">
+              {entry.message}
             </span>
-          </div>
-        </div>
-      </button>
-    ))}
+            <span id={`dashboard-log-meta-${entry.id}`} className="dashboard-log-row__meta">
+              {entry.action} • {entry.category}
+              {detailParts.length ? ` • ${detailParts.join(" • ")}` : ""}
+            </span>
+          </span>
+        </button>
+      );
+    })}
   </div>
 );
 
