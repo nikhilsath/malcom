@@ -43,6 +43,10 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertIn(("github", "list_workflow_runs"), activity_ids)
         self.assertIn(("github", "trigger_workflow_dispatch"), activity_ids)
         self.assertIn(("github", "download_repo_archive"), activity_ids)
+        self.assertIn(("notion", "notion_query_database"), activity_ids)
+        self.assertIn(("notion", "notion_create_page"), activity_ids)
+        self.assertIn(("trello", "trello_list_board_cards"), activity_ids)
+        self.assertIn(("trello", "trello_create_card"), activity_ids)
 
     def test_builder_validation_rejects_missing_scopes_for_connector_activity(self) -> None:
         self.save_connector(
@@ -497,6 +501,86 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         )
         self.assertTrue(dispatch_result["dispatched"])
         self.assertEqual(dispatch_result["workflow_id"], "ci.yml")
+
+    def test_notion_and_trello_activities_execute_and_normalize_output(self) -> None:
+        self.save_connector(
+            {
+                "id": "notion-primary",
+                "provider": "notion",
+                "name": "Notion",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": [],
+                "base_url": "https://api.notion.com/v1",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "ntn_secret_token"},
+            }
+        )
+        self.save_connector(
+            {
+                "id": "trello-primary",
+                "provider": "trello",
+                "name": "Trello",
+                "status": "connected",
+                "auth_type": "bearer",
+                "scopes": [],
+                "base_url": "https://api.trello.com/1",
+                "owner": "Workspace",
+                "auth_config": {"access_token_input": "trello_secret_token"},
+            }
+        )
+        connection = app.state.connection
+
+        notion_output = execute_connector_activity(
+            connection,
+            connector_id="notion-primary",
+            activity_id="notion_query_database",
+            inputs={"database_id": "db-123", "page_size": 2, "filter_json": {}, "sorts_json": []},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (
+                200,
+                {
+                    "results": [
+                        {
+                            "id": "page-1",
+                            "url": "https://www.notion.so/page-1",
+                            "properties": {"Name": {"title": [{"plain_text": "One"}]}},
+                        }
+                    ],
+                    "next_cursor": "cursor-2",
+                    "has_more": False,
+                },
+            ),
+        )
+        self.assertEqual(notion_output["provider"], "notion")
+        self.assertEqual(notion_output["database_id"], "db-123")
+        self.assertEqual(notion_output["count"], 1)
+        self.assertEqual(notion_output["results"][0]["id"], "page-1")
+
+        trello_output = execute_connector_activity(
+            connection,
+            connector_id="trello-primary",
+            activity_id="trello_list_board_cards",
+            inputs={"board_id": "board-123", "limit": 5, "card_filter": "all"},
+            root_dir=Path(app.state.root_dir),
+            request_executor=lambda url, method, headers, body=None: (
+                200,
+                [
+                    {
+                        "id": "card-1",
+                        "name": "First card",
+                        "idList": "list-1",
+                        "url": "https://trello.com/c/card-1",
+                        "closed": False,
+                        "due": None,
+                    }
+                ],
+            ),
+        )
+        self.assertEqual(trello_output["provider"], "trello")
+        self.assertEqual(trello_output["board_id"], "board-123")
+        self.assertEqual(trello_output["count"], 1)
+        self.assertEqual(trello_output["cards"][0]["id"], "card-1")
 
     def test_github_download_repo_archive_activity_saves_archive_to_workflow_storage(self) -> None:
         self.save_connector(

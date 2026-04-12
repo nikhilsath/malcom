@@ -8,11 +8,15 @@ from .connector_activities_defs import ConnectorActivityDefinition, JSON_SOURCE_
 
 from .connector_activities_github import GITHUB_CONNECTOR_ACTIVITY_DEFINITIONS
 from .connector_activities_google import GOOGLE_CONNECTOR_ACTIVITY_DEFINITIONS
+from .connector_activities_notion import NOTION_CONNECTOR_ACTIVITY_DEFINITIONS
+from .connector_activities_trello import TRELLO_CONNECTOR_ACTIVITY_DEFINITIONS
 
 
 CONNECTOR_ACTIVITY_DEFINITIONS: tuple[ConnectorActivityDefinition, ...] = (
     *GOOGLE_CONNECTOR_ACTIVITY_DEFINITIONS,
     *GITHUB_CONNECTOR_ACTIVITY_DEFINITIONS,
+    *NOTION_CONNECTOR_ACTIVITY_DEFINITIONS,
+    *TRELLO_CONNECTOR_ACTIVITY_DEFINITIONS,
 )
 
 _ACTIVITY_INDEX = {(item.provider_id, item.activity_id): item for item in CONNECTOR_ACTIVITY_DEFINITIONS}

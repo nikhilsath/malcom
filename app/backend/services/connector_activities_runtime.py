@@ -111,6 +111,8 @@ def _build_connector_headers(auth_type: str, auth_config: OutgoingAuthConfig | N
     if provider_id == "github":
         headers.setdefault("X-GitHub-Api-Version", "2022-11-28")
         headers.setdefault("User-Agent", "malcom-connector-activity")
+    elif provider_id == "notion":
+        headers.setdefault("Notion-Version", "2022-06-28")
     return headers
 
 
@@ -244,6 +246,8 @@ def execute_connector_activity(
     from .connector_activities_catalog import get_connector_activity_definition
     from .connector_activities_github import GITHUB_HANDLER_REGISTRY
     from .connector_activities_google import GOOGLE_HANDLER_REGISTRY
+    from .connector_activities_notion import NOTION_HANDLER_REGISTRY
+    from .connector_activities_trello import TRELLO_HANDLER_REGISTRY
 
     record, headers = _get_connector_activity_context(connection, connector_id=connector_id, root_dir=root_dir)
     provider_id = record.get("provider") or ""
@@ -266,6 +270,8 @@ def execute_connector_activity(
     handler_registry: dict[str, ConnectorActivityHandler] = {
         **GOOGLE_HANDLER_REGISTRY,
         **GITHUB_HANDLER_REGISTRY,
+        **NOTION_HANDLER_REGISTRY,
+        **TRELLO_HANDLER_REGISTRY,
     }
     handler = handler_registry.get(kind)
     if handler is None:

@@ -2,6 +2,7 @@ import hmac
 import hashlib
 import json
 
+from backend.services import github_webhook
 from backend.services.github_webhook import verify_signature, extract_delivery_id, normalize_github_event
 
 
@@ -59,3 +60,109 @@ def test_normalize_pull_request_event_minimal():
     assert metadata["owner"] == "bob"
     assert metadata["repo"] == "repo2"
     assert metadata["ref"] == "feature-1"
+
+
+def test_dispatch_normalized_event_matches_enabled_github_automation(monkeypatch):
+    connection = object()
+    logger = object()
+    normalized_event = {
+        "source": "github",
+        "event_type": "push",
+        "metadata": {"owner": "alice", "repo": "repo", "ref": "refs/heads/main", "paths": ["src/app.py"]},
+    }
+    metadata = {"owner": "alice", "repo": "repo", "ref": "refs/heads/main", "paths": ["src/app.py"]}
+    automation_rows = [
+        {
+            "id": "match",
+            "trigger_config_json": json.dumps(
+                {
+                    "github_owner": "alice",
+                    "github_repo": "repo",
+                    "github_event_type": "push",
+                    "github_branch_filter": "main",
+                    "github_path_filter": "src/*.py",
+                }
+            ),
+        },
+        {
+            "id": "wrong_owner",
+            "trigger_config_json": json.dumps(
+                {
+                    "github_owner": "bob",
+                    "github_repo": "repo",
+                    "github_event_type": "push",
+                }
+            ),
+        },
+        {
+            "id": "wrong_path",
+            "trigger_config_json": json.dumps(
+                {
+                    "github_owner": "alice",
+                    "github_repo": "repo",
+                    "github_event_type": "push",
+                    "github_path_filter": "docs/*.md",
+                }
+            ),
+        },
+    ]
+    dispatched: list[tuple[str, str, dict[str, object], object, object]] = []
+
+    monkeypatch.setattr(github_webhook, "fetch_all", lambda *_args, **_kwargs: automation_rows)
+    monkeypatch.setattr(
+        github_webhook,
+        "execute_automation_definition",
+        lambda conn, log, **kwargs: dispatched.append(
+            (kwargs["automation_id"], kwargs["trigger_type"], kwargs["payload"], kwargs["root_dir"], kwargs["database_url"])
+        ),
+    )
+    monkeypatch.setattr(github_webhook, "write_application_log", lambda *_args, **_kwargs: None)
+
+    matched = github_webhook.dispatch_normalized_event(
+        connection,
+        logger,
+        normalized_event,
+        metadata,
+        root_dir=None,
+        database_url=None,
+    )
+
+    assert matched == 1
+    assert dispatched == [("match", "github", normalized_event, None, None)]
+
+
+def test_dispatch_normalized_event_skips_when_event_type_does_not_match(monkeypatch):
+    connection = object()
+    logger = object()
+    normalized_event = {"source": "github", "event_type": "pull_request", "metadata": {}}
+    metadata = {"owner": "alice", "repo": "repo", "ref": "refs/heads/main", "paths": ["src/app.py"]}
+    automation_rows = [
+        {
+            "id": "push-only",
+            "trigger_config_json": json.dumps(
+                {
+                    "github_owner": "alice",
+                    "github_repo": "repo",
+                    "github_event_type": "push",
+                    "github_branch_filter": "main",
+                }
+            ),
+        }
+    ]
+    dispatched: list[dict[str, object]] = []
+
+    monkeypatch.setattr(github_webhook, "fetch_all", lambda *_args, **_kwargs: automation_rows)
+    monkeypatch.setattr(github_webhook, "execute_automation_definition", lambda conn, log, **kwargs: dispatched.append(kwargs))
+    monkeypatch.setattr(github_webhook, "write_application_log", lambda *_args, **_kwargs: None)
+
+    matched = github_webhook.dispatch_normalized_event(
+        connection,
+        logger,
+        normalized_event,
+        metadata,
+        root_dir=None,
+        database_url=None,
+    )
+
+    assert matched == 0
+    assert dispatched == []

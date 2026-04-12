@@ -30,6 +30,18 @@ class TestHttpPresetCatalog:
         github_presets = get_http_presets_by_provider("github")
         assert len(github_presets) > 0, "GitHub presets should exist"
 
+    def test_notion_presets_exist(self):
+        """Verify Notion HTTP presets are defined in catalog."""
+        notion_presets = get_http_presets_by_provider("notion")
+        assert len(notion_presets) > 0, "Notion presets should exist"
+        assert {preset.preset_id for preset in notion_presets} >= {"notion_query_database_http", "notion_create_page_http"}
+
+    def test_trello_presets_exist(self):
+        """Verify Trello HTTP presets are defined in catalog."""
+        trello_presets = get_http_presets_by_provider("trello")
+        assert len(trello_presets) > 0, "Trello presets should exist"
+        assert {preset.preset_id for preset in trello_presets} >= {"trello_list_board_cards_http", "trello_create_card_http"}
+
     def test_preset_fields_are_valid_json(self):
         """Each preset's payload_template must be valid JSON."""
         for preset in DEFAULT_HTTP_PRESET_CATALOG:
@@ -190,6 +202,40 @@ class TestHttpPresetCatalog:
             "per_page",
         ]
         assert preset.query_params == {"per_page": "20"}
+
+    def test_notion_and_trello_presets_expose_documented_inputs(self):
+        """Notion and Trello presets should expose provider-specific inputs."""
+        notion_query = get_http_preset("notion", "notion_query_database_http")
+        notion_create = get_http_preset("notion", "notion_create_page_http")
+        trello_list = get_http_preset("trello", "trello_list_board_cards_http")
+        trello_create = get_http_preset("trello", "trello_create_card_http")
+        assert notion_query is not None
+        assert notion_create is not None
+        assert trello_list is not None
+        assert trello_create is not None
+        assert [field["key"] for field in notion_query.input_schema] == [
+            "database_id",
+            "page_size",
+            "start_cursor",
+            "filter_json",
+            "sorts_json",
+        ]
+        assert [field["key"] for field in notion_create.input_schema] == [
+            "database_id",
+            "properties_json",
+            "children_json",
+        ]
+        assert [field["key"] for field in trello_list.input_schema] == [
+            "board_id",
+            "limit",
+            "card_filter",
+        ]
+        assert [field["key"] for field in trello_create.input_schema] == [
+            "list_id",
+            "name",
+            "desc",
+            "due",
+        ]
 
 
 class TestHttpPresetValidity:

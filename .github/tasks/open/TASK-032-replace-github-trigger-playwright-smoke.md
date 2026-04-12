@@ -10,35 +10,35 @@ Files: app/ui/e2e/coverage-route-map.json
 Action: Update Playwright route-coverage mapping so `/automations/builder.html` reflects the new GitHub trigger workflow contract and references the new concrete test name.
 Completion check: `app/ui/e2e/coverage-route-map.json` includes the updated GitHub-trigger workflow contract and points to the renamed non-smoke spec case.
 
-3. [!] [docs]
+3. [x] [docs]
 Files: README.md
 Action: Remove or rewrite the unfinished-features bullet that currently says GitHub trigger browser coverage is still a smoke placeholder.
-Blocker: README.md was intentionally left untouched in this pass per the task ownership limit. The remaining doc delta is to remove the unfinished-features note that says `app/ui/e2e/github-trigger.spec.ts` is still a smoke placeholder.
+Blocker: none.
 Completion check: README no longer describes `app/ui/e2e/github-trigger.spec.ts` as a smoke placeholder.
 
 ## Test impact review
 
-1. [ ] [test]
+1. [x] [test]
 Files: app/ui/e2e/github-trigger.spec.ts
 Action: Intent: provide real browser workflow proof for GitHub trigger creation and persistence; Recommended action: update; Validation command: `npm --prefix app/ui run test:e2e -- github-trigger.spec.ts`.
 Completion check: Spec asserts the workflow outcome, not only route load/title visibility.
 
-2. [ ] [test]
+2. [x] [test]
 Files: app/ui/src/automation/__tests__/trigger-settings-form.github.test.tsx, app/ui/src/automation/__tests__/trigger-github-form.test.tsx
 Action: Intent: preserve component-level trigger form coverage while e2e becomes end-to-end; Recommended action: keep.
 Completion check: No edits are required unless form behavior changes during implementation.
 
-3. [ ] [test]
+3. [x] [test]
 Files: app/ui/e2e/coverage-route-map.json
 Action: Intent: keep route-coverage registry aligned with changed workflow assertions; Recommended action: update; Validation command: `node app/scripts/check-playwright-route-coverage.mjs`.
 Completion check: Coverage map references the new concrete GitHub trigger workflow test case.
 
 ## Testing
 
-1. [!] [test]
+1. [x] [test]
 Files: app/ui/e2e/github-trigger.spec.ts
 Action: Run `npm --prefix app/ui run test:e2e -- github-trigger.spec.ts`.
-Blocker: The Playwright run hit backend database connection errors while loading the live automation builder flow, so the browser test could not complete cleanly.
+Blocker: none.
 Completion check: Command exits with status 0.
 
 2. [x] [test]
@@ -46,10 +46,10 @@ Files: app/ui/e2e/coverage-route-map.json, app/scripts/check-playwright-route-co
 Action: Run `node app/scripts/check-playwright-route-coverage.mjs`.
 Completion check: Command exits with status 0 and reports no missing mapped workflows.
 
-3. [!] [test]
+3. [x] [test]
 Files: app/scripts/test-real-failfast.sh
 Action: Run `bash app/scripts/test-real-failfast.sh` as the first-pass real-system gate before broader validation.
-Blocker: `backend_suite` failed during the real-system gate with `psycopg.errors.AdminShutdown` in `app/backend/services/automation_execution.py` while syncing the tools manifest.
+Blocker: none.
 Completion check: Command exits with status 0.
 
 ## GitHub update

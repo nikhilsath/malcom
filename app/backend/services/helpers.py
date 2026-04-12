@@ -3634,9 +3634,21 @@ def replace_automation_steps(
     *,
     timestamp: str,
 ) -> None:
+    persisted_step_ids: dict[str, str] = {}
+    for step in steps:
+        original_id = str(step.id or "").strip()
+        if not original_id or original_id.startswith("draft-step-"):
+            persisted_id = f"automation_step_{uuid4().hex[:10]}"
+        else:
+            persisted_id = original_id
+        if original_id:
+            persisted_step_ids[original_id] = persisted_id
+
     connection.execute("DELETE FROM automation_steps WHERE automation_id = ?", (automation_id,))
     for index, step in enumerate(steps):
-        step_id = step.id or f"automation_step_{uuid4().hex[:10]}"
+        step_id = persisted_step_ids.get(str(step.id or "").strip()) or f"automation_step_{uuid4().hex[:10]}"
+        on_true_step_id = persisted_step_ids.get(str(step.on_true_step_id or "").strip(), step.on_true_step_id)
+        on_false_step_id = persisted_step_ids.get(str(step.on_false_step_id or "").strip(), step.on_false_step_id)
         connection.execute(
             """
             INSERT INTO automation_steps (
@@ -3660,8 +3672,8 @@ def replace_automation_steps(
                 step.type,
                 step.name,
                 json.dumps(step.config.model_dump()),
-                step.on_true_step_id,
-                step.on_false_step_id,
+                on_true_step_id,
+                on_false_step_id,
                 1 if step.is_merge_target else 0,
                 timestamp,
                 timestamp,
@@ -4275,6 +4287,29 @@ def _execute_automation_step_impl(
         message = render_template_string(step.config.message, context)
         write_application_log(logger, logging.INFO, "automation_log_step", automation_id=automation_id, step_name=step.name, message=message)
         return RuntimeExecutionResult(status="completed", response_summary=message, detail={"message": message}, output=message)
+
+    if step.type == "storage":
+        from backend.services.automation_step_executors.storage import execute_storage_step
+
+        outcome = execute_storage_step(
+            connection,
+            logger,
+            step=step,
+            context=context,
+            root_dir=root_dir,
+        )
+        error = outcome.get("error")
+        if error:
+            return RuntimeExecutionResult(
+                status="failed",
+                response_summary=str(error),
+                detail={"error": str(error)},
+                output={},
+            )
+        result = outcome.get("result")
+        if isinstance(result, RuntimeExecutionResult):
+            return result
+        raise RuntimeError("Storage step executor returned an unexpected result payload.")
 
     if step.type == "outbound_request":
         # Materialize HTTP preset if in preset mode

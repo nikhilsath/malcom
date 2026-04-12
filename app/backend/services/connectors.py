@@ -349,7 +349,7 @@ DEFAULT_CONNECTOR_PROVIDER_METADATA: tuple[dict[str, Any], ...] = (
         "onboarding_mode": "oauth",
         "oauth_supported": True,
         "callback_supported": True,
-        "refresh_supported": False,
+        "refresh_supported": True,
         "revoke_supported": True,
         "redirect_uri_required": True,
         "redirect_uri_readonly": True,
@@ -1449,19 +1449,20 @@ def build_connector_oauth_authorization_url(
             "code_challenge_method": "S256",
         }
     elif provider == "trello":
-        parsed_redirect = urllib.parse.urlparse(redirect_uri)
-        redirect_query = dict(urllib.parse.parse_qsl(parsed_redirect.query, keep_blank_values=True))
-        redirect_query["state"] = state
-        base_url = "https://trello.com/1/authorize"
+        base_url = "https://auth.atlassian.com/authorize"
+        trello_scopes = list(scopes or ["read", "write"])
+        if "offline_access" not in trello_scopes:
+            trello_scopes.append("offline_access")
         query = {
-            "key": client_id,
-            "name": "Malcom",
-            "scope": ",".join(scopes or ["read", "write"]),
-            "expiration": "never",
-            "response_type": "token",
-            "return_url": urllib.parse.urlunparse(
-                parsed_redirect._replace(query=urllib.parse.urlencode(redirect_query))
-            ),
+            "audience": "api.atlassian.com",
+            "client_id": client_id,
+            "scope": " ".join(trello_scopes),
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "response_type": "code",
+            "prompt": "consent",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
         }
     else:
         base_url = "https://example.invalid/oauth/authorize"

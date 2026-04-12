@@ -196,6 +196,80 @@ class HttpPresetAutomationTestCase(unittest.TestCase):
         detail = response.json().get("detail", "")
         self.assertIn("missing required scopes", str(detail).lower())
 
+    def test_http_preset_mode_accepts_notion_and_trello_provider_presets(self) -> None:
+        notion_connector = "notion-preset"
+        trello_connector = "trello-preset"
+        self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": notion_connector,
+                "provider": "notion",
+                "name": "Notion Connector",
+                "auth_type": "bearer",
+                "status": "connected",
+                "scopes": [],
+            },
+        )
+        self.client.post(
+            "/api/v1/connectors",
+            json={
+                "id": trello_connector,
+                "provider": "trello",
+                "name": "Trello Connector",
+                "auth_type": "bearer",
+                "status": "connected",
+                "scopes": [],
+            },
+        )
+
+        notion_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Notion Preset Test",
+                "description": "Test Notion HTTP preset mode",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Query Notion",
+                        "config": {
+                            "connector_id": notion_connector,
+                            "http_preset_id": "notion_query_database_http",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(notion_response.status_code, 201, notion_response.text)
+
+        trello_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Trello Preset Test",
+                "description": "Test Trello HTTP preset mode",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "List Trello Cards",
+                        "config": {
+                            "connector_id": trello_connector,
+                            "http_preset_id": "trello_list_board_cards_http",
+                            "wait_for_response": True,
+                            "response_mappings": [],
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(trello_response.status_code, 201, trello_response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.services.settings import write_settings_section
 from backend.services.support import run_scheduler_tick
 from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
@@ -27,6 +28,9 @@ class ApiResourcesTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self.client.__exit__(None, None, None)
         self.tempdir.cleanup()
+
+    def _set_payload_redaction(self, enabled: bool) -> None:
+        write_settings_section(app.state.connection, "data", {"payload_redaction": enabled})
 
     def test_create_routes_each_type_to_its_table(self) -> None:
         resources = [
@@ -432,6 +436,183 @@ class ApiResourcesTestCase(unittest.TestCase):
         run = next((item for item in runs_response.json() if item["automation_id"] == automation_response.json()["id"]), None)
         self.assertIsNotNone(run)
         self.assertEqual(run["trigger_type"], "inbound_api")
+
+    def test_webhook_callback_triggers_matching_github_automation(self) -> None:
+        webhook_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "webhook",
+                "name": "github webhook",
+                "description": "Receives GitHub events.",
+                "path_slug": "github-webhook",
+                "enabled": True,
+                "callback_path": "/hooks/github",
+                "verification_token": "verify-github",
+                "signing_secret": "github-secret",
+                "signature_header": "X-Hub-Signature-256",
+                "event_filter": "push",
+            },
+        )
+        self.assertEqual(webhook_response.status_code, 201)
+        webhook = webhook_response.json()
+
+        automation_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "GitHub automation",
+                "description": "Runs when a GitHub push matches.",
+                "enabled": True,
+                "trigger_type": "github",
+                "trigger_config": {
+                    "github_owner": "octocat",
+                    "github_repo": "hello-world",
+                    "github_event_type": "push",
+                    "github_branch_filter": "main",
+                    "github_path_filter": "src/*.py",
+                },
+                "steps": [
+                    {
+                        "type": "log",
+                        "name": "Record GitHub event",
+                        "config": {"message": "GitHub event received"},
+                    }
+                ],
+            },
+        )
+        self.assertEqual(automation_response.status_code, 201)
+
+        body = json.dumps(
+            {
+                "ref": "refs/heads/main",
+                "repository": {
+                    "name": "hello-world",
+                    "owner": {"login": "octocat"},
+                },
+                "commits": [
+                    {
+                        "id": "commit-1",
+                        "added": [],
+                        "modified": ["src/app.py"],
+                        "removed": [],
+                    }
+                ],
+            }
+        )
+        signature = hmac.new(b"github-secret", body.encode("utf-8"), hashlib.sha256).hexdigest()
+        callback_response = self.client.post(
+            "/api/v1/webhooks/callback/hooks/github?verification_token=verify-github",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Hub-Signature-256": f"sha256={signature}",
+                "X-GitHub-Event": "push",
+            },
+        )
+        self.assertEqual(callback_response.status_code, 202)
+        self.assertEqual(callback_response.json()["status"], "accepted")
+
+        detail_response = self.client.get(f"/api/v1/webhooks/{webhook['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["recent_events"][0]["event_name"], "push")
+        self.assertEqual(detail["recent_events"][0]["triggered_automation_count"], 1)
+
+        runs_response = self.client.get("/api/v1/runs")
+        self.assertEqual(runs_response.status_code, 200)
+        run = next((item for item in runs_response.json() if item["automation_id"] == automation_response.json()["id"]), None)
+        self.assertIsNotNone(run)
+        self.assertEqual(run["trigger_type"], "github")
+
+    def test_inbound_event_persistence_redacts_payload_when_enabled(self) -> None:
+        self._set_payload_redaction(True)
+
+        create_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "incoming",
+                "name": "Inbound redaction",
+                "description": "Captures inbound events.",
+                "path_slug": "inbound-redaction",
+                "enabled": True,
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        inbound = create_response.json()
+
+        event_response = self.client.post(
+            f"/api/v1/inbound/{inbound['id']}",
+            json={
+                "token": "top-secret-token",
+                "nested": {
+                    "client_secret": "super-secret",
+                    "safe": "ok",
+                },
+            },
+            headers={
+                "Authorization": f"Bearer {inbound['secret']}",
+                "Content-Type": "application/json",
+            },
+        )
+        self.assertEqual(event_response.status_code, 202)
+
+        detail_response = self.client.get(f"/api/v1/inbound/{inbound['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        event = detail["events"][0]
+        self.assertEqual(event["payload_json"]["token"], "[redacted]")
+        self.assertEqual(event["payload_json"]["nested"]["client_secret"], "[redacted]")
+        self.assertEqual(event["payload_json"]["nested"]["safe"], "ok")
+
+    def test_webhook_event_persistence_preserves_payload_when_redaction_disabled(self) -> None:
+        self._set_payload_redaction(False)
+
+        webhook_response = self.client.post(
+            "/api/v1/apis",
+            json={
+                "type": "webhook",
+                "name": "Webhook redaction",
+                "description": "Receives webhook events.",
+                "path_slug": "webhook-redaction",
+                "enabled": True,
+                "callback_path": "/hooks/redaction",
+                "verification_token": "verify-redaction",
+                "signing_secret": "redaction-secret",
+                "signature_header": "X-Redaction-Signature",
+                "event_filter": "order.created",
+            },
+        )
+        self.assertEqual(webhook_response.status_code, 201)
+        webhook = webhook_response.json()
+
+        body = json.dumps(
+            {
+                "event": "order.created",
+                "token": "keep-visible",
+                "nested": {
+                    "client_secret": "keep-this-too",
+                    "safe": "ok",
+                },
+            }
+        )
+        signature = hmac.new(b"redaction-secret", body.encode("utf-8"), hashlib.sha256).hexdigest()
+        callback_response = self.client.post(
+            "/api/v1/webhooks/callback/hooks/redaction?verification_token=verify-redaction",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Redaction-Signature": f"sha256={signature}",
+                "X-Event-Name": "order.created",
+            },
+        )
+        self.assertEqual(callback_response.status_code, 202)
+
+        detail_response = self.client.get(f"/api/v1/webhooks/{webhook['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        event = detail["recent_events"][0]
+        self.assertEqual(event["payload_json"]["token"], "keep-visible")
+        self.assertEqual(event["payload_json"]["nested"]["client_secret"], "keep-this-too")
+        self.assertEqual(event["payload_json"]["nested"]["safe"], "ok")
 
     def test_continuous_runtime_updates_next_run_and_delivery_history(self) -> None:
         create_response = self.client.post(

@@ -6,6 +6,21 @@ const createBtn = () => document.getElementById("create-backup-btn");
 const backupList = () => document.getElementById("backup-list");
 const restoreBtn = () => document.getElementById("restore-backup-btn");
 const feedbackEl = () => document.getElementById("backup-feedback");
+const settingsFeedbackEl = () => document.getElementById("settings-feedback");
+const saveButtonEl = () => document.getElementById("settings-save-button");
+const redactionCheckboxEl = () => document.getElementById("settings-data-redaction-checkbox");
+const storageMaxInputEl = () => document.getElementById("settings-storage-max-mb-input");
+
+function setSettingsFeedback(message, tone = "") {
+    const feedback = settingsFeedbackEl();
+    if (!feedback) {
+        return;
+    }
+    feedback.textContent = message;
+    feedback.className = tone
+        ? `api-form-feedback api-form-feedback--${tone}`
+        : "api-form-feedback";
+}
 
 function getErrorMessage(error) {
     if (error instanceof Error && error.message) {
@@ -196,6 +211,40 @@ document.addEventListener("DOMContentLoaded", () => {
     list.addEventListener("change", updateRestoreButtonState);
     setBackupControlsBusy(false);
     loadBackups();
+
+    const saveButton = saveButtonEl();
+    if (saveButton instanceof HTMLButtonElement) {
+        saveButton.addEventListener("click", async (event) => {
+            event.preventDefault();
+
+            const store = window.MalcomLogStore;
+            if (!store || typeof store.updateAppSettings !== "function") {
+                setSettingsFeedback("Unable to save settings.", "danger");
+                return;
+            }
+
+            const currentSettings = store.getAppSettings();
+            const parsedMaxMb = Number.parseInt(storageMaxInputEl()?.value || "", 10);
+            const patch = {
+                data: {
+                    payload_redaction: redactionCheckboxEl()?.checked ?? currentSettings.data.payload_redaction
+                },
+                logging: {
+                    ...currentSettings.logging,
+                    max_file_size_mb: Number.isFinite(parsedMaxMb)
+                        ? Math.min(100, Math.max(1, parsedMaxMb))
+                        : currentSettings.logging.max_file_size_mb
+                }
+            };
+
+            try {
+                await store.updateAppSettings(patch);
+                setSettingsFeedback("Settings saved to the database.", "success");
+            } catch {
+                setSettingsFeedback("Unable to save settings.", "danger");
+            }
+        });
+    }
 });
 
 // ── Storage locations management ─────────────────────────────────────────────

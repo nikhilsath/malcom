@@ -20,13 +20,14 @@ from backend.services.connector_oauth_provider_clients import (
     exchange_notion_oauth_code_for_tokens,
     exchange_trello_oauth_code_for_tokens,
     refresh_notion_access_token,
+    refresh_trello_access_token,
 )
 from backend.runtime import parse_iso_datetime
+from backend.services.connectors import build_connector_oauth_authorization_url
 from backend.services.support import (
     _provider_display_name,
     _provider_metadata,
     _resolve_token_expiry,
-    build_connector_oauth_authorization_url,
     build_pkce_code_challenge,
     canonicalize_connector_provider,
     create_connector_record,
@@ -72,8 +73,15 @@ def _get_provider_oauth_handlers(provider: str) -> tuple[Any, Any]:
     if canonical == "notion":
         return exchange_notion_oauth_code_for_tokens, refresh_notion_access_token
     if canonical == "trello":
-        return exchange_trello_oauth_code_for_tokens, None
+        return exchange_trello_oauth_code_for_tokens, refresh_trello_access_token
     return None, None
+
+
+def _normalize_scopes_for_storage(*, provider: str, scope_value: str | None) -> list[str]:
+    scopes = [item for item in re.split(r"[\s,]+", scope_value or "") if item]
+    if canonicalize_connector_provider(provider) == "trello":
+        scopes = [item for item in scopes if item != "offline_access"]
+    return scopes
 
 
 def start_connector_oauth(
@@ -371,7 +379,7 @@ def complete_connector_oauth(
     record["updated_at"] = now
     record["last_tested_at"] = now
     resolved_scope = token_payload.get("scope") if isinstance(token_payload.get("scope"), str) else scope
-    incoming_scopes = [item for item in re.split(r"[\s,]+", resolved_scope or "") if item]
+    incoming_scopes = _normalize_scopes_for_storage(provider=canonical_provider or provider, scope_value=resolved_scope)
     if incoming_scopes:
         record["scopes"] = incoming_scopes
     expires_at_str = _resolve_token_expiry(token_payload, default_seconds=3600 if canonical_provider == "google" else None)
@@ -452,6 +460,25 @@ def refresh_oauth_token(
                 detail=(
                     "Notion refresh requires both client_id and client_secret. "
                     "Configure connector client_secret or MALCOM_NOTION_OAUTH_CLIENT_SECRET and reconnect if needed."
+                ),
+            )
+        _, refresh_fn = _get_provider_oauth_handlers(provider)
+        if not refresh_fn:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{provider_name} does not support token refresh.")
+        token_payload = refresh_fn(
+            refresh_token=secret_map["refresh_token"],
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    elif provider == "trello":
+        client_id = auth_config.get("client_id")
+        client_secret = secret_map.get("client_secret")
+        if not client_id or not client_secret:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Trello refresh requires both client_id and client_secret. "
+                    "Configure connector client_secret or MALCOM_TRELLO_OAUTH_CLIENT_SECRET and reconnect if needed."
                 ),
             )
         _, refresh_fn = _get_provider_oauth_handlers(provider)

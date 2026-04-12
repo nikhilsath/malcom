@@ -211,6 +211,34 @@ test("toggles notifications and restores the defaults against the real settings 
   await expect(page.locator("#settings-notifications-digest-select")).toHaveValue("hourly");
 });
 
+test("saves payload redaction settings from the data page and keeps the toggle active", async ({ page, request }) => {
+  await resetSettings(request);
+
+  await page.goto("/settings/data.html");
+
+  await expect(page.locator("#page-title")).toHaveText("Settings Data");
+  await expect(page.locator("#settings-data-redaction-description")).not.toContainText("Coming soon");
+  await expect(page.locator("#settings-data-redaction-checkbox")).toBeChecked();
+  await expect(page.locator("#settings-data-redaction-label")).toHaveText("Enabled");
+
+  await page.locator("#settings-data-redaction-toggle").click();
+  await page.locator("#settings-save-button").click();
+
+  await expect(page.locator("#settings-feedback")).toHaveText("Settings saved to the database.");
+  await expect(page.locator("#settings-data-redaction-checkbox")).not.toBeChecked();
+  await expect(page.locator("#settings-data-redaction-label")).toHaveText("Disabled");
+
+  const response = await request.get("/api/v1/settings");
+  expect(response.ok()).toBeTruthy();
+  const settings = await response.json();
+  expect(settings.data.payload_redaction).toBe(false);
+
+  await page.reload();
+
+  await expect(page.locator("#settings-data-redaction-checkbox")).not.toBeChecked();
+  await expect(page.locator("#settings-data-redaction-label")).toHaveText("Disabled");
+});
+
 test("saves and resets access security settings against the real settings API", async ({ page, request }) => {
   await resetSettings(request);
 

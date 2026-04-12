@@ -30,7 +30,7 @@ from backend.schemas.apis import (
     WebhookApiResourceCreate,
 )
 from backend.services.support import *
-from backend.services.github_webhook import extract_delivery_id, normalize_github_event
+from backend.services.github_webhook import dispatch_normalized_event, extract_delivery_id, normalize_github_event
 
 
 JsonLoader = Callable[[], Awaitable[Any]]
@@ -52,6 +52,31 @@ class InboundReceiveResult:
 class WebhookReceiveResult:
     accepted: InboundReceiveAccepted
     event_id: str
+
+
+def _payload_redaction_enabled(connection: Any) -> bool:
+    data_settings = read_stored_settings_section(connection, "data") or {}
+    configured = data_settings.get("payload_redaction")
+    return True if not isinstance(configured, bool) else configured
+
+
+def _redact_stored_event_samples(
+    connection: Any,
+    *,
+    headers: dict[str, str] | None,
+    payload: Any,
+    raw_body: str | None = None,
+) -> tuple[dict[str, str] | None, Any, str | None]:
+    enabled = _payload_redaction_enabled(connection)
+    redacted_headers = redact_sensitive_payload_sample(headers, enabled=enabled) if headers is not None else None
+    redacted_payload = redact_sensitive_payload_sample(payload, enabled=enabled)
+    redacted_raw_body = raw_body
+    if enabled and raw_body is not None and isinstance(payload, (dict, list)):
+        try:
+            redacted_raw_body = json.dumps(redacted_payload)
+        except (TypeError, ValueError):
+            redacted_raw_body = raw_body
+    return redacted_headers, redacted_payload, redacted_raw_body
 
 
 def _raise_path_slug_conflict(error: Exception) -> None:
@@ -409,6 +434,11 @@ async def receive_inbound_event_result(
             error_message=str(error),
         )
 
+    redacted_headers, redacted_payload, _ = _redact_stored_event_samples(
+        connection,
+        headers=headers,
+        payload=payload,
+    )
     log_event(
         connection,
         logger,
@@ -416,8 +446,8 @@ async def receive_inbound_event_result(
         api_id=api_id,
         received_at=received_at,
         status_value="accepted",
-        headers=headers,
-        payload=payload,
+        headers=redacted_headers or {},
+        payload=redacted_payload,
         source_ip=source_ip,
         error_message=None,
     )
@@ -522,6 +552,12 @@ def log_webhook_event(
     error_message: str | None,
     triggered_automation_count: int = 0,
 ) -> None:
+    redacted_headers, redacted_payload, redacted_raw_body = _redact_stored_event_samples(
+        connection,
+        headers=headers,
+        payload=payload,
+        raw_body=raw_body,
+    )
     connection.execute(
         """
         INSERT INTO webhook_api_events (
@@ -551,9 +587,9 @@ def log_webhook_event(
             delivery_id,
             int(verification_ok),
             int(signature_ok),
-            json.dumps(headers),
-            json.dumps(payload) if payload is not None else None,
-            raw_body,
+            json.dumps(redacted_headers),
+            json.dumps(redacted_payload) if redacted_payload is not None else None,
+            redacted_raw_body,
             source_ip,
             error_message,
             triggered_automation_count,
@@ -730,12 +766,14 @@ async def receive_webhook_event(
         "callback_path": api_row.get("callback_path") or "",
         "delivery_id": delivery_id,
     }
+    normalized_metadata: dict[str, Any] | None = None
     # Attach normalized GitHub event if this looks like a GitHub delivery
     try:
         if event_name and (str(event_name).lower() in ("push", "pull_request") or headers.get("x-github-event")):
             normalized, metadata = normalize_github_event(payload if isinstance(payload, dict) else {}, str(event_name or ""))
             webhook_payload["normalized"] = normalized
             webhook_payload["normalized_metadata"] = metadata
+            normalized_metadata = metadata
     except Exception:
         # Normalization must not break webhook processing; log and continue.
         try:
@@ -775,7 +813,7 @@ async def receive_webhook_event(
                     trigger={"type": "webhook", "api_id": api_row["id"], "event_id": event_id, "payload": None, "received_at": received_at},
                 ),
             )
-    triggered_automation_count = _execute_matching_webhook_automations(
+    inbound_trigger_count = _execute_matching_webhook_automations(
         connection,
         logger,
         api_id=api_row["id"],
@@ -783,6 +821,17 @@ async def receive_webhook_event(
         root_dir=root_dir,
         database_url=database_url,
     )
+    github_trigger_count = 0
+    if isinstance(webhook_payload.get("normalized"), dict) and isinstance(normalized_metadata, dict):
+        github_trigger_count = dispatch_normalized_event(
+            connection,
+            logger,
+            webhook_payload["normalized"],
+            normalized_metadata,
+            root_dir=root_dir,
+            database_url=database_url,
+        )
+    triggered_automation_count = inbound_trigger_count + github_trigger_count
     log_webhook_event(
         connection,
         event_id=event_id,
@@ -1111,6 +1160,11 @@ def _log_and_raise_inbound_event_error(
     source_ip: str | None,
     error_message: str,
 ) -> None:
+    redacted_headers, _, _ = _redact_stored_event_samples(
+        connection,
+        headers=headers,
+        payload=None,
+    )
     log_event(
         connection,
         logger,
@@ -1118,7 +1172,7 @@ def _log_and_raise_inbound_event_error(
         api_id=api_id,
         received_at=received_at,
         status_value=status_value,
-        headers=headers,
+        headers=redacted_headers or {},
         payload=None,
         source_ip=source_ip,
         error_message=error_message,

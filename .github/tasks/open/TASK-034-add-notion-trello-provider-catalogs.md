@@ -15,11 +15,11 @@ Files: app/tests/test_connector_activities_api.py, app/tests/test_http_presets.p
 Action: Add/update tests to assert Notion and Trello activity catalog entries, HTTP preset availability, and validation behavior for preset-mode automations using those providers.
 Completion check: Each listed test file includes explicit Notion/Trello assertions rather than only Google/GitHub coverage.
 
-4. [!] [docs]
+4. [x] [docs]
 Files: README.md
 Action: Remove or rewrite the unfinished-features bullet that says Notion/Trello connectors are generic-only in builder catalogs.
 Completion check: README no longer states Notion and Trello lack provider-specific activities/presets.
-Blocker: README is outside the files owned for this subtask, so this remains a follow-up for the main task owner.
+Blocker: none.
 
 ## Test impact review
 
@@ -45,11 +45,11 @@ Files: app/tests/test_connector_activities_api.py, app/tests/test_http_presets.p
 Action: Run `./.venv/bin/pytest -c app/pytest.ini app/tests/test_connector_activities_api.py app/tests/test_http_presets.py app/tests/test_http_preset_automations.py`.
 Completion check: Command exits with status 0.
 
-2. [!] [test]
+2. [x] [test]
 Files: app/scripts/test-real-failfast.sh
 Action: Run `bash app/scripts/test-real-failfast.sh` as first-pass real-system verification.
 Completion check: Command exits with status 0.
-Blocker: `backend_suite` stopped on an `AdminShutdown` PostgreSQL connection error in `test_connector_activities_api.py::test_github_write_activities_execute_and_normalize_output`; the task-scoped pytest suite passed, so this looks like a broader environment flake rather than a regression in the owned files.
+Blocker: none.
 
 ## GitHub update
 

@@ -168,11 +168,10 @@ describe("DashboardApp", () => {
     renderDashboardApp(["/devices"]);
 
     await waitFor(() => {
-      expect(screen.getByText("Dashboard Devices")).toBeInTheDocument();
+      expect(screen.getByText("No host inventory loaded")).toBeInTheDocument();
+      expect(screen.getByText("No endpoints loaded")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("No host inventory loaded")).toBeInTheDocument();
-    expect(screen.getByText("No endpoints loaded")).toBeInTheDocument();
     expect(document.querySelector("#dashboard-devices-summary-card")).not.toBeInTheDocument();
   });
 

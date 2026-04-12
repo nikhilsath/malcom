@@ -116,7 +116,7 @@
     },
     {
       "routePath": "/automations/builder.html",
-      "workflowContract": "Creates and edits automation drafts, validates and runs saved workflows, and keeps the guided builder flow covered in end-to-end navigation.",
+      "workflowContract": "Creates and edits automation drafts, validates and runs saved workflows, keeps the guided builder flow covered in end-to-end navigation, and persists GitHub trigger settings through the real builder UI.",
       "owners": [
         {
           "spec": "automations-builder.spec.ts",
@@ -125,6 +125,12 @@
             "edits an existing automation, validates, runs, and deletes it",
             "keeps a new draft intact when a prior run finishes later",
             "defaults to guided mode for new drafts and allows switching to canvas mode"
+          ]
+        },
+        {
+          "spec": "github-trigger.spec.ts",
+          "testIds": [
+            "creates and persists a GitHub trigger automation through the builder"
           ]
         }
       ]

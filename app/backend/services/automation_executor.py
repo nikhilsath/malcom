@@ -90,6 +90,12 @@ from backend.services.automation_step_executors.outbound_request import (
 )
 
 
+BACKGROUND_DELIVERY_EXECUTOR = ThreadPoolExecutor(
+    max_workers=8,
+    thread_name_prefix="malcom-http-bg",
+)
+
+
 def _execute_automation_step_impl(
     connection: Any,
     logger: logging.Logger,
@@ -252,6 +258,33 @@ def _execute_automation_step_impl(
         if isinstance(result, dict) and result.get("status"):
             return RuntimeExecutionResult(status=result.get("status"), response_summary=result.get("response_summary") or "", detail=result.get("detail"), output=result.get("detail"))
         return RuntimeExecutionResult(status="completed", response_summary="Tool executed.", detail=result, output=result)
+
+    if step.type == "storage":
+        from backend.services.automation_step_executors.storage import execute_storage_step
+
+        exec_result = execute_storage_step(
+            connection,
+            logger,
+            step=step,
+            context=context,
+            root_dir=root_dir,
+        )
+        if exec_result.get("error"):
+            return RuntimeExecutionResult(
+                status="failed",
+                response_summary=exec_result.get("error"),
+                detail={"error": exec_result.get("error")},
+                output={},
+            )
+        runtime_result = exec_result.get("result")
+        if isinstance(runtime_result, RuntimeExecutionResult):
+            return runtime_result
+        return RuntimeExecutionResult(
+            status="completed",
+            response_summary="Storage step executed.",
+            detail=runtime_result,
+            output=runtime_result,
+        )
 
     compiled = ast.parse(step.config.expression or "", mode="eval")
     result = bool(

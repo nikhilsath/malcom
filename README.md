@@ -249,12 +249,4 @@ Do not introduce a parallel documentation system outside those locations.
 
 ## Unfinished Features
 
-These gaps are visible in the current codebase and should be treated as active follow-up work:
-
-
-- GitHub trigger setup is exposed in the automation builder, but the dedicated webhook dispatch helper in [`app/backend/services/github_webhook.py`](/Users/nikhilsathyanarayana/Documents/malcom/app/backend/services/github_webhook.py) still stops at logging instead of enqueueing runtime work.
-- The browser test for GitHub trigger creation is still a smoke placeholder in [`app/ui/e2e/github-trigger.spec.ts`](/Users/nikhilsathyanarayana/Documents/malcom/app/ui/e2e/github-trigger.spec.ts).
-- The standalone storage automation step executor is still unimplemented in [`app/backend/services/automation_step_executors/storage.py`](/Users/nikhilsathyanarayana/Documents/malcom/app/backend/services/automation_step_executors/storage.py), so storage behavior currently rides through Log-step storage options instead.
-- Notion and Trello connectors can be stored and used generically, but they still do not ship provider-specific connector activities or HTTP presets in the builder.
-- Trello OAuth support is still limited by a demo-style callback contract and does not support refresh tokens.
-- Settings Data still labels payload redaction as coming soon in [`app/ui/settings/data.html`](/Users/nikhilsathyanarayana/Documents/malcom/app/ui/settings/data.html).
+Current follow-up work is tracked in [`.github/tasks/open/`](/Users/nikhilsathyanarayana/Documents/malcom/.github/tasks/open/).

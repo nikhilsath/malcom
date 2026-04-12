@@ -379,6 +379,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertFalse(providers["github"]["oauth_supported"])
         self.assertTrue(providers["notion"]["oauth_supported"])
         self.assertTrue(providers["trello"]["oauth_supported"])
+        self.assertTrue(providers["trello"]["refresh_supported"])
         self.assertIsNone(providers["github"]["default_redirect_path"])
         self.assertEqual(providers["trello"]["default_redirect_path"], "/api/v1/connectors/trello/oauth/callback")
         self.assertIn("access_token_input", providers["github"]["required_fields"])
@@ -606,14 +607,17 @@ class ConnectorsApiTestCase(unittest.TestCase):
                 "redirect_uri": "http://localhost:8000/api/v1/connectors/trello/oauth/callback",
                 "owner": "Workspace",
                 "client_id": "trello-client-id",
-                "client_secret_input": "",
+                "client_secret_input": "trello-client-secret",
                 "scopes": ["read", "write"],
             },
         )
         self.assertEqual(start_response.status_code, 200)
         start_body = start_response.json()
         self.assertEqual(start_body["connector"]["status"], "pending_oauth")
-        self.assertIn("trello.com/1/authorize", start_body["authorization_url"])
+        self.assertIn("auth.atlassian.com/authorize", start_body["authorization_url"])
+        self.assertIn("response_type=code", start_body["authorization_url"])
+        self.assertIn("prompt=consent", start_body["authorization_url"])
+        self.assertIn("offline_access", start_body["authorization_url"])
 
         callback_response = self.client.get(
             f"/api/v1/connectors/trello/oauth/callback?state={start_body['state']}&code=demo-trello"
@@ -623,7 +627,7 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertTrue(callback_body["ok"])
         self.assertEqual(callback_body["message"], "Trello connector authorized successfully.")
         self.assertEqual(callback_body["connector"]["status"], "connected")
-        self.assertFalse(callback_body["connector"]["auth_config"]["has_refresh_token"])
+        self.assertTrue(callback_body["connector"]["auth_config"]["has_refresh_token"])
 
         test_response = self.client.post("/api/v1/connectors/trello-primary/test")
         self.assertEqual(test_response.status_code, 200)
@@ -633,8 +637,11 @@ class ConnectorsApiTestCase(unittest.TestCase):
         self.assertEqual(test_body["connector"]["status"], "connected")
 
         refresh_response = self.client.post("/api/v1/connectors/trello-primary/refresh")
-        self.assertEqual(refresh_response.status_code, 409)
-        self.assertEqual(refresh_response.json()["detail"], "Trello does not support token refresh.")
+        self.assertEqual(refresh_response.status_code, 200)
+        refresh_body = refresh_response.json()
+        self.assertTrue(refresh_body["ok"])
+        self.assertEqual(refresh_body["connector"]["status"], "connected")
+        self.assertTrue(refresh_body["connector"]["auth_config"]["has_refresh_token"])
 
         revoke_response = self.client.post("/api/v1/connectors/trello-primary/revoke")
         self.assertEqual(revoke_response.status_code, 200)
@@ -655,12 +662,13 @@ class ConnectorsApiTestCase(unittest.TestCase):
                     "client_id": "",
                     "client_secret_input": "",
                 },
-            )
+        )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["connector"]["auth_config"]["client_id"], "trello-env-client-id")
-        self.assertIn("key=trello-env-client-id", body["authorization_url"])
+        self.assertIn("auth.atlassian.com/authorize", body["authorization_url"])
+        self.assertIn("client_id=trello-env-client-id", body["authorization_url"])
 
 
 if __name__ == "__main__":

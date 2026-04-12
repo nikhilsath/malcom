@@ -102,7 +102,7 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual([item["value"] for item in body["trigger_types"]], ["manual", "schedule", "inbound_api", "github", "smtp_email"])
         self.assertEqual(
             [item["value"] for item in body["step_types"]],
-            ["log", "connector_activity", "outbound_request", "script", "tool", "condition", "llm_chat"],
+            ["log", "storage", "connector_activity", "outbound_request", "script", "tool", "condition", "llm_chat"],
         )
         self.assertEqual([item["value"] for item in body["http_methods"]], ["GET", "POST", "PUT", "PATCH", "DELETE"])
         self.assertEqual([item["value"] for item in body["storage_types"]], ["table", "csv", "json", "other"])
@@ -154,6 +154,161 @@ class AutomationsApiTestCase(unittest.TestCase):
         delete_response = self.client.delete(f"/api/v1/automations/{automation['id']}")
         self.assertEqual(delete_response.status_code, 204)
         self.assertEqual(self.client.get("/api/v1/automations").json(), [])
+
+    def test_storage_step_is_accepted_by_automation_validation(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Storage automation",
+                "description": "Persists the current payload to workflow storage.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "storage",
+                        "name": "Persist payload",
+                        "config": {
+                            "storage_type": "json",
+                            "storage_target": "events",
+                            "storage_new_file": False,
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        automation = create_response.json()
+        self.assertEqual(automation["step_count"], 1)
+
+        validate_response = self.client.post(f"/api/v1/automations/{automation['id']}/validate")
+        self.assertEqual(validate_response.status_code, 200)
+        self.assertTrue(validate_response.json()["valid"])
+
+    def test_storage_step_executes_and_persists_run_step(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Storage execute automation",
+                "description": "Executes a storage step during manual runs.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "type": "storage",
+                        "name": "Persist payload",
+                        "config": {
+                            "storage_type": "json",
+                            "storage_target": "storage-execute",
+                            "storage_new_file": False,
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        automation = create_response.json()
+
+        execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(len(run["steps"]), 1)
+        self.assertEqual(run["steps"][0]["step_name"], "Persist payload")
+        self.assertEqual(run["steps"][0]["status"], "completed")
+
+    def test_update_automation_rewrites_client_draft_step_ids(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Draft step automation",
+                "description": "Persists client draft step IDs safely.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "id": "draft-step-1",
+                        "type": "outbound_request",
+                        "name": "Notify webhook",
+                        "config": {
+                            "destination_url": "https://example.com/webhook",
+                            "payload_template": "{\"event\":\"created\"}",
+                            "wait_for_response": True,
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        automation = create_response.json()
+
+        update_response = self.client.patch(
+            f"/api/v1/automations/{automation['id']}",
+            json={
+                "name": "Draft step automation",
+                "description": "Updated draft step automation.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "id": "draft-step-1",
+                        "type": "outbound_request",
+                        "name": "Notify webhook",
+                        "config": {
+                            "destination_url": "https://example.com/webhook",
+                            "payload_template": "{\"event\":\"updated\"}",
+                            "wait_for_response": True,
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(update_response.status_code, 200, update_response.text)
+
+        detail_response = self.client.get(f"/api/v1/automations/{automation['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["steps"][0]["config"]["payload_template"], "{\"event\":\"updated\"}")
+        self.assertNotEqual(detail["steps"][0]["id"], "draft-step-1")
+
+    def test_github_trigger_round_trips_event_arrays(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "GitHub trigger automation",
+                "description": "Persists GitHub trigger arrays.",
+                "enabled": True,
+                "trigger_type": "github",
+                "trigger_config": {
+                    "github_owner": "octocat",
+                    "github_repo": "hello-world",
+                    "github_events": ["push", "pull_request"],
+                    "github_secret": "webhook-secret",
+                },
+                "steps": [
+                    {
+                        "type": "outbound_request",
+                        "name": "Notify webhook",
+                        "config": {
+                            "destination_url": "https://example.com/webhook",
+                            "payload_template": "{\"event\":\"github\"}",
+                            "wait_for_response": True,
+                        },
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.text)
+        automation = create_response.json()
+        self.assertEqual(automation["trigger_config"]["github_events"], ["push", "pull_request"])
+
+        detail_response = self.client.get(f"/api/v1/automations/{automation['id']}")
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["trigger_config"]["github_events"], ["push", "pull_request"])
 
     def test_schedule_automation_registers_scheduler_job(self) -> None:
         response = self.client.post(

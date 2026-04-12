@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from backend.database import connect, fetch_all
 from backend.main import app
 from backend.services.automation_execution import get_settings_payload
+from backend.services.support import redact_sensitive_payload_sample
 from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
 
 
@@ -41,6 +42,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["security"]["session_timeout_minutes"], 60)
         self.assertFalse(body["security"]["dual_approval_required"])
         self.assertEqual(body["security"]["token_rotation_days"], 30)
+        self.assertTrue(body["data"]["payload_redaction"])
         self.assertEqual(body["automation"]["default_tool_retries"], 2)
         self.assertEqual(body["proxy"]["domain"], "")
         self.assertEqual(body["proxy"]["http_port"], 80)
@@ -60,7 +62,38 @@ class SettingsApiTestCase(unittest.TestCase):
 
         self.assertEqual(payload["general"]["environment"], "live")
         self.assertNotIn("connectors", payload)
+        self.assertTrue(payload["data"]["payload_redaction"])
         self.assertEqual([item["value"] for item in payload["options"]["notification_channels"]], ["email", "pager"])
+
+    def test_redact_sensitive_payload_sample_masks_nested_credentials(self) -> None:
+        payload = {
+            "event": "webhook.received",
+            "authorization": "Bearer example-token",
+            "headers": {
+                "x-github-event": "push",
+                "x-api-key": "super-secret",
+            },
+            "data": {
+                "nested": [
+                    {
+                        "client_secret": "client-secret-value",
+                        "notes": "safe",
+                    }
+                ],
+                "token_count": 3,
+            },
+        }
+
+        redacted = redact_sensitive_payload_sample(payload, enabled=True)
+        self.assertEqual(redacted["event"], "webhook.received")
+        self.assertEqual(redacted["authorization"], "[redacted]")
+        self.assertEqual(redacted["headers"]["x-github-event"], "push")
+        self.assertEqual(redacted["headers"]["x-api-key"], "[redacted]")
+        self.assertEqual(redacted["data"]["nested"][0]["client_secret"], "[redacted]")
+        self.assertEqual(redacted["data"]["nested"][0]["notes"], "safe")
+        self.assertEqual(redacted["data"]["token_count"], "[redacted]")
+
+        self.assertEqual(redact_sensitive_payload_sample(payload, enabled=False), payload)
 
     def test_get_settings_ignores_legacy_connectors_settings_row(self) -> None:
         connection = connect(database_url=self.database_url)
@@ -109,6 +142,11 @@ class SettingsApiTestCase(unittest.TestCase):
                     "dual_approval_required": True,
                     "token_rotation_days": 90,
                 },
+                "data": {
+                    "payload_redaction": False,
+                    "export_window_utc": "04:00",
+                    "workflow_storage_path": "data/workflows",
+                },
             },
         )
 
@@ -121,6 +159,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(body["security"]["session_timeout_minutes"], 120)
         self.assertTrue(body["security"]["dual_approval_required"])
         self.assertEqual(body["security"]["token_rotation_days"], 90)
+        self.assertFalse(body["data"]["payload_redaction"])
 
         connection = connect(database_url=self.database_url)
         try:
@@ -143,6 +182,7 @@ class SettingsApiTestCase(unittest.TestCase):
         self.assertEqual(saved_settings["security"]["session_timeout_minutes"], 120)
         self.assertTrue(saved_settings["security"]["dual_approval_required"])
         self.assertEqual(saved_settings["security"]["token_rotation_days"], 90)
+        self.assertFalse(saved_settings["data"]["payload_redaction"])
 
     def test_patch_proxy_settings_persists_and_syncs(self) -> None:
         with patch("backend.routes.settings.sync_proxy_to_caddy_runtime") as mock_sync:

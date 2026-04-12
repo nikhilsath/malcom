@@ -14,6 +14,7 @@ from fastapi import status
 
 from backend.services.connector_trello_oauth_client import (
     exchange_trello_oauth_code_for_tokens,
+    refresh_trello_access_token,
     revoke_trello_token,
 )
 

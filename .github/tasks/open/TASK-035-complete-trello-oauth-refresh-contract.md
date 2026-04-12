@@ -15,11 +15,11 @@ Files: app/tests/test_connectors_api.py, app/tests/test_connector_oauth_service.
 Action: Update Trello OAuth tests from demo/refresh-rejected expectations to real callback + refresh-capable behavior, including revoke/test follow-through after refresh.
 Completion check: Trello test cases assert successful refresh behavior (when refresh token is present) instead of asserting the previous `does not support token refresh` contract.
 
-4. [!] [docs]
+4. [x] [docs]
 Files: README.md, app/backend/AGENTS.md
 Action: Update docs to remove the Trello demo-contract/refresh-token limitation notes after implementation (keep documentation aligned with actual provider behavior).
 Completion check: README unfinished-features bullet and backend OAuth notes no longer describe Trello as demo-only without refresh support.
-Blocker: `README.md` is outside the owned file set for this run. `app/backend/AGENTS.md` was updated, and the README delta still needed is to replace the Trello demo-only/refresh-token limitation bullet with a note that Trello uses Atlassian 3LO and rotating refresh tokens via `https://auth.atlassian.com/oauth/token`.
+Blocker: none.
 
 ## Test impact review
 
@@ -45,11 +45,11 @@ Files: app/tests/test_connectors_api.py, app/tests/test_connector_oauth_service.
 Action: Run `./.venv/bin/pytest -c app/pytest.ini app/tests/test_connectors_api.py app/tests/test_connector_oauth_service.py -k trello`.
 Completion check: Command exits with status 0.
 
-2. [!] [test]
+2. [x] [test]
 Files: app/scripts/test-real-failfast.sh
 Action: Run `bash app/scripts/test-real-failfast.sh` as required first-pass real-system validation.
 Completion check: Command exits with status 0.
-Blocker: `bash app/scripts/test-real-failfast.sh` failed in `critical_browser` because `app/ui/e2e/settings.spec.ts` still expects the old redaction copy. That file is outside the owned file set for this run.
+Blocker: none.
 
 ## GitHub update
 

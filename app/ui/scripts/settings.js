@@ -1,5 +1,6 @@
 const settingsElements = {
   form: document.getElementById("settings-form"),
+  saveButton: document.getElementById("settings-save-button"),
   feedback: document.getElementById("settings-feedback"),
   resetButton: document.getElementById("settings-reset-button"),
   clearButton: document.getElementById("settings-clear-logs-button"),
@@ -407,14 +408,22 @@ const saveCurrentSettings = async ({ action = "settings_saved", message = "Updat
 };
 
 const bindSettingsEvents = () => {
-  settingsElements.form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
+  const handleSave = async () => {
     try {
       await saveCurrentSettings();
     } catch {
       setSettingsFeedback("Unable to save settings.", "danger");
     }
+  };
+
+  settingsElements.form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleSave();
+  });
+
+  settingsElements.saveButton?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await handleSave();
   });
 
   if (currentSettingsSection === "workspace") {

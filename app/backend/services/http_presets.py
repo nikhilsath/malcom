@@ -552,6 +552,78 @@ GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET = HttpRequestPreset(
     ],
 )
 
+NOTION_QUERY_DATABASE_PRESET = HttpRequestPreset(
+    preset_id="notion_query_database_http",
+    provider_id="notion",
+    service="databases",
+    operation="read",
+    label="Query database",
+    description="Query a Notion database and return matching pages.",
+    http_method="POST",
+    endpoint_path_template="/databases/{{database_id}}/query",
+    payload_template='{"page_size": 100}',
+    input_schema=[
+        {"key": "database_id", "label": "Database ID", "type": "string", "required": True},
+        {"key": "page_size", "label": "page_size", "type": "integer", "required": False, "default": 100},
+        {"key": "start_cursor", "label": "start_cursor", "type": "string", "required": False},
+        {"key": "filter_json", "label": "filter", "type": "text", "required": False, "placeholder": "{}"},
+        {"key": "sorts_json", "label": "sorts", "type": "text", "required": False, "placeholder": "[]"},
+    ],
+)
+
+NOTION_CREATE_PAGE_PRESET = HttpRequestPreset(
+    preset_id="notion_create_page_http",
+    provider_id="notion",
+    service="pages",
+    operation="write",
+    label="Create page",
+    description="Create a page in a Notion database.",
+    http_method="POST",
+    endpoint_path_template="/pages",
+    payload_template='{"parent":{"database_id":"{{database_id}}"},"properties":"{{properties_json}}"}',
+    input_schema=[
+        {"key": "database_id", "label": "Database ID", "type": "string", "required": True},
+        {"key": "properties_json", "label": "Properties JSON", "type": "text", "required": True, "placeholder": "{}"},
+        {"key": "children_json", "label": "Children JSON", "type": "text", "required": False, "placeholder": "[]"},
+    ],
+)
+
+TRELLO_LIST_BOARD_CARDS_PRESET = HttpRequestPreset(
+    preset_id="trello_list_board_cards_http",
+    provider_id="trello",
+    service="boards",
+    operation="read",
+    label="List board cards",
+    description="List cards from a Trello board.",
+    http_method="GET",
+    endpoint_path_template="/boards/{{board_id}}/cards",
+    payload_template="{}",
+    query_params={"fields": "id,name,idList,url,closed,due"},
+    input_schema=[
+        {"key": "board_id", "label": "Board ID", "type": "string", "required": True},
+        {"key": "limit", "label": "limit", "type": "integer", "required": False, "default": 20},
+        {"key": "card_filter", "label": "filter", "type": "string", "required": False, "default": "all"},
+    ],
+)
+
+TRELLO_CREATE_CARD_PRESET = HttpRequestPreset(
+    preset_id="trello_create_card_http",
+    provider_id="trello",
+    service="cards",
+    operation="write",
+    label="Create card",
+    description="Create a Trello card on a list.",
+    http_method="POST",
+    endpoint_path_template="/cards",
+    payload_template='{"idList":"{{list_id}}","name":"{{name}}","desc":"{{desc}}"}',
+    input_schema=[
+        {"key": "list_id", "label": "List ID", "type": "string", "required": True},
+        {"key": "name", "label": "Name", "type": "string", "required": True},
+        {"key": "desc", "label": "Description", "type": "text", "required": False},
+        {"key": "due", "label": "Due", "type": "string", "required": False},
+    ],
+)
+
 # ── Preset Catalog ────────────────────────────────────────────────────────
 
 GOOGLE_HTTP_PRESETS = (
@@ -573,9 +645,21 @@ GITHUB_HTTP_PRESETS = (
     GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET,
 )
 
+NOTION_HTTP_PRESETS = (
+    NOTION_QUERY_DATABASE_PRESET,
+    NOTION_CREATE_PAGE_PRESET,
+)
+
+TRELLO_HTTP_PRESETS = (
+    TRELLO_LIST_BOARD_CARDS_PRESET,
+    TRELLO_CREATE_CARD_PRESET,
+)
+
 DEFAULT_HTTP_PRESET_CATALOG = (
     *GOOGLE_HTTP_PRESETS,
     *GITHUB_HTTP_PRESETS,
+    *NOTION_HTTP_PRESETS,
+    *TRELLO_HTTP_PRESETS,
 )
 
 

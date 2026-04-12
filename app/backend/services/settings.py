@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from backend.database import fetch_one
@@ -56,9 +57,58 @@ def delete_stored_settings_section(connection: Any, key: str) -> None:
     connection.commit()
 
 
+_SENSITIVE_PAYLOAD_FIELD_PATTERNS = (
+    "authorization",
+    "api_key",
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "private_key",
+    "credential",
+    "password",
+    "secret",
+    "token",
+    "cookie",
+    "session",
+)
+_REDACTED_PAYLOAD_VALUE = "[redacted]"
+
+
+def _normalize_sensitive_payload_key(key: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(key).strip().lower()).strip("_")
+
+
+def _is_sensitive_payload_key(key: Any) -> bool:
+    normalized_key = _normalize_sensitive_payload_key(key)
+    if not normalized_key:
+        return False
+    return any(pattern in normalized_key for pattern in _SENSITIVE_PAYLOAD_FIELD_PATTERNS)
+
+
+def redact_sensitive_payload_sample(value: Any, *, enabled: bool = True) -> Any:
+    """Return a redacted copy of a stored event sample when redaction is enabled."""
+    if not enabled:
+        return value
+
+    if isinstance(value, dict):
+        redacted_value: dict[Any, Any] = {}
+        for key, item in value.items():
+            if _is_sensitive_payload_key(key):
+                redacted_value[key] = _REDACTED_PAYLOAD_VALUE
+            else:
+                redacted_value[key] = redact_sensitive_payload_sample(item, enabled=True)
+        return redacted_value
+
+    if isinstance(value, list):
+        return [redact_sensitive_payload_sample(item, enabled=True) for item in value]
+
+    return value
+
+
 __all__ = [
     "delete_stored_settings_section",
     "merge_settings_section",
     "read_stored_settings_section",
+    "redact_sensitive_payload_sample",
     "write_settings_section",
 ]

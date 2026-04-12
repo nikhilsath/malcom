@@ -172,7 +172,7 @@ Trello now supports guided OAuth onboarding in the connector flow. You can confi
 
 Default Trello OAuth callback path: `/api/v1/connectors/trello/oauth/callback`.
 
-Note: Trello's current onboarding contract does not provide long-lived refresh tokens; the connector flow treats Trello as an access-token-only provider and refresh attempts will return `409` with a suitable message.
+Trello uses the Atlassian 3LO code flow. Include `offline_access` in the authorization scope when you need rotating refresh tokens, and persist the latest access/refresh pair returned from `https://auth.atlassian.com/oauth/token`.
 
 ---
 

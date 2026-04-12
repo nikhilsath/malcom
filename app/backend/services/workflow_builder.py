@@ -31,6 +31,7 @@ AUTOMATION_TRIGGER_TYPE_OPTIONS: tuple[dict[str, str], ...] = (
 
 AUTOMATION_STEP_TYPE_OPTIONS: tuple[dict[str, str], ...] = (
     {"value": "log", "label": "Write", "description": "Write a row to a managed database table."},
+    {"value": "storage", "label": "Storage", "description": "Write the current payload to workflow storage."},
     {
         "value": "connector_activity",
         "label": "Connector action",

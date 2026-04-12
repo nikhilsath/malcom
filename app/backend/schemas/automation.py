@@ -62,6 +62,7 @@ class AutomationTriggerConfig(BaseModel):
     github_owner: str | None = Field(default=None, max_length=120)
     github_repo: str | None = Field(default=None, max_length=120)
     github_event_type: str | None = Field(default=None, max_length=120)
+    github_events: list[str] | None = Field(default=None, max_length=20)
     github_branch_filter: str | None = Field(default=None, max_length=200)
     github_path_filter: str | None = Field(default=None, max_length=1000)
     github_secret: str | None = Field(default=None, max_length=500)
@@ -113,7 +114,7 @@ class AutomationStepConfig(BaseModel):
 
 class AutomationStepDefinition(BaseModel):
     id: str | None = Field(default=None, max_length=120)
-    type: Literal["log", "outbound_request", "connector_activity", "script", "tool", "condition", "llm_chat"]
+    type: Literal["log", "storage", "outbound_request", "connector_activity", "script", "tool", "condition", "llm_chat"]
     name: str = Field(min_length=1, max_length=120)
     config: AutomationStepConfig = Field(default_factory=AutomationStepConfig)
     on_true_step_id: str | None = Field(default=None, max_length=120)
