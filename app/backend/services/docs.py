@@ -251,8 +251,8 @@ def create_docs_article(
 
 
 def sync_docs_from_repo(connection: Any, root_dir: Path) -> int:
-    """Scan docs/ directory for *.md files and upsert metadata rows."""
-    docs_dir = root_dir / "docs"
+    """Scan data/docs/ directory for *.md files and upsert metadata rows."""
+    docs_dir = root_dir / "data" / "docs"
     if not docs_dir.is_dir():
         return 0
     synced = 0

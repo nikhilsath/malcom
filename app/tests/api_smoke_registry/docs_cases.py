@@ -41,6 +41,16 @@ def doc_setup(context: SmokeContext) -> dict[str, Any]:
     return {"doc": response.json()}
 
 
+def _assert_doc_detail_has_content(response: Any, _: SmokeContext, __: dict[str, Any]) -> None:
+    """Validate that docs detail response includes non-empty content from markdown file."""
+    assert_json_response(response, _, __)
+    data = response.json()
+    assert "content" in data, "Response missing 'content' field"
+    assert isinstance(data["content"], str), "Content must be a string"
+    assert len(data["content"]) > 0, "Content must not be empty (markdown file not loaded)"
+    assert "#" in data["content"], "Content should contain markdown heading"
+
+
 DOC_DETAIL_PATH = state_path("doc", "slug", prefix="/api/v1/docs/")
 
 DOCS_CASES: tuple[RouteSmokeCase, ...] = (
@@ -58,7 +68,7 @@ DOCS_CASES: tuple[RouteSmokeCase, ...] = (
         DOC_DETAIL_PATH,
         "/api/v1/docs/{slug}",
         doc_setup,
-        response_assert=assert_json_response,
+        response_assert=_assert_doc_detail_has_content,
     ),
     action_case(
         "docs-update",
