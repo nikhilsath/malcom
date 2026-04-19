@@ -26,6 +26,7 @@ TABLES_TO_TRUNCATE = (
     "tool_configs",
     "connector_endpoint_definitions",
     "connectors",
+    "frontend_sessions",
     "connector_auth_policies",
     "settings",
     "integration_presets",

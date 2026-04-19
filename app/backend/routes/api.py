@@ -7,6 +7,7 @@ from backend.routes.automations import router as automations_router
 from backend.routes.connectors import router as connectors_router
 from backend.routes.docs import router as docs_router
 from backend.routes.log_tables import router as log_tables_router
+from backend.routes.platform import router as platform_router
 from backend.routes.runtime import router as runtime_router
 from backend.routes.scripts import router as scripts_router
 from backend.routes.settings import router as settings_router
@@ -17,6 +18,7 @@ from backend.routes.workers import router as workers_router
 router = APIRouter()
 
 router.include_router(runtime_router)
+router.include_router(platform_router)
 router.include_router(automations_router)
 router.include_router(docs_router)
 router.include_router(log_tables_router)

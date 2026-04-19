@@ -34,6 +34,8 @@ set -uo pipefail
 # TASK-030 (2026-04-11): the fail-fast runner now uses only the canonical
 # system-result.json artifact path, and bootstrap prerequisite failures must be
 # described through the same machine-readable contract.
+# TASK-031 (2026-04-19): hosted frontend platform persistence (`frontend_sessions`)
+# must stay documented in AGENTS.md and README.md when backend/database.py changes.
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
@@ -437,6 +439,14 @@ check_db_schema_docs_sync() {
 
   if ! path_changed "README.md"; then
     missing+=("README.md")
+  fi
+
+  if ! grep -q "frontend_sessions" AGENTS.md; then
+    missing+=("AGENTS.md: frontend_sessions schema documentation")
+  fi
+
+  if ! grep -q "frontend_sessions" README.md; then
+    missing+=("README.md: frontend_sessions schema documentation")
   fi
 
   if ((${#missing[@]} > 0)); then

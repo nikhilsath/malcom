@@ -67,7 +67,9 @@ class DevLauncherTestCase(unittest.TestCase):
             mock.patch.object(launcher, "reexec_into_virtualenv") as reexec_mock,
             mock.patch.object(launcher, "ensure_backend_dependencies") as backend_deps_mock,
             mock.patch.object(launcher, "ensure_ui_dependencies") as ui_deps_mock,
+            mock.patch.object(launcher, "ensure_frontend_dependencies") as frontend_deps_mock,
             mock.patch.object(launcher, "ensure_ui_build") as ui_build_mock,
+            mock.patch.object(launcher, "ensure_frontend_build") as frontend_build_mock,
             mock.patch.object(launcher, "ensure_postgres_running") as postgres_mock,
             mock.patch.object(launcher.socket, "socket", return_value=socket_context),
             mock.patch.object(launcher.os, "execv", side_effect=ExecIntercept("backend exec intercepted")) as execv_mock,
@@ -80,7 +82,9 @@ class DevLauncherTestCase(unittest.TestCase):
         reexec_mock.assert_called_once_with()
         backend_deps_mock.assert_called_once_with()
         ui_deps_mock.assert_called_once_with()
+        frontend_deps_mock.assert_called_once_with()
         ui_build_mock.assert_called_once_with()
+        frontend_build_mock.assert_called_once_with()
         postgres_mock.assert_called_once_with()
         probe_socket.bind.assert_called_once_with(("127.0.0.1", 8000))
         execv_mock.assert_called_once_with(

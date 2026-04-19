@@ -47,9 +47,13 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | tests/test_http_presets.py | reviewed | 2026-04-04 | connector-catalog/readme audit | preset coverage asserts Google and GitHub catalogs only |
 | ui/src/automation/step-modals/connector-activity-step-form.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | UI disables providers with no compatible activity catalog and surfaces "No connector actions available for this provider yet." |
 | ui/src/automation/__tests__/ConnectorActivityStepForm.dropdown.test.tsx | reviewed | 2026-04-04 | connector-catalog/readme audit | dropdown test remains minimal; current fixture use does not exercise unavailable-provider messaging |
-| README.md | reviewed | 2026-04-10 | docs-refresh audit | full product README rewrite based on current routes, schema groups, runtime services, and unfinished feature audit |
+| README.md | reviewed | 2026-04-20 | docs-refresh audit | refreshed hosted frontend route map, session defaults, embed contract details, and schema ownership notes against current code |
 | backend/database.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current schema groups include docs articles/tags plus storage and repo checkout tables |
 | backend/routes/api.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current API surface aggregates runtime, automations, docs, log tables, scripts, settings, storage, workers, connectors, APIs, and tools |
+| backend/routes/platform.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed hosted frontend auth, bootstrap, plugin catalog, and embed descriptor routes are live under `/api/v1/platform/*` |
+| backend/services/platform_auth.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed refreshable rolling frontend session lifecycle and current access token default of 15 minutes |
+| backend/services/platform_contracts.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed first-party plugin route coverage, hosted frontend phase metadata, capabilities map, and workflow-builder embed contract |
+| backend/schemas/platform.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed platform response models for auth tokens, bootstrap payloads, plugin manifests, and embed descriptors |
 | backend/routes/runtime.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed dashboard, queue, logs, resource history, scheduler, and debug resource-profile endpoints |
 | backend/routes/storage.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed storage locations, usage, repo checkout CRUD, and repo sync endpoints |
 | backend/routes/tools.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current managed tool APIs are SMTP, Local LLM, Coqui TTS, and Image Magic |
@@ -57,13 +61,20 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | backend/routes/ui.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed served and redirect UI routes remain registry-driven |
 | backend/services/tool_registry.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed current managed tool catalog and manifest source of truth |
 | backend/services/connector_oauth.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed Google, Notion, and Trello browser OAuth flow while GitHub remains credential-only |
-| backend/services/github_webhook.py | needs_followup | 2026-04-10 | docs-refresh audit | normalization exists, but dispatch helper still logs placeholder work instead of enqueueing runtime execution |
-| backend/services/automation_step_executors/storage.py | needs_followup | 2026-04-10 | docs-refresh audit | dedicated storage step executor still raises not implemented |
-| scripts/dev.py | needs_followup | 2026-04-10 | docs-refresh audit | launcher script still references undefined `ROOT_DIR`, so README documents manual startup from `app/` instead |
+| backend/services/github_webhook.py | reviewed | 2026-04-13 | feature-health audit | dispatch helper executes matching enabled GitHub automations; unit coverage passes and real-system gate passed |
+| backend/services/automation_step_executors/storage.py | reviewed | 2026-04-13 | feature-health audit | standalone storage step executor writes workflow output and has passing unit coverage |
+| backend/services/automation_step_executors/condition.py | needs_followup | 2026-04-13 | feature-health audit | orphan placeholder executor remains unused while runtime condition evaluation lives elsewhere; reconcile or remove duplicate path |
+| scripts/dev.py | reviewed | 2026-04-13 | feature-health audit | launcher uses WORKSPACE_ROOT and has passing launcher tests; previous ROOT_DIR follow-up was stale |
 | ui/settings/connectors.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed connectors live under Settings and expose registry plus auth-policy workflows |
 | ui/settings/data.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed storage locations, backups, and log-table storage management; payload redaction still marked coming soon |
 | ui/tools/catalog.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed tool catalog remains a metadata and availability editor, not a runtime registry source |
 | ui/src/docs/DocsApp.tsx | reviewed | 2026-04-10 | docs-refresh audit | confirmed docs library supports list, detail, create, and edit flows |
-| ui/e2e/github-trigger.spec.ts | needs_followup | 2026-04-10 | docs-refresh audit | GitHub trigger browser coverage is still a smoke placeholder rather than an end-to-end workflow assertion |
+| ui/e2e/github-trigger.spec.ts | reviewed | 2026-04-13 | feature-health audit | real end-to-end builder persistence assertions exist; previous smoke-placeholder follow-up was stale |
+| tests/test_platform_api.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed hosted frontend route catalog, embed descriptor contract, and bootstrap auth metadata with current assertions |
+| tests/test_frontend_platform_structure.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed separate `frontend/` workspace, package layout, and first-party plugin package coverage |
+| tests/test_automation_step_executors_condition.py | needs_followup | 2026-04-13 | feature-health audit | only import presence is asserted, so condition executor behavior currently lacks meaningful automated coverage |
 | ui/page-registry.json | reviewed | 2026-04-04 | connector-catalog/readme audit | verified connectors page is served under Settings, not the APIs section |
 | ui/scripts/shell-config.js | reviewed | 2026-04-04 | connector-catalog/readme audit | verified shell nav places Connectors under Settings and APIs includes only registry/incoming/outgoing/webhooks |
+| frontend/package.json | reviewed | 2026-04-20 | docs-refresh audit | confirmed separate hosted frontend workspace keeps root `npm test` and workspaces for `packages/*` and `plugins/*` |
+| frontend/README.md | reviewed | 2026-04-20 | docs-refresh audit | reviewed for hosted frontend workspace claims while reconciling root README against platform code |
+| backend/migrations/versions/0003_add_frontend_sessions.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed migration adds `frontend_sessions` table and token hash uniqueness/indexing for hosted sessions |

@@ -11,6 +11,7 @@ from .core import (
 )
 from .docs_cases import DOCS_CASES
 from .inbound_outgoing_cases import INBOUND_OUTGOING_CASES
+from .platform_cases import PLATFORM_CASES
 from .runtime_workers_cases import RUNTIME_WORKERS_CASES
 from .scripts_cases import SCRIPTS_CASES
 from .settings_connectors_cases import SETTINGS_CONNECTORS_CASES
@@ -19,6 +20,7 @@ from .tools_cases import TOOLS_CASES
 
 SMOKE_CASE_GROUPS: dict[str, tuple[RouteSmokeCase, ...]] = {
     "runtime/workers": RUNTIME_WORKERS_CASES,
+    "platform": PLATFORM_CASES,
     "docs": DOCS_CASES,
     "scripts": SCRIPTS_CASES,
     "settings/connectors": SETTINGS_CONNECTORS_CASES,

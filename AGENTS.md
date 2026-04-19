@@ -232,7 +232,7 @@ When schema tables or table groups change, update `AGENTS.md` and `README.md` in
 Current schema groups defined there:
 
 - API registry: `inbound_apis`, `inbound_api_events`, `outgoing_scheduled_apis`, `outgoing_continuous_apis`, `webhook_apis`, `webhook_api_events`, `outgoing_delivery_history`
-- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `connector_endpoint_definitions`
+- Workspace state: `tools`, `settings`, `integration_presets`, `connectors`, `frontend_sessions`, `connector_endpoint_definitions`
   Saved connector instances are canonical in `connectors`, and legacy `settings.connectors` rows are migration-only input.
 - Automation runtime: `automations`, `automation_steps`, `automation_runs`, `automation_run_steps`, `runtime_resource_snapshots`
 - Script library: `scripts`

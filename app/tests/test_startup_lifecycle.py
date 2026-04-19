@@ -22,6 +22,14 @@ class StartupLifecycleTestCase(unittest.TestCase):
         self.workspace_root = Path(__file__).resolve().parents[2]
         self.app_dir = self.workspace_root / "app"
         self.database_url = get_test_database_url()
+        raw_timeout = os.getenv("MALCOM_STARTUP_HEALTH_TIMEOUT_SECONDS", "").strip()
+        try:
+            parsed_timeout = float(raw_timeout) if raw_timeout else 75.0
+        except ValueError:
+            parsed_timeout = 75.0
+        # Real PostgreSQL startup includes migrations plus runtime bootstrap, which
+        # can take longer than the former 20s budget on busy local machines.
+        self.startup_health_timeout_seconds = max(parsed_timeout, 20.0)
         logs_root = self.workspace_root / "data" / "logs"
         logs_root.mkdir(parents=True, exist_ok=True)
         self.log_tempdir = tempfile.TemporaryDirectory(dir=str(logs_root))
@@ -70,8 +78,9 @@ class StartupLifecycleTestCase(unittest.TestCase):
             text=True,
         )
 
-    def _wait_for_health(self, *, port: int, timeout_seconds: float = 20.0) -> bool:
-        deadline = time.time() + timeout_seconds
+    def _wait_for_health(self, *, port: int, timeout_seconds: float | None = None) -> bool:
+        effective_timeout = timeout_seconds if timeout_seconds is not None else self.startup_health_timeout_seconds
+        deadline = time.time() + effective_timeout
         while time.time() < deadline:
             try:
                 with urlopen(f"http://127.0.0.1:{port}/health", timeout=1.0) as response:

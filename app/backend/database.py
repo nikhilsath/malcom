@@ -321,6 +321,25 @@ CREATE INDEX IF NOT EXISTS automation_runs_next_run_at_idx
 CREATE INDEX IF NOT EXISTS connectors_provider_status_idx
     ON connectors (provider, status);
 
+CREATE TABLE IF NOT EXISTS frontend_sessions (
+    id TEXT PRIMARY KEY,
+    operator_name TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    scopes_json TEXT NOT NULL DEFAULT '[]',
+    access_token_hash TEXT NOT NULL UNIQUE,
+    refresh_token_hash TEXT NOT NULL UNIQUE,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    issued_at TEXT NOT NULL,
+    access_expires_at TEXT NOT NULL,
+    refresh_expires_at TEXT NOT NULL,
+    last_used_at TEXT,
+    revoked_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS frontend_sessions_status_expires_idx
+    ON frontend_sessions (status, access_expires_at, refresh_expires_at);
+
 CREATE TABLE IF NOT EXISTS storage_locations (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -499,6 +518,18 @@ def initialize(connection: Any) -> None:
     _ensure_column(connection, "automation_steps", "on_true_step_id", "TEXT")
     _ensure_column(connection, "automation_steps", "on_false_step_id", "TEXT")
     _ensure_column(connection, "automation_steps", "is_merge_target", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(connection, "frontend_sessions", "operator_name", "TEXT NOT NULL DEFAULT 'operator'")
+    _ensure_column(connection, "frontend_sessions", "client_name", "TEXT NOT NULL DEFAULT 'hosted-frontend'")
+    _ensure_column(connection, "frontend_sessions", "status", "TEXT NOT NULL DEFAULT 'active'")
+    _ensure_column(connection, "frontend_sessions", "scopes_json", "TEXT NOT NULL DEFAULT '[]'")
+    _ensure_column(connection, "frontend_sessions", "access_token_hash", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "refresh_token_hash", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
+    _ensure_column(connection, "frontend_sessions", "issued_at", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "access_expires_at", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "refresh_expires_at", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "last_used_at", "TEXT")
+    _ensure_column(connection, "frontend_sessions", "revoked_at", "TEXT")
     connection.execute(
         """
         UPDATE outgoing_scheduled_apis

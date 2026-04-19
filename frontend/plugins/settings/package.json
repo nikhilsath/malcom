@@ -1,0 +1,8 @@
+{
+  "name": "@malcom/plugin-settings",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs"
+  }
+}

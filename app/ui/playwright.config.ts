@@ -50,6 +50,8 @@ const resolvePlaywrightPort = () => {
 };
 
 const port = resolvePlaywrightPort();
+const hostedFrontendPort = port + 1;
+process.env.PLAYWRIGHT_HOSTED_FRONTEND_PORT = String(hostedFrontendPort);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -84,17 +86,27 @@ export default defineConfig({
       use: { ...devices["Desktop Safari"] }
     }
   ],
-  webServer: {
-    command: `bash ./scripts/run_playwright_server.sh ${port}`,
-    cwd: "..",
-    url: `http://127.0.0.1:${port}/health`,
-    reuseExistingServer: false,
-    env: {
-      PLAYWRIGHT_PORT: String(port),
-      MALCOM_DATABASE_URL:
-        process.env.MALCOM_TEST_DATABASE_URL ||
-        process.env.MALCOM_DATABASE_URL ||
-        "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test"
+  webServer: [
+    {
+      command: `bash ./scripts/run_playwright_server.sh ${port}`,
+      cwd: "..",
+      url: `http://127.0.0.1:${port}/health`,
+      reuseExistingServer: false,
+      env: {
+        PLAYWRIGHT_PORT: String(port),
+        MALCOM_FRONTEND_BOOTSTRAP_TOKEN:
+          process.env.MALCOM_FRONTEND_BOOTSTRAP_TOKEN || "playwright-platform-bootstrap",
+        MALCOM_DATABASE_URL:
+          process.env.MALCOM_TEST_DATABASE_URL ||
+          process.env.MALCOM_DATABASE_URL ||
+          "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test"
+      }
+    },
+    {
+      command: `python3 -m http.server ${hostedFrontendPort} --bind 127.0.0.1 --directory frontend`,
+      cwd: "../..",
+      url: `http://127.0.0.1:${hostedFrontendPort}/apps/host/index.html`,
+      reuseExistingServer: false
     }
-  }
+  ]
 });

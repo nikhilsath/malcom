@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+const hostedFrontendUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_HOSTED_FRONTEND_PORT || "4174"}/apps/host/index.html`;
+
 const defaultSettingsPayload = {
   general: {
     environment: "live",
@@ -97,6 +99,15 @@ const createStorageLocation = async (request: APIRequestContext, id: string, nam
   expect(response.ok()).toBeTruthy();
 };
 
+const signIntoHostedFrontend = async (page: Page, baseURL: string) => {
+  await page.goto(hostedFrontendUrl);
+  await page.locator("#backend-url").fill(baseURL);
+  await page.locator("#bootstrap-token").fill("playwright-platform-bootstrap");
+  await page.locator("#operator-name").fill("Playwright Operator");
+  await page.locator("#auth-form").getByRole("button", { name: "Sign In" }).click();
+  await expect(page.locator("#route-title")).toHaveText("Dashboard");
+};
+
 test("saves and resets workspace defaults against the real settings API", async ({ page, request }) => {
   await resetSettings(request);
 
@@ -136,6 +147,17 @@ test("saves and resets workspace defaults against the real settings API", async 
   await expect(page.locator("#settings-workspace-proxy-https-port-input")).toHaveValue("443");
   await expect(page.locator("#settings-workspace-proxy-enabled-checkbox")).not.toBeChecked();
   await expect(page.locator("#settings-workspace-proxy-enabled-label")).toHaveText("Disabled");
+});
+
+test("hosted frontend shell renders the settings plugin surface after sign-in", async ({ page, baseURL }) => {
+  await signIntoHostedFrontend(page, baseURL || "http://127.0.0.1:4173");
+
+  await page.locator('.nav-button[data-route-path="/settings"]').click();
+
+  await expect(page.locator("#route-title")).toHaveText("Settings");
+  await expect(page.locator("#route-root")).toContainText("admin surfaces run with workspace layout requirements");
+  await expect(page.locator("#route-root")).toContainText("Connectors");
+  await expect(page.locator("#route-root")).toContainText("Storage");
 });
 
 test("autosaves proxy enabled toggle through the real settings API", async ({ page, request }) => {

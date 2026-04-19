@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Malcom Hosted Frontend</title>
+  <style>
+    :root {
+      --brand-deep: #341475;
+      --brand-primary: #441d81;
+      --brand-main: #5631ba;
+      --accent-sky: #4fa8f4;
+      --neutral-surface: #f4f1fb;
+      --border-soft: #d8d0ec;
+      --text-main: #221538;
+      --text-muted: #655b80;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at top left, rgba(79,168,244,0.16), transparent 30%),
+        linear-gradient(180deg, #fcfbff 0%, #f4f1fb 100%);
+      min-height: 100vh;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border-soft);
+      padding: 24px 20px;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      margin-bottom: 24px;
+    }
+    .brand__eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 12px;
+      color: var(--brand-main);
+      margin-bottom: 6px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .brand p {
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .nav-group {
+      margin-top: 18px;
+    }
+    .nav-group h2 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+    .nav-button {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+    .nav-button:hover,
+    .nav-button[aria-current="page"] {
+      background: rgba(86,49,186,0.1);
+      border-color: rgba(86,49,186,0.18);
+      transform: translateX(2px);
+    }
+    .content {
+      padding: 28px;
+    }
+    .panel,
+    .plugin-panel,
+    .auth-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.9);
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(52,20,117,0.08);
+    }
+    .hero {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--brand-main);
+    }
+    .hero h2 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .hero p,
+    .auth-card p,
+    .plugin-panel p {
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .field-grid {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+    }
+    input {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      width: 100%;
+    }
+    .primary {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: linear-gradient(135deg, var(--brand-main), var(--brand-primary));
+      color: white;
+      font: inherit;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 14px;
+      min-height: 24px;
+      color: var(--brand-primary);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .card {
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,241,251,0.92));
+    }
+    .card strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+    iframe {
+      width: 100%;
+      min-height: 72vh;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

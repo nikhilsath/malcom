@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import socket
@@ -22,9 +23,15 @@ UI_PACKAGE_LOCK = UI_DIR / "package-lock.json"
 UI_PACKAGE_JSON = UI_DIR / "package.json"
 UI_NODE_MODULES = UI_DIR / "node_modules"
 UI_DIST_DIR = UI_DIR / "dist"
+FRONTEND_DIR = WORKSPACE_ROOT / "frontend"
+FRONTEND_PACKAGE_JSON = FRONTEND_DIR / "package.json"
+FRONTEND_PACKAGE_LOCK = FRONTEND_DIR / "package-lock.json"
+FRONTEND_NODE_MODULES = FRONTEND_DIR / "node_modules"
 BACKEND_STAMP = VENV_DIR / ".malcom-requirements.sha256"
 UI_DEPS_STAMP = UI_NODE_MODULES / ".malcom-package-lock.sha256"
 UI_BUILD_STAMP = UI_DIST_DIR / ".malcom-build.sha256"
+FRONTEND_DEPS_STAMP = FRONTEND_NODE_MODULES / ".malcom-package-lock.sha256"
+FRONTEND_BUILD_STAMP = FRONTEND_DIR / ".malcom-build.sha256"
 
 
 def print_status(message: str) -> None:
@@ -42,6 +49,22 @@ def read_sha256(path: Path) -> str:
 def write_stamp(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(value, encoding="utf-8")
+
+
+def hash_existing_paths(paths: list[Path]) -> str:
+    return hashlib.sha256(
+        "".join(
+            f"{path}:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+            for path in paths
+            if path.exists()
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def read_package_scripts(package_json_path: Path) -> dict[str, str]:
+    package_json = json.loads(package_json_path.read_text(encoding="utf-8"))
+    scripts = package_json.get("scripts", {})
+    return scripts if isinstance(scripts, dict) else {}
 
 
 def ensure_command_available(command_name: str) -> None:
@@ -86,9 +109,7 @@ def ensure_backend_dependencies() -> None:
 
 def ensure_ui_dependencies() -> None:
     ensure_command_available("npm")
-    ui_dependency_hash = hashlib.sha256(
-        (read_sha256(UI_PACKAGE_JSON) + read_sha256(UI_PACKAGE_LOCK)).encode("utf-8")
-    ).hexdigest()
+    ui_dependency_hash = hash_existing_paths([UI_PACKAGE_JSON, UI_PACKAGE_LOCK])
     stored_hash = UI_DEPS_STAMP.read_text(encoding="utf-8").strip() if UI_DEPS_STAMP.exists() else ""
 
     if UI_NODE_MODULES.exists() and stored_hash == ui_dependency_hash:
@@ -98,6 +119,20 @@ def ensure_ui_dependencies() -> None:
     print_status("Installing UI dependencies.")
     run_command(["npm", "ci"], cwd=UI_DIR)
     write_stamp(UI_DEPS_STAMP, ui_dependency_hash)
+
+
+def ensure_frontend_dependencies() -> None:
+    ensure_command_available("npm")
+    frontend_dependency_hash = hash_existing_paths([FRONTEND_PACKAGE_JSON, FRONTEND_PACKAGE_LOCK])
+    stored_hash = FRONTEND_DEPS_STAMP.read_text(encoding="utf-8").strip() if FRONTEND_DEPS_STAMP.exists() else ""
+
+    if FRONTEND_NODE_MODULES.exists() and stored_hash == frontend_dependency_hash:
+        print_status("Hosted frontend dependencies already up to date.")
+        return
+
+    print_status("Installing hosted frontend dependencies.")
+    run_command(["npm", "install"], cwd=FRONTEND_DIR)
+    write_stamp(FRONTEND_DEPS_STAMP, frontend_dependency_hash)
 
 
 def iter_ui_build_inputs() -> list[Path]:
@@ -138,6 +173,42 @@ def ensure_ui_build() -> None:
     print_status("Building UI.")
     run_command(["npm", "run", "build"], cwd=UI_DIR)
     write_stamp(UI_BUILD_STAMP, build_hash)
+
+
+def iter_frontend_build_inputs() -> list[Path]:
+    paths: list[Path] = [FRONTEND_PACKAGE_JSON]
+    if FRONTEND_PACKAGE_LOCK.exists():
+        paths.append(FRONTEND_PACKAGE_LOCK)
+
+    for root_name in ("apps", "packages", "plugins"):
+        root = FRONTEND_DIR / root_name
+        if not root.exists():
+            continue
+        for candidate in sorted(path for path in root.rglob("*") if path.is_file()):
+            paths.append(candidate)
+
+    return paths
+
+
+def ensure_frontend_build() -> None:
+    if "build" not in read_package_scripts(FRONTEND_PACKAGE_JSON):
+        print_status("Hosted frontend workspace has no build script; skipping hosted frontend build.")
+        return
+
+    build_hash_source = "".join(
+        f"{path.relative_to(FRONTEND_DIR)}:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+        for path in iter_frontend_build_inputs()
+    )
+    build_hash = hashlib.sha256(build_hash_source.encode("utf-8")).hexdigest()
+    stored_hash = FRONTEND_BUILD_STAMP.read_text(encoding="utf-8").strip() if FRONTEND_BUILD_STAMP.exists() else ""
+
+    if stored_hash == build_hash:
+        print_status("Hosted frontend build already up to date.")
+        return
+
+    print_status("Building hosted frontend workspace.")
+    run_command(["npm", "run", "build"], cwd=FRONTEND_DIR)
+    write_stamp(FRONTEND_BUILD_STAMP, build_hash)
 
 
 def ensure_postgres_running() -> None:
@@ -246,7 +317,9 @@ def main() -> None:
     reexec_into_virtualenv()
     ensure_backend_dependencies()
     ensure_ui_dependencies()
+    ensure_frontend_dependencies()
     ensure_ui_build()
+    ensure_frontend_build()
     ensure_postgres_running()
     start_backend()
 

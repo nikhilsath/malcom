@@ -1,6 +1,32 @@
 {
   "version": 1,
   "registrySource": "app/ui/page-registry.json",
+  "hostedFrontendFlows": [
+    {
+      "surface": "frontend/apps/host/index.html",
+      "workflowContract": "Signs into the hosted frontend shell against the real platform auth contract and launches the workflow builder through the iframe compatibility route.",
+      "owners": [
+        {
+          "spec": "shell.spec.ts",
+          "testIds": [
+            "hosted frontend shell signs in and opens the builder compatibility route"
+          ]
+        }
+      ]
+    },
+    {
+      "surface": "frontend/apps/host/index.html#/settings",
+      "workflowContract": "Signs into the hosted frontend shell and renders the first-party hosted settings surface instead of relying only on backend-served shell navigation.",
+      "owners": [
+        {
+          "spec": "settings.spec.ts",
+          "testIds": [
+            "hosted frontend shell renders the settings plugin surface after sign-in"
+          ]
+        }
+      ]
+    }
+  ],
   "servedRoutes": [
     {
       "routePath": "/dashboard/home.html",

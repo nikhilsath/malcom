@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const hostedFrontendUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_HOSTED_FRONTEND_PORT || "4174"}/apps/host/index.html`;
+
+const signIntoHostedFrontend = async (page: Page, baseURL: string) => {
+  await page.goto(hostedFrontendUrl);
+  await page.locator("#backend-url").fill(baseURL);
+  await page.locator("#bootstrap-token").fill("playwright-platform-bootstrap");
+  await page.locator("#operator-name").fill("Playwright Operator");
+  await page.locator("#auth-form").getByRole("button", { name: "Sign In" }).click();
+  await expect(page.locator("#route-title")).toHaveText("Dashboard");
+};
+
 const getIndicatorMetrics = async (page: Page, activeSelector: string) => {
   return page.evaluate((selector) => {
     const indicator = document.querySelector("#topnav-active-indicator");
@@ -154,4 +165,18 @@ test("loads docs index and library routes", async ({ page }) => {
 
   await page.goto("/docs/library.html");
   await expect(page).toHaveURL(/\/docs\/library\.html$/);
+});
+
+test("hosted frontend shell signs in and opens the builder compatibility route", async ({ page, baseURL }) => {
+  await signIntoHostedFrontend(page, baseURL || "http://127.0.0.1:4173");
+
+  await page.locator('.nav-button[data-route-path="/automations/builder"]').click();
+
+  await expect(page.locator("#route-title")).toHaveText("Workflow Builder");
+  await expect(page.locator("#platform-embed-status")).toBeVisible();
+  await expect(page.locator("iframe")).toBeVisible();
+  await expect(page.frameLocator("iframe").locator("#automations-builder-page-title")).toHaveText("Automation Builder");
+  await expect.poll(async () => (await page.locator("#platform-embed-status").textContent()) || "").toMatch(
+    /loaded|ready|height/i
+  );
 });

@@ -1,0 +1,13 @@
+{
+  "name": "malcom-frontend-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "plugins/*"
+  ],
+  "scripts": {
+    "test": "node --test packages/sdk/src/index.test.mjs packages/host/src/plugin-runtime.test.mjs"
+  }
+}
