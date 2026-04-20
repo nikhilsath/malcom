@@ -46,7 +46,7 @@ Completion check: Command exits with status 0.
 
 ## GitHub update
 
-1. [ ] [github]
-Files: .github/tasks/open/TASK-040-canonicalize-condition-step-execution.md, app/backend/services/automation_step_executors/condition.py, app/backend/services/automation_executor.py, app/backend/services/helpers.py, app/tests/test_automation_step_executors_condition.py, app/tests/test_automations_api.py, .github/repo-scan-index.md
+1. [x] [github]
+Files: .github/tasks/closed/TASK-040-canonicalize-condition-step-execution.md, app/backend/services/automation_step_executors/condition.py, app/backend/services/automation_executor.py, app/backend/services/helpers.py, app/tests/test_automation_step_executors_condition.py, app/tests/test_automations_api.py, .github/repo-scan-index.md
 Action: Stage only the condition-step task and implementation files, then run `git add <files> && git commit -m "Canonicalize condition step execution" && git push` following AGENTS.md#github-update-workflow.
 Completion check: `git log -1 --oneline` shows the new commit, and `git status --short` is clean for the listed files.
