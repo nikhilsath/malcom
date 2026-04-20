@@ -1,28 +1,27 @@
-def evaluate_condition_step(connection, logger, *, step, context):
-    """Evaluate a `condition` automation step.
+from __future__ import annotations
 
-    Returns a dict with an interpreted boolean result. Minimal implementation
-    used by automation_executor to decide branching.
-    """
-    # Minimal, deterministic placeholder: return False when no predicate found.
-    predicate = step.get("predicate") if isinstance(step, dict) else None
-    if predicate is None:
-        return {"result": False}
+import ast
+from typing import Any
 
-    # For safety, do not evaluate arbitrary code here; callers must translate
-    # predicate into a safe expression before invoking this function.
-    try:
-        # If predicate is a simple boolean, return it.
-        if isinstance(predicate, bool):
-            return {"result": predicate}
-        # If predicate is a literal string 'true'/'false'
-        if isinstance(predicate, str):
-            v = predicate.lower()
-            if v in ("true", "1", "yes"):
-                return {"result": True}
-            if v in ("false", "0", "no"):
-                return {"result": False}
-    except Exception:
-        return {"result": False}
+from backend.runtime import RuntimeExecutionResult
 
-    return {"result": False}
+
+def execute_condition_step(connection: Any, logger: Any, *, step: Any, context: dict[str, Any]) -> RuntimeExecutionResult:
+    compiled = ast.parse(step.config.expression or "", mode="eval")
+    result = bool(
+        eval(
+            compile(compiled, "<automation-condition>", "eval"),
+            {"__builtins__": {}},
+            {"context": context, "payload": context.get("payload"), "steps": context.get("steps", {})},
+        )
+    )
+    return RuntimeExecutionResult(
+        status="completed",
+        response_summary="Condition matched." if result else "Condition evaluated to false.",
+        detail={"expression": step.config.expression, "result": result, "stop_on_false": step.config.stop_on_false},
+        output=result,
+    )
+
+
+def evaluate_condition_step(connection: Any, logger: Any, *, step: Any, context: dict[str, Any]) -> RuntimeExecutionResult:
+    return execute_condition_step(connection, logger, step=step, context=context)

@@ -63,7 +63,7 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | backend/services/connector_oauth.py | reviewed | 2026-04-10 | docs-refresh audit | confirmed Google, Notion, and Trello browser OAuth flow while GitHub remains credential-only |
 | backend/services/github_webhook.py | reviewed | 2026-04-13 | feature-health audit | dispatch helper executes matching enabled GitHub automations; unit coverage passes and real-system gate passed |
 | backend/services/automation_step_executors/storage.py | reviewed | 2026-04-13 | feature-health audit | standalone storage step executor writes workflow output and has passing unit coverage |
-| backend/services/automation_step_executors/condition.py | needs_followup | 2026-04-13 | feature-health audit | orphan placeholder executor remains unused while runtime condition evaluation lives elsewhere; reconcile or remove duplicate path |
+| backend/services/automation_step_executors/condition.py | reviewed | 2026-04-20 | feature-health audit | canonical condition executor path now owns expression evaluation; previous unresolved duplicate-path follow-up cleared |
 | scripts/dev.py | reviewed | 2026-04-13 | feature-health audit | launcher uses WORKSPACE_ROOT and has passing launcher tests; previous ROOT_DIR follow-up was stale |
 | ui/settings/connectors.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed connectors live under Settings and expose registry plus auth-policy workflows |
 | ui/settings/data.html | reviewed | 2026-04-10 | docs-refresh audit | confirmed storage locations, backups, and log-table storage management; payload redaction still marked coming soon |
@@ -72,7 +72,7 @@ Source of truth for `[AREA: audit]` progress across repo-wide review batches.
 | ui/e2e/github-trigger.spec.ts | reviewed | 2026-04-13 | feature-health audit | real end-to-end builder persistence assertions exist; previous smoke-placeholder follow-up was stale |
 | tests/test_platform_api.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed hosted frontend route catalog, embed descriptor contract, and bootstrap auth metadata with current assertions |
 | tests/test_frontend_platform_structure.py | reviewed | 2026-04-20 | docs-refresh audit | confirmed separate `frontend/` workspace, package layout, and first-party plugin package coverage |
-| tests/test_automation_step_executors_condition.py | needs_followup | 2026-04-13 | feature-health audit | only import presence is asserted, so condition executor behavior currently lacks meaningful automated coverage |
+| tests/test_automation_step_executors_condition.py | reviewed | 2026-04-20 | feature-health audit | condition executor coverage now includes behavior-level assertions, so the previous unresolved follow-up is cleared |
 | ui/page-registry.json | reviewed | 2026-04-04 | connector-catalog/readme audit | verified connectors page is served under Settings, not the APIs section |
 | ui/scripts/shell-config.js | reviewed | 2026-04-04 | connector-catalog/readme audit | verified shell nav places Connectors under Settings and APIs includes only registry/incoming/outgoing/webhooks |
 | frontend/package.json | reviewed | 2026-04-20 | docs-refresh audit | confirmed separate hosted frontend workspace keeps root `npm test` and workspaces for `packages/*` and `plugins/*` |

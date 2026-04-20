@@ -1,5 +1,4 @@
 from __future__ import annotations
-import ast
 import base64
 import binascii
 import hashlib
@@ -4447,14 +4446,9 @@ def _execute_automation_step_impl(
         detail = {"tool_id": tool_row["id"], "name": tool_row["name"], "description": tool_row["description"]}
         return RuntimeExecutionResult(status="completed", response_summary=f"Loaded tool {tool_row['name']}.", detail=detail, output=detail)
 
-    compiled = ast.parse(step.config.expression or "", mode="eval")
-    result = bool(eval(compile(compiled, "<automation-condition>", "eval"), {"__builtins__": {}}, {"context": context, "payload": context.get("payload"), "steps": context.get("steps", {})}))
-    return RuntimeExecutionResult(
-        status="completed",
-        response_summary="Condition matched." if result else "Condition evaluated to false.",
-        detail={"expression": step.config.expression, "result": result, "stop_on_false": step.config.stop_on_false},
-        output=result,
-    )
+    from backend.services.automation_step_executors.condition import execute_condition_step
+
+    return execute_condition_step(connection, logger, step=step, context=context)
 
 
 def execute_automation_step(

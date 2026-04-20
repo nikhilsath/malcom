@@ -380,6 +380,98 @@ class AutomationsApiTestCase(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["trigger_type"], "inbound_api")
 
+    def test_manual_automation_condition_step_routes_to_true_branch(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Condition true branch",
+                "description": "Routes to the configured true branch.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "id": "condition-step",
+                        "type": "condition",
+                        "name": "Check true path",
+                        "on_true_step_id": "true-branch",
+                        "on_false_step_id": "false-branch",
+                        "config": {
+                            "expression": "1 < 2",
+                            "stop_on_false": False,
+                        },
+                    },
+                    {
+                        "id": "false-branch",
+                        "type": "log",
+                        "name": "False branch",
+                        "config": {"message": "should not run"},
+                    },
+                    {
+                        "id": "true-branch",
+                        "type": "log",
+                        "name": "True branch",
+                        "config": {"message": "ran true branch"},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        automation = create_response.json()
+
+        execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual([step["step_name"] for step in run["steps"]], ["Check true path", "True branch"])
+
+    def test_manual_automation_condition_step_routes_to_false_branch(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/automations",
+            json={
+                "name": "Condition false branch",
+                "description": "Routes to the configured false branch.",
+                "enabled": True,
+                "trigger_type": "manual",
+                "trigger_config": {},
+                "steps": [
+                    {
+                        "id": "condition-step",
+                        "type": "condition",
+                        "name": "Check false path",
+                        "on_true_step_id": "true-branch",
+                        "on_false_step_id": "false-branch",
+                        "config": {
+                            "expression": "1 > 2",
+                            "stop_on_false": False,
+                        },
+                    },
+                    {
+                        "id": "true-branch",
+                        "type": "log",
+                        "name": "True branch",
+                        "config": {"message": "should not run"},
+                    },
+                    {
+                        "id": "false-branch",
+                        "type": "log",
+                        "name": "False branch",
+                        "config": {"message": "ran false branch"},
+                    },
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        automation = create_response.json()
+
+        execute_response = self.client.post(f"/api/v1/automations/{automation['id']}/execute")
+        self.assertEqual(execute_response.status_code, 200)
+        run = execute_response.json()
+
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual([step["step_name"] for step in run["steps"]], ["Check false path", "False branch"])
+
     def test_http_step_extracts_json_fields_for_downstream_steps(self) -> None:
         automation_response = self.client.post(
             "/api/v1/automations",
