@@ -11,12 +11,15 @@ from fastapi.testclient import TestClient
 from backend.database import connect, fetch_one
 from backend.main import app
 from backend.schemas import (
+    CoquiTtsInstallationStateResponse,
     AutomationStepConfig,
     AutomationStepDefinition,
     CoquiTtsOptionResponse,
     CoquiTtsToolRuntimeResponse,
     LocalLlmChatResponse,
 )
+from backend.services import coqui_tts_installation
+from backend.services.coqui_tts_runtime import discover_coqui_tts_runtime
 from backend.services.support import build_local_llm_native_chat_body, build_local_llm_stream, execute_local_llm_chat_request
 from backend.services.tool_execution import execute_coqui_tts_tool_step
 from tests.postgres_test_utils import ensure_test_ui_scripts_dir, setup_postgres_test_app
@@ -27,6 +30,7 @@ def build_coqui_runtime(
     ready: bool = True,
     command_available: bool = True,
     message: str = "Coqui TTS runtime is available for workflow steps.",
+    installation: CoquiTtsInstallationStateResponse | None = None,
     models: list[str] | None = None,
     speakers: list[str] | None = None,
     languages: list[str] | None = None,
@@ -38,6 +42,7 @@ def build_coqui_runtime(
         ready=ready,
         command_available=command_available,
         message=message,
+        installation=build_coqui_installation_state() if installation is None else installation,
         command_options=[CoquiTtsOptionResponse(value="tts", label="tts")] if command_available else [],
         model_options=[
             CoquiTtsOptionResponse(value=value, label=value)
@@ -52,6 +57,53 @@ def build_coqui_runtime(
             for value in language_values
         ],
     )
+
+
+def build_coqui_installation_state(
+    *,
+    status: str = "installed",
+    installed: bool = True,
+    install_available: bool = False,
+    remove_available: bool = True,
+    managed_command: str = ".venv/bin/tts",
+    message: str = "Coqui TTS runtime is installed in the workspace virtualenv.",
+) -> CoquiTtsInstallationStateResponse:
+    return CoquiTtsInstallationStateResponse(
+        status=status,
+        installed=installed,
+        install_available=install_available,
+        remove_available=remove_available,
+        managed_command=managed_command,
+        message=message,
+    )
+
+
+def build_coqui_tool_response(
+    *,
+    command: str = "",
+    enabled: bool = False,
+    ready: bool = True,
+    command_available: bool = True,
+    message: str = "Coqui TTS runtime is available for workflow steps.",
+    installation: CoquiTtsInstallationStateResponse | None = None,
+) -> dict[str, object]:
+    runtime = build_coqui_runtime(
+        ready=ready,
+        command_available=command_available,
+        message=message,
+        installation=installation,
+    )
+    return {
+        "tool_id": "coqui-tts",
+        "config": {
+            "enabled": enabled,
+            "command": command,
+            "model_name": "",
+            "speaker": "",
+            "language": "",
+        },
+        "runtime": runtime.model_dump(mode="json"),
+    }
 
 
 class ToolMetadataApiTestCase(unittest.TestCase):
@@ -604,6 +656,323 @@ class ToolMetadataApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json()["detail"], "Coqui TTS command is not executable on this host: tts")
+
+    def test_installs_coqui_runtime_and_persists_managed_command(self) -> None:
+        installation_state = build_coqui_installation_state(
+            status="installed",
+            installed=True,
+            install_available=False,
+            remove_available=True,
+            managed_command=".venv/bin/tts",
+            message="Coqui TTS runtime was installed in the workspace virtualenv.",
+        )
+
+        with mock.patch(
+            "backend.routes.tools.install_coqui_tts_runtime",
+            return_value=installation_state,
+        ) as install_runtime, mock.patch(
+            "backend.routes.tools.build_coqui_tts_tool_response",
+            return_value=build_coqui_tool_response(
+                command=".venv/bin/tts",
+                enabled=False,
+                ready=True,
+                command_available=True,
+                message="Coqui TTS runtime was installed in the workspace virtualenv.",
+                installation=installation_state,
+            ),
+        ):
+            response = self.client.post("/api/v1/tools/coqui-tts/install")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["config"]["command"], ".venv/bin/tts")
+        self.assertEqual(body["runtime"]["installation"]["status"], "installed")
+        self.assertTrue(body["runtime"]["installation"]["installed"])
+        install_runtime.assert_called_once_with(self.root_dir)
+
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("coqui-tts",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        saved_config = json.loads(config_row["config_json"])
+        self.assertEqual(saved_config["command"], ".venv/bin/tts")
+        self.assertFalse(saved_config.get("enabled", False))
+
+    def test_rejects_coqui_install_when_runtime_installation_fails(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.install_coqui_tts_runtime",
+            side_effect=RuntimeError("Coqui install failed."),
+        ):
+            response = self.client.post("/api/v1/tools/coqui-tts/install")
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "Coqui install failed.")
+
+    def test_coqui_install_service_uses_configured_package_spec(self) -> None:
+        not_installed = coqui_tts_installation.CoquiTtsInstallationState(
+            status="not_installed",
+            installed=False,
+            install_available=True,
+            remove_available=False,
+            managed_command=".venv/bin/tts",
+            message="not installed",
+        )
+        installed = coqui_tts_installation.CoquiTtsInstallationState(
+            status="installed",
+            installed=True,
+            install_available=False,
+            remove_available=True,
+            managed_command=".venv/bin/tts",
+            message="installed",
+        )
+
+        with mock.patch.dict(
+            "os.environ",
+            {"MALCOM_COQUI_TTS_PACKAGE_SPEC": "/tmp/fake-coqui-package"},
+            clear=False,
+        ), mock.patch(
+            "backend.services.coqui_tts_installation.get_coqui_tts_installation_state",
+            side_effect=[not_installed, installed],
+        ), mock.patch(
+            "backend.services.coqui_tts_installation._run_repo_virtualenv_pip",
+        ) as run_pip:
+            state = coqui_tts_installation.install_coqui_tts_runtime(self.root_dir)
+
+        self.assertTrue(state.installed)
+        run_pip.assert_called_once_with(
+            self.root_dir,
+            ["install", "/tmp/fake-coqui-package"],
+            action_label="installation",
+        )
+
+    def test_coqui_install_service_can_copy_configured_command_source(self) -> None:
+        virtualenv_bin = self.root_dir / ".venv" / "bin"
+        virtualenv_bin.mkdir(parents=True)
+        python_path = virtualenv_bin / "python"
+        python_path.write_text("#!/bin/sh\n", encoding="utf-8")
+        python_path.chmod(0o755)
+        source_path = self.root_dir / "fixtures" / "tts"
+        source_path.parent.mkdir(parents=True)
+        source_path.write_text("#!/bin/sh\necho fixture\n", encoding="utf-8")
+
+        with mock.patch.dict(
+            "os.environ",
+            {"MALCOM_COQUI_TTS_COMMAND_SOURCE": str(source_path)},
+            clear=False,
+        ), mock.patch(
+            "backend.services.coqui_tts_installation._run_repo_virtualenv_pip",
+        ) as run_pip:
+            installed_state = coqui_tts_installation.install_coqui_tts_runtime(self.root_dir)
+            removed_state = coqui_tts_installation.remove_coqui_tts_runtime(self.root_dir)
+
+        managed_command = virtualenv_bin / "tts"
+        self.assertTrue(installed_state.installed)
+        self.assertFalse(removed_state.installed)
+        self.assertFalse(managed_command.exists())
+        run_pip.assert_not_called()
+
+    def test_coqui_runtime_discovers_three_segment_model_names(self) -> None:
+        command_path = self.root_dir / "bin" / "tts"
+        command_path.parent.mkdir(parents=True)
+        command_path.write_text(
+            "#!/bin/sh\n"
+            "case \"$*\" in\n"
+            "  *--list_models*) echo tts_models/en/ljspeech/tacotron2-DDC ;;\n"
+            "  *--list_speaker_idxs*) echo ljspeech ;;\n"
+            "  *--list_language_idxs*) echo en ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        command_path.chmod(0o755)
+
+        runtime = discover_coqui_tts_runtime(
+            command=str(command_path),
+            selected_model_name="tts_models/en/ljspeech/tacotron2-DDC",
+            root_dir=self.root_dir,
+        )
+
+        self.assertTrue(runtime.ready)
+        self.assertEqual(
+            [option.value for option in runtime.model_options],
+            ["tts_models/en/ljspeech/tacotron2-DDC"],
+        )
+        self.assertEqual([option.value for option in runtime.speaker_options], ["ljspeech"])
+        self.assertEqual([option.value for option in runtime.language_options], ["en"])
+
+    def test_removes_managed_coqui_runtime_and_disables_tool(self) -> None:
+        installation_state = build_coqui_installation_state(
+            status="installed",
+            installed=True,
+            install_available=False,
+            remove_available=True,
+            managed_command=".venv/bin/tts",
+            message="Coqui TTS runtime was installed in the workspace virtualenv.",
+        )
+        removed_state = build_coqui_installation_state(
+            status="not_installed",
+            installed=False,
+            install_available=True,
+            remove_available=False,
+            managed_command=".venv/bin/tts",
+            message="Coqui TTS runtime was removed from the workspace virtualenv.",
+        )
+
+        with mock.patch(
+            "backend.routes.tools.install_coqui_tts_runtime",
+            return_value=installation_state,
+        ), mock.patch(
+            "backend.routes.tools.build_coqui_tts_tool_response",
+            return_value=build_coqui_tool_response(
+                command=".venv/bin/tts",
+                enabled=False,
+                ready=True,
+                command_available=True,
+                message=installation_state.message,
+                installation=installation_state,
+            ),
+        ):
+            install_response = self.client.post("/api/v1/tools/coqui-tts/install")
+        self.assertEqual(install_response.status_code, 200)
+
+        config_row = fetch_one(
+            app.state.connection,
+            """
+            SELECT config_json
+            FROM tool_configs
+            WHERE tool_id = ?
+            """,
+            ("coqui-tts",),
+        )
+        self.assertIsNotNone(config_row)
+        enabled_config = json.loads(config_row["config_json"])
+        enabled_config["enabled"] = True
+        app.state.connection.execute(
+            """
+            UPDATE tool_configs
+            SET config_json = ?
+            WHERE tool_id = ?
+            """,
+            (json.dumps(enabled_config), "coqui-tts"),
+        )
+        app.state.connection.execute(
+            """
+            UPDATE tools
+            SET enabled = ?
+            WHERE id = ?
+            """,
+            (1, "coqui-tts"),
+        )
+        app.state.connection.commit()
+
+        with mock.patch(
+            "backend.routes.tools.remove_coqui_tts_runtime",
+            return_value=removed_state,
+        ) as remove_runtime, mock.patch(
+            "backend.routes.tools.build_coqui_tts_tool_response",
+            return_value=build_coqui_tool_response(
+                command=".venv/bin/tts",
+                enabled=False,
+                ready=False,
+                command_available=False,
+                message=removed_state.message,
+                installation=removed_state,
+            ),
+        ):
+            response = self.client.post("/api/v1/tools/coqui-tts/remove")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["runtime"]["installation"]["status"], "not_installed")
+        self.assertFalse(body["runtime"]["installation"]["installed"])
+        remove_runtime.assert_called_once_with(self.root_dir)
+
+        connection = connect(database_url=self.database_url)
+        try:
+            config_row = fetch_one(
+                connection,
+                """
+                SELECT config_json
+                FROM tool_configs
+                WHERE tool_id = ?
+                """,
+                ("coqui-tts",),
+            )
+            tool_row = fetch_one(
+                connection,
+                """
+                SELECT enabled
+                FROM tools
+                WHERE id = ?
+                """,
+                ("coqui-tts",),
+            )
+        finally:
+            connection.close()
+
+        self.assertIsNotNone(config_row)
+        saved_config = json.loads(config_row["config_json"])
+        self.assertEqual(saved_config["command"], ".venv/bin/tts")
+        self.assertFalse(saved_config.get("enabled", False))
+        self.assertIsNotNone(tool_row)
+        self.assertEqual(tool_row["enabled"], 0)
+
+    def test_rejects_coqui_remove_when_runtime_removal_fails(self) -> None:
+        with mock.patch(
+            "backend.routes.tools.remove_coqui_tts_runtime",
+            side_effect=RuntimeError("Coqui removal failed."),
+        ):
+            response = self.client.post("/api/v1/tools/coqui-tts/remove")
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "Coqui removal failed.")
+
+    def test_coqui_remove_service_uses_configured_package_name(self) -> None:
+        installed = coqui_tts_installation.CoquiTtsInstallationState(
+            status="installed",
+            installed=True,
+            install_available=False,
+            remove_available=True,
+            managed_command=".venv/bin/tts",
+            message="installed",
+        )
+        not_installed = coqui_tts_installation.CoquiTtsInstallationState(
+            status="not_installed",
+            installed=False,
+            install_available=True,
+            remove_available=False,
+            managed_command=".venv/bin/tts",
+            message="not installed",
+        )
+
+        with mock.patch.dict(
+            "os.environ",
+            {"MALCOM_COQUI_TTS_PACKAGE_NAME": "malcom-playwright-coqui-tts"},
+            clear=False,
+        ), mock.patch(
+            "backend.services.coqui_tts_installation.get_coqui_tts_installation_state",
+            side_effect=[installed, not_installed],
+        ), mock.patch(
+            "backend.services.coqui_tts_installation._run_repo_virtualenv_pip",
+        ) as run_pip:
+            state = coqui_tts_installation.remove_coqui_tts_runtime(self.root_dir)
+
+        self.assertFalse(state.installed)
+        run_pip.assert_called_once_with(
+            self.root_dir,
+            ["uninstall", "-y", "malcom-playwright-coqui-tts"],
+            action_label="removal",
+        )
 
     def test_coqui_execution_uses_output_directory_override(self) -> None:
         with mock.patch(

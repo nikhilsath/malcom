@@ -6,17 +6,34 @@ import re
 import subprocess
 from pathlib import Path
 
-from backend.schemas import CoquiTtsOptionResponse, CoquiTtsToolRuntimeResponse
+from backend.schemas import (
+    CoquiTtsInstallationStateResponse,
+    CoquiTtsOptionResponse,
+    CoquiTtsToolRuntimeResponse,
+)
 
+from .coqui_tts_installation import get_coqui_tts_installation_state
 from .tool_command_utils import verify_local_command_ready
 
-MODEL_NAME_PATTERN = re.compile(r"tts_models/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
+MODEL_NAME_PATTERN = re.compile(r"tts_models/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?")
 OPTION_LINE_PATTERN = re.compile(r"^\s*(?:[-*]\s*)?([A-Za-z0-9_.-]+)\s*(?::.*)?$")
 QUOTED_OPTION_PATTERN = re.compile(r"['\"]([^'\"]+)['\"]")
 
 
 def _build_option(value: str) -> CoquiTtsOptionResponse:
     return CoquiTtsOptionResponse(value=value, label=value)
+
+
+def _build_installation_response(root_dir: Path) -> CoquiTtsInstallationStateResponse:
+    state = get_coqui_tts_installation_state(root_dir)
+    return CoquiTtsInstallationStateResponse(
+        status=state.status,
+        installed=state.installed,
+        install_available=state.install_available,
+        remove_available=state.remove_available,
+        managed_command=state.managed_command,
+        message=state.message,
+    )
 
 
 def _run_coqui_probe(command_parts: list[str], args: list[str], *, root_dir: Path) -> str:
@@ -84,6 +101,7 @@ def _discover_model_scoped_options(
 
 
 def discover_coqui_tts_runtime(*, command: str, selected_model_name: str, root_dir: Path) -> CoquiTtsToolRuntimeResponse:
+    installation = _build_installation_response(root_dir)
     try:
         command_parts = verify_local_command_ready(command, working_dir=root_dir, tool_name="Coqui TTS")
     except RuntimeError as error:
@@ -91,6 +109,7 @@ def discover_coqui_tts_runtime(*, command: str, selected_model_name: str, root_d
             ready=False,
             command_available=False,
             message=str(error),
+            installation=installation,
             command_options=[],
             model_options=[],
             speaker_options=[],
@@ -121,6 +140,7 @@ def discover_coqui_tts_runtime(*, command: str, selected_model_name: str, root_d
             ready=False,
             command_available=True,
             message="Coqui TTS is installed, but no models were discovered for the configured runtime.",
+            installation=installation,
             command_options=command_options,
             model_options=[],
             speaker_options=[],
@@ -131,6 +151,7 @@ def discover_coqui_tts_runtime(*, command: str, selected_model_name: str, root_d
         ready=True,
         command_available=True,
         message="Coqui TTS runtime is available for workflow steps.",
+        installation=installation,
         command_options=command_options,
         model_options=model_options,
         speaker_options=speaker_options,

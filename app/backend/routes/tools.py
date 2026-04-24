@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from backend.schemas import *
+from backend.services.coqui_tts_installation import install_coqui_tts_runtime, remove_coqui_tts_runtime
 from backend.services.coqui_tts_runtime import discover_coqui_tts_runtime, validate_coqui_tts_selection
 from backend.services.support import *
 from backend.services.tool_command_utils import verify_local_command_ready
@@ -180,6 +181,40 @@ def patch_coqui_tts_tool(payload: CoquiTtsToolUpdate, request: Request) -> Coqui
 
     save_coqui_tts_tool_config(connection, normalized_config)
     sync_managed_tool_enabled_state(request, "coqui-tts", normalized_config["enabled"])
+    return build_coqui_tts_tool_response(connection, root_dir=root_dir)
+
+
+@router.post("/api/v1/tools/coqui-tts/install", response_model=CoquiTtsToolResponse)
+def install_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
+    connection = get_connection(request)
+    root_dir = get_root_dir(request)
+
+    try:
+        installation_state = install_coqui_tts_runtime(root_dir)
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
+    config["command"] = installation_state.managed_command
+    save_coqui_tts_tool_config(connection, config)
+    return build_coqui_tts_tool_response(connection, root_dir=root_dir)
+
+
+@router.post("/api/v1/tools/coqui-tts/remove", response_model=CoquiTtsToolResponse)
+def remove_coqui_tts_tool(request: Request) -> CoquiTtsToolResponse:
+    connection = get_connection(request)
+    root_dir = get_root_dir(request)
+
+    try:
+        installation_state = remove_coqui_tts_runtime(root_dir)
+    except RuntimeError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    config = normalize_coqui_tts_tool_config(get_coqui_tts_tool_config(connection), root_dir=root_dir)
+    if config["command"] == installation_state.managed_command:
+        config["enabled"] = False
+        save_coqui_tts_tool_config(connection, config)
+        sync_managed_tool_enabled_state(request, "coqui-tts", False)
     return build_coqui_tts_tool_response(connection, root_dir=root_dir)
 
 

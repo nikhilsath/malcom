@@ -23,8 +23,10 @@ from backend.database import connect, fetch_all, initialize
 from backend.runtime import runtime_event_bus
 from backend.schemas import (
     AutomationTriggerConfig,
+    CoquiTtsOptionResponse,
     CoquiTtsToolConfigResponse,
     CoquiTtsToolResponse,
+    CoquiTtsToolRuntimeResponse,
     ImageMagicToolConfigResponse,
     ImageMagicToolResponse,
     LocalLlmEndpointsResponse,
@@ -446,6 +448,19 @@ def build_coqui_tts_tool_response(
         selected_model_name=str(runtime_model_name or config["model_name"]).strip(),
         root_dir=root_dir,
     )
+    managed_command = runtime.installation.managed_command
+    if runtime.installation.installed and managed_command:
+        option_values = {option.value for option in runtime.command_options}
+        if managed_command not in option_values:
+            runtime = CoquiTtsToolRuntimeResponse(
+                **{
+                    **runtime.model_dump(),
+                    "command_options": [
+                        CoquiTtsOptionResponse(value=managed_command, label=managed_command),
+                        *runtime.command_options,
+                    ],
+                }
+            )
     return CoquiTtsToolResponse(
         tool_id="coqui-tts",
         config=CoquiTtsToolConfigResponse(

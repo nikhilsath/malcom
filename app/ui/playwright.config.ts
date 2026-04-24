@@ -1,8 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 import { execSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_PLAYWRIGHT_PORT = 4173;
 const MAX_FALLBACK_ATTEMPTS = 25;
+const configDir = dirname(fileURLToPath(import.meta.url));
+const coquiTtsFixtureCommand = resolve(configDir, "e2e", "fixtures", "coqui-tts-command", "tts");
 
 const parsePort = (value: string | undefined, fallback: number) => {
   const parsed = Number.parseInt(String(value || ""), 10);
@@ -99,7 +103,9 @@ export default defineConfig({
         MALCOM_DATABASE_URL:
           process.env.MALCOM_TEST_DATABASE_URL ||
           process.env.MALCOM_DATABASE_URL ||
-          "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test"
+          "postgresql://postgres:postgres@127.0.0.1:5432/malcom_test",
+        MALCOM_COQUI_TTS_COMMAND_SOURCE:
+          process.env.MALCOM_COQUI_TTS_COMMAND_SOURCE || coquiTtsFixtureCommand
       }
     },
     {

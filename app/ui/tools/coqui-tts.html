@@ -140,7 +140,19 @@
                             </div>
                         </dl>
 
-                        <p id="tools-coqui-workflow-note" class="tool-config-inline-note">Output directory is chosen per workflow step when needed. Install and removal from within the app are not implemented yet.</p>
+                        <section id="tools-coqui-runtime-management">
+                            <div class="title-row">
+                                <h4 id="tools-coqui-runtime-management-title" class="summary-card__label">Runtime management</h4>
+                                <button type="button" id="tools-coqui-runtime-management-badge" class="info-badge" aria-label="More information" aria-expanded="false" aria-controls="tools-coqui-runtime-management-description">i</button>
+                            </div>
+                            <p id="tools-coqui-runtime-management-description" class="section-header__description" hidden>Install Coqui TTS into the repo virtual environment when this host needs it, or remove it from the same environment after workflows no longer depend on it.</p>
+                            <p id="tools-coqui-workflow-guidance" class="tool-config-inline-note" aria-live="polite">Loading runtime workflow guidance.</p>
+                            <div id="tools-coqui-runtime-actions" class="api-form-actions">
+                                <button type="button" id="tools-coqui-install-button" class="button">Install runtime</button>
+                                <button type="button" id="tools-coqui-remove-button" class="button">Remove runtime</button>
+                            </div>
+                            <div id="tools-coqui-runtime-feedback" class="api-form-feedback" aria-live="polite"></div>
+                        </section>
                     </section>
                 </div>
             </section>

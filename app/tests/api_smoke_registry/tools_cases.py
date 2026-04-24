@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from unittest import mock
 
-from backend.schemas import CoquiTtsOptionResponse, CoquiTtsToolRuntimeResponse
+from backend.schemas import (
+    CoquiTtsInstallationStateResponse,
+    CoquiTtsOptionResponse,
+    CoquiTtsToolRuntimeResponse,
+)
 
 from .builders import action_case, list_case, patch_case
 from .core import RouteSmokeCase, assert_json_response, default_invoke
@@ -34,10 +38,89 @@ def invoke_coqui_patch(case, context, state):
             ready=True,
             command_available=True,
             message="Coqui TTS runtime is available for workflow steps.",
+            installation=CoquiTtsInstallationStateResponse(
+                status="installed",
+                installed=True,
+                install_available=False,
+                remove_available=True,
+                managed_command=".venv/bin/tts",
+                message="Coqui TTS runtime is installed in the workspace virtualenv.",
+            ),
             command_options=[CoquiTtsOptionResponse(value="tts", label="tts")],
             model_options=[CoquiTtsOptionResponse(value="tts_models/en/ljspeech/tacotron2-DDC", label="tts_models/en/ljspeech/tacotron2-DDC")],
             speaker_options=[CoquiTtsOptionResponse(value="ljspeech", label="ljspeech")],
             language_options=[CoquiTtsOptionResponse(value="en", label="en")],
+        ),
+    ):
+        return default_invoke(case, context, state)
+
+
+def build_coqui_smoke_response(*, installation: CoquiTtsInstallationStateResponse, command: str, ready: bool, command_available: bool) -> dict:
+    return {
+        "tool_id": "coqui-tts",
+        "config": {
+            "enabled": False,
+            "command": command,
+            "model_name": "",
+            "speaker": "",
+            "language": "",
+        },
+        "runtime": CoquiTtsToolRuntimeResponse(
+            ready=ready,
+            command_available=command_available,
+            message=installation.message,
+            installation=installation,
+            command_options=[CoquiTtsOptionResponse(value="tts", label="tts")] if command_available else [],
+            model_options=[],
+            speaker_options=[],
+            language_options=[],
+        ).model_dump(mode="json"),
+    }
+
+
+def invoke_coqui_install(case, context, state):
+    installation = CoquiTtsInstallationStateResponse(
+        status="installed",
+        installed=True,
+        install_available=False,
+        remove_available=True,
+        managed_command=".venv/bin/tts",
+        message="Coqui TTS runtime is installed in the workspace virtualenv.",
+    )
+    with mock.patch(
+        "backend.routes.tools.install_coqui_tts_runtime",
+        return_value=installation,
+    ), mock.patch(
+        "backend.routes.tools.build_coqui_tts_tool_response",
+        return_value=build_coqui_smoke_response(
+            installation=installation,
+            command=".venv/bin/tts",
+            ready=True,
+            command_available=True,
+        ),
+    ):
+        return default_invoke(case, context, state)
+
+
+def invoke_coqui_remove(case, context, state):
+    installation = CoquiTtsInstallationStateResponse(
+        status="not_installed",
+        installed=False,
+        install_available=True,
+        remove_available=False,
+        managed_command=".venv/bin/tts",
+        message="Coqui TTS runtime is not installed in the workspace virtualenv.",
+    )
+    with mock.patch(
+        "backend.routes.tools.remove_coqui_tts_runtime",
+        return_value=installation,
+    ), mock.patch(
+        "backend.routes.tools.build_coqui_tts_tool_response",
+        return_value=build_coqui_smoke_response(
+            installation=installation,
+            command=".venv/bin/tts",
+            ready=False,
+            command_available=False,
         ),
     ):
         return default_invoke(case, context, state)
@@ -105,6 +188,22 @@ TOOLS_CASES: tuple[RouteSmokeCase, ...] = (
         },
         response_assert=assert_json_response,
         invoke=invoke_coqui_patch,
+    ),
+    action_case(
+        "tools-coqui-install",
+        "POST",
+        "/api/v1/tools/coqui-tts/install",
+        200,
+        response_assert=assert_json_response,
+        invoke=invoke_coqui_install,
+    ),
+    action_case(
+        "tools-coqui-remove",
+        "POST",
+        "/api/v1/tools/coqui-tts/remove",
+        200,
+        response_assert=assert_json_response,
+        invoke=invoke_coqui_remove,
     ),
     patch_case(
         "tools-image-magic-patch",

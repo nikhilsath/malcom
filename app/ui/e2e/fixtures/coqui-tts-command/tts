@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+
+MODEL_NAME = "tts_models/en/ljspeech/tacotron2-DDC"
+SPEAKERS = ("ljspeech",)
+LANGUAGES = ("en",)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="tts")
+    parser.add_argument("--list_models", action="store_true")
+    parser.add_argument("--list_speaker_idxs", action="store_true")
+    parser.add_argument("--list_language_idxs", action="store_true")
+    parser.add_argument("--model_name", default="")
+    parser.add_argument("--text", default="")
+    parser.add_argument("--out_path", default="")
+    parser.add_argument("--speaker_idx", default="")
+    parser.add_argument("--language_idx", default="")
+    args = parser.parse_args()
+
+    if args.list_models:
+        print(MODEL_NAME)
+        return
+
+    if args.list_speaker_idxs:
+        print("\n".join(SPEAKERS))
+        return
+
+    if args.list_language_idxs:
+        print("\n".join(LANGUAGES))
+        return
+
+    if args.out_path:
+        out_path = Path(args.out_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"RIFF$\x00\x00\x00WAVEfmt ")
+        print(f"Generated fixture speech audio at {out_path}")
+        return
+
+    print("Malcom Playwright Coqui TTS fixture")
+
+
+if __name__ == "__main__":
+    main()

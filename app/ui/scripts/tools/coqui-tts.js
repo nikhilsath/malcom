@@ -16,7 +16,11 @@ const coquiElements = createElementMap({
   speakerInput: "tools-coqui-speaker-input",
   languageInput: "tools-coqui-language-input",
   feedback: "tools-coqui-form-feedback",
-  saveButton: "tools-coqui-save-button"
+  saveButton: "tools-coqui-save-button",
+  workflowGuidance: "tools-coqui-workflow-guidance",
+  installButton: "tools-coqui-install-button",
+  removeButton: "tools-coqui-remove-button",
+  runtimeFeedback: "tools-coqui-runtime-feedback"
 });
 
 let currentTool = null;
@@ -24,6 +28,11 @@ let runtimePreview = null;
 let pendingSave = false;
 let pendingRuntimeRefresh = false;
 let runtimeRefreshToken = 0;
+let pendingRuntimeAction = "";
+const runtimeActionEndpoints = {
+  install: "/api/v1/tools/coqui-tts/install",
+  remove: "/api/v1/tools/coqui-tts/remove"
+};
 
 const setFeedback = (message, tone = "") => {
   if (!coquiElements.feedback) {
@@ -36,8 +45,36 @@ const setFeedback = (message, tone = "") => {
     : "api-form-feedback";
 };
 
+const setRuntimeFeedback = (message, tone = "") => {
+  if (!coquiElements.runtimeFeedback) {
+    return;
+  }
+
+  coquiElements.runtimeFeedback.textContent = message;
+  coquiElements.runtimeFeedback.className = tone
+    ? `api-form-feedback api-form-feedback--${tone}`
+    : "api-form-feedback";
+};
+
 const emitToolsDirectoryUpdated = () => {
   window.dispatchEvent(new CustomEvent("malcom:tools-directory-updated"));
+};
+
+const getRuntimeState = () => runtimePreview || currentTool?.runtime || null;
+
+const getRuntimeInstallationState = () => {
+  const runtimeState = getRuntimeState();
+  return runtimeState?.installation || runtimeState?.installation_state || null;
+};
+
+const isRuntimeInstalled = () => {
+  const installationState = getRuntimeInstallationState();
+  if (typeof installationState?.installed === "boolean") {
+    return installationState.installed;
+  }
+
+  const runtimeState = getRuntimeState();
+  return Boolean(runtimeState?.ready || runtimeState?.command_available);
 };
 
 const createOptionElement = ({ value, label, disabled = false }) => {
@@ -172,21 +209,75 @@ const updateSummaryValues = () => {
 };
 
 const renderRuntime = () => {
-  if (!runtimePreview) {
+  const runtimeState = getRuntimeState();
+  if (!runtimeState) {
     return;
   }
 
   if (coquiElements.statusValue) {
-    coquiElements.statusValue.textContent = runtimePreview.ready ? "Ready" : "Unavailable";
+    if (pendingRuntimeAction === "install") {
+      coquiElements.statusValue.textContent = "Installing";
+    } else if (pendingRuntimeAction === "remove") {
+      coquiElements.statusValue.textContent = "Removing";
+    } else {
+      coquiElements.statusValue.textContent = runtimeState.ready ? "Ready" : "Unavailable";
+    }
   }
 
   if (coquiElements.statusMessage) {
-    coquiElements.statusMessage.textContent = runtimePreview.message || "Coqui runtime status unavailable.";
+    if (pendingRuntimeAction === "install") {
+      coquiElements.statusMessage.textContent = "Installing Coqui TTS into the repo environment.";
+    } else if (pendingRuntimeAction === "remove") {
+      coquiElements.statusMessage.textContent = "Removing Coqui TTS from the repo environment.";
+    } else {
+      coquiElements.statusMessage.textContent = runtimeState.message || "Coqui runtime status unavailable.";
+    }
   }
 };
 
+const renderRuntimeActions = () => {
+  const runtimeState = getRuntimeState();
+  const runtimeInstalled = isRuntimeInstalled();
+  const actionBusy = Boolean(pendingRuntimeAction);
+  const installing = pendingRuntimeAction === "install";
+  const removing = pendingRuntimeAction === "remove";
+
+  if (coquiElements.installButton) {
+    coquiElements.installButton.disabled = !currentTool || actionBusy || runtimeInstalled;
+    coquiElements.installButton.textContent = installing ? "Installing..." : "Install runtime";
+  }
+
+  if (coquiElements.removeButton) {
+    coquiElements.removeButton.disabled = !currentTool || actionBusy || !runtimeInstalled;
+    coquiElements.removeButton.textContent = removing ? "Removing..." : "Remove runtime";
+  }
+
+  if (!coquiElements.workflowGuidance) {
+    return;
+  }
+
+  if (installing) {
+    coquiElements.workflowGuidance.textContent = "Installing Coqui TTS now. This page will refresh detected commands, models, and voice defaults when the install finishes.";
+    return;
+  }
+
+  if (removing) {
+    coquiElements.workflowGuidance.textContent = "Removing Coqui TTS now. This page will refresh runtime availability after the removal finishes.";
+    return;
+  }
+
+  if (runtimeInstalled) {
+    coquiElements.workflowGuidance.textContent = "Coqui TTS is available in the repo environment. You can remove the runtime here or save new defaults for workflow steps.";
+    return;
+  }
+
+  coquiElements.workflowGuidance.textContent = runtimeState?.message
+    ? `Install Coqui TTS from this page to unlock saved runtime defaults. ${runtimeState.message}`
+    : "Install Coqui TTS from this page to unlock saved runtime defaults.";
+};
+
 const renderSelects = (config) => {
-  const runtime = runtimePreview || currentTool?.runtime;
+  const runtime = getRuntimeState();
   if (!runtime) {
     return;
   }
@@ -226,6 +317,7 @@ const renderTool = () => {
   renderRuntime();
   renderSelects(currentTool.config);
   updateSummaryValues();
+  renderRuntimeActions();
 };
 
 const buildRuntimePreviewUrl = () => {
@@ -276,6 +368,45 @@ const loadTool = async () => {
   renderTool();
 };
 
+const runRuntimeAction = async (action) => {
+  if (!currentTool || pendingRuntimeAction) {
+    return;
+  }
+
+  pendingRuntimeAction = action;
+  setRuntimeFeedback("");
+  renderRuntime();
+  renderRuntimeActions();
+
+  try {
+    await window.Malcom.requestJson(runtimeActionEndpoints[action], {
+      method: "POST"
+    });
+    await loadTool();
+    emitToolsDirectoryUpdated();
+    setRuntimeFeedback(
+      action === "install"
+        ? "Coqui TTS install request completed."
+        : "Coqui TTS removal request completed.",
+      "success"
+    );
+  } catch (error) {
+    setRuntimeFeedback(
+      normalizeRequestError(
+        error,
+        action === "install"
+          ? "Unable to install Coqui TTS."
+          : "Unable to remove Coqui TTS."
+      ).message,
+      "error"
+    );
+  } finally {
+    pendingRuntimeAction = "";
+    renderRuntime();
+    renderRuntimeActions();
+  }
+};
+
 coquiElements.enabledInput?.addEventListener("change", () => {
   syncEnabledCopy();
   syncConfigVisibility();
@@ -294,11 +425,17 @@ coquiElements.modelInput?.addEventListener("change", async () => {
 
 coquiElements.speakerInput?.addEventListener("change", updateSummaryValues);
 coquiElements.languageInput?.addEventListener("change", updateSummaryValues);
+coquiElements.installButton?.addEventListener("click", async () => {
+  await runRuntimeAction("install");
+});
+coquiElements.removeButton?.addEventListener("click", async () => {
+  await runRuntimeAction("remove");
+});
 
 coquiElements.form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (!currentTool || pendingSave || pendingRuntimeRefresh) {
+  if (!currentTool || pendingSave) {
     return;
   }
 
@@ -346,4 +483,6 @@ coquiElements.form?.addEventListener("submit", async (event) => {
 
 loadTool().catch((error) => {
   setFeedback(normalizeRequestError(error, "Unable to load Coqui TTS configuration.").message, "error");
+  setRuntimeFeedback(normalizeRequestError(error, "Unable to load Coqui TTS runtime actions.").message, "error");
+  renderRuntimeActions();
 });

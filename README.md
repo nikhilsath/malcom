@@ -115,7 +115,7 @@ Tools are for machine-executed capabilities. Current managed tools are defined i
 
 Current Coqui TTS product notes:
 
-- install and removal from within the app are not implemented yet
+- the Coqui tool page supports in-app install and removal of the runtime in the app-managed virtualenv
 - `coqui-tts` workflow steps can override `output_directory`; the Coqui tool page does not own that setting
 
 Builder activity and preset coverage is narrower than connector storage coverage:

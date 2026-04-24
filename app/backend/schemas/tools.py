@@ -131,10 +131,20 @@ class CoquiTtsOptionResponse(BaseModel):
     label: str
 
 
+class CoquiTtsInstallationStateResponse(BaseModel):
+    status: Literal["installed", "not_installed", "unavailable"]
+    installed: bool
+    install_available: bool
+    remove_available: bool
+    managed_command: str
+    message: str
+
+
 class CoquiTtsToolRuntimeResponse(BaseModel):
     ready: bool
     command_available: bool
     message: str
+    installation: CoquiTtsInstallationStateResponse
     command_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
     model_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
     speaker_options: list[CoquiTtsOptionResponse] = Field(default_factory=list)
@@ -284,6 +294,7 @@ class ToolDirectoryUpdate(BaseModel):
 
 
 __all__ = [
+    "CoquiTtsInstallationStateResponse",
     "CoquiTtsToolConfigResponse",
     "CoquiTtsOptionResponse",
     "CoquiTtsToolResponse",
