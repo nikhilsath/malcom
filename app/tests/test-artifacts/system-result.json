@@ -1,6 +1,8 @@
 {
-  "step": "all",
-  "exit_code": 0,
-  "command": "test-system.sh",
-  "first_error_lines": []
+  "step": "bootstrap",
+  "exit_code": 1,
+  "command": "test -x .venv/bin/python",
+  "first_error_lines": [
+    ".venv/bin/python is missing or not executable. Create the virtualenv and install backend dependencies with python3 -m venv .venv && .venv/bin/pip install -r app/requirements.txt."
+  ]
 }

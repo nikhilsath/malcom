@@ -491,67 +491,6 @@ GITHUB_LIST_OPEN_PULL_REQUESTS_PRESET = HttpRequestPreset(
     ],
 )
 
-GITHUB_LIST_REPOSITORY_WORKFLOWS_PRESET = HttpRequestPreset(
-    preset_id="actions_list_workflows_http",
-    provider_id="github",
-    service="actions",
-    operation="read",
-    label="List workflows",
-    description="Retrieve Actions workflows available in a repository.",
-    http_method="GET",
-    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/workflows",
-    payload_template="{}",
-    query_params={"per_page": "20"},
-    required_scopes=["repo"],
-    input_schema=[
-        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
-        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
-        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
-    ],
-)
-
-GITHUB_LIST_WORKFLOW_RUNS_PRESET = HttpRequestPreset(
-    preset_id="actions_list_workflow_runs_http",
-    provider_id="github",
-    service="actions",
-    operation="read",
-    label="List workflow runs",
-    description="Retrieve workflow runs with optional branch, event, and status filters.",
-    http_method="GET",
-    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/runs",
-    payload_template="{}",
-    query_params={"per_page": "20"},
-    required_scopes=["repo"],
-    input_schema=[
-        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
-        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
-        {"key": "branch", "label": "branch", "type": "string", "required": False},
-        {"key": "event", "label": "event", "type": "string", "required": False},
-        {"key": "status", "label": "status", "type": "string", "required": False},
-        {"key": "per_page", "label": "per_page", "type": "integer", "required": False, "default": 20},
-    ],
-)
-
-GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET = HttpRequestPreset(
-    preset_id="actions_trigger_workflow_dispatch_http",
-    provider_id="github",
-    service="actions",
-    operation="write",
-    label="Trigger workflow dispatch",
-    description="Dispatch a workflow_dispatch event for a GitHub Actions workflow.",
-    http_method="POST",
-    endpoint_path_template="/repos/{{owner}}/{{repo}}/actions/workflows/{{workflow_id}}/dispatches",
-    payload_template='{"ref":"{{ref}}","inputs":{}}',
-    required_scopes=["repo"],
-    input_schema=[
-        {"key": "owner", "label": "Repository owner", "type": "string", "required": True},
-        {"key": "repo", "label": "Repository name", "type": "string", "required": True},
-        {"key": "workflow_id", "label": "Workflow ID or file name", "type": "string", "required": True},
-        {"key": "ref", "label": "Git ref", "type": "string", "required": True, "placeholder": "main"},
-        {"key": "inputs_payload", "label": "Inputs JSON", "type": "text", "required": False, "placeholder": "{}"},
-    ],
-)
-
 NOTION_QUERY_DATABASE_PRESET = HttpRequestPreset(
     preset_id="notion_query_database_http",
     provider_id="notion",
@@ -640,9 +579,6 @@ GITHUB_HTTP_PRESETS = (
     GITHUB_CREATE_ISSUE_PRESET,
     GITHUB_ADD_ISSUE_COMMENT_PRESET,
     GITHUB_LIST_OPEN_PULL_REQUESTS_PRESET,
-    GITHUB_LIST_REPOSITORY_WORKFLOWS_PRESET,
-    GITHUB_LIST_WORKFLOW_RUNS_PRESET,
-    GITHUB_TRIGGER_WORKFLOW_DISPATCH_PRESET,
 )
 
 NOTION_HTTP_PRESETS = (

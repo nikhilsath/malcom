@@ -40,8 +40,6 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertIn(("github", "repo_details"), activity_ids)
         self.assertIn(("github", "list_repository_issues"), activity_ids)
         self.assertIn(("github", "create_issue"), activity_ids)
-        self.assertIn(("github", "list_workflow_runs"), activity_ids)
-        self.assertIn(("github", "trigger_workflow_dispatch"), activity_ids)
         self.assertIn(("github", "download_repo_archive"), activity_ids)
         self.assertIn(("notion", "notion_query_database"), activity_ids)
         self.assertIn(("notion", "notion_create_page"), activity_ids)
@@ -404,36 +402,6 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         self.assertEqual(issue_output["issues"][0]["labels"], ["bug", "triage"])
         self.assertEqual(issue_output["issues"][0]["assignees"], ["ava"])
 
-        actions_output = execute_connector_activity(
-            connection,
-            connector_id="github-ops",
-            activity_id="list_workflow_runs",
-            inputs={"owner": "openai", "repo": "malcom", "workflow_id": "ci.yml", "branch": "main", "status": "completed", "limit": 1},
-            root_dir=Path(app.state.root_dir),
-            request_executor=lambda url, method, headers: (
-                200,
-                {
-                    "workflow_runs": [
-                        {
-                            "id": 99,
-                            "name": "CI",
-                            "display_title": "CI on main",
-                            "status": "completed",
-                            "conclusion": "success",
-                            "event": "push",
-                            "head_branch": "main",
-                            "html_url": "https://github.com/openai/malcom/actions/runs/99",
-                            "created_at": "2026-04-03T08:00:00Z",
-                            "updated_at": "2026-04-03T08:05:00Z",
-                        }
-                    ]
-                },
-            ),
-        )
-        self.assertEqual(actions_output["count"], 1)
-        self.assertEqual(actions_output["workflow_runs"][0]["branch"], "main")
-        self.assertEqual(actions_output["workflow_runs"][0]["conclusion"], "success")
-
     def test_github_write_activities_execute_and_normalize_output(self) -> None:
         self.save_connector(
             {
@@ -490,17 +458,6 @@ class ConnectorActivitiesApiTestCase(unittest.TestCase):
         )
         self.assertEqual(created_comment["issue_number"], 24)
         self.assertEqual(created_comment["comment"]["author"], "ava")
-
-        dispatch_result = execute_connector_activity(
-            connection,
-            connector_id="github-write",
-            activity_id="trigger_workflow_dispatch",
-            inputs={"owner": "openai", "repo": "malcom", "workflow_id": "ci.yml", "ref": "main", "inputs_payload": {"target": "prod"}},
-            root_dir=Path(app.state.root_dir),
-            request_executor=lambda url, method, headers, body=None: (204, None),
-        )
-        self.assertTrue(dispatch_result["dispatched"])
-        self.assertEqual(dispatch_result["workflow_id"], "ci.yml")
 
     def test_notion_and_trello_activities_execute_and_normalize_output(self) -> None:
         self.save_connector(

@@ -594,19 +594,18 @@ describe("AutomationApp", () => {
         },
         {
           provider_id: "github",
-          activity_id: "trigger_workflow_dispatch",
-          service: "actions",
-          operation_type: "write",
-          label: "Trigger workflow dispatch",
-          description: "Trigger a workflow dispatch.",
+          activity_id: "list_open_pull_requests",
+          service: "pulls",
+          operation_type: "read",
+          label: "List open pull requests",
+          description: "List open pull requests.",
           required_scopes: ["repo"],
           input_schema: [
             { key: "owner", label: "Repository owner", type: "string", required: true },
             { key: "repo", label: "Repository name", type: "string", required: true },
-            { key: "workflow_id", label: "Workflow ID or file name", type: "string", required: true },
-            { key: "ref", label: "Git ref", type: "string", required: true }
+            { key: "per_page", label: "per_page", type: "integer", required: false }
           ],
-          output_schema: [{ key: "dispatched", label: "Dispatched", type: "boolean" }],
+          output_schema: [{ key: "pull_requests", label: "Pull requests", type: "array" }],
           execution: {}
         }
       ] as any,
@@ -632,7 +631,7 @@ describe("AutomationApp", () => {
     });
     expect(document.querySelector("#add-step-connector-activity-service-label")).toHaveTextContent("GitHub area");
     expect(within(serviceSelect).getByRole("option", { name: "Repositories" })).toBeInTheDocument();
-    expect(within(serviceSelect).getByRole("option", { name: "Actions" })).toBeInTheDocument();
+    expect(within(serviceSelect).getByRole("option", { name: "Pull requests" })).toBeInTheDocument();
 
     const activitySelect = await waitFor(() => {
       const element = document.querySelector("#add-step-connector-activity-activity-input") as HTMLSelectElement | null;
@@ -641,14 +640,13 @@ describe("AutomationApp", () => {
     });
     expect(within(activitySelect).getByRole("option", { name: "Choose a GitHub area first" })).toBeInTheDocument();
 
-    fireEvent.change(serviceSelect, { target: { value: "actions" } });
+    fireEvent.change(serviceSelect, { target: { value: "pulls" } });
     await waitFor(() => {
-      expect(within(activitySelect).getByRole("option", { name: /Actions · WRITE · Trigger workflow dispatch/i })).toBeInTheDocument();
+      expect(within(activitySelect).getByRole("option", { name: /Pull requests · READ · List open pull requests/i })).toBeInTheDocument();
       expect(within(activitySelect).queryByRole("option", { name: /Repositories · READ · Repository details/i })).not.toBeInTheDocument();
     });
-    fireEvent.change(activitySelect, { target: { value: "trigger_workflow_dispatch" } });
-    expect(await screen.findByLabelText("Workflow ID or file name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Git ref")).toBeInTheDocument();
+    fireEvent.change(activitySelect, { target: { value: "list_open_pull_requests" } });
+    expect(await screen.findByLabelText("per_page")).toBeInTheDocument();
   });
 
   it("renders all stored connectors in the builder selector without hidden status filtering", async () => {
